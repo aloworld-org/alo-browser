@@ -111,6 +111,7 @@ mod tests {
     fn at_work(now: Now, width: f32) -> Start {
         let mut card = Card::new("a page", alo_url::parse("https://example.com/").unwrap());
         card.agent = Some(AtWork {
+            plan: None,
             asked: "send my name".to_owned(),
             steps: vec![Step {
                 line: "Typing \u{201c}Ada\u{201d} into Name".to_owned(),
@@ -199,6 +200,7 @@ mod tests {
         let document = built(&at_work(
             Now::Asking {
                 what: "Press \u{201c}Send\u{201d}?".to_owned(),
+                paying: None,
             },
             1216.0,
         ));

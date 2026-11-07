@@ -116,6 +116,7 @@ fn with(work: AtWork) -> Result<Start, String> {
 /// It acting: two steps, the second under way with why it chose.
 fn acting() -> AtWork {
     AtWork {
+        plan: None,
         asked: "Send my name, Ada, through the form".to_owned(),
         steps: vec![
             step("Typing \u{201c}Ada\u{201d} into Name", ""),
@@ -132,6 +133,7 @@ fn acting() -> AtWork {
 /// It asking before pressing *Send*.
 fn asking() -> AtWork {
     AtWork {
+        plan: None,
         asked: "Send my name, Ada, through the form".to_owned(),
         steps: vec![
             step("Typing \u{201c}Ada\u{201d} into Name", ""),
@@ -140,6 +142,7 @@ fn asking() -> AtWork {
         now: Now::Asking {
             what: "Press \u{201c}Send\u{201d} on 127.0.0.1:8765? It sends the form on this page."
                 .to_owned(),
+            paying: None,
         },
         choosing: None,
     }
@@ -148,6 +151,7 @@ fn asking() -> AtWork {
 /// It stuck, with two choices.
 fn stuck() -> AtWork {
     AtWork {
+        plan: None,
         asked: "Sign me in".to_owned(),
         steps: vec![step("Looking for the sign-in form", "")],
         now: Now::Stuck {
@@ -456,6 +460,7 @@ fn kept() -> Result<Start, String> {
             url,
             ran: vec![
                 Ran {
+                    plan: None,
                     asked: "Search Wikipedia for Kampala and open the article".to_owned(),
                     steps: vec![
                         step("Typing Kampala into Search Wikipedia", ""),

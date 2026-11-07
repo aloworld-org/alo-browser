@@ -15,6 +15,14 @@
 //! anything on its own (a password is refused outright, by the card —
 //! `chrome_act`).
 //!
+//! # What a press that pays is shown with
+//!
+//! A press held because it pays carries what it pays, read off the same
+//! tree by the browser process ([`crate::agent_paying`], queue item 826):
+//! the amount, who is paid and the page's own summary lines — and the
+//! person answers *Pay* or *Not now*. A press named *Confirm* pays too on a
+//! page that shows a total to pay ([`CONFIRMS`]).
+//!
 //! # What this cannot see
 //!
 //! It reads what the page says a thing is, and a page can say a thing that
@@ -25,6 +33,7 @@
 
 use alo_agent::Verb;
 use alo_box::{BoxId, KnownRole, Role};
+use alo_renderer::agent_paying::Paying;
 use alo_renderer::{Snapshot, SnapshotNode};
 
 /// Words that say pressing it pays.
@@ -40,6 +49,11 @@ pub const PAYS: [&str; 10] = [
     "book",
     "rent",
 ];
+
+/// Words that say pressing it pays on a page that shows a total to pay
+/// (queue item 826): a checkout's last button is as often *Confirm* as
+/// *Pay*.
+pub const CONFIRMS: [&str; 2] = ["confirm", "complete"];
 
 /// Words that say pressing it sends something of the person's.
 pub const SENDS: [&str; 9] = [
@@ -79,6 +93,8 @@ pub struct Question {
     pub held: Held,
     /// The question, in a person's words.
     pub what: String,
+    /// What it pays, when it pays (queue item 826).
+    pub paying: Option<Paying>,
 }
 
 /// Whether `verb` on `node` of `snapshot`, the page at `host`, is held for
@@ -96,6 +112,12 @@ pub fn asked(snapshot: &Snapshot, node: BoxId, verb: &Verb, host: &str) -> Optio
         Held::Deletes
     } else if says(&called, &SENDS) {
         Held::Sends
+    } else if says(&called, &CONFIRMS)
+        && crate::agent_paying::of(snapshot, node, host)
+            .amount
+            .is_some()
+    {
+        Held::Pays
     } else if is_a_button(pressed)
         && path
             .iter()
@@ -127,6 +149,7 @@ pub fn asked(snapshot: &Snapshot, node: BoxId, verb: &Verb, host: &str) -> Optio
     Some(Question {
         held,
         what: format!("Press {named}{on}? {why}"),
+        paying: (held == Held::Pays).then(|| crate::agent_paying::of(snapshot, node, host)),
     })
 }
 
@@ -237,6 +260,7 @@ mod tests {
                         vec![node(10, KnownRole::Text, Some("Remove"), Vec::new())],
                     ),
                     node(11, KnownRole::Button, Some("Say hello"), Vec::new()),
+                    node(12, KnownRole::Button, Some("Confirm"), Vec::new()),
                 ],
             )),
         }
@@ -259,6 +283,34 @@ mod tests {
         assert_eq!(held(6), Some(Held::Pays));
         assert_eq!(held(7), Some(Held::Deletes));
         assert_eq!(held(9), Some(Held::Deletes), "by the words inside it");
+    }
+
+    #[test]
+    fn confirm_pays_only_on_a_page_showing_a_total_and_a_paying_press_says_what_it_pays() {
+        assert_eq!(held(12), None, "no total on the page");
+        let mut page = page();
+        if let Some(root) = page.root.as_mut() {
+            root.children.push(node(
+                13,
+                KnownRole::Text,
+                Some("Total UGX 45,000"),
+                Vec::new(),
+            ));
+        }
+        let asked = asked(&page, BoxId::from_wire(12), &Verb::Activate, "shop.example");
+        assert_eq!(asked.as_ref().map(|asked| asked.held), Some(Held::Pays));
+        let paying = asked.and_then(|asked| asked.paying);
+        assert_eq!(
+            paying.as_ref().and_then(|paying| paying.amount.as_deref()),
+            Some("UGX 45,000")
+        );
+        assert_eq!(
+            paying.map(|paying| paying.merchant),
+            Some("shop.example".to_owned())
+        );
+        // Only a press that pays carries what it pays.
+        let sends = super::asked(&page, BoxId::from_wire(5), &Verb::Activate, "shop.example");
+        assert_eq!(sends.and_then(|asked| asked.paying), None);
     }
 
     #[test]

@@ -262,6 +262,7 @@ mod tests {
             (
                 Some(Now::Asking {
                     what: "Press Send?".to_owned(),
+                    paying: None,
                 }),
                 Stands::Split,
             ),

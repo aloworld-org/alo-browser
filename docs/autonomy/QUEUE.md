@@ -23070,47 +23070,140 @@ What stage 2's exit gate actually measures: a person using it.
   offset — and taken away with the next frame that moves it. *Depends on
   822, 624.*
 
-- [ ] **824. A plan and the next steps greyed (cut from 819).**
-  `shell.md`: first a sentence of plan, then one line per step, the next
-  steps shown greyed so a person knows where it will stop. The model
-  chooses one step at a time (ADR 0096 § 2) and is asked for no plan.
-  Extend each verb's function with `plan` (a sentence, at most 160
-  characters, sent once) and `next` (at most 4 lines of at most 160
-  characters, the steps it expects after this one), both `strict` and
-  nullable; carry them as `AtWork::plan`/`AtWork::next` (wire, 4 and 160
-  bounded, refused past them); draw the plan under what was asked and the
-  next steps after the newest in the greyed colour (`#bdb6aa`) in both
-  the column under the page and the split view's; never kept with the run
-  (820). *Depends on 819. Closes when:* layout in numbers and a reference,
-  the protocol's parse refusing past the bounds, and through both
-  Chromiums against a local model that gives a plan and one that gives
-  none.
+- [x] **824. Its plan: done ticked, the current bold, the rest greyed
+  (cut from 819; the owner's design of 6 November 2026).** **Design,
+  approved by the owner 2026-11-06** (*"I agree"*): *before acting it
+  writes 2–5 short steps in its column; done steps ticked, the current one
+  bold, the rest greyed* (`docs/design/shell.md`, *The agent's plan*, every
+  detail the design left open settled there). Contracts: ADR 0096
+  (amended), ADR 0092 (amended), ADR 0002. *Depends on 819.*
+  ***Done (7 November 2026).*** Each verb's strict schema carries `plan`
+  (a list of strings or `null`: with the first action two to five short
+  steps, afterwards `null` unless it must change, then the whole new plan)
+  and `on` (the step the action is for, from 1); `agent_protocol` keeps at
+  most five of at most 80 characters, an `on` past the last the last, and
+  sends the plan as it stands with every request, each step `done`, `now`
+  or `ahead`. `alo-renderer`'s `agent_plan.rs` (the data, its bounds,
+  where a step stands); the run tells the window `Said::Planned` whenever
+  the plan or its step changes; drawn under what was asked in both the
+  split view's column and the column under the page — a line of 20 each,
+  2 apart, the done ticked in the quiet colour, the current in the ink
+  600, the rest `#bdb6aa` — every step ticked once done. On the wire and in
+  the chat's file (refused past five steps, a step past 80 characters, or
+  one on no step), kept with the run scrubbed as its lines are, drawn
+  under the page's line once shown earlier. To an agent: a list *Plan*,
+  items *Done: …*, *Now: …* (`aria-current="step"`), *Next: …*.
+  **Tests:** unit (`agent_plan` 4, `agent_protocol` 3 new: every verb asks
+  for `plan` and `on` strictly, a plan read and its step from 1, the plan
+  sent as it stands; `conversation_agent`: the plan told to the window and
+  sent with each request; `conversation_work`, `agent_kept`,
+  `chat_record`; the wire's crossing and refusals); layout in numbers
+  (`the_agents_plan.rs`: at 1216 × 820 the plan at (849, 108) 351 × 64,
+  its lines at 108, 130 and 152, its words from 867, the steps moved to
+  182; under the page 846 wide, 10 under what was asked); reference
+  `agent-plan.png` (new; run once without update mode, looked at); through
+  both Chromiums the run carried on keeps the model's plan of two steps,
+  on the card and in the file. **Mutations**, each failing: a step done at
+  the step it is on (all five plan tests); the plan not drawn (all five);
+  the run not telling the window its plan (the agent's unit test).
 
-- [ ] **825. Carrying on after taking over (cut from 819).** `shell.md`:
-  *click anywhere to take over* — the agent pauses and carries on from
-  whatever the page then shows. A press on the page now stops the run
-  (ADR 0096 § 4). Decide: the run held rather than ended (its thread
-  waiting, at most 10 minutes, the window's split view gone and the
-  column under the page saying *Paused — the page is yours* with *Carry
-  on* and *Stop*), *Carry on* reading the page anew and telling the model
-  the person acted on it in between (never what they typed), the step and
-  token limits counted across the pause. *Depends on 819. Closes when:*
-  through both Chromiums: taken over, the page pressed by the person,
-  *Carry on*, and the run finishing from the page as it then was; the
-  pause ended by its limit and by *Stop*.
+- [x] **825. Carrying on after taking over (cut from 819; the owner's
+  design of 6 November 2026).** **Design, approved by the owner
+  2026-11-06** (*"I agree"*): *after the person takes over, a "Let alo
+  continue" button; it resumes from the page as left, telling the model
+  what the person changed* (`docs/design/shell.md`, *Taking over and
+  carrying on*). Contracts: ADR 0096 (amended), ADR 0052, ADR 0002.
+  *Depends on 819.*
+  ***Done (7 November 2026).*** A press of the person's on the card's page
+  while alo works holds the run (`Run::pause`, `Work::pause`): nothing
+  more sent, a model's answer in flight thrown away, a question waiting
+  dropped; the window the conversation again, the column under the page
+  saying *You took over: the page is yours. alo carries on from it as you
+  leave it.* with **Let alo continue** (`Claim::Continue`, decided only
+  for the run painted held, `Decided::Continue`). Pressed, the run reads
+  the page anew and tells the model, as a step of the person's
+  (`agent_protocol::PERSON`, not counted against its 20), what they
+  changed since it last read it (`agent_changes.rs`: the address before
+  and after; each field changed by name — text, checked, chosen — at most
+  twelve; never a password's value or a card's details, said only as
+  changed; how many steps it had taken and the plan's step it was on).
+  The person's gate holds after; held ten minutes (`MOST_PAUSE`) it stops
+  and says so. **Tests:** unit (`agent_changes` 5; `conversation_agent`:
+  taken over while asking, the question dropped, carried on with
+  *“Grace”* typed told the model and its 20 steps left, asked again and
+  allowed; held past its most, nothing done; `conversation_work`;
+  `conversation_window`: a press on the split view's page held, a second
+  press the page's, *Let alo continue* back at work, one for another run
+  nothing); layout in numbers (`taken_over_and_carried_on.rs`: no outline,
+  the page box 878 × 520, the line at (97, 618), the button at (97, 648));
+  reference `agent-paused.png` (new; looked at); through both Chromiums:
+  the page pressed while the model thinks, the run held, its answer
+  thrown away, *Let alo continue* found on the screen and pressed, the
+  model told the person's step, the run done. **Mutations**, each
+  failing: a press on the page stopping instead of holding (the window's
+  test); *Let alo continue* not drawn (the claim test); the person's step
+  counted as one of the run's (the agent's unit test). **Found by the
+  through-Chrome test, fixed:** the drawing thread did not keep which run
+  the picture showed held, so *Let alo continue* was refused as not shown
+  (`conversation_drawing.rs` keeps it now). **By hand** (`handrun36/12`–
+  `15`): taken over while it asked to pay, the question dropped; *Ada*
+  made *Ada Lovelace* and *Gift wrap* checked; *Let alo continue* — the
+  model told *The person changed the field “Name” from “Ada” to “Ada
+  Lovelace”. The person checked the field “Gift wrap”. alo had taken 2
+  steps, and was on step 2 of its plan, “Pay for the order”.* — and it
+  asked again before paying; *Not now*, nothing paid.
 
-- [ ] **826. A payment's details before *Confirm and pay* (cut from
-  819).** `shell.md`: it stops before paying with what, when, where and
-  how much, and *Confirm and pay* / *Not now*. The person's gate
-  (`agent_gate.rs`) asks *Press "Pay" on example.com? It pays.* Decide
-  what is read off the tree for each (the form's fields and their values,
-  a price-like text nearest the button — a currency sign or code and a
-  number — the site's host), never sent to the model for this, what is
-  said when one cannot be read (*the amount is not on the page*), and
-  *Confirm and pay* in place of *Allow* for a paying press only.
-  *Depends on 819, 705. Closes when:* a frozen checkout page's question
-  in numbers and words, a reference of the question, and through both
-  Chromiums the payment held until *Confirm and pay*.
+- [x] **826. A payment's details before *Pay* (cut from 819; the owner's
+  design of 6 November 2026).** **Design, approved by the owner
+  2026-11-06** (*"I agree"*): *before any pay/confirm press, the question
+  shows amount, merchant and the page's own summary lines, with Pay and Not
+  now. The agent never enters card numbers* (`docs/design/shell.md`,
+  *Paying*). Decided in **ADR 0099**. Contracts: ADR 0096 (amended), ADR
+  0052, ADR 0055, ADR 0002. *Depends on 819, 705 (its settings still
+  705's).*
+  ***Done (7 November 2026, ADR 0099).*** `agent_paying.rs` reads off the
+  page's tree, never a script and never the model: the amount (a price in
+  what is pressed, else on the last line saying it is a total — never a
+  price merely nearest), the merchant (the page's title and the site's
+  host), the summary (the lines under what is named as one, or under a
+  heading saying so, at most six); what is not found said plainly, and
+  asked still. *Confirm* and *Complete* pay on a page showing a total.
+  Drawn under the question with *Pay* in place of *Allow*, pressed only if
+  the page read again asks exactly the same. A card's number, security
+  code or expiry refused by the card for every agent — `CardDetails`, a
+  sibling of `Password`, on the socket too — by `autocomplete` (`cc-number`,
+  `cc-csc`, `cc-exp`, `cc-exp-month`, `cc-exp-year`) or the names such a
+  field goes by, whatever its label; the run stuck saying so; *expiry*,
+  *mm/yy* and *csc* withheld from the model. **Tests:** unit
+  (`agent_paying` 5: a checkout's amount *UGX 45,000*, merchant and three
+  summary lines with no card digits; the button's own price first; no
+  total and no summary is none, an item's price never guessed; a summary
+  under its heading, six with how many more; prices written every way;
+  `agent_gate`: *Confirm* pays only beside a total; `chrome_reading`: card
+  fields by autocomplete and names, a holder's name not; `protocol`: the
+  kind crossing; `conversation_agent`: asked with what it pays, *Not now*
+  pays nothing, a card's number stuck); layout in numbers
+  (`a_payments_question.rs`: the question's box (849, 138) 351 × 245, the
+  amount at 201, who is paid at 225, the summary at 271 with three lines
+  of 18 from 278, values from 928, *Pay* at 342); reference
+  `agent-paying.png` (new; looked at); through both Chromiums a field
+  named *Your long number* with `autocomplete="cc-number"` refused by kind
+  and the page hearing no input. **Mutations**, each failing: *Allow* in
+  place of *Pay* (two tests); the card check skipped (the
+  through-Chrome test, the field typed); a price nearest the button taken for the amount
+  (the unit test); Chrome's layout table's rows not read as rows; the
+  sentence of what was not found laid out as a flex row. **Found by hand,
+  fixed:** on the local checkout the question said *alo could not find the
+  amount* and no summary (`handrun36/14`): Chrome's tree holds a table
+  with no headers as `LayoutTable`, `LayoutTableRow` and
+  `LayoutTableCell`, so *Total* and *UGX 45,000* were two lines; such rows
+  are lines now, a summary is any named node but a field, button, link or
+  heading, and a total's price may be on the line after it (unit tests
+  from the tree Chrome gave, failing without the fix); and that sentence
+  ran past the question's box — it wraps now (a layout assertion, 321 wide
+  on two lines). Seen fixed after a rebuild (`handrun36/19`: *Amount UGX
+  45,000*, *To Kampala Coffee — Checkout (127.0.0.1:8736)*, the three
+  lines). Cut: a card's field in a payment provider's frame (858).
 
 - [x] **827. The box's hint in the agent's column (found by hand in
   819).** In the split view's column the box's field is 263 wide and the
@@ -23396,6 +23489,38 @@ What stage 2's exit gate actually measures: a person using it.
   and Escape to leave, as macOS and the ARIA radio group pattern have it.
   Decide with 850 how alo's own interface takes keys beyond the box and
   *Search chats*. *needs design. Depends on 854, 850.*
+
+- [x] **857. The closing quote right after the `…` in *Search for “…”*
+  (found by 855's hand run, `handrun35/17`).** Cut by the stylesheet, the
+  words' box was as wide as its room and the `…` stood after the last
+  letter that fitted, so the quote at the box's end stood apart from it by
+  up to a letter, pinned at the menu's edge. *Closes when:* the quote
+  follows the `…` directly, in all five faces, in numbers and
+  `card-menu-cut.png`.
+  ***Done (7 November 2026).*** The renderer measures the words with the
+  very fonts and measurer its layout sets the line in — the interface's
+  face, 13 px 500, the line's room 194 less the quotes — and writes them
+  already cut, the longest beginning that fits with `…` after it
+  (`alo-renderer`'s `menu_fit.rs`); the stylesheet's ellipsis stays a
+  bound never reached. Layout assertions in each face
+  (`the_page_menus_words_cut_at_its_edge.rs`): the words' run ends in `…`
+  with no ellipsis of the stylesheet's, their box as wide as what it holds,
+  the quote's box starting where it ends, and less room left after the
+  quote than one more `W`; reference `card-menu-cut.png` redrawn (looked at
+  before and after: the gap gone). **Mutations**, each failing: the words
+  not cut (the drawn runs `WWWWWWW`, `…`, `”`); a room 20 narrower (23.3
+  left after the quote, a `W` 13.3).
+
+- [ ] **858. A card's details in a payment provider's frame (cut from
+  826).** ADR 0099 § 2 refuses a card's number, security code and expiry
+  on a card's page, judged on the element Chrome describes; checkouts often
+  hold those fields in a frame of another site (a payment provider's).
+  Chrome's tree is asked with no frame named (`Accessibility.getFullAXTree`)
+  and whether such a field reaches it — and so whether any verb could reach
+  it, and whether the refusal holds there — was not measured. *Closes
+  when:* measured through both Chromiums on a local page framing a
+  cross-site card field, and the refusal shown to hold there, or the field
+  shown unreachable. *Depends on 826.*
 
 ## K. ★ The agent, on somebody else's pages
 

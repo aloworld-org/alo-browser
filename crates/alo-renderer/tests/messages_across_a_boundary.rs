@@ -646,6 +646,7 @@ fn the_agent_at_work_crosses_and_too_many_steps_or_choices_are_refused() {
         Now::Acting,
         Now::Asking {
             what: "Press \u{201c}Send\u{201d}?\0".to_owned(),
+            paying: None,
         },
         Now::Stuck {
             why: "no form".to_owned(),
@@ -660,6 +661,7 @@ fn the_agent_at_work_crosses_and_too_many_steps_or_choices_are_refused() {
     ];
     for now in nows.drain(..) {
         let original = card(AtWork {
+            plan: None,
             asked: "send <it>".to_owned(),
             steps: vec![step.clone(); MOST_STEPS],
             now,
@@ -672,12 +674,14 @@ fn the_agent_at_work_crosses_and_too_many_steps_or_choices_are_refused() {
     }
     for refused in [
         card(AtWork {
+            plan: None,
             asked: String::new(),
             steps: vec![step.clone(); MOST_STEPS + 1],
             now: Now::Acting,
             choosing: None,
         }),
         card(AtWork {
+            plan: None,
             asked: String::new(),
             steps: Vec::new(),
             now: Now::Stuck {
@@ -685,6 +689,112 @@ fn the_agent_at_work_crosses_and_too_many_steps_or_choices_are_refused() {
                 choices: vec!["a".to_owned(); MOST_CHOICES + 1],
             },
             choosing: None,
+        }),
+    ] {
+        let bytes = write_to_renderer(&refused);
+        assert!(read_to_renderer(&bytes).is_err(), "{refused:?} was read");
+    }
+}
+
+/// Queue items 824, 825 and 826: the agent's plan, it held while the page
+/// is the person's, and what a press pays cross as they were sent,
+/// strangers' words intact; a plan past five steps, on no step or with a
+/// step past its line, and what a press pays in more lines than are drawn
+/// or a line too long, are refused.
+#[test]
+fn a_plan_a_pause_and_a_payment_cross_and_past_their_bounds_are_refused() {
+    use alo_renderer::agent_paying::{MOST_SUMMARY, PAYING_LINE};
+    use alo_renderer::agent_plan::{MOST_PLAN, PLAN_LINE};
+    use alo_renderer::agent_work::{AtWork, Now, Paying, Plan};
+    let card = |work: AtWork| {
+        let mut card = alo_renderer::card::Card::new(
+            "a page",
+            alo_url::parse("https://example.com/").unwrap_or_else(|_| panic!("parses")),
+        );
+        card.agent = Some(work);
+        ToRenderer::Start(Box::new(Start {
+            turns: vec![Turn::Page(card)],
+            ..Start::default()
+        }))
+    };
+    let plan = Plan {
+        steps: vec!["Open </li> search".to_owned(); MOST_PLAN],
+        on: MOST_PLAN - 1,
+    };
+    let nows = vec![
+        Now::Acting,
+        Now::Paused,
+        Now::Asking {
+            what: "Pay on shop.example?".to_owned(),
+            paying: Some(Box::new(Paying {
+                amount: Some("UGX 45,000\0".to_owned()),
+                merchant: "<b>Kampala</b> Coffee (shop.example)".to_owned(),
+                lines: vec!["Flat white \u{d7} 2".to_owned(); MOST_SUMMARY],
+            })),
+        },
+        Now::Asking {
+            what: "Pay on shop.example?".to_owned(),
+            paying: Some(Box::new(Paying {
+                amount: None,
+                merchant: "shop.example".to_owned(),
+                lines: Vec::new(),
+            })),
+        },
+    ];
+    for now in nows {
+        let original = card(AtWork {
+            plan: Some(plan.clone()),
+            now,
+            ..AtWork::starting("send <it>")
+        });
+        let bytes = write_to_renderer(&original);
+        let back = read_to_renderer(&bytes)
+            .unwrap_or_else(|why| panic!("{original:?} did not survive: {why}"));
+        assert_eq!(back, original);
+    }
+    for refused in [
+        card(AtWork {
+            plan: Some(Plan {
+                steps: vec!["a".to_owned(); MOST_PLAN + 1],
+                on: 0,
+            }),
+            ..AtWork::starting("x")
+        }),
+        card(AtWork {
+            plan: Some(Plan {
+                steps: vec!["a".to_owned(); 2],
+                on: 2,
+            }),
+            ..AtWork::starting("x")
+        }),
+        card(AtWork {
+            plan: Some(Plan {
+                steps: vec!["w".repeat(PLAN_LINE + 1)],
+                on: 0,
+            }),
+            ..AtWork::starting("x")
+        }),
+        card(AtWork {
+            now: Now::Asking {
+                what: String::new(),
+                paying: Some(Box::new(Paying {
+                    amount: None,
+                    merchant: String::new(),
+                    lines: vec!["a".to_owned(); MOST_SUMMARY + 1],
+                })),
+            },
+            ..AtWork::starting("x")
+        }),
+        card(AtWork {
+            now: Now::Asking {
+                what: String::new(),
+                paying: Some(Box::new(Paying {
+                    amount: Some("9".repeat(PAYING_LINE + 1)),
+                    merchant: String::new(),
+                    lines: Vec::new(),
+                })),
+            },
+            ..AtWork::starting("x")
         }),
     ] {
         let bytes = write_to_renderer(&refused);
@@ -707,6 +817,7 @@ fn a_cards_menu_and_the_list_the_agent_chooses_in_cross_and_nonsense_is_refused(
         );
         card.menu = menu;
         card.agent = Some(AtWork {
+            plan: None,
             asked: "choose".to_owned(),
             steps: Vec::new(),
             now: Now::Acting,
@@ -767,7 +878,13 @@ fn the_runs_kept_with_a_page_cross_and_too_many_are_refused() {
         line: "Typing \u{201c}</li>\0\u{201d}".to_owned(),
         why: "<b>because</b>".to_owned(),
     };
+    // Queue item 824: each kept with its plan as it last stood.
+    let plan = alo_renderer::agent_plan::Plan {
+        steps: vec!["Find </li> the form".to_owned(), "Send it".to_owned()],
+        on: 1,
+    };
     let ran = |ended: Ended, steps: usize| Ran {
+        plan: Some(plan.clone()),
         asked: "send <it>".to_owned(),
         steps: vec![step.clone(); steps],
         ended,
@@ -800,6 +917,13 @@ fn the_runs_kept_with_a_page_cross_and_too_many_are_refused() {
     assert!(read_to_renderer(&write_to_renderer(&most)).is_ok());
     for refused in [
         page(vec![Ran::starting("x"); MOST_RUNS + 1]),
+        page(vec![Ran {
+            plan: Some(alo_renderer::agent_plan::Plan {
+                steps: vec!["a".to_owned()],
+                on: 1,
+            }),
+            ..Ran::starting("x")
+        }]),
         page(vec![ran(
             Ended::Done {
                 said: String::new(),

@@ -48,15 +48,45 @@
 //! finished by the page, and nothing after it is done. A model's answer in
 //! flight is read and thrown away.
 //!
-//! # A password
+//! # A password, and a card's details
 //!
 //! Never typed: the card refuses text put into a password field for every
-//! agent (`chrome_act`, [`Refused::Password`]), and the run then says it is
-//! stuck — signing in is the person's.
+//! agent (`chrome_act`, [`Refused::Password`]), and a card's number,
+//! security code or expiry, typed or chosen, whatever the page names the
+//! field ([`Refused::CardDetails`], queue item 826, ADR 0099); the run then
+//! says it is stuck — signing in and paying details are the person's.
+//!
+//! # Its plan
+//!
+//! With its first action the model writes two to five short steps of the
+//! whole task, and with each action the step of the plan it is for; a new
+//! plan replaces the old (queue item 824). The window is told the plan as
+//! it stands ([`Said::Planned`]), and the model is sent it with every
+//! request, since no request names another.
+//!
+//! # Taken over, and carried on
+//!
+//! [`Run::pause`] — a person's press on the page while it works — holds the
+//! run where [`Run::stop`] would end it: a verb already sent is finished by
+//! the page, a model's answer in flight is thrown away, a question waiting
+//! on the person is dropped, and the thread waits. [`Run::carry_on`] — *Let
+//! alo continue* — reads the page anew and tells the model, as a step of
+//! the person's, what they changed since the run last read it
+//! ([`crate::agent_changes`]), then goes on: its steps and tokens counted
+//! across the pause, the person's gate holding as before. Held past
+//! [`MOST_PAUSE`], the run stops and says so (queue item 825).
+//!
+//! # Paying
+//!
+//! A press the gate holds because it pays is asked with what it pays,
+//! read off the page by the browser process ([`crate::agent_paying`],
+//! queue item 826), and pressed only after *Pay* — and only if the page,
+//! read again, would ask exactly the same, amount and all.
 
-use crate::agent_gate;
+use crate::agent_changes::{self, Reached};
+use crate::agent_gate::{self, Question};
 use crate::agent_page;
-use crate::agent_protocol::{self, Asking, Call, Taken};
+use crate::agent_protocol::{self, Asking, Call, PERSON, Taken};
 use crate::agent_record::Caller;
 use crate::answer_protocol::Spent;
 use crate::asking::{Answer, Ask, Refused};
@@ -68,11 +98,13 @@ use alo_box::BoxId;
 use alo_net::Pool;
 use alo_net::cause::Identities;
 use alo_renderer::Snapshot;
+use alo_renderer::agent_paying::Paying;
+use alo_renderer::agent_plan::Plan;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender, channel};
 use std::thread::JoinHandle;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 /// The most verbs one run carries out before it stops.
 pub const MOST_STEPS: usize = 20;
@@ -90,6 +122,10 @@ pub const VERB_PATIENCE: Duration = Duration::from_secs(90);
 /// How long the page is given to go where a verb sent it before it is
 /// read again.
 pub const SETTLE: Duration = Duration::from_millis(1200);
+
+/// How long a run is held while the page is the person's before it stops
+/// (queue item 825).
+pub const MOST_PAUSE: Duration = Duration::from_secs(10 * 60);
 
 /// How often a thread waiting on the person looks whether it was stopped.
 const LOOK: Duration = Duration::from_millis(50);
@@ -124,6 +160,17 @@ pub enum Said {
         question: u64,
         /// What the person is asked.
         what: String,
+        /// What the press pays, when it pays (queue item 826).
+        paying: Option<Paying>,
+    },
+    /// Its plan, as it stands now (queue item 824): written, replaced, or
+    /// on another of its steps.
+    Planned(Plan),
+    /// It carries on after the person let it (queue item 825): what it
+    /// told the model the person changed, said on the terminal.
+    Continued {
+        /// What the model was told.
+        changed: String,
     },
     /// The step begun chooses in a closed list: its options, shown in the
     /// agent's column (queue item 810).
@@ -171,6 +218,8 @@ enum Person {
     Allow(u64),
     /// *Not now*, for the question numbered so.
     NotNow(u64),
+    /// *Let alo continue*, once the page was the person's (queue item 825).
+    Continue,
 }
 
 /// The agent, as the window holds it: the model it asks, and the orders it
@@ -179,13 +228,27 @@ enum Person {
 pub struct Agent {
     provider: Provider,
     orders: Orders,
+    /// How long a run is held while the page is the person's.
+    most_pause: Duration,
 }
 
 impl Agent {
     /// The agent asking `provider`, reaching the card by `orders`: the
     /// relay's ([`crate::conversation_agents::relay`]).
     pub fn new(provider: Provider, orders: Orders) -> Self {
-        Self { provider, orders }
+        Self {
+            provider,
+            orders,
+            most_pause: MOST_PAUSE,
+        }
+    }
+
+    /// The same agent, a run of it held at most `most` while the page is
+    /// the person's — [`MOST_PAUSE`] unless a test says otherwise.
+    #[must_use]
+    pub fn held_at_most(mut self, most: Duration) -> Self {
+        self.most_pause = most;
+        self
     }
 
     /// Start run `run` of the agent on what the person `asked`, telling the
@@ -196,15 +259,19 @@ impl Agent {
     /// What the system said when no thread could be started.
     pub fn start(&self, run: u64, asked: String, tell: TellAgent) -> std::io::Result<Run> {
         let stopped = Arc::new(AtomicBool::new(false));
+        let paused = Arc::new(AtomicBool::new(false));
         let (person, answers) = channel();
         let running = Running {
             agent: self.clone(),
             run,
             asked,
             stopped: Arc::clone(&stopped),
+            paused: Arc::clone(&paused),
             answers,
             tell,
             steps: Vec::new(),
+            plan: None,
+            left: None,
             spent: Spent::default(),
             questions: 0,
             identities: Identities::default(),
@@ -215,6 +282,7 @@ impl Agent {
         Ok(Run {
             number: run,
             stopped,
+            paused,
             person,
             thread: Some(thread),
         })
@@ -226,6 +294,7 @@ impl Agent {
 pub struct Run {
     number: u64,
     stopped: Arc<AtomicBool>,
+    paused: Arc<AtomicBool>,
     person: Sender<Person>,
     thread: Option<JoinHandle<()>>,
 }
@@ -240,6 +309,19 @@ impl Run {
     /// is acted on.
     pub fn stop(&self) {
         self.stopped.store(true, Ordering::SeqCst);
+    }
+
+    /// Hold it while the page is the person's (queue item 825): nothing
+    /// more is sent to the page and nothing it was saying is acted on, until
+    /// [`Run::carry_on`] or [`Run::stop`].
+    pub fn pause(&self) {
+        self.paused.store(true, Ordering::SeqCst);
+    }
+
+    /// *Let alo continue*: it reads the page as the person left it, and
+    /// carries on.
+    pub fn carry_on(&self) {
+        let _ = self.person.send(Person::Continue);
     }
 
     /// The person allowed question `question`.
@@ -276,9 +358,16 @@ struct Running {
     run: u64,
     asked: String,
     stopped: Arc<AtomicBool>,
+    /// Set while the page is the person's (queue item 825).
+    paused: Arc<AtomicBool>,
     answers: Receiver<Person>,
     tell: TellAgent,
     steps: Vec<Taken>,
+    /// Its plan as it stands (queue item 824).
+    plan: Option<Plan>,
+    /// The page as the run last read it: what the person's changes are
+    /// told against when they let it carry on.
+    left: Option<(String, Snapshot)>,
     spent: Spent,
     questions: u64,
     identities: Identities,
@@ -303,6 +392,21 @@ impl Running {
         self.stopped.load(Ordering::SeqCst)
     }
 
+    fn is_paused(&self) -> bool {
+        self.paused.load(Ordering::SeqCst)
+    }
+
+    /// Whether it should send nothing and act on nothing now: stopped, or
+    /// held while the page is the person's.
+    fn is_halted(&self) -> bool {
+        self.is_stopped() || self.is_paused()
+    }
+
+    /// How many verbs it has carried out: the person's steps are not its.
+    fn verbs(&self) -> usize {
+        self.steps.iter().filter(|taken| !taken.person).count()
+    }
+
     fn say(&self, said: Said) -> bool {
         (self.tell)(AgentSaid {
             run: self.run,
@@ -325,7 +429,14 @@ impl Running {
             if self.is_stopped() {
                 return None;
             }
-            if self.steps.len() >= MOST_STEPS {
+            // The page the person's: held until they let it carry on
+            // (queue item 825).
+            if self.is_paused()
+                && let Err(ended) = self.hold()
+            {
+                return ended;
+            }
+            if self.verbs() >= MOST_STEPS {
                 return Some(stopped(format!(
                     "alo stopped after {MOST_STEPS} steps without finishing. Ask again to go on \
                      from what the page shows now."
@@ -333,11 +444,17 @@ impl Running {
             }
             let (tab, snapshot) = match self.read() {
                 Ok(read) => read,
-                Err(ended) => return ended,
+                Err(ended) => match self.held(ended) {
+                    Some(ended) => return ended,
+                    None => continue,
+                },
             };
             let call = match self.choose(&mut pool, &tab, &snapshot) {
                 Ok(call) => call,
-                Err(ended) => return ended,
+                Err(ended) => match self.held(ended) {
+                    Some(ended) => return ended,
+                    None => continue,
+                },
             };
             match call {
                 Call::Done { result } => return Some(Said::Done { result }),
@@ -347,8 +464,13 @@ impl Running {
                     verb,
                     step,
                     why,
+                    plan,
+                    on,
                 } => {
-                    if let Err(ended) = self.act(node, verb, step, why) {
+                    self.planned(plan.as_deref(), on);
+                    if let Err(ended) = self.act(node, verb, step, why)
+                        && let Some(ended) = self.held(ended)
+                    {
                         return ended;
                     }
                 }
@@ -356,9 +478,88 @@ impl Running {
         }
     }
 
+    /// Whether `ended` ends the run, or was the run held while the page is
+    /// the person's — then [`None`], and it carries on from the top once
+    /// they let it.
+    fn held(&self, ended: Ended) -> Option<Ended> {
+        if ended.is_none() && self.is_paused() && !self.is_stopped() {
+            return None;
+        }
+        Some(ended)
+    }
+
+    /// The plan the model gave with its step, if it gave one — the first,
+    /// or a new one replacing the old — and the step of it `on`: the window
+    /// told when either changed (queue item 824).
+    fn planned(&mut self, given: Option<&[String]>, on: usize) {
+        let now = match (given.and_then(|steps| Plan::of(steps, on)), &self.plan) {
+            (Some(plan), _) => Some(plan),
+            (None, Some(plan)) => Plan::of(&plan.steps, on),
+            (None, None) => None,
+        };
+        if now.is_some() && now != self.plan {
+            self.plan = now;
+            if let Some(plan) = &self.plan {
+                let _ = self.say(Said::Planned(plan.clone()));
+            }
+        }
+    }
+
+    /// Wait while the page is the person's, then read it as they left it
+    /// and tell the model, as a step of theirs, what they changed (queue
+    /// item 825). Ends the run when it is stopped, or held past
+    /// [`MOST_PAUSE`].
+    fn hold(&mut self) -> Result<(), Ended> {
+        let since = Instant::now();
+        loop {
+            if self.is_stopped() {
+                return Err(None);
+            }
+            if since.elapsed() >= self.agent.most_pause {
+                return Err(Some(stopped(held_too_long(self.agent.most_pause))));
+            }
+            match self.answers.recv_timeout(LOOK) {
+                Ok(Person::Continue) => break,
+                // An answer to a question dropped as the person took over
+                // answers nothing.
+                Ok(_) | Err(RecvTimeoutError::Timeout) => {}
+                Err(RecvTimeoutError::Disconnected) => return Err(None),
+            }
+        }
+        self.paused.store(false, Ordering::SeqCst);
+        let before = self.left.take();
+        let (address, now) = self.read()?;
+        let changed = match &before {
+            Some((was_at, was)) => agent_changes::said(
+                agent_changes::Read {
+                    address: was_at,
+                    tree: was,
+                },
+                agent_changes::Read {
+                    address: &address,
+                    tree: &now,
+                },
+                Reached {
+                    steps: self.verbs(),
+                    plan: self.plan.as_ref(),
+                },
+            ),
+            None => "alo had not read the page before the person took it over.".to_owned(),
+        };
+        self.steps.push(Taken {
+            step: PERSON.to_owned(),
+            came_to: changed.clone(),
+            person: true,
+        });
+        if !self.say(Said::Continued { changed }) {
+            return Err(None);
+        }
+        Ok(())
+    }
+
     /// Ask the page through the relay, as an agent on the socket asks it.
     fn ask(&self, ask: Ask) -> Result<Answer, Ended> {
-        if self.is_stopped() {
+        if self.is_halted() {
             return Err(None);
         }
         let (reply, answered) = channel();
@@ -382,8 +583,9 @@ impl Running {
         })
     }
 
-    /// The page as it is now: the one tab the relay answers, and its tree.
-    fn read(&self) -> Result<(String, Box<Snapshot>), Ended> {
+    /// The page as it is now: the one tab the relay answers, and its tree —
+    /// kept as the page the run last read.
+    fn read(&mut self) -> Result<(String, Box<Snapshot>), Ended> {
         let gone = || {
             Some(stopped(
                 "alo stopped: the page is no longer open.".to_owned(),
@@ -394,7 +596,10 @@ impl Running {
             _ => return Err(gone()),
         };
         match self.ask(Ask::Read { tab: tab.clone() })? {
-            Answer::Tree { snapshot, .. } => Ok((tab, snapshot)),
+            Answer::Tree { snapshot, .. } => {
+                self.left = Some((tab.clone(), (*snapshot).clone()));
+                Ok((tab, snapshot))
+            }
             Answer::Refused(refused) => Err(Some(stopped(format!(
                 "alo stopped: the page could not be read: {refused}."
             )))),
@@ -410,10 +615,11 @@ impl Running {
             self.agent.provider.model(),
             &Asking {
                 asked: &self.asked,
+                plan: self.plan.as_ref(),
                 address: tab,
                 tree: &tree,
                 steps: &self.steps,
-                left: MOST_STEPS - self.steps.len(),
+                left: MOST_STEPS.saturating_sub(self.verbs()),
             },
         );
         let request = self
@@ -421,8 +627,9 @@ impl Running {
             .provider
             .post(body, agent_protocol::LARGEST, &mut self.identities);
         let fetched = pool.fetch(&request);
-        if self.is_stopped() {
-            // An answer in flight is thrown away.
+        if self.is_halted() {
+            // An answer in flight is thrown away — stopped, or the page
+            // taken over while it was written.
             return Err(None);
         }
         let response = fetched.map_err(|why| {
@@ -492,7 +699,7 @@ impl Running {
             .map(|url| alo_url::reading::host(&url))
             .unwrap_or_default();
         if let Some(question) = agent_gate::asked(&now, node, &verb, &host) {
-            self.ask_the_person(&question.what, &verb, node, &host)?;
+            self.ask_the_person(&question, &verb, node, &host)?;
         }
         let answer = self.ask(Ask::Act {
             tab: now_at.clone(),
@@ -517,11 +724,18 @@ impl Running {
                     choices: Vec::new(),
                 }));
             }
+            Answer::Refused(Refused::CardDetails { .. }) => {
+                return Err(Some(Said::Stuck {
+                    why: CARD_DETAILS.to_owned(),
+                    choices: Vec::new(),
+                }));
+            }
             other => other.said().unwrap_or_default(),
         };
         self.steps.push(Taken {
             step: line,
             came_to,
+            person: false,
         });
         Ok(())
     }
@@ -531,21 +745,24 @@ impl Running {
     /// once stopped.
     fn ask_the_person(
         &mut self,
-        what: &str,
+        asked: &Question,
         verb: &Verb,
         node: BoxId,
         host: &str,
     ) -> Result<(), Ended> {
+        let what = asked.what.as_str();
         self.questions += 1;
         let question = self.questions;
         if !self.say(Said::Asking {
             question,
             what: what.to_owned(),
+            paying: asked.paying.clone(),
         }) {
             return Err(None);
         }
         loop {
-            if self.is_stopped() {
+            // Stopped, or the page taken over: the question is dropped.
+            if self.is_halted() {
                 return Err(None);
             }
             match self.answers.recv_timeout(LOOK) {
@@ -571,7 +788,9 @@ impl Running {
         // renamed, gone — is not pressed.
         let (_, now) = self.read()?;
         let still = agent_gate::asked(&now, node, verb, host);
-        if still.as_ref().map(|still| still.what.as_str()) != Some(what) {
+        // The same question, and for a payment the same amount, merchant
+        // and summary: a total changed while the person read is not paid.
+        if still.as_ref() != Some(asked) {
             return Err(Some(stopped(
                 "alo stopped: the page changed while you were asked, so nothing was pressed."
                     .to_owned(),
@@ -580,6 +799,25 @@ impl Running {
         let _ = self.say(Said::Allowed);
         Ok(())
     }
+}
+
+/// What a run says when the page asks for a card's details (queue item
+/// 826, ADR 0099).
+pub const CARD_DETAILS: &str = "This page asks for a card's details, and alo never types or \
+chooses a card's number, security code or expiry: paying details are yours. Fill them in on the \
+page, then ask alo again.";
+
+/// What a run held past `most` says as it stops (queue item 825).
+pub fn held_too_long(most: Duration) -> String {
+    let minutes = most.as_secs() / 60;
+    let held = match minutes {
+        0 => format!("{} seconds", most.as_secs()),
+        1 => "1 minute".to_owned(),
+        minutes => format!("{minutes} minutes"),
+    };
+    format!(
+        "alo stopped: the page was yours for {held}. Ask again to go on from what the page shows now."
+    )
 }
 
 /// A run stopped for `why`.
@@ -657,9 +895,16 @@ mod tests {
     /// Each verb a fake card was asked to carry out.
     type Acted = Arc<Mutex<Vec<(Target, Verb)>>>;
 
-    /// A card's thread answering every order with [`page`], and keeping
-    /// each verb it was asked to carry out.
-    fn card() -> (Orders, Acted) {
+    /// The page a fake card answers with, which a test may change.
+    type Shown = Arc<Mutex<Snapshot>>;
+
+    /// The node a fake card refuses as a card's details (queue item 826).
+    const CARD_FIELD: usize = 77;
+
+    /// A card's thread answering every order with the page `shown` holds,
+    /// and keeping each verb it was asked to carry out; text put into
+    /// [`CARD_FIELD`] is refused as a card's details are.
+    fn card_of(shown: Shown) -> (Orders, Acted) {
         let (orders, _, inbox) = inbox::inbox();
         let acted = Arc::new(Mutex::new(Vec::new()));
         let kept = Arc::clone(&acted);
@@ -670,9 +915,18 @@ mod tests {
                     Ok(Ask::Tabs) => Answer::Tabs(vec![TAB.to_owned()]),
                     Ok(Ask::Read { tab }) => Answer::Tree {
                         tab,
-                        snapshot: Box::new(page()),
+                        snapshot: Box::new(
+                            shown.lock().map(|page| page.clone()).unwrap_or_default(),
+                        ),
                     },
                     Ok(Ask::Act { tab, target, verb }) => {
+                        if target == Target::Node(BoxId::from_wire(CARD_FIELD)) {
+                            let _ = reply.send(Answer::Refused(Refused::CardDetails {
+                                tab,
+                                node: BoxId::from_wire(CARD_FIELD),
+                            }));
+                            continue;
+                        }
                         if let Ok(mut acted) = kept.lock() {
                             acted.push((target.clone(), verb.clone()));
                         }
@@ -765,10 +1019,26 @@ mod tests {
         script: Vec<(u16, String)>,
         person: impl Fn(&Run, u64) + Send + 'static,
     ) -> (Vec<Said>, Vec<(Target, Verb)>, Vec<String>) {
-        let (orders, acted) = card();
+        let shown = Arc::new(Mutex::new(page()));
+        run_on(script, &shown, Agent::new, move |running, said| {
+            if let Said::Asking { question, .. } = said {
+                person(running, *question);
+            }
+        })
+    }
+
+    /// [`run`] on the page `shown` holds, the agent made by `agent`, and
+    /// `react` told everything the run says as it says it.
+    fn run_on(
+        script: Vec<(u16, String)>,
+        shown: &Shown,
+        agent: impl Fn(Provider, Orders) -> Agent,
+        mut react: impl FnMut(&Run, &Said),
+    ) -> (Vec<Said>, Vec<(Target, Verb)>, Vec<String>) {
+        let (orders, acted) = card_of(Arc::clone(shown));
         let (endpoint, bodies) = model(script);
         let provider = Provider::at(&endpoint, Key::of("test-key-not-real").unwrap()).unwrap();
-        let agent = Agent::new(provider, orders);
+        let agent = agent(provider, orders);
         let (tell, heard) = channel();
         let tell: TellAgent = Arc::new(move |said: AgentSaid| tell.send(said).is_ok());
         let running = agent.start(1, "send my name".to_owned(), tell).unwrap();
@@ -787,9 +1057,7 @@ mod tests {
             };
             quiet = Instant::now();
             assert_eq!(heard.run, 1);
-            if let Said::Asking { question, .. } = &heard.said {
-                person(&running, *question);
-            }
+            react(&running, &heard.said);
             let ends = heard.said.ends();
             said.push(heard.said);
             if ends {
@@ -866,11 +1134,14 @@ mod tests {
             ],
             Run::allow,
         );
-        assert!(said.contains(&Said::Asking {
-            question: 1,
-            what:
-                "Press \u{201c}Send\u{201d} on 127.0.0.1:9? It sends something from you.".to_owned()
-        }));
+        assert!(
+            said.contains(&Said::Asking {
+                question: 1,
+                what: "Press \u{201c}Send\u{201d} on 127.0.0.1:9? It sends something from you."
+                    .to_owned(),
+                paying: None,
+            })
+        );
         assert!(said.contains(&Said::Allowed));
         assert_eq!(
             acted,
@@ -989,5 +1260,237 @@ mod tests {
         // Stopped by the window, which says so itself: the run says nothing
         // more.
         assert!(matches!(said.last(), Some(Said::Asking { .. })), "{said:?}");
+    }
+
+    #[test]
+    fn its_plan_is_told_to_the_window_and_sent_with_every_request_as_it_stands() {
+        let (said, acted, bodies) = run(
+            vec![
+                calling(
+                    "put_text",
+                    r#"{"node":2,"text":"Ada","step":"Typing Ada into Name","why":"","plan":["Fill in your name","Say hello"],"on":1}"#,
+                ),
+                calling(
+                    "activate",
+                    r#"{"node":3,"step":"Pressing Say hello","why":"","plan":null,"on":2}"#,
+                ),
+                calling("done", r#"{"result":"Said hello as Ada."}"#),
+            ],
+            |_, _| {},
+        );
+        let plans: Vec<Plan> = said
+            .iter()
+            .filter_map(|said| match said {
+                Said::Planned(plan) => Some(plan.clone()),
+                _ => None,
+            })
+            .collect();
+        let steps = vec!["Fill in your name".to_owned(), "Say hello".to_owned()];
+        assert_eq!(
+            plans,
+            [
+                Plan {
+                    steps: steps.clone(),
+                    on: 0
+                },
+                Plan { steps, on: 1 }
+            ]
+        );
+        assert_eq!(acted.len(), 2);
+        // The first request is sent no plan; the next ones the plan as it
+        // stood, the step it was on.
+        assert!(bodies[0].contains(r#"\"plan\":null"#), "{}", bodies[0]);
+        assert!(
+            bodies[1].contains(r#"{\"state\":\"now\",\"step\":\"Fill in your name\"}"#),
+            "{}",
+            bodies[1]
+        );
+        assert!(
+            bodies[2].contains(r#"{\"state\":\"done\",\"step\":\"Fill in your name\"}"#),
+            "{}",
+            bodies[2]
+        );
+    }
+
+    #[test]
+    fn taken_over_while_it_asks_it_holds_then_carries_on_telling_what_the_person_changed() {
+        let mut empty = page();
+        if let Some(name) = empty
+            .root
+            .as_mut()
+            .and_then(|root| root.children.first_mut())
+        {
+            name.states.takes_text = true;
+        }
+        let shown = Arc::new(Mutex::new(empty));
+        let changing = Arc::clone(&shown);
+        let mut questions = 0;
+        let (said, acted, bodies) = run_on(
+            vec![
+                calling(
+                    "activate",
+                    r#"{"node":5,"step":"Pressing Send","why":"","plan":["Send the form"],"on":1}"#,
+                ),
+                calling(
+                    "activate",
+                    r#"{"node":5,"step":"Pressing Send","why":"","plan":null,"on":1}"#,
+                ),
+                calling("done", r#"{"result":"Sent."}"#),
+            ],
+            &shown,
+            Agent::new,
+            move |running, said| {
+                if let Said::Asking { question, .. } = said {
+                    questions += 1;
+                    if questions == 1 {
+                        // The person takes the page over and types their
+                        // name, then lets alo continue.
+                        running.pause();
+                        std::thread::sleep(Duration::from_millis(300));
+                        if let Ok(mut page) = changing.lock()
+                            && let Some(root) = page.root.as_mut()
+                        {
+                            let mut field = node(
+                                2,
+                                KnownRole::TextBox,
+                                Some("Name"),
+                                vec![node(20, KnownRole::Text, Some("Grace"), Vec::new())],
+                            );
+                            field.states.takes_text = true;
+                            root.children[0] = field;
+                        }
+                        running.carry_on();
+                    } else {
+                        // The person's gate holds after: asked again.
+                        running.allow(*question);
+                    }
+                }
+            },
+        );
+        assert!(matches!(said.last(), Some(Said::Done { .. })), "{said:?}");
+        // The question dropped as the page was taken over: Send pressed once,
+        // after the second question's Allow.
+        assert_eq!(
+            acted,
+            vec![(Target::Node(BoxId::from_wire(5)), Verb::Activate)]
+        );
+        let asked: Vec<u64> = said
+            .iter()
+            .filter_map(|said| match said {
+                Said::Asking { question, .. } => Some(*question),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(asked, [1, 2]);
+        let continued = said.iter().find_map(|said| match said {
+            Said::Continued { changed } => Some(changed.clone()),
+            _ => None,
+        });
+        assert_eq!(
+            continued.as_deref(),
+            Some(
+                "The person typed \u{201c}Grace\u{201d} into the field \u{201c}Name\u{201d}. alo \
+                 had taken 0 steps, and was on step 1 of its plan, \u{201c}Send the form\u{201d}."
+            )
+        );
+        // The model told, as a step of the person's; and that step not
+        // counted against the run's: 20 left still.
+        assert_eq!(bodies.len(), 3);
+        assert!(bodies[1].contains(PERSON), "{}", bodies[1]);
+        assert!(bodies[1].contains("Grace"), "{}", bodies[1]);
+        assert!(bodies[1].contains(r#"\"steps_left\":20"#), "{}", bodies[1]);
+    }
+
+    #[test]
+    fn held_past_its_most_it_stops_and_says_so_having_done_nothing() {
+        let shown = Arc::new(Mutex::new(page()));
+        let (said, acted, bodies) = run_on(
+            vec![calling(
+                "activate",
+                r#"{"node":5,"step":"Pressing Send","why":"","plan":null,"on":1}"#,
+            )],
+            &shown,
+            |provider, orders| {
+                Agent::new(provider, orders).held_at_most(Duration::from_millis(400))
+            },
+            |running, said| {
+                if matches!(said, Said::Asking { .. }) {
+                    running.pause();
+                }
+            },
+        );
+        assert!(acted.is_empty(), "{acted:?}");
+        assert_eq!(bodies.len(), 1);
+        assert_eq!(
+            said.last(),
+            Some(&Said::Stopped {
+                why: held_too_long(Duration::from_millis(400))
+            })
+        );
+        assert_eq!(
+            held_too_long(MOST_PAUSE),
+            "alo stopped: the page was yours for 10 minutes. Ask again to go on from what the \
+             page shows now."
+        );
+    }
+
+    #[test]
+    fn a_press_that_pays_is_asked_with_what_it_pays_and_a_cards_details_are_never_typed() {
+        let mut checkout = page();
+        if let Some(root) = checkout.root.as_mut() {
+            root.name = Some("Kampala Coffee".to_owned());
+            root.children.push(node(
+                8,
+                KnownRole::Text,
+                Some("Total UGX 45,000"),
+                Vec::new(),
+            ));
+            root.children
+                .push(node(9, KnownRole::Button, Some("Pay now"), Vec::new()));
+        }
+        let shown = Arc::new(Mutex::new(checkout));
+        let (said, acted, _) = run_on(
+            vec![calling(
+                "activate",
+                r#"{"node":9,"step":"Pressing Pay now","why":"","plan":null,"on":1}"#,
+            )],
+            &shown,
+            Agent::new,
+            |running, said| {
+                if let Said::Asking { question, .. } = said {
+                    running.not_now(*question);
+                }
+            },
+        );
+        let paying = said.iter().find_map(|said| match said {
+            Said::Asking { paying, .. } => paying.clone(),
+            _ => None,
+        });
+        assert_eq!(
+            paying,
+            Some(Paying {
+                amount: Some("UGX 45,000".to_owned()),
+                merchant: "Kampala Coffee (127.0.0.1:9)".to_owned(),
+                lines: Vec::new(),
+            })
+        );
+        assert!(acted.is_empty(), "Not now pays nothing");
+        let (said, acted, _) = run(
+            vec![calling(
+                "put_text",
+                &format!(
+                    r#"{{"node":{CARD_FIELD},"text":"4242 4242 4242 4242","step":"Typing the card","why":"","plan":null,"on":1}}"#
+                ),
+            )],
+            |_, _| {},
+        );
+        assert!(acted.is_empty(), "{acted:?}");
+        assert_eq!(
+            said.last(),
+            Some(&Said::Stuck {
+                why: CARD_DETAILS.to_owned(),
+                choices: Vec::new(),
+            })
+        );
     }
 }

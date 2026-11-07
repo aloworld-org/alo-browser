@@ -141,10 +141,6 @@ pub const GREETING: &str = "Hello.";
 /// 704).
 pub const STOPPED: &str = "You stopped alo. Nothing more was done on the page.";
 
-/// What it says once a person pressed the page while it worked: *click
-/// anywhere to take over*.
-pub const TAKEN_OVER: &str = "You took over the page, so alo stopped. Ask again to go on.";
-
 /// A chat, as the browser process knows it: a number it gave the chat
 /// when it was made, never reused — across launches too, since the chats
 /// kept are numbered by it (ADR 0092) — and never sent to a renderer.
@@ -499,6 +495,7 @@ impl Conversation {
                 .map(Thread::pictured_pages)
                 .unwrap_or_default(),
             working: self.work.working(self.card()),
+            paused: self.work.paused(self.card()),
             asking: self.work.asking_now(self.card()),
             choices: Work::choices(self.card()),
             hovered: row.filter(|(_, chat)| !chat.open).map(|(id, _)| *id),
@@ -650,6 +647,11 @@ impl Conversation {
             // The agent (queue item 704): *Stop* says so on the card at
             // once; a choice a stuck run offered is asked of it anew.
             Pressed::Stop(_) => self.stop_agent(STOPPED).is_some() || changed,
+            // *Let alo continue* (queue item 825): the run held acts again.
+            Pressed::Continue(run) => {
+                let run = *run;
+                self.carry_on_agent(run).is_some() || changed
+            }
             Pressed::Choice(choice) => {
                 let choice = choice.clone();
                 self.ask_alo(&choice) || changed
@@ -838,6 +840,12 @@ impl Conversation {
         self.work.working(self.card())
     }
 
+    /// The run of the agent the window keeps a thread for: at work on the
+    /// card, or held while its page is the person's (queue item 825).
+    pub fn agent_run(&self) -> Option<u64> {
+        self.work.at_work(self.card())
+    }
+
     /// What a run of the agent said: shown on the card when it is the run
     /// at work there. Whether the first screen shows something else.
     pub fn agent_said(&mut self, said: AgentSaid) -> bool {
@@ -848,6 +856,31 @@ impl Conversation {
             .find(|(id, _)| Some(*id) == on)
             .and_then(|(_, thread)| thread.card_mut());
         self.work.heard(card, said)
+    }
+
+    /// The person took the card's page over (queue item 825): the run at
+    /// work held, its card saying so with *Let alo continue*. Its number,
+    /// if one was at work.
+    pub fn pause_agent(&mut self) -> Option<u64> {
+        let on = self.on_screen();
+        let card = self
+            .threads
+            .iter_mut()
+            .find(|(id, _)| Some(*id) == on)
+            .and_then(|(_, thread)| thread.card_mut());
+        self.work.pause(card)
+    }
+
+    /// *Let alo continue* for the run numbered `run`: it acts again, if it
+    /// is the one held. Its number, if it was.
+    pub fn carry_on_agent(&mut self, run: u64) -> Option<u64> {
+        let on = self.on_screen();
+        let card = self
+            .threads
+            .iter_mut()
+            .find(|(id, _)| Some(*id) == on)
+            .and_then(|(_, thread)| thread.card_mut());
+        self.work.carry_on(card, run)
     }
 
     /// Stop the run of the agent at work, saying `why` on its card: its

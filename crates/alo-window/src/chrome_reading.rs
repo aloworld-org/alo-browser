@@ -131,6 +131,37 @@ impl ChromeReading {
         })
     }
 
+    /// Whether the node `id`, once described, holds a card's details — its
+    /// number, its security code or its expiry (queue item 826, ADR 0099)
+    /// — **whatever the page names it**: by its `autocomplete` token
+    /// (`cc-number`, `cc-csc`, `cc-exp`, `cc-exp-month`, `cc-exp-year`, in
+    /// any section and for billing or shipping), by its `name`, `id`,
+    /// `placeholder`, `aria-label` or the tree's name for it holding one of
+    /// the names such a field goes by ([`card_detail_named`]). A card's
+    /// holder's name is not one: it is no secret, and the person may have
+    /// asked alo to fill it in.
+    pub(crate) fn is_a_card_detail(&self, id: BoxId) -> bool {
+        let named = self
+            .candidates
+            .iter()
+            .find(|candidate| candidate.id == id)
+            .and_then(|candidate| candidate.name.as_deref())
+            .is_some_and(card_detail_named);
+        named
+            || self.element(id).is_some_and(|element| {
+                element.attr("autocomplete").is_some_and(|tokens| {
+                    tokens.split_ascii_whitespace().any(|token| {
+                        CARD_TOKENS
+                            .iter()
+                            .any(|known| token.eq_ignore_ascii_case(known))
+                    })
+                }) || ["name", "id", "placeholder", "aria-label"]
+                    .iter()
+                    .filter_map(|attribute| element.attr(attribute))
+                    .any(card_detail_named)
+            })
+    }
+
     /// The nearest `listbox` or `combobox` above the node `id` in the tree:
     /// the list it is chosen in when it is an option of a `<select>`, which
     /// [`Reading::list_of`] answers once both are described.
@@ -172,6 +203,67 @@ impl ChromeReading {
         self.element(id)
             .is_some_and(alo_dom::kind::is_submit_button)
     }
+}
+
+/// The `autocomplete` tokens a card's details are filled by (HTML's
+/// *autofill detail tokens*): its number, its security code, its expiry.
+const CARD_TOKENS: [&str; 5] = [
+    "cc-number",
+    "cc-csc",
+    "cc-exp",
+    "cc-exp-month",
+    "cc-exp-year",
+];
+
+/// The names a field of a card's details goes by, its letters alone in
+/// lower case, which a name holds anywhere: *card-number*,
+/// `billing_cardNumber`, *Security code*.
+const CARD_NAMES: [&str; 14] = [
+    "cardnumber",
+    "ccnumber",
+    "creditcard",
+    "debitcard",
+    "cardno",
+    "securitycode",
+    "cardcvc",
+    "cardcvv",
+    "ccexp",
+    "expirydate",
+    "expirationdate",
+    "cardexpiry",
+    "expdate",
+    "mmyy",
+];
+
+/// The names a field of a card's details goes by that are a whole name of
+/// their own, being too short to be read inside another: *cvc*, *exp*.
+const CARD_WORDS: [&str; 9] = [
+    "cvc",
+    "cvv",
+    "cvv2",
+    "cvc2",
+    "csc",
+    "exp",
+    "expiry",
+    "expiration",
+    "ccnum",
+];
+
+/// Whether `said` — a field's name, id, placeholder or label — names a
+/// field of a card's details.
+pub(crate) fn card_detail_named(said: &str) -> bool {
+    let letters: String = said
+        .chars()
+        .filter(char::is_ascii_alphanumeric)
+        .map(|each| each.to_ascii_lowercase())
+        .collect();
+    let words = said
+        .split(|each: char| !each.is_ascii_alphanumeric())
+        .map(str::to_ascii_lowercase)
+        .collect::<Vec<_>>();
+    CARD_NAMES.iter().any(|name| letters.contains(name))
+        || words.iter().any(|word| CARD_WORDS.contains(&word.as_str()))
+        || CARD_WORDS.contains(&letters.as_str())
 }
 
 /// `described` as an HTML element, or [`None`] for any other: the DOM names
@@ -513,6 +605,53 @@ mod tests {
             !ChromeReading::of(&page()).is_a_password(id(3)),
             "a node never described is not known to be one"
         );
+    }
+
+    #[test]
+    fn a_card_detail_is_one_by_its_autocomplete_or_its_names_whatever_its_label() {
+        let id = BoxId::from_wire;
+        // Node 3 is named *Short* by the tree: its element decides.
+        let field = |attributes: &[(&str, &str)]| {
+            ChromeReading::of(&page())
+                .with_element(id(3), &described("INPUT", "input", attributes))
+                .is_a_card_detail(id(3))
+        };
+        for attributes in [
+            &[("autocomplete", "cc-number")][..],
+            &[("autocomplete", "section-blue billing CC-CSC")],
+            &[("autocomplete", "cc-exp")],
+            &[("autocomplete", "cc-exp-month")],
+            &[("autocomplete", "shipping cc-exp-year")],
+            &[("name", "cardNumber")],
+            &[("id", "billing_card-number")],
+            &[("name", "cvc")],
+            &[("id", "CVV2")],
+            &[("placeholder", "MM / YY")],
+            &[("aria-label", "Security code")],
+            &[("name", "exp")],
+        ] {
+            assert!(field(attributes), "{attributes:?}");
+        }
+        for attributes in [
+            &[][..],
+            &[("autocomplete", "cc-name")],
+            &[("autocomplete", "email")],
+            &[("name", "nameOnCard")],
+            &[("name", "expected")],
+            &[("id", "excvcx")],
+            &[("placeholder", "Coupon")],
+        ] {
+            assert!(!field(attributes), "{attributes:?}");
+        }
+        // By the tree's own name for it, described or not.
+        let mut page = page();
+        if let Some(root) = page.root.as_mut() {
+            root.children[1].name = Some("Card number".to_owned());
+        }
+        assert!(ChromeReading::of(&page).is_a_card_detail(id(3)));
+        assert!(card_detail_named("Expiry date"));
+        assert!(card_detail_named("CVC"));
+        assert!(!card_detail_named("Cardholder name"));
     }
 
     #[test]

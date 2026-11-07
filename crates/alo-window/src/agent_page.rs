@@ -95,7 +95,7 @@ fn line_of(node: &SnapshotNode, depth: usize, withheld: bool) -> String {
 }
 
 /// Whether `said` is only the dots a password field is drawn with.
-fn is_dots(said: &str) -> bool {
+pub(crate) fn is_dots(said: &str) -> bool {
     let said = said.trim();
     !said.is_empty()
         && said
@@ -104,26 +104,34 @@ fn is_dots(said: &str) -> bool {
 }
 
 /// The words, any one of which in a field's name or hint says it holds a
-/// secret.
-const SECRET_WORDS: [&str; 8] = [
+/// secret — a card's expiry among them since queue item 826, which refuses
+/// a card's details to the agent outright (ADR 0099).
+const SECRET_WORDS: [&str; 12] = [
     "password",
     "passcode",
     "passphrase",
     "pin",
     "cvc",
     "cvv",
+    "csc",
     "otp",
     "passwort",
+    "expiry",
+    "expiration",
+    "cardnumber",
 ];
 
 /// The phrases that, in a field's name or hint, say it holds a secret.
-const SECRET_PHRASES: [&str; 6] = [
+const SECRET_PHRASES: [&str; 9] = [
     "card number",
     "security code",
     "one-time",
     "one time code",
     "verification code",
     "mot de passe",
+    "mm/yy",
+    "mm / yy",
+    "expiry date",
 ];
 
 /// Whether `node` is a field — it takes text — whose name or hint says it

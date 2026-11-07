@@ -710,6 +710,47 @@ a {
   text-overflow: ellipsis;
 }
 
+/* Its plan (queue item 824): two to five short steps under what was asked,
+   a line of 20 each, 2 apart, its words 18 in from a mark — the steps done
+   ticked in the quiet colour, the one it is on in the ink and bold, the
+   rest greyed. */
+.plan {
+  display: flex;
+  flex-direction: column;
+  row-gap: 2px;
+  list-style-type: none;
+}
+
+.pstep {
+  display: flex;
+  column-gap: 4px;
+  font-size: 13px;
+  line-height: 20px;
+  color: #bdb6aa;
+}
+
+.pstep .tick {
+  flex-shrink: 0;
+  width: 14px;
+}
+
+.pstep .pwords {
+  flex-grow: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pstep.done {
+  color: var(--quiet);
+}
+
+.pstep.now {
+  color: var(--ink);
+  font-weight: 600;
+}
+
 .steps {
   display: flex;
   flex-direction: column;
@@ -788,6 +829,79 @@ a {
 .answers {
   display: flex;
   column-gap: 8px;
+}
+
+/* What a press that pays pays (queue item 826): the amount and who is paid,
+   each a label in the quiet colour and its value in the ink, then the
+   page's own summary lines, 12.5 on 18 in the quiet colour; what alo could
+   not find said plainly in their place. */
+.paying {
+  display: flex;
+  flex-direction: column;
+  row-gap: 4px;
+}
+
+.pamount,
+.pmerchant {
+  display: flex;
+  column-gap: 8px;
+}
+
+.plabel {
+  flex-shrink: 0;
+  width: 56px;
+  color: var(--quiet);
+}
+
+.pvalue {
+  min-width: 0;
+  font-weight: 600;
+}
+
+.pamount .pvalue {
+  font-size: 15px;
+}
+
+.psummary {
+  display: flex;
+  flex-direction: column;
+  margin-top: 2px;
+  padding-top: 6px;
+  border-top: 1px solid #eee8de;
+  list-style-type: none;
+}
+
+.pline,
+.none {
+  color: var(--quiet);
+  font-size: 12.5px;
+  line-height: 18px;
+}
+
+/* What alo could not find wraps in the box like any sentence: the amount's
+   row is a flex row only when it holds a label and a value (found by hand
+   on 7 November 2026, `handrun36/14`: the sentence ran past the box). */
+.pamount.none {
+  display: block;
+}
+
+/* Held while the page is the person's (queue item 825): what it says, then
+   Let alo continue in the ink. */
+.paused {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  row-gap: 10px;
+}
+
+.pausedsaid {
+  color: var(--quiet);
+}
+
+.abtn.continue {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--surface);
 }
 
 /* Stuck: why, then each choice as a button, the closest to what was asked
@@ -904,7 +1018,8 @@ a {
 .beside .working .said,
 .beside .asked,
 .beside .step .line,
-.beside .step .why {
+.beside .step .why,
+.beside .pstep .pwords {
   white-space: normal;
 }
 

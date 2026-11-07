@@ -768,6 +768,7 @@ mod tests {
         let mut thread = Thread::default();
         thread.open_card("example.com".to_owned(), url("https://example.com/"));
         let done = Ran {
+            plan: None,
             asked: "one".to_owned(),
             steps: Vec::new(),
             ended: Ended::Done {
@@ -788,6 +789,7 @@ mod tests {
             &vec![
                 done,
                 Ran {
+                    plan: None,
                     asked: "two".to_owned(),
                     steps: Vec::new(),
                     ended: Ended::Stopped {

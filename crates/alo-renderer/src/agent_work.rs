@@ -17,6 +17,9 @@
 //! Every string here is a stranger's: what the person typed, and what the
 //! model wrote of each step. Each enters the document as a text node.
 
+pub use crate::agent_paying::Paying;
+pub use crate::agent_plan::Plan;
+
 /// The most steps the wire carries: past the most a run takes (twenty in
 /// `alo-window`'s `conversation_agent`), so a renderer is never sent more
 /// than it is ready to draw.
@@ -37,11 +40,18 @@ pub const MOST_LISTED: usize = 500;
 /// words (`docs/design/shell.md`, *The agent at work*).
 pub const WORKING: &str = "alo is working on this page \u{b7} click anywhere to take over";
 
+/// What the agent says while the page is the person's, having been taken
+/// over (queue item 825).
+pub const PAUSED: &str =
+    "You took over: the page is yours. alo carries on from it as you leave it.";
+
 /// The agent at work on a card's page.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AtWork {
     /// What the person asked of it.
     pub asked: String,
+    /// Its plan, once it wrote one (queue item 824).
+    pub plan: Option<Plan>,
     /// Each step it took, oldest first.
     pub steps: Vec<Step>,
     /// What it is doing now.
@@ -101,7 +111,16 @@ pub enum Now {
     Asking {
         /// What it would do, in a person's words.
         what: String,
+        /// What a press that pays pays, as the page says it (queue item
+        /// 826): shown with the question, which is answered *Pay* or *Not
+        /// now*; [`None`] for a press that does not pay. Boxed: few
+        /// questions pay, and every card carries what it is doing.
+        paying: Option<Box<Paying>>,
     },
+    /// Held while the page is the person's: they pressed it while it worked
+    /// (*click anywhere to take over*), and it carries on from the page as
+    /// they leave it when they press *Let alo continue* (queue item 825).
+    Paused,
     /// Stuck: why, and what it could do instead, the closest to what was
     /// asked first.
     Stuck {
@@ -128,6 +147,7 @@ impl AtWork {
     pub fn starting(asked: impl Into<String>) -> Self {
         Self {
             asked: asked.into(),
+            plan: None,
             steps: Vec::new(),
             now: Now::Acting,
             choosing: None,
@@ -135,9 +155,21 @@ impl AtWork {
     }
 
     /// Whether it is still on the page — acting, or waiting on the person
-    /// — so that the page is outlined and *Stop* is drawn.
+    /// — so that the page is outlined and *Stop* is drawn. Paused, the page
+    /// is the person's, and it is not.
     pub fn is_working(&self) -> bool {
         matches!(self.now, Now::Acting | Now::Asking { .. })
+    }
+
+    /// Whether it is held while the page is the person's (queue item 825).
+    pub fn is_paused(&self) -> bool {
+        matches!(self.now, Now::Paused)
+    }
+
+    /// Whether its task is finished, so that every step of its plan is
+    /// done.
+    pub fn is_finished(&self) -> bool {
+        matches!(self.now, Now::Done { .. })
     }
 
     /// What its finished line says: *Done in 1 step*, *Done in 6 steps*.
@@ -183,8 +215,12 @@ mod tests {
         assert!(work.is_working());
         work.now = Now::Asking {
             what: "Press \u{201c}Send\u{201d}".to_owned(),
+            paying: None,
         };
         assert!(work.is_working());
+        work.now = Now::Paused;
+        assert!(!work.is_working());
+        assert!(work.is_paused());
         for now in [
             Now::Done {
                 said: "Sent.".to_owned(),

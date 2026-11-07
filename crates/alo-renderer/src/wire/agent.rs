@@ -12,10 +12,18 @@
 //! And each run kept with a page shown earlier (queue item 820,
 //! [`crate::agent_ran`]): at most [`MOST_RUNS`], each of at most
 //! [`MOST_STEPS`] steps, how it ended by a closed list of tags.
+//!
+//! A plan (queue item 824) is refused past [`crate::agent_plan::MOST_PLAN`]
+//! steps, a step past [`crate::agent_plan::PLAN_LINE`] characters or one on
+//! no step; what a press pays (826) past
+//! [`crate::agent_paying::MOST_SUMMARY`] lines or a line past
+//! [`crate::agent_paying::PAYING_LINE`] characters.
 
 use super::{Reader, Unreadable, Writer, unreadable};
 use crate::agent_ran::{Ended, MOST_RUNS, Ran};
-use crate::agent_work::{AtWork, Dropdown, MOST_CHOICES, MOST_LISTED, MOST_STEPS, Now, Step};
+use crate::agent_work::{
+    AtWork, Dropdown, MOST_CHOICES, MOST_LISTED, MOST_STEPS, Now, Paying, Plan, Step,
+};
 
 impl Writer {
     /// The agent at work, if it is: whether it is, then what was asked,
@@ -27,12 +35,14 @@ impl Writer {
         };
         self.bool(true);
         self.text(&work.asked);
+        self.plan(work.plan.as_ref());
         self.steps(&work.steps);
         match &work.now {
             Now::Acting => self.tag(0),
-            Now::Asking { what } => {
+            Now::Asking { what, paying } => {
                 self.tag(1);
                 self.text(what);
+                self.paying(paying.as_deref());
             }
             Now::Stuck { why, choices } => {
                 self.tag(2);
@@ -47,6 +57,7 @@ impl Writer {
                 self.tag(4);
                 self.text(why);
             }
+            Now::Paused => self.tag(5),
         }
         // The closed list it chooses in (queue item 810).
         self.bool(work.choosing.is_some());
@@ -65,6 +76,7 @@ impl Writer {
         self.number(runs.len() as u64);
         for ran in runs {
             self.text(&ran.asked);
+            self.plan(ran.plan.as_ref());
             self.steps(&ran.steps);
             match &ran.ended {
                 Ended::Done { said } => {
@@ -80,6 +92,30 @@ impl Writer {
                     self.text(why);
                 }
             }
+        }
+    }
+
+    /// A plan, if there is one (queue item 824): its steps, then the place
+    /// of the one it is on.
+    fn plan(&mut self, plan: Option<&Plan>) {
+        self.bool(plan.is_some());
+        if let Some(plan) = plan {
+            self.texts(&plan.steps);
+            self.number(plan.on as u64);
+        }
+    }
+
+    /// What a press pays, if it pays (queue item 826): the amount if the
+    /// page shows one, who is paid, and the page's summary lines.
+    fn paying(&mut self, paying: Option<&Paying>) {
+        self.bool(paying.is_some());
+        if let Some(paying) = paying {
+            self.bool(paying.amount.is_some());
+            if let Some(amount) = &paying.amount {
+                self.text(amount);
+            }
+            self.text(&paying.merchant);
+            self.texts(&paying.lines);
         }
     }
 
@@ -106,6 +142,7 @@ impl Reader<'_> {
         let mut runs = Vec::with_capacity(count);
         for _ in 0..count {
             let asked = self.text()?;
+            let plan = self.plan()?;
             let steps = self.steps()?;
             let ended = match self.tag()? {
                 0 => Ended::Done { said: self.text()? },
@@ -117,11 +154,60 @@ impl Reader<'_> {
             };
             runs.push(Ran {
                 asked,
+                plan,
                 steps,
                 ended,
             });
         }
         Ok(runs)
+    }
+
+    /// A plan, as [`Writer::plan`] wrote it, refused past its bounds.
+    fn plan(&mut self) -> Result<Option<Plan>, Unreadable> {
+        if !self.bool()? {
+            return Ok(None);
+        }
+        let steps = self.texts()?;
+        let on = usize::try_from(self.number()?).unwrap_or(usize::MAX);
+        let plan = Plan { steps, on };
+        if !plan.is_bounded() {
+            return Err(unreadable(format!(
+                "a plan of {} steps on its step {}, past what is drawn: one to {} steps of at most \
+                 {} characters, on one of them",
+                plan.steps.len(),
+                plan.on,
+                crate::agent_plan::MOST_PLAN,
+                crate::agent_plan::PLAN_LINE
+            )));
+        }
+        Ok(Some(plan))
+    }
+
+    /// What a press pays, as [`Writer::paying`] wrote it, refused past its
+    /// bounds.
+    fn paying(&mut self) -> Result<Option<Paying>, Unreadable> {
+        if !self.bool()? {
+            return Ok(None);
+        }
+        let amount = if self.bool()? {
+            Some(self.text()?)
+        } else {
+            None
+        };
+        let paying = Paying {
+            amount,
+            merchant: self.text()?,
+            lines: self.texts()?,
+        };
+        if !paying.is_bounded() {
+            return Err(unreadable(format!(
+                "what a press pays told in {} lines, past the {} drawn of at most {} characters",
+                paying.lines.len(),
+                crate::agent_paying::MOST_SUMMARY,
+                crate::agent_paying::PAYING_LINE
+            )));
+        }
+        Ok(Some(paying))
     }
 
     /// Steps, as [`Writer::steps`] wrote them: at most [`MOST_STEPS`].
@@ -149,10 +235,14 @@ impl Reader<'_> {
             return Ok(None);
         }
         let asked = self.text()?;
+        let plan = self.plan()?;
         let steps = self.steps()?;
         let now = match self.tag()? {
             0 => Now::Acting,
-            1 => Now::Asking { what: self.text()? },
+            1 => Now::Asking {
+                what: self.text()?,
+                paying: self.paying()?.map(Box::new),
+            },
             2 => {
                 let why = self.text()?;
                 let choices = self.texts()?;
@@ -166,6 +256,7 @@ impl Reader<'_> {
             }
             3 => Now::Done { said: self.text()? },
             4 => Now::Stopped { why: self.text()? },
+            5 => Now::Paused,
             other => return Err(unreadable(format!("an agent doing what is tagged {other}"))),
         };
         let choosing = if self.bool()? {
@@ -185,6 +276,7 @@ impl Reader<'_> {
         };
         Ok(Some(AtWork {
             asked,
+            plan,
             steps,
             now,
             choosing,

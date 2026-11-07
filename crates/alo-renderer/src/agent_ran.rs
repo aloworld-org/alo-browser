@@ -18,6 +18,7 @@
 //! Every string here is a stranger's — what the person asked, what the
 //! model wrote — and enters the document as a text node.
 
+use crate::agent_plan::Plan;
 use crate::agent_work::{Step, done_in};
 
 /// The most runs kept with one page: the newest; an older one past this is
@@ -37,6 +38,9 @@ pub const CLOSED: &str = "alo was closed before this was finished.";
 pub struct Ran {
     /// What the person asked of it.
     pub asked: String,
+    /// Its plan as it last stood, if it wrote one (queue item 824), its
+    /// words kept as every other line's are.
+    pub plan: Option<Plan>,
     /// Each step it took, oldest first, in words.
     pub steps: Vec<Step>,
     /// How it ended.
@@ -71,6 +75,7 @@ impl Ran {
     pub fn starting(asked: impl Into<String>) -> Self {
         Self {
             asked: asked.into(),
+            plan: None,
             steps: Vec::new(),
             ended: Ended::Stopped {
                 why: CLOSED.to_owned(),
@@ -81,6 +86,11 @@ impl Ran {
     /// What its finished line says: *Done in 1 step*, *Done in 6 steps*.
     pub fn done_in(&self) -> String {
         done_in(self.steps.len())
+    }
+
+    /// Whether it finished, so that every step of its plan is done.
+    pub fn is_finished(&self) -> bool {
+        matches!(self.ended, Ended::Done { .. })
     }
 }
 

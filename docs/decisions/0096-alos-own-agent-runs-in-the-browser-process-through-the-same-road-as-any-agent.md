@@ -1,6 +1,6 @@
 # ADR 0096 — alo's own agent runs in the browser process, through the same road as any agent
 
-**Status:** accepted — built by queue item 704 (1 November 2026); amended by item 819 (the split view, below)
+**Status:** accepted — built by queue item 704 (1 November 2026); amended by item 819 (the split view, below), and by items 824, 825 and 826 (its plan, taking over and carrying on, a payment's details and a card's — 7 November 2026, below; ADR 0099)
 **Date:** 2026-11-01
 **Context:** ADR 0002 (the layout tree is the agent's tree; no verb takes a
 coordinate; no screenshot to the agent); ADR 0052 (the agent's gate and the
@@ -195,8 +195,8 @@ first*, and with no key why, as the answer does.
 
 - ~~**The split view**~~ — built 1 November 2026 (item 819, the amendment
   below).
-- **A sentence of plan, and the next steps greyed**: the model chooses one
-  step at a time and is not asked for a plan — item 824.
+- ~~**A sentence of plan, and the next steps greyed**~~ — built 7
+  November 2026 (item 824, the second amendment below).
 - ~~**The run as turns of the conversation, kept in the chat's file**~~ —
   built 1 November 2026 (item 820, ADR 0092's amendment): each run kept
   with its page in words, never a text typed that the person did not say,
@@ -205,10 +205,11 @@ first*, and with no key why, as the answer does.
   amendment).
 - **An agent that opens its own page**: alo works only on the page open as
   a card — item 821.
-- **Taking over and carrying on** from what the page then shows: a press on
-  the page stops the run; asking again starts a new one — item 825.
-- **What, when, where and how much** in a payment's question, and *Confirm
-  and pay*: the question names what is pressed and where — item 826.
+- ~~**Taking over and carrying on**~~ — built 7 November 2026 (item 825,
+  below).
+- ~~**What, when, where and how much** in a payment's question~~ — built 7
+  November 2026 as the amount, the merchant and the page's own summary
+  lines, with *Pay* (item 826, below, and ADR 0099).
 - **Settings for what alo may do** — item 705; **the record read back** —
   item 678.
 
@@ -250,3 +251,57 @@ run reads, sends, asks and refuses (§§ 1–6) does not.
   § 7 has it: a stuck run has ended, so its choices are pressed there.
 - **Cut**: a plan and the next steps greyed (824); carrying on after
   taking over (825); a payment's details and *Confirm and pay* (826).
+
+## Amendment — 7 November 2026: its plan, taking over and carrying on, and paying (items 824, 825, 826)
+
+The owner's three designs of 6 November 2026, approved 2026-11-06
+(`docs/design/shell.md`, *The agent's plan*, *Taking over and carrying
+on*, *Paying*). What the run reads and the road it acts through (§ 1) do
+not change.
+
+- **§ 2, its tools: a plan.** The three verbs each carry `plan` — a list
+  of strings or `null`, in the strict schema: with the first action two to
+  five short steps of the whole task, after that `null` unless the plan
+  must change, then the whole new one — and `on`, the plan's step the
+  action is for, counting from 1. At most five steps of at most 80
+  characters are kept; a step number past the last is the last; no plan is
+  none drawn. `done` and `stuck` are unchanged.
+- **§ 3, what is sent: the plan, and the person's changes.** Each request
+  carries the plan as it stands, each step `done`, `now` or `ahead`, or
+  `null`. A step of the person's — *The person took the page over, then
+  let alo continue* — says what they changed (below); it is not one of the
+  run's verbs and is not counted against `MOST_STEPS`. The instructions say
+  so, and to go on from the page as it is and not undo what the person
+  did unless asked. Withheld (§ 3's list) now names *expiry*,
+  *expiration*, *mm/yy* and *csc* too.
+- **§ 4, Stop: a press on the page holds, not stops.** `Run::pause` — any
+  press of the person's on the card's page while it works — is seen where
+  `Run::stop` is: nothing more is sent, a model's answer in flight is
+  thrown away, a question waiting is dropped, a verb already sent is
+  finished. The thread waits; `Run::carry_on` (*Let alo continue*) reads
+  the page anew, tells the model what changed since the run last read it
+  (`agent_changes.rs`: the address before and after; each field changed
+  on the same page, by name — never a password's value or a card's
+  details, which are said only as changed; how far the run had got) and
+  goes on, its steps and tokens counted across. Held **ten minutes**
+  (`MOST_PAUSE`), it stops and says so. *Stop*, another page, the card
+  closed or another request still stop it.
+- **§ 5, the person's gate: what a payment pays.** A press held because it
+  pays — now also *Confirm* or *Complete* on a page showing a total — is
+  asked with the amount, the merchant and the page's summary lines, read
+  off the same tree by the browser process (ADR 0099 § 1), answered *Pay*
+  or *Not now*; pressed only if the page, read again, would ask exactly
+  the same. The gate holds after carrying on as before.
+- **§ 6, never a password — nor a card's details.** A sibling refusal,
+  `CardDetails`, for every agent on a card's page, whatever the page names
+  the field (ADR 0099 § 2); met by alo's agent, the run is stuck.
+- **§ 7, what the person sees**: the plan under what was asked (done
+  ticked, the step it is on bold, the rest greyed); held, *You took over:
+  the page is yours…* and *Let alo continue*, the window the conversation
+  again; asked to pay, *Amount*, *To*, the summary lines and *Pay*.
+  Agents read a list *Plan* of items named *Done: …*, *Now: …* (`aria-
+  current="step"`), *Next: …*; *Let alo continue* as a button; the
+  summary as a list *What you pay for*.
+- **Kept** (ADR 0092): each run's plan as it last stood, scrubbed as its
+  lines are; nothing of a payment's details.
+

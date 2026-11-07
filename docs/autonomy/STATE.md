@@ -49297,3 +49297,126 @@ through `perl -MPOSIX=setsid` and waited on by its PID). **Summary
 *"The gate is met." (11 of 11 steps)*. `scripts/gate.sh` not edited.
 
 The next unused queue number is **857** and the next ADR is **0099**.
+
+## 2026-11-07 — items 824, 825, 826 and 857: its plan, taking over and carrying on, a payment's details, and the menu's quote
+
+Batched under one gate, at the owner's asking: three designs the owner
+approved on 6 November 2026 (*"I agree"*) — the agent's plan, *Let alo
+continue* after taking over, and a payment's details with *Pay* — written
+into `docs/design/shell.md` (*The agent's plan*, *Taking over and carrying
+on*, *Paying*) and queue items 824, 825 and 826 as approved by the owner
+2026-11-06, every detail the designs left open settled there; and 857,
+the menu line's closing quote, found by 855's hand run. Contracts read:
+`CLAUDE.md`, `LOOP.md`, ADRs 0096 (amended), 0095, 0081, 0002, 0052,
+0055, 0092 (amended), 0098; a new ADR, **0099** (a payment shown from the
+page's own tree; a card's details never an agent's). No `unsafe`.
+
+**824 — its plan.** Each verb's strict schema carries `plan` (strings or
+`null`) and `on`; at most five steps of 80 characters kept; the plan sent
+back with every request, each step `done`/`now`/`ahead`; a new plan
+replaces it whole. `alo-renderer`'s `agent_plan.rs`; drawn under what was
+asked in both columns — done ticked in the quiet colour, the current in
+the ink 600, the rest `#bdb6aa`; on the wire and in the chat's file,
+refused past its bounds; kept scrubbed of typed texts; an agent reads a
+list *Plan* of *Done: …*, *Now: …* (`aria-current="step"`), *Next: …*.
+*(`chrome_mark::Plan` from 822 is a mark's plan, unrelated; named so in
+`agent_plan.rs`.)*
+
+**825 — taking over.** A press on the page holds the run (`Run::pause`):
+nothing more sent, a model's answer in flight thrown away, a question
+dropped; the window the conversation again with *You took over…* and
+**Let alo continue** (`Claim::Continue`, `Decided::Continue`, kept painted
+by the drawing thread). Pressed, the page is read anew and the model told,
+as a step of the person's not counted against its 20, what changed
+(`agent_changes.rs`: address before and after; fields by name, text,
+checked, chosen; never a secret's value; how far it had got). The gate
+holds after; held ten minutes it stops.
+
+**826 — paying (ADR 0099).** `agent_paying.rs` reads the amount (in what
+is pressed, else a total's line — never a price merely nearest), the
+merchant (title and host) and the summary off the tree, never a script or
+the model; *Confirm*/*Complete* pay beside a total; *Pay* in place of
+*Allow*, pressed only if the page asks exactly the same again. A card's
+number, security code or expiry refused by the card for every agent, kind
+`CardDetails` (contract updated), by `autocomplete` `cc-*` or the names
+such a field goes by; *expiry*, *mm/yy*, *csc* withheld from the model.
+Cut: a card's field in a payment provider's frame (858), not measured.
+
+**857 — the menu's quote.** A box the stylesheet clips is as wide as its
+room, so the `…` stood a part-letter from the quote; the renderer now
+measures the words with its own measurer in the line's face and writes
+them cut (`menu_fit.rs`). `card-menu-cut.png` redrawn, looked at before
+and after.
+
+**Tests:** unit (plan, paying data; protocol: strict fields, plan read and
+sent, the person's step; the agent: plan told and sent, taken over while
+asking and carried on with what changed and its steps left, held past its
+most, a payment asked with what it pays, a card's number stuck; work,
+window, kept, record, gate, reading, protocol, changes, paying — Chrome's
+own layout-table tree among them; the wire's crossings and refusals);
+layout in numbers and new references `agent-plan.png`, `agent-paying.png`,
+`agent-paused.png` (`the_agents_plan.rs`, `a_payments_question.rs`,
+`taken_over_and_carried_on.rs`), each run once without update mode,
+written, looked at; `card-menu-cut.png` redrawn in
+`the_page_menus_words_cut_at_its_edge.rs` (all five faces). Through both
+Chromiums (`the_agent_at_work_on_a_card_through_chrome.rs`, extended): a
+field *Your long number* with `autocomplete="cc-number"` refused by kind,
+the page hearing nothing; the page taken over while the model thinks, its
+answer thrown away, *Let alo continue* found on the screen and pressed,
+the model told the person's step, the run done with its plan kept; read
+back from the file. **Found by that test, fixed:** *Let alo continue*
+refused as not shown — the drawing thread did not keep the run painted
+held. **Mutations**, each caught: a step done at the step it is on; the
+plan not drawn; the plan not told; a press on the page stopping; *Let alo
+continue* not drawn; the person's step counted; *Allow* for *Pay*; the
+card check skipped (through Chrome: the field typed); the nearest price
+taken; Chrome's layout rows not rows; the not-found sentence a flex row;
+the menu's words not cut; a room 20 narrower.
+
+**By hand** (screen unlocked; release and CEF host built, the `.app`
+remade by `alo-bundle --keys-from keychain`, keys never printed;
+`--conversation --chats handrun36/chats`, `0700`; the window at 120, 60,
+1280 × 852 points on the Retina display; typing through System Events —
+the private-source key tool's posts arrived as spaces and were cleared; a
+local `http.server` on 127.0.0.1:8736 serving the scratchpad's test shop;
+screenshots in the session scratchpad's `handrun36/`): Wikipedia —
+*Search Wikipedia for Kampala…*: the plan *Search for Kampala* bold, *Open
+the article and find its population* grey (`05`), done with both ticked
+(`06`); a three-step plan with the first ticked, the second bold, the
+third grey (`08`, the sequence beside it), done (`09`). The shop: *Fill
+in my name as Ada and the delivery note…, then pay for my order* — plan
+written, both fields typed, asked to pay (`11`); the page pressed: held,
+*Let alo continue* (`12`); *Ada Lovelace* and *Gift wrap* changed by hand
+(`13`); carried on, the model told exactly those two changes and the step
+reached, asked again to pay (`14`); *Not now*, `/paid` never requested
+(`15`). **Found by hand, fixed:** that question said the amount and the
+summary could not be found, and that sentence ran past its box — Chrome
+reads a table with no headers as `LayoutTable`/`LayoutTableRow`; fixed,
+unit tests from Chrome's own tree and a layout assertion, seen fixed after
+a rebuild: *Amount UGX 45,000*, *To Kampala Coffee — Checkout
+(127.0.0.1:8736)*, the three summary lines, *Pay* and *Not now* (`19`);
+*Not now*, nothing paid (`20`). The card field: over the socket, `put_text`
+into *Your long number* answered `CardDetails`, the page's `/card-typed`
+never requested (`16-card-refused-over-the-socket.txt`); alo's own agent
+asked to type the test number refused by itself, stuck (`17`) — so the
+card's refusal was not met by alo's agent by hand, only through the
+socket and the through-Chrome test. The menu: a long word selected,
+*Search for “WWWWWWW…”* with the quote right after the `…` in Inter
+(`21`) and Instrument Sans (`22`). The earlier chat reopened after a
+relaunch, its runs kept with their plans as they stood (`23`). Quit with
+`tell application id "org.aloworld.Browser" to quit`; the server stopped;
+no alo process left; the pointer at 1400, 1000. **Spend:** OpenAI 26
+requests, 430,324 tokens in and 1,298 out — at most **$0.44** at Terra's
+$1 and $5 a million (less where cached); **no Brave search**. **Not seen
+by hand:** a pause ended by its ten minutes; *Confirm* as a paying press;
+a summary under a heading; the plan revised mid-run.
+
+ROADMAP: the interface line's owed list loses 824, 825 and 826 and gains
+858; *Built since* names 857 and the three designs.
+
+**Gate: met, first run** (CEF_PATH set, the pointer at 1400, 1000; detached
+through `perl -MPOSIX=setsid` and waited on by its PID). **Summary
+[1202.299s] 6569 tests run: 6569 passed (7 slow, 1 leaky), 0 skipped** —
+*"The gate is met." (11 of 11 steps)*. `scripts/gate.sh` not edited.
+
+The next unused queue number is **859** and the next ADR is **0100**.

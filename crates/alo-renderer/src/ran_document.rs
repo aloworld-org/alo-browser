@@ -57,6 +57,11 @@ fn make(document: &mut Document, ran: &Ran) -> Result<NodeId, Unbuilt> {
     attribute(document, made, "class", "ran")?;
     attribute(document, made, "role", "region")?;
     attribute(document, made, "aria-label", RAN)?;
+    // Its plan as it last stood (queue item 824), as the column drew it.
+    if let Some(plan) = &ran.plan {
+        let plan = crate::agent_document::planned(document, plan, ran.is_finished())?;
+        append(document, made, plan)?;
+    }
     if !ran.steps.is_empty() {
         let list = element(document, "ol")?;
         attribute(document, list, "class", "steps")?;
@@ -126,6 +131,7 @@ mod tests {
     fn each_run_is_the_persons_bubble_then_what_alo_did() {
         let document = visited(vec![
             Ran {
+                plan: None,
                 asked: "Search Wikipedia for Kampala".to_owned(),
                 steps: vec![
                     Step {
@@ -181,6 +187,7 @@ mod tests {
     fn a_runs_words_stay_text() {
         let hostile = "</p><script>x()</script><b>b</b>";
         let document = visited(vec![Ran {
+            plan: None,
             asked: hostile.to_owned(),
             steps: vec![Step {
                 line: hostile.to_owned(),

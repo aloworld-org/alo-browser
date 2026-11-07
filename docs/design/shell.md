@@ -516,8 +516,11 @@ itself shows its own. Otherwise alo draws its menu where the press was:
 *Copy* (greyed when nothing is selected), *Copy link* and *Open link in
 new chat* over a link, and *Search for “…”* when words are selected —
 searched whole, and shown ending in `…` where the line reaches the menu's
-edge, the closing quote kept, in any face (item 855: a cut at 16
-characters fitted ordinary words, never wide letters). A white box
+edge, the closing quote kept and following the `…` directly, in any face
+(item 855: a cut at 16 characters fitted ordinary words, never wide
+letters; item 857: the renderer measures the words in the line's face and
+writes them already cut, since a box the stylesheet clips is as wide as
+its room and left the quote at the menu's edge, apart from the `…`). A white box
 rounded 10 under a line-colour border and a soft shadow, 220 wide, a line
 30 tall in the ink, 13 px 500, 12 in from its left, 4 above the first
 line and below the last; its top left corner at the press, moved left to
@@ -582,12 +585,12 @@ by 14 inside, the question (600), then **Allow** in the ink and **Not
 now**, 28 tall, 8 apart. Stuck: why, then each choice as a button. Done:
 *Done in N steps* in the done colour and the result in full. A press on
 the page stops it and gives the person the page. It never types a
-password: the card refuses it, for any agent. Nothing of Chrome's is
-drawn over the card's page — no inspector highlight, no tooltip (822);
-alo's own ring on a card is 823. Not built yet: a sentence of plan and
-the next steps greyed (824), carrying on after taking over (825), what,
-when, where and how much before paying, and *Confirm and pay* (826); an
-agent opening its own page (821). **Each run is kept** with the page it
+password, nor a card's number, security code or expiry: the card refuses
+them, for any agent (826). Nothing of Chrome's is drawn over the card's
+page — no inspector highlight, no tooltip (822); alo's own ring on a card
+is 823. Its plan (824), taking over and carrying on (825) and what a
+payment pays (826) are below. Not built yet: an agent opening its own
+page (821). **Each run is kept** with the page it
 worked on (820): once the page is shown earlier, under its line, what the
 person asked as their bubble, then what alo did on a white box rounded 12,
 14 by 16 inside — its steps in the quiet colour, 6 apart, why under a step
@@ -641,21 +644,165 @@ taking over — the window is the conversation again, the panel what the
 person chose, and what the run ended with is drawn under the page in the
 card, stuck's choices with it, as before the split.
 
+### The agent's plan (item 824)
+
+The owner's design of 6 November 2026 (*"I agree"*), approved by the
+owner 2026-11-06: *before acting it writes 2–5 short steps in its column;
+done steps ticked, the current one bold, the rest greyed.* Settled by the
+builder, and recorded here:
+
+- **How it is asked.** Each of the model's three verbs (`activate`,
+  `put_text`, `scroll`) carries two more fields in the strict JSON schema
+  every tool already has: `plan`, a list of strings or `null` — with its
+  first action two to five short steps of the whole task, after that
+  `null` — and `on`, the number of the plan's step this action is for,
+  counting from 1. Both are required, as `strict` asks; `done` and `stuck`
+  carry none. No request names another, so every request is sent the plan
+  as it stands, each step's state `done`, `now` or `ahead`.
+- **Kept to its bounds.** At most five steps, each at most 80 characters
+  (cut with `…`), steps without words dropped; a step number past the last
+  is the last. A model that gives no plan has none drawn, and the run goes
+  on as before. The wire and the chat's file refuse a plan past five
+  steps, a step past 80 characters, or one on no step.
+- **Revised mid-run.** A plan given again, not `null`, replaces the plan
+  whole; the steps already taken stay in their lines below it, so nothing
+  done goes from sight. The window is told the plan each time it, or the
+  step it is on, changes.
+- **Drawn** under what was asked, 10 under it and 10 above the steps: a
+  line of 20 each, 2 apart, 13 px; its words 18 in, after a tick's room of
+  14 and 4 — the steps done ticked (`✓`) in the quiet colour, the one it is
+  on in the ink, 600, the rest greyed `#bdb6aa`. Done, every step ticked;
+  stopped or stuck, as it stood. The same in the split view's column,
+  where its words wrap rather than being cut, and in the column under the
+  page.
+- **Kept with the run** in the chat's file (ADR 0092, sealed under ADR
+  0098 like the rest): the plan as it last stood, its steps' words kept as
+  the steps' lines are — a text typed that the person did not say
+  replaced by `…` — and drawn under the page's line once it is shown
+  earlier. A chat kept before plans were reads as having none.
+- **To an agent reading the screen**: a list named *Plan*, each step a
+  list item named by where it stands and its words — *Done: Search
+  Wikipedia for Kampala*, *Now: Open the article on Kampala*, *Next: Read
+  its population* — the one it is on `aria-current="step"`.
+
+### Taking over and carrying on (item 825)
+
+The owner's design, approved by the owner 2026-11-06: *after the person
+takes over, a "Let alo continue" button; it resumes from the page as
+left, telling the model what the person changed.* Settled:
+
+- **Taking over holds the run, not ends it.** A press on the card's page
+  while alo works (*click anywhere to take over*) — or any other press of
+  the person's there — holds it at once: nothing more is sent to the
+  page, a model's answer in flight is thrown away, a question waiting on
+  the person is dropped, and a verb already sent is finished by the page.
+  The window is the conversation again (no outline, no *Stop*, the panel
+  what the person chose, Chrome told the conversation's page box), and
+  under the page the column says *You took over: the page is yours. alo
+  carries on from it as you leave it.* in the quiet colour, then **Let
+  alo continue** 10 under it, 28 tall, in the ink. The plan and the steps
+  stay drawn; no step is under way.
+- **Let alo continue** reads the page anew and tells the model, as a step
+  of the person's — *The person took the page over, then let alo
+  continue* — what they changed since the run last read it: the address
+  before and after when it moved (and then nothing of the old page's
+  fields); each field whose value changed on the same page, by its name —
+  text by its words, *from “Ada” to “Ada Lovelace”*, a checkbox or radio
+  checked or not, a list's option chosen — and fields that came or went;
+  at most twelve, each value cut to 80 characters; and where the run had
+  got to: how many steps it had taken and the step of its plan it was on.
+  **Never a password's value, never a card's details**: a field whose name
+  or hint says it holds one, or whose words are a password's dots, is said
+  only as changed, by its name. The model is told to go on from the page
+  as it is now and not to undo what the person did unless asked.
+- **The person's gate still holds.** The run carries on through the same
+  road: every press that pays, sends or deletes is asked again — a
+  question dropped as the person took over is asked anew if the model
+  chooses that press again.
+- **Its limits are counted across the pause**: its steps (the person's is
+  not one of them) and its tokens. Held ten minutes, it stops: *alo
+  stopped: the page was yours for 10 minutes. Ask again to go on from what
+  the page shows now.* *Stop* is not drawn while it is held; asking alo
+  something else, opening another page or closing the card stops it, as
+  before.
+- **Its limit, said:** the tree the run last read may have been read
+  before its last verb was carried out, so a field that verb filled reads
+  as the person's; the verb and what came of it are in the steps the
+  model is sent too.
+- **To an agent**: in the region *alo at work*, the line as a paragraph
+  and *Let alo continue* as a button, claimed as itself and decided by the
+  browser process only for the run it painted held.
+
+### Paying (item 826, ADR 0099)
+
+The owner's design, approved by the owner 2026-11-06: *before any
+pay/confirm press, the question shows amount, merchant and the page's own
+summary lines, with Pay and Not now. The agent never enters card
+numbers.* Settled:
+
+- **Which presses.** Those the person's gate holds because they pay — by
+  the words *pay, payment, buy, purchase, checkout, order, subscribe,
+  donate, book, rent* — and, since this item, *Confirm* or *Complete* on a
+  page that shows a total to pay.
+- **Read off the page's own tree, by the browser process, never by a
+  script and never asked of the model** (ADR 0099 § 1): the **amount** —
+  a currency's sign or code beside a number — in the words of what is
+  pressed (*Pay UGX 45,000*), else on the last line before it that says it
+  is a total (*Total*, *Order total*, *Amount due*, *To pay*, *You pay*,
+  *Balance due*; *Subtotal* is not one); never a price merely nearest the
+  button, which is as likely an item's. The **merchant**: the page's own
+  name for itself — its title — and the site's host, which the page cannot
+  say otherwise: *Kampala Coffee — Checkout (shop.example)*. The
+  **summary**: the page's own lines under the first region, group, list or
+  table named as a summary (*summary, your order, order, basket, cart,
+  bag*) — whatever its role but a field, a button, a link or a heading —
+  or under a heading saying so, to the next heading: a row (Chrome's
+  `LayoutTableRow` too, as it reads a table with no headers), a list item,
+  a paragraph each; never the words of a button or a field; at most six,
+  the last saying how many more. A line saying it is a total with its price
+  in the next cell takes that price.
+- **What cannot be found is said plainly, and it still asks**: *alo could
+  not find the amount on this page: read it on the page before you pay.*
+  and *alo could not find a summary of what you pay for on this page.*
+- **Drawn** in the question's box under the question: *Amount* and *To*
+  in the quiet colour 56 wide, their values 8 after in the ink, 600, the
+  amount at 15 px; 4 apart; then under a rule the summary lines, 12.5 on
+  18 in the quiet colour; then **Pay** in the ink in place of *Allow*, and
+  **Not now**. *Pay* is claimed as *Allow* is and allows only the question
+  the person was shown: the page is read again and pressed only if it
+  would ask exactly the same — the amount, the merchant and the lines too.
+- **A card's details are never the agent's** (ADR 0099 § 2): text put
+  into a field of a card's number, security code or expiry — or an option
+  chosen in such a list — on a card's page is refused **by the card, for
+  every agent**, by a refusal of its own kind, `CardDetails`, whatever the
+  page names the field: by its `autocomplete` (`cc-number`, `cc-csc`,
+  `cc-exp`, `cc-exp-month`, `cc-exp-year`), or by its `name`, `id`,
+  `placeholder`, `aria-label` or name in the tree holding a name such a
+  field goes by. A card's holder's name is not refused. Met by alo's
+  agent, the run is stuck: *This page asks for a card's details, and alo
+  never types or chooses a card's number, security code or expiry: paying
+  details are yours.* What such a field holds is withheld from the model
+  too, as a password's is.
+
 ### As designed
 
 - The window splits: the page large on the left, the agent's column on the
   right (384 px), the panel a rail (built, item 819).
-- First a sentence of plan, then **one line per step, as it happens**, in a
-  person's words — *"Choosing Saturday, 10:00"* — with why, when it chose:
-  *"8:00 is taken, so this is the earliest free morning slot"*. The next
-  steps are shown greyed, so a person knows where it will stop.
+- First its plan, two to five short steps, those done ticked, the one it
+  is on bold, the rest greyed (built, item 824); then **one line per
+  step, as it happens**, in a person's words — *"Choosing Saturday,
+  10:00"* — with why, when it chose: *"8:00 is taken, so this is the
+  earliest free morning slot"*.
 - The page has a terracotta outline and *alo is working on this page · click
-  anywhere to take over*. Clicking the page takes over; the agent pauses and
-  carries on from whatever the page then shows.
-- **It stops before paying**, with what, when, where and how much, and
-  *Confirm and pay* / *Not now*. Paying is always asked; sending, deleting
-  and cancelling are asked unless a person said otherwise.
-- **It never types a password.** Signing in is the person's step.
+  anywhere to take over*. Clicking the page takes over; the agent pauses,
+  and *Let alo continue* carries it on from whatever the page then shows
+  (built, item 825).
+- **It stops before paying**, with the amount, the merchant and the
+  page's own summary lines, and *Pay* / *Not now* (built, item 826).
+  Paying is always asked; sending, deleting and cancelling are asked
+  unless a person said otherwise.
+- **It never types a password, nor a card's details.** Signing in and
+  paying details are the person's.
 - **When it is stuck it says so** and offers choices, the closest to what was
   asked first. It never picks something it was not asked for.
 - Done: one line, *Done in 6 steps*, the result in full, and what to do next.

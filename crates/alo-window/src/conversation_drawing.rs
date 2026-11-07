@@ -377,6 +377,11 @@ impl Holding {
                 // agent's choices (queue item 704): *Allow* allows only the
                 // question the picture pressed showed.
                 self.painted.working = asked.showing.working;
+                // And the run held with the page the person's (queue item
+                // 825): *Let alo continue* carries on only the run the
+                // picture pressed showed held. Left out at first, it was
+                // refused through both Chromiums.
+                self.painted.paused = asked.showing.paused;
                 // And the site the card's shield was drawn for (queue item
                 // 807): a press on it switches only that site. Left out at
                 // first, every press on the shield was refused by hand.

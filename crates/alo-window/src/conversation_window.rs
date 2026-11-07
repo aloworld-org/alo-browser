@@ -548,7 +548,9 @@ impl ConversationWindow {
                 }
             }
         }
-        let working = self.conversation.working();
+        // A run held while the page is the person's keeps its thread (queue
+        // item 825).
+        let working = self.conversation.agent_run();
         if self
             .run
             .as_ref()
@@ -564,6 +566,22 @@ impl ConversationWindow {
             && self.told.as_deref() == Some(conversation_fold::at_work().as_str())
         {
             self.told = None;
+        }
+    }
+
+    /// *Click anywhere to take over* (queue items 704, 825): a press on the
+    /// card's page while alo's agent works there holds the run — nothing
+    /// more sent to the page, its card saying the page is the person's,
+    /// with *Let alo continue* — and the page is the person's.
+    fn take_over(&mut self) {
+        if let Some(number) = self.conversation.pause_agent() {
+            if let Some(run) = self.run.as_ref().filter(|run| run.number() == number) {
+                run.pause();
+            }
+            self.unmark();
+            self.follow_runs();
+            self.redraw = true;
+            self.ask_drawn();
         }
     }
 
@@ -594,6 +612,14 @@ impl ConversationWindow {
                 choosing.options.len()
             )),
             Said::Allowed => self.said.push("agent: allowed by the person".to_owned()),
+            Said::Planned(plan) => self.said.push(format!(
+                "agent's plan: {} (on step {})",
+                plan.steps.join(" / "),
+                plan.on + 1
+            )),
+            Said::Continued { changed } => {
+                self.said.push(format!("agent carries on: {changed}"));
+            }
             Said::Stuck { why, .. } => self.said.push(format!("agent is stuck: {why}")),
             Said::Done { result } => self.said.push(format!("agent is done: {result}")),
             Said::Stopped { why } => self.said.push(format!("agent stopped: {why}")),
@@ -622,6 +648,8 @@ impl ConversationWindow {
         match pressed {
             Decided::Allow(question) => run.allow(*question),
             Decided::NotNow(question) => run.not_now(*question),
+            // *Let alo continue* (queue item 825), for the run held.
+            Decided::Continue(number) if *number == run.number() => run.carry_on(),
             _ => {}
         }
     }
@@ -1139,15 +1167,7 @@ impl ConversationWindow {
         if self.told.take().is_some() {
             self.redraw = true;
         }
-        if self
-            .conversation
-            .stop_agent(crate::conversation::TAKEN_OVER)
-            .is_some()
-        {
-            self.follow_runs();
-            self.redraw = true;
-            self.ask_drawn();
-        }
+        self.take_over();
         if self.conversation.press_the_page() {
             self.ask_drawn();
         }
@@ -1424,16 +1444,8 @@ impl ConversationWindow {
                     self.redraw = true;
                 }
                 // *Click anywhere to take over* (queue item 704): the agent
-                // at work stops, and the page is the person's.
-                if self
-                    .conversation
-                    .stop_agent(crate::conversation::TAKEN_OVER)
-                    .is_some()
-                {
-                    self.follow_runs();
-                    self.redraw = true;
-                    self.ask_drawn();
-                }
+                // at work is held, and the page is the person's (825).
+                self.take_over();
                 if self.conversation.press_the_page() {
                     self.ask_drawn();
                 }
@@ -3248,6 +3260,36 @@ mod tests {
         window.moved((400.0, 400.0));
         window.main_button_pressed();
         assert!(!window.conversation().at_work(), "taken over");
+        // Held, not ended (queue item 825): the run kept, its card saying
+        // the page is the person's, the page streamed at the
+        // conversation's page box while it is theirs.
+        assert_eq!(window.conversation().agent_run(), Some(1));
+        assert_eq!(
+            window
+                .conversation()
+                .card()
+                .and_then(|card| card.agent.as_ref())
+                .map(|work| &work.now),
+            Some(&alo_renderer::agent_work::Now::Paused)
+        );
+        // A second press on the page is the page's alone.
+        window.main_button_released();
+        window.main_button_pressed();
+        assert_eq!(window.conversation().agent_run(), Some(1));
+        // *Let alo continue*: at work again, the split view back.
+        window.heard(Heard::Drawn(Drawn::Pressed(
+            Part::Start,
+            Decided::Continue(1),
+        )));
+        assert!(window.conversation().at_work(), "carried on");
+        // One for another run carries nothing on.
+        window.main_button_released();
+        window.main_button_pressed();
+        window.heard(Heard::Drawn(Drawn::Pressed(
+            Part::Start,
+            Decided::Continue(2),
+        )));
+        assert!(!window.conversation().at_work());
         window.finish();
     }
 

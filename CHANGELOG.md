@@ -6,6 +6,24 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **alo's agent shows its plan.** Before it acts on a page, alo writes two
+  to five short steps of the task in its column: the steps done are
+  ticked, the one it is on is in bold, and the rest are greyed. The plan
+  is kept with the run in your chat.
+- **Take over, then let alo continue.** Pressing the page while alo works
+  now pauses it rather than stopping it: the page is yours, and *Let alo
+  continue* carries it on from the page as you left it, telling it what
+  you changed — never a password or a card's details. Paying, sending and
+  deleting are still asked first. A pause ends by itself after ten
+  minutes.
+- **What a payment pays, before it is paid.** Before alo presses anything
+  that pays, it shows the amount, who is paid and the page's own summary
+  lines, read from the page itself, with *Pay* and *Not now* — and says
+  plainly when the page shows no amount or no summary. No agent can type
+  or choose a card's number, security code or expiry on a page in the
+  conversation, whatever the page calls the field.
+- **The page menu's quote follows its ellipsis.** In *Search for “…”*,
+  long words cut with `…` now end with the closing quote right after it.
 - **alo is set in Inter.** Every word of alo's own interface — the panel,
   the results, the cards' bars, the agent's column — is now set in Inter;
   the *alo* mark and the greeting stay in Newsreader.

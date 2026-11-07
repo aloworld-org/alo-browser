@@ -817,28 +817,43 @@ impl Renderer {
     /// held.
     fn start(&mut self, start: &Start) -> FromRenderer {
         match start_document::build(start) {
-            Ok(document) => self.interface(
-                document,
-                start.viewport,
-                start.scale,
-                crate::start::address(),
-                (
-                    start_document::SHEET,
-                    start
-                        .card()
-                        .and_then(crate::card_document::frame)
-                        .into_iter()
-                        .chain(crate::images_document::pictures(start))
-                        .chain(crate::videos_document::pictures(start))
-                        .chain(crate::news_document::pictures(start))
-                        .chain(crate::marks_document::pictures(start))
-                        .collect(),
-                    false,
-                ),
-                Holds::Conversation(Part::Start),
-            ),
+            Ok(mut document) => {
+                // The menu's *Search for “…”* cut by its measured width,
+                // so the closing quote follows the `…` (queue item 857).
+                crate::menu_fit::fit(
+                    &mut document,
+                    &self.easel.borrow().fonts,
+                    start.face.family(),
+                    start.scale,
+                );
+                self.start_built(start, document)
+            }
             Err(unbuilt) => FromRenderer::Failed(Failure::NoStart { why: unbuilt.why }),
         }
+    }
+
+    /// The first screen built as `document` from `start`, held.
+    fn start_built(&mut self, start: &Start, document: alo_dom::Document) -> FromRenderer {
+        self.interface(
+            document,
+            start.viewport,
+            start.scale,
+            crate::start::address(),
+            (
+                start_document::SHEET,
+                start
+                    .card()
+                    .and_then(crate::card_document::frame)
+                    .into_iter()
+                    .chain(crate::images_document::pictures(start))
+                    .chain(crate::videos_document::pictures(start))
+                    .chain(crate::news_document::pictures(start))
+                    .chain(crate::marks_document::pictures(start))
+                    .collect(),
+                false,
+            ),
+            Holds::Conversation(Part::Start),
+        )
     }
 
     /// Hold a part of the browser's own interface — a document built from

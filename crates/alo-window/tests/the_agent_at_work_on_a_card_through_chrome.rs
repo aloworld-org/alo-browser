@@ -28,23 +28,31 @@
 //! 3. **A password is never typed**: `put_text` into *Password* is refused
 //!    by the card, by kind, and the run says it is stuck; the page heard
 //!    no input in the field.
-//! 4. **Stop**, pressed while the model is thinking: nothing more is done.
-//! 5. **A press on the page takes over**: the run stops, the page is the
-//!    person's, nothing more is done.
-//! 6. **The step limit**: twenty presses, then it stops and says so.
-//! 7. **A provider error** is said, and nothing is done.
-//! 8. **The split view** (queue item 819): while it works the panel is
+//! 4. **A card's details are never typed** (queue item 826, ADR 0099):
+//!    `put_text` into a field the page calls *Your long number*, its
+//!    `autocomplete` `cc-number`, is refused by the card, by kind, and the
+//!    run says it is stuck; the page heard no input in the field.
+//! 5. **Stop**, pressed while the model is thinking: nothing more is done.
+//! 6. **A press on the page takes over** (queue item 825): the run is
+//!    held, the page is the person's, nothing more is done — the model's
+//!    answer in flight thrown away — until *Let alo continue*, found on the
+//!    screen and pressed: the model is then told, as a step of the
+//!    person's, what they changed, and the run finishes, its plan (824)
+//!    kept on the card.
+//! 7. **The step limit**: twenty presses, then it stops and says so.
+//! 8. **A provider error** is said, and nothing is done.
+//! 9. **The split view** (queue item 819): while it works the panel is
 //!    the rail, the first screen the split view, and the card's page
 //!    streamed at the split's page box, 798 × 740 — Chrome told the new
 //!    size and every frame at it — and once the run ends, the panel back
 //!    and the page streamed at the conversation's 878 × 520 again. *Allow*,
 //!    *Not now* and *Stop* are found and pressed in the agent's column, and
 //!    the page taken over by a press on the split's page box.
-//! 9. **Every run kept as turns of the chat** (queue item 820): the chat's
-//!    file, read back, holds each run with the page it worked on — what
-//!    was asked, its steps in words, how it ended — and never the text it
-//!    typed into the password field, which the person did not say, nor
-//!    the password the page held.
+//! 10. **Every run kept as turns of the chat** (queue item 820): the chat's
+//!     file, read back, holds each run with the page it worked on — what
+//!     was asked, its steps in words, how it ended — and never the text it
+//!     typed into the password field, which the person did not say, nor
+//!     the password the page held.
 //!
 //! The real pointer is never moved and no key is posted to the system.
 //! Never the real network: every address is `http://127.0.0.1:PORT/…`.
@@ -61,13 +69,14 @@ use alo_renderer::card_place;
 use alo_renderer::host::Renderers;
 use alo_renderer::split_place;
 use alo_renderer::turn::Turn;
+use alo_window::agent_protocol::PERSON;
 use alo_window::agent_sites::AgentSites;
 use alo_window::beside::{Chromium, renderer_beside};
 use alo_window::chat_record;
 use alo_window::chat_seal::Key as ChatKey;
 use alo_window::chat_store::ChatStore;
-use alo_window::conversation::{STOPPED, TAKEN_OVER};
-use alo_window::conversation_agent::{Agent, MOST_STEPS, TellAgent};
+use alo_window::conversation::STOPPED;
+use alo_window::conversation_agent::{Agent, CARD_DETAILS, MOST_STEPS, TellAgent};
 use alo_window::conversation_agents::relay;
 use alo_window::conversation_chrome::{ChromeOpener, Went};
 use alo_window::conversation_drawing::{ConversationDrawing, Drawn};
@@ -143,10 +152,12 @@ const FORM: &str = "<!doctype html><title>Form</title><h1>A form</h1>\
 <form action=\"/sent\" method=\"post\">\
 <p><label>Name <input name=\"name\"></label></p>\
 <p><label>Password <input id=\"pw\" type=\"password\" name=\"pw\" value=\"hunter2\"></label></p>\
+<p><label>Your long number <input id=\"cc\" name=\"n\" autocomplete=\"cc-number\"></label></p>\
 <p><button>Send</button></p></form>\
 <p><button type=\"button\" onclick=\"fetch('/hello')\">Say hello</button></p>\
 <p><a href=\"/deleted\">Delete everything</a></p>\
-<script>document.getElementById('pw').addEventListener('input', function () { fetch('/typed'); });</script>";
+<script>document.getElementById('pw').addEventListener('input', function () { fetch('/typed'); });\
+document.getElementById('cc').addEventListener('input', function () { fetch('/card'); });</script>";
 
 /// What the page's server was asked: each request's path, and a POST's
 /// body after it.
@@ -338,7 +349,9 @@ fn answer(model: &Model, body: &str) -> (u16, String) {
                     200,
                     calling(
                         "activate",
-                        &format!(r#"{{"node":{node},"step":"Pressing {name}","why":""}}"#),
+                        &format!(
+                            r#"{{"node":{node},"step":"Pressing {name}","why":"","plan":["Press {name}","Finish"],"on":1}}"#
+                        ),
                     ),
                 );
             }
@@ -609,6 +622,45 @@ impl Driven {
         ))
     }
 
+    /// Where *Let alo continue* is on the screen now (queue item 825): the
+    /// conversation painted beside the panel, the run held, the button the
+    /// first run of the ink 60 wide at the left of the card's column — 17
+    /// in from the card's left — within the room the conversation is seen
+    /// in. Or why not, the screen written beside the test's own files.
+    fn carry_on_on_the_screen(&mut self) -> Result<(f64, f64), String> {
+        let found = |driven: &Self| -> Option<(f64, f64)> {
+            let frame = driven.start_frame().filter(|frame| frame.width == 1040)?;
+            let from = u32::from(LEFT) + 17;
+            for y in 0..u32::from(ROOM_BOTTOM).min(frame.height) {
+                let run = (from..from + 60).all(|x| pixel(frame, x, y) == Some(INK));
+                if run {
+                    return Some((PANEL + f64::from(from) + 30.0, f64::from(y) + 12.0));
+                }
+            }
+            None
+        };
+        let _ = self.until("Let alo continue on the screen", |driven| {
+            found(driven).is_some()
+        });
+        if let Some(at) = found(self) {
+            return Ok(at);
+        }
+        let written =
+            std::env::temp_dir().join(format!("alo-825-{}-no-continue.png", std::process::id()));
+        if let Some(png) = self
+            .start_frame()
+            .and_then(|frame| alo_renderer::frame::frame_to_png(frame).ok())
+        {
+            let _ = std::fs::write(&written, png);
+        }
+        Err(format!(
+            "{}: no Let alo continue on the screen, the agent {:?}; the screen is {}",
+            self.who,
+            self.now(),
+            written.display()
+        ))
+    }
+
     /// Where *Stop* is on the screen now: at the end of the tinted line
     /// that says the agent is at work, at the top of the agent's column,
     /// 4 in from the column's 351 inside it and 55 wide.
@@ -778,7 +830,7 @@ fn fills_presses_and_asks_before_sending(
     })?;
     assert_eq!(count(asked, "/hello"), 1, "{who}: Say hello was pressed");
     assert_eq!(count(asked, "/sent"), 0, "{who}: Send held for the person");
-    let Some(Now::Asking { what }) = driven.now() else {
+    let Some(Now::Asking { what, .. }) = driven.now() else {
         return Err(format!("{who}: not asking"));
     };
     assert!(
@@ -903,41 +955,129 @@ fn never_types_a_password(driven: &mut Driven, model: &Model, asked: &Asked) -> 
     Ok(())
 }
 
-/// 4 and 5: *Stop*, and a press on the page, while the model thinks.
-fn stop_and_take_over(driven: &mut Driven, model: &Model, asked: &Asked) -> Result<(), String> {
+/// 4: a card's details are refused by the card, by kind, whatever the
+/// page calls the field, and nothing typed (queue item 826).
+fn never_types_a_card(driven: &mut Driven, model: &Model, asked: &Asked) -> Result<(), String> {
     let who = driven.who;
-    for (how, why) in [("Stop", STOPPED), ("the page", TAKEN_OVER)] {
-        let hellos = count(asked, "/hello");
-        let before = model.asked();
-        model.will(&[Scripted::Held, Scripted::Press("button", "Say hello")]);
-        driven.ask("Say hello")?;
-        driven.until("the model asked", |_| model.asked() > before)?;
-        // The working line, and *Stop* at its end, painted: the first
-        // screen as the person sees it while the model thinks.
-        driven.until("Stop on the screen", |driven| driven.stop().is_some())?;
-        let at = if how == "Stop" {
-            driven.stop()
-        } else {
-            driven.page()
-        }
-        .ok_or_else(|| format!("{who}: {how} is not on the screen"))?;
-        driven.press(at);
-        driven.until(&format!("the run stopped by {how}"), |driven| {
-            matches!(driven.now(), Some(Now::Stopped { .. }))
-        })?;
-        assert_eq!(stopped_saying(driven.now()), why, "{who}: {how}");
-        // The model's answer comes, and nothing is done with it.
-        let answered = model.answered();
-        model.let_go();
-        driven.until("the held answer sent", |_| model.answered() > answered)?;
-        driven.hear_for(Duration::from_secs(2))?;
-        assert_eq!(count(asked, "/hello"), hellos, "{who}: pressed after {how}");
-        assert_eq!(model.asked(), before + 1, "{who}: asked again after {how}");
-    }
+    model.will(&[Scripted::Put(
+        "textbox",
+        "Your long number",
+        "4242424242424242",
+    )]);
+    driven.ask("Pay with my card")?;
+    driven.until("the run stuck", |driven| {
+        matches!(driven.now(), Some(Now::Stuck { .. }))
+    })?;
+    assert_eq!(stopped_saying(driven.now()), CARD_DETAILS, "{who}");
+    driven.hear_for(Duration::from_secs(1))?;
+    assert_eq!(
+        count(asked, "/card"),
+        0,
+        "{who}: the card field heard input"
+    );
     Ok(())
 }
 
-/// 6 and 7: the step limit, and a model that cannot answer.
+/// 5 and 6: *Stop*, and a press on the page, while the model thinks.
+fn stop_and_take_over(driven: &mut Driven, model: &Model, asked: &Asked) -> Result<(), String> {
+    let who = driven.who;
+    let hellos = count(asked, "/hello");
+    let before = model.asked();
+    model.will(&[Scripted::Held, Scripted::Press("button", "Say hello")]);
+    driven.ask("Say hello")?;
+    driven.until("the model asked", |_| model.asked() > before)?;
+    // The working line, and *Stop* at its end, painted: the first screen
+    // as the person sees it while the model thinks.
+    driven.until("Stop on the screen", |driven| driven.stop().is_some())?;
+    let at = driven
+        .stop()
+        .ok_or_else(|| format!("{who}: Stop is not on the screen"))?;
+    driven.press(at);
+    driven.until("the run stopped by Stop", |driven| {
+        matches!(driven.now(), Some(Now::Stopped { .. }))
+    })?;
+    assert_eq!(stopped_saying(driven.now()), STOPPED, "{who}: Stop");
+    // The model's answer comes, and nothing is done with it.
+    let answered = model.answered();
+    model.let_go();
+    driven.until("the held answer sent", |_| model.answered() > answered)?;
+    driven.hear_for(Duration::from_secs(2))?;
+    assert_eq!(count(asked, "/hello"), hellos, "{who}: pressed after Stop");
+    assert_eq!(model.asked(), before + 1, "{who}: asked again after Stop");
+    take_over_and_carry_on(driven, model, asked)
+}
+
+/// 6: a press on the page while the model thinks holds the run (queue item
+/// 825); *Let alo continue* carries it on from the page as left.
+fn take_over_and_carry_on(driven: &mut Driven, model: &Model, asked: &Asked) -> Result<(), String> {
+    let who = driven.who;
+    let hellos = count(asked, "/hello");
+    let before = model.asked();
+    model.will(&[
+        Scripted::Held,
+        Scripted::Press("button", "Say hello"),
+        Scripted::Press("button", "Say hello"),
+        Scripted::Done("Said hello."),
+    ]);
+    driven.ask("Say hello")?;
+    driven.until("the model asked", |_| model.asked() > before)?;
+    driven.until("Stop on the screen", |driven| driven.stop().is_some())?;
+    let at = driven
+        .page()
+        .ok_or_else(|| format!("{who}: the page is not on the screen"))?;
+    driven.press(at);
+    driven.until("the run held by the page", |driven| {
+        matches!(driven.now(), Some(Now::Paused))
+    })?;
+    // The model's answer comes, and nothing is done with it; the page is
+    // the person's, and the run waits.
+    let answered = model.answered();
+    model.let_go();
+    driven.until("the held answer sent", |_| model.answered() > answered)?;
+    driven.hear_for(Duration::from_secs(2))?;
+    assert_eq!(count(asked, "/hello"), hellos, "{who}: pressed while held");
+    assert_eq!(model.asked(), before + 1, "{who}: asked again while held");
+    assert!(
+        matches!(driven.now(), Some(Now::Paused)),
+        "{who}: {:?}",
+        driven.now()
+    );
+    // *Let alo continue*, found on the screen and pressed.
+    let carry_on = driven.carry_on_on_the_screen()?;
+    driven.press(carry_on);
+    driven.until("the run done", |driven| {
+        matches!(driven.now(), Some(Now::Done { .. }))
+    })?;
+    // The page fetches as it is pressed, after the press is answered.
+    driven.until("the page pressed once, after it carried on", |_| {
+        count(asked, "/hello") > hellos
+    })?;
+    driven.hear_for(Duration::from_secs(1))?;
+    assert_eq!(
+        count(asked, "/hello"),
+        hellos + 1,
+        "{who}: once, after it carried on"
+    );
+    let bodies = model.bodies();
+    let told = bodies.get(before + 1).cloned().unwrap_or_default();
+    assert!(told.contains(PERSON), "{who}: the model not told: {told}");
+    // Its plan, as the model wrote it, on the card, every step done.
+    let plan = driven
+        .window
+        .conversation()
+        .card()
+        .and_then(|card| card.agent.as_ref())
+        .and_then(|work| work.plan.clone())
+        .map(|plan| plan.steps);
+    assert_eq!(
+        plan,
+        Some(vec!["Press Say hello".to_owned(), "Finish".to_owned()]),
+        "{who}"
+    );
+    Ok(())
+}
+
+/// 7 and 8: the step limit, and a model that cannot answer.
 fn its_limits_are_said(driven: &mut Driven, model: &Model, asked: &Asked) -> Result<(), String> {
     let who = driven.who;
     let hellos = count(asked, "/hello");
@@ -1019,6 +1159,7 @@ fn through(chromium: Chromium, who: &'static str) -> Result<(), String> {
     driven.go(&form)?;
     not_now_presses_nothing(&mut driven, &model, &asked)?;
     never_types_a_password(&mut driven, &model, &asked)?;
+    never_types_a_card(&mut driven, &model, &asked)?;
     stop_and_take_over(&mut driven, &model, &asked)?;
     its_limits_are_said(&mut driven, &model, &asked)?;
     driven.window.finish();
@@ -1094,6 +1235,7 @@ fn second_page_kept(second: &[Ran], who: &str) {
         vec![
             "Delete everything here",
             "Sign me in",
+            "Pay with my card",
             "Say hello",
             "Say hello",
             "Say hello again and again",
@@ -1128,22 +1270,32 @@ fn second_page_kept(second: &[Ran], who: &str) {
         "{who}: the password's text never kept"
     );
     assert_eq!(
-        ended.get(2..4),
+        ended.get(2..5),
         Some(
             &[
+                format!("stuck: {CARD_DETAILS}"),
                 format!("stopped: {STOPPED}"),
-                format!("stopped: {TAKEN_OVER}")
+                "done: Said hello.".to_owned()
             ][..]
         ),
         "{who}"
     );
+    // The run carried on keeps its plan (queue item 824).
     assert_eq!(
-        second.get(4).map(|ran| ran.steps.len()),
+        second
+            .get(4)
+            .and_then(|ran| ran.plan.as_ref())
+            .map(|plan| plan.steps.len()),
+        Some(2),
+        "{who}"
+    );
+    assert_eq!(
+        second.get(5).map(|ran| ran.steps.len()),
         Some(MOST_STEPS),
         "{who}: one line per step"
     );
     assert_eq!(
-        ended.get(5).map(String::as_str),
+        ended.get(6).map(String::as_str),
         Some("stopped: alo could not go on: OpenAI could not answer just now (503)."),
         "{who}"
     );

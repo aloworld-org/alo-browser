@@ -19,6 +19,8 @@
 //!   Wikipedia for Kampala*, typing *Kampala* — keeps its line and why, as
 //!   every other step does, since the file holds those words already. Any
 //!   other typing step is kept as [`TYPED`], and no why.
+//! - **Its plan** as it last stood (queue item 824), each step kept as the
+//!   lines are, with what was typed that the person did not say replaced.
 //! - **Every other line and why, and the result or why it stopped**, keeps
 //!   the model's words with each text typed that the person did not say
 //!   replaced by `…` wherever it stands as whole words, any case — so a
@@ -30,6 +32,7 @@
 //! Nothing of the page is added: no tree, no field's value, no address but
 //! the page's own.
 
+use alo_renderer::agent_plan::Plan;
 use alo_renderer::agent_ran::{Ended, Ran, TYPED};
 use alo_renderer::agent_work::Step;
 
@@ -46,10 +49,10 @@ pub struct Heard {
     pub typed: Option<String>,
 }
 
-/// The run asked `asked`, heard as `steps`, ended as `ended` — or, with
-/// none, still at work, kept as alo closing stops it ([`Ran::starting`]) —
-/// as the chat keeps it.
-pub fn kept(asked: &str, steps: &[Heard], ended: Option<&Ended>) -> Ran {
+/// The run asked `asked`, heard as `steps`, its plan as it stands `plan`,
+/// ended as `ended` — or, with none, still at work, kept as alo closing
+/// stops it ([`Ran::starting`]) — as the chat keeps it.
+pub fn kept(asked: &str, steps: &[Heard], plan: Option<&Plan>, ended: Option<&Ended>) -> Ran {
     // The texts typed that the person did not say, longest first, so a
     // longer one is replaced before a shorter one inside it.
     let mut secret: Vec<&str> = steps
@@ -80,6 +83,10 @@ pub fn kept(asked: &str, steps: &[Heard], ended: Option<&Ended>) -> Ran {
         .collect();
     let mut ran = Ran::starting(asked);
     ran.steps = steps;
+    ran.plan = plan.and_then(|plan| {
+        let scrubbed: Vec<String> = plan.steps.iter().map(|step| scrub(step)).collect();
+        Plan::of(&scrubbed, plan.on)
+    });
     if let Some(ended) = ended {
         ran.ended = match ended {
             Ended::Done { said } => Ended::Done { said: scrub(said) },
@@ -167,6 +174,7 @@ mod tests {
                 heard("Typing Kampala into Search Wikipedia", "", Some("Kampala")),
                 heard("Pressing Search", "it sends the search for Kampala", None),
             ],
+            None,
             Some(&Ended::Done {
                 said: "Opened the article on Kampala.".to_owned(),
             }),
@@ -205,6 +213,13 @@ mod tests {
                     None,
                 ),
             ],
+            Some(&Plan {
+                steps: vec![
+                    "Type ada@example.com into Email".to_owned(),
+                    "Press Sign up".to_owned(),
+                ],
+                on: 1,
+            }),
             Some(&Ended::Stopped {
                 why: "Signed up ada@example.com.".to_owned(),
             }),
@@ -222,6 +237,17 @@ mod tests {
                 why: "Signed up \u{2026}.".to_owned()
             }
         );
+        // Its plan kept, scrubbed as the lines are (queue item 824).
+        assert_eq!(
+            ran.plan,
+            Some(Plan {
+                steps: vec![
+                    "Type \u{2026} into Email".to_owned(),
+                    "Press Sign up".to_owned()
+                ],
+                on: 1,
+            })
+        );
         let all = format!("{ran:?}").to_lowercase();
         assert!(!all.contains("ada@example.com"), "{all}");
     }
@@ -235,6 +261,7 @@ mod tests {
                 heard("Typing", "", Some("Ada Lovelace")),
                 heard("Pressing Send for Ada Lovelace, Ada", "", None),
             ],
+            None,
             None,
         );
         assert_eq!(

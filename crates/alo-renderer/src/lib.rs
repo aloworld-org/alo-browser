@@ -47,6 +47,8 @@
 //! corpus.
 
 pub mod agent_document;
+pub mod agent_paying;
+pub mod agent_plan;
 pub mod agent_ran;
 pub mod agent_work;
 pub mod answer_document;
@@ -93,6 +95,7 @@ pub mod inline_style;
 pub mod interface_face;
 pub mod linked;
 pub mod marks_document;
+pub mod menu_fit;
 pub mod message;
 pub mod navigate;
 pub mod news_document;

@@ -2,27 +2,31 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! Queue item 855: alo's menu over a card's page (queue item 798) ends the
-//! words of *Search for “…”* with an ellipsis where the line reaches the
-//! menu's edge, the closing quote kept, in each of the five faces the
-//! interface may be set in.
+//! Queue items 855 and 857: alo's menu over a card's page (queue item 798)
+//! ends the words of *Search for “…”* with an ellipsis where the line
+//! reaches the menu's edge, and the closing quote follows the ellipsis
+//! directly, in each of the five faces the interface may be set in.
 //!
 //! Found by the hand run of 7 November 2026 (`handrun34/08`): the line ran
 //! past the menu's right edge, its closing quote cut. A cut at sixteen
 //! characters, made then, was measured to fit ordinary words in Instrument
 //! Sans and not sixteen wide letters in any face (`W` 277 to 299 px; the
-//! line's room is 196). So the stylesheet cuts them at the menu's width,
-//! whatever they are.
+//! line's room is 196). So item 855 had the stylesheet cut them at the
+//! menu's width — and the next hand run (`handrun35/17`) found the quote
+//! pinned at the menu's edge, as far from the `…` as the part of a letter
+//! that did not fit: a clipping box is as wide as its room. So the renderer
+//! now cuts the words by their measured width (`menu_fit.rs`, item 857).
 //!
 //! What closes it, each a test below: a layout assertion, in numbers, of
-//! the line's three pieces in every face — the quotes inside the menu and
-//! the words between them as wide as the room left, with `…` drawn at
-//! their end — and short words drawn whole; and a reference render,
-//! `references/card-menu-cut.png`.
+//! the line's three pieces in every face — the words already ending in
+//! `…`, the quote's box starting where theirs ends, and less room left
+//! after the quote than one more `W` would take — and short words drawn
+//! whole; and a reference render, `references/card-menu-cut.png`.
 //!
 //! `ALO_UPDATE_REFERENCES=1 cargo test -p alo-renderer --test the_page_menus_words_cut_at_its_edge`
 //! rewrites the reference. A rewritten reference is a diff somebody reads.
 
+use alo_layout::{MeasureText, TextStyle};
 use alo_layout::{Rect, Size};
 use alo_paint::{DisplayItem, from_png};
 use alo_renderer::card::{Card, PAGE_SIZE};
@@ -32,7 +36,7 @@ use alo_renderer::interface_face::InterfaceFace;
 use alo_renderer::start::Start;
 use alo_renderer::turn::Turn;
 use alo_renderer::{Frame, FromRenderer, Renderer, ToRenderer};
-use alo_text::{Font, FontDatabase, Slant, Weight};
+use alo_text::{Font, FontDatabase, Slant, TextMeasurer, Weight};
 use std::path::{Path, PathBuf};
 
 fn fonts() -> FontDatabase {
@@ -164,9 +168,25 @@ const WIDE: &str = "WWWWWWWWWWWWWWWW and the hills of Kampala by the lake";
 const WORDS_FROM: f32 = 154.0;
 const WORDS_TO: f32 = 348.0;
 
+/// How wide `text` is in `face`, as the menu's line sets it.
+fn width_in(face: InterfaceFace, text: &str) -> f32 {
+    let fonts = fonts();
+    let style = TextStyle {
+        families: vec![
+            face.family().to_owned(),
+            "system-ui".to_owned(),
+            "sans-serif".to_owned(),
+        ],
+        size: 13.0,
+        weight: 500,
+        white_space: alo_box::WhiteSpace::Pre,
+        ..TextStyle::default()
+    };
+    TextMeasurer::new(&fonts).measure(text, &style, None).width
+}
+
 #[test]
-fn wide_words_end_in_an_ellipsis_at_the_menus_edge_and_the_quote_stays_in_every_face()
--> Result<(), String> {
+fn wide_words_end_in_an_ellipsis_the_quote_right_after_it_in_every_face() -> Result<(), String> {
     for face in InterfaceFace::ALL {
         let mut renderer = laid_out(with_a_menu(face, WIDE)?);
         let one = |class: &str| -> Result<Rect, String> {
@@ -176,8 +196,9 @@ fn wide_words_end_in_an_ellipsis_at_the_menus_edge_and_the_quote_stays_in_every_
             }
         };
         let (lead, words, end) = (one("mlead")?, one("mwords")?, one("mend")?);
-        // The three pieces one after another, the line full: the opening
-        // words at the line's start, the quote closing at its end.
+        // The three pieces one after another: the opening words at the
+        // line's start, the words' box as wide as the letters kept and the
+        // `…`, the quote's box starting where it ends.
         assert!(
             (lead.left() - WORDS_FROM).abs() < 0.02,
             "{face:?}: {lead:?}"
@@ -190,31 +211,38 @@ fn wide_words_end_in_an_ellipsis_at_the_menus_edge_and_the_quote_stays_in_every_
             (end.left() - words.right()).abs() < 0.02,
             "{face:?}: {end:?}"
         );
-        assert!(
-            (end.right() - WORDS_TO).abs() < 0.02,
-            "{face:?}: the quote ends at the line's end: {end:?}"
-        );
-        // And the line is the menu's 30, as every other.
-        assert!(
-            (words.size.height - 30.0).abs() < 0.02 || words.size.height <= 30.0,
-            "{face:?}: {words:?}"
-        );
-        // Drawn cut: as many `W`s as the room holds, then `…`, then the
-        // quote, every piece in the face.
+        // Drawn cut: as many `W`s as the room holds, then `…` in the same
+        // run — no ellipsis of the stylesheet's, so no room between them
+        // and the quote — then the quote, every piece in the face.
         let runs = searched(&mut renderer);
         let texts: Vec<&str> = runs.iter().map(|(text, _)| text.as_str()).collect();
-        assert!(
-            matches!(
-                texts.as_slice(),
-                ["Search for \u{201c}", cut, "\u{2026}", "\u{201d}"]
-                    if !cut.is_empty() && cut.chars().all(|letter| letter == 'W')
-            ),
-            "{face:?}: {runs:?}"
-        );
+        let kept = match texts.as_slice() {
+            ["Search for \u{201c}", cut, "\u{201d}"] => cut
+                .strip_suffix('\u{2026}')
+                .filter(|kept| !kept.is_empty() && kept.chars().all(|letter| letter == 'W'))
+                .ok_or_else(|| format!("{face:?}: {runs:?}"))?,
+            _ => return Err(format!("{face:?}: {runs:?}")),
+        };
         assert!(
             runs.iter().all(|(_, drawn)| drawn == face.family()),
             "{face:?}: {runs:?}"
         );
+        // The words' box as wide as what it holds.
+        let held = width_in(face, &format!("{kept}\u{2026}"));
+        assert!(
+            (words.size.width - held).abs() < 0.02,
+            "{face:?}: {words:?} holds {held}"
+        );
+        // Inside the line, and the most that fits: one more `W` would not.
+        assert!(end.right() <= WORDS_TO + 0.02, "{face:?}: {end:?}");
+        let one_more = width_in(face, &format!("{kept}W\u{2026}")) - held;
+        assert!(
+            WORDS_TO - end.right() < one_more,
+            "{face:?}: {} left after the quote, and a W is {one_more}",
+            WORDS_TO - end.right()
+        );
+        // And the line is the menu's 30, as every other.
+        assert!(words.size.height <= 30.02, "{face:?}: {words:?}");
     }
     Ok(())
 }

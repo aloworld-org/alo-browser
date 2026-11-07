@@ -1207,6 +1207,8 @@ The reason this exists rather than a faster fork of somebody else's engine.
   *Settings* by keys (856); the link strip in the face chosen (852).
   **The page menu's search line cut at its edge** (855): *Search for
   “…”*'s words end in `…` at the menu's edge, the quote kept, in each face
+  — and right after the `…` (857: the words measured in the line's face
+  and written already cut, `alo-renderer`'s `menu_fit.rs`)
   (`tests/the_page_menus_words_cut_at_its_edge.rs`).
   **Emoji, in colour** (ADR 0088): the interface carries a third face,
   Noto Color Emoji (`CBDT`, OFL 1.1, `googlefonts/noto-emoji` `v2.051`),
@@ -1381,10 +1383,29 @@ The reason this exists rather than a faster fork of somebody else's engine.
   Chromiums. In the column the box's hint is its own, *Ask, search, or type
   a website…*, 223.98 wide and whole in the field's 263, where the first
   screen's (292.72) was cut at *webs* (827; the field's name unchanged).
-  Cut: a plan and the next steps greyed (824), carrying on
-  after taking over (825), a payment's details before *Confirm and pay*
-  (826); the run kept as turns in the chat's file (820); an agent opening
-  its own page (821); its settings (705). **Nothing of Chrome's over a card** (822, ADR 0066 amended): a card's
+  **Its plan** (824, ADR 0096 amended, the owner's design of 6 November
+  2026): with its first action the model writes two to five short steps
+  (`plan` and `on` in every verb's strict schema), drawn under what was
+  asked — done ticked, the step it is on bold, the rest greyed — sent back
+  with every request as it stands, kept with the run in the chat's file,
+  and read by an agent as a list *Plan* of *Done: …*, *Now: …*, *Next: …*
+  (`tests/the_agents_plan.rs`, `agent-plan.png`). **Taking over and
+  carrying on** (825): a press on the page holds the run, the window the
+  conversation again with *Let alo continue* under the page; pressed, the
+  model is told what the person changed — the address, each field changed
+  by name, never a password's value or a card's details, where the run
+  had got to — and it goes on, the person's gate holding, its steps and
+  tokens counted across, held at most ten minutes
+  (`tests/taken_over_and_carried_on.rs`, `agent-paused.png`; through both
+  Chromiums). **Paying** (826, ADR 0099): a press that pays — or
+  *Confirm* beside a total — asked with the amount, the merchant and the
+  page's own summary lines read off its tree, never a script or the
+  model, and *Pay* / *Not now*; what is not found said plainly
+  (`tests/a_payments_question.rs`, `agent-paying.png`); a card's number,
+  security code or expiry refused by the card for every agent, kind
+  `CardDetails`, whatever the page names the field (through both
+  Chromiums). Cut: a card's field in a payment provider's frame (858); an
+  agent opening its own page (821); its settings (705). **Nothing of Chrome's over a card** (822, ADR 0066 amended): a card's
   page is never marked by Chrome's `Overlay.highlightNode` — whose tooltip
   the stream carried into the conversation — a verb takes any mark away,
   a card expanded into Chrome's window is marked as before, and

@@ -255,6 +255,16 @@ pub enum Refused {
         /// The field.
         node: alo_box::BoxId,
     },
+    /// A card's number, security code or expiry was to be typed or chosen
+    /// on a page shown in the conversation, where paying details are the
+    /// person's (queue item 826, ADR 0099): whichever agent asked, and
+    /// whatever the page names the field, nothing was done.
+    CardDetails {
+        /// The tab.
+        tab: String,
+        /// The field.
+        node: alo_box::BoxId,
+    },
     /// The page's tree is deeper than [`MOST_DEPTH`].
     TreeTooDeep {
         /// The tab.
@@ -316,6 +326,7 @@ impl Refused {
             Refused::TabGone { .. } => "TabGone",
             Refused::NotCarriedOut { .. } => "NotCarriedOut",
             Refused::Password { .. } => "Password",
+            Refused::CardDetails { .. } => "CardDetails",
             Refused::TreeTooDeep { .. } => "TreeTooDeep",
             Refused::TooManyCallers { .. } => "TooManyCallers",
             Refused::Verb { refusal, .. } => refusal_kind(refusal),
@@ -410,6 +421,12 @@ impl fmt::Display for Refused {
                 f,
                 "{node} in the tab at {tab} is a password field, and no agent types a password \
                  on a page in the conversation: signing in is the person's step"
+            ),
+            Refused::CardDetails { tab, node } => write!(
+                f,
+                "{node} in the tab at {tab} holds a card's details, and no agent types or \
+                 chooses a card's number, security code or expiry on a page in the \
+                 conversation: paying details are the person's"
             ),
             Refused::TreeTooDeep { tab, most } => write!(
                 f,

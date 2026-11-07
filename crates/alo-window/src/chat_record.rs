@@ -62,6 +62,7 @@
 //! one is the provider's to say, and more than [`MOST_SITES`] are not read.
 //! Nothing read asks anything of the network.
 
+use alo_renderer::agent_plan::Plan;
 use alo_renderer::agent_ran::{Ended, MOST_RUNS, Ran};
 use alo_renderer::agent_work::{MOST_STEPS, Step};
 use alo_renderer::results::{
@@ -158,15 +159,16 @@ fn visited(said: &str, url: &Url, ran: &[Ran]) -> Value {
     )])
 }
 
-/// A run of the agent, written as the chat keeps it: what was asked, each
-/// step's line and why, and how it ended.
+/// A run of the agent, written as the chat keeps it: what was asked, its
+/// plan as it last stood if it wrote one (queue item 824), each step's
+/// line and why, and how it ended.
 fn run(ran: &Ran) -> Value {
     let ended = match &ran.ended {
         Ended::Done { said } => object([("done", Value::from(said.as_str()))]),
         Ended::Stuck { why } => object([("stuck", Value::from(why.as_str()))]),
         Ended::Stopped { why } => object([("stopped", Value::from(why.as_str()))]),
     };
-    object([
+    let mut written = object([
         ("asked", Value::from(ran.asked.as_str())),
         (
             "steps",
@@ -181,7 +183,23 @@ fn run(ran: &Ran) -> Value {
                 .collect(),
         ),
         ("ended", ended),
-    ])
+    ]);
+    if let (Some(plan), Value::Object(fields)) = (&ran.plan, &mut written) {
+        fields.insert(
+            "plan".to_owned(),
+            object([
+                (
+                    "steps",
+                    plan.steps
+                        .iter()
+                        .map(|step| Value::from(step.as_str()))
+                        .collect(),
+                ),
+                ("on", Value::from(plan.on)),
+            ]),
+        );
+    }
+    written
 }
 
 /// The name a tab is written by.
@@ -532,11 +550,46 @@ fn read_runs(visited: &Map<String, Value>) -> Result<Vec<Ran>, Unread> {
             };
             Ok(Ran {
                 asked: text(ran, "asked")?,
+                plan: read_plan(ran)?,
                 steps,
                 ended,
             })
         })
         .collect()
+}
+
+/// A run's plan, `"plan"` of `ran` (queue item 824): none in a run kept
+/// without one, and refused past what is drawn, as the wire refuses it.
+fn read_plan(ran: &Map<String, Value>) -> Result<Option<Plan>, Unread> {
+    let Some(plan) = ran.get("plan") else {
+        return Ok(None);
+    };
+    let plan = plan.as_object().ok_or_else(|| missing("plan"))?;
+    let steps = plan
+        .get("steps")
+        .and_then(Value::as_array)
+        .ok_or_else(|| missing("plan"))?
+        .iter()
+        .map(|step| {
+            step.as_str()
+                .map(str::to_owned)
+                .ok_or_else(|| missing("plan"))
+        })
+        .collect::<Result<Vec<_>, Unread>>()?;
+    let on = plan
+        .get("on")
+        .and_then(Value::as_u64)
+        .and_then(|on| usize::try_from(on).ok())
+        .ok_or_else(|| missing("plan"))?;
+    let plan = Plan { steps, on };
+    if !plan.is_bounded() {
+        return Err(Unread(format!(
+            "it holds a plan of {} steps on its step {}, past what is drawn",
+            plan.steps.len(),
+            plan.on
+        )));
+    }
+    Ok(Some(plan))
 }
 
 /// A search's answer, `"answer"` of `object`, checked against the sites
@@ -987,6 +1040,13 @@ mod tests {
     fn runs() -> Vec<Ran> {
         vec![
             Ran {
+                plan: Some(Plan {
+                    steps: vec![
+                        "Search for Kampala".to_owned(),
+                        "Open the article".to_owned(),
+                    ],
+                    on: 1,
+                }),
                 asked: "Search Wikipedia for Kampala".to_owned(),
                 steps: vec![
                     Step {
@@ -1023,6 +1083,12 @@ mod tests {
         );
         assert!(
             text.contains("\"ended\":{\"done\":\"Opened the article.\"}"),
+            "{text}"
+        );
+        assert!(
+            text.contains(
+                "\"plan\":{\"on\":1,\"steps\":[\"Search for Kampala\",\"Open the article\"]}"
+            ),
             "{text}"
         );
         let kept = read(text.as_bytes()).expect("read");
@@ -1063,6 +1129,15 @@ mod tests {
         assert!(
             why(&[visited(vec![Ran::starting("x"); MOST_RUNS + 1])]).contains("21 runs"),
             "more runs than are kept"
+        );
+        let mut planned = Ran::starting("x");
+        planned.plan = Some(Plan {
+            steps: vec!["a".to_owned(); 6],
+            on: 0,
+        });
+        assert!(
+            why(&[visited(vec![planned])]).contains("a plan of 6 steps"),
+            "a plan past what is drawn"
         );
         let mut long = Ran::starting("x");
         long.steps = vec![

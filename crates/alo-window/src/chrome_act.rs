@@ -222,6 +222,15 @@ pub enum Unacted {
         /// The field.
         node: BoxId,
     },
+    /// Text was to be put into a field of a card's details — its number,
+    /// security code or expiry — or one of its lists chosen in, on a page
+    /// that keeps them ([`Tab::keep_passwords`]): a card's, where paying
+    /// details are the person's (queue item 826, ADR 0099). Nothing was
+    /// done.
+    CardDetails {
+        /// The field.
+        node: BoxId,
+    },
     /// It was decided, and is not a thing this path carries out.
     ///
     /// Reached only by an outcome no decision on Chrome's page makes today —
@@ -273,6 +282,12 @@ impl fmt::Display for Unacted {
                 f,
                 "{node} is a password field, and alo types no password on a page in the \
                  conversation: signing in is the person's step, so nothing was typed"
+            ),
+            Self::CardDetails { node } => write!(
+                f,
+                "{node} holds a card's details, and alo types or chooses no card's number, \
+                 security code or expiry on a page in the conversation: paying details are the \
+                 person's, so nothing was done"
             ),
             Self::Untypable { node, why } => {
                 write!(f, "{why}, so nothing was typed into {node}")
@@ -381,6 +396,23 @@ impl Tab<'_> {
             && reading.is_a_password(aimed.id)
         {
             return Err(Unacted::Password { node: aimed.id });
+        }
+        // Never a card's details either (queue item 826, ADR 0099): its
+        // number, security code or expiry, whatever the page names the
+        // field — judged by the element, and for an option by its list.
+        if self.keeps_passwords() {
+            let field = match verb {
+                Verb::PutText(_) => Some(aimed.id),
+                Verb::Activate if aimed.role == Role::Known(KnownRole::Option) => {
+                    reading.list_above(aimed.id)
+                }
+                Verb::Activate | Verb::Scroll(_) => None,
+            };
+            if let Some(field) = field
+                && reading.is_a_card_detail(field)
+            {
+                return Err(Unacted::CardDetails { node: field });
+            }
         }
         let decided = perform(&reading, target, verb).map_err(Unacted::Refused)?;
         // Decided, and so heard from here: what the page's script says as

@@ -130,11 +130,13 @@
 //! has measured, such as 1.25 — painted at the largest measured scale below
 //! it — and a link opening a tab (item 300).
 
+pub mod agent_changes;
 pub mod agent_dropdown;
 pub mod agent_gate;
 pub mod agent_kept;
 pub mod agent_lines;
 pub mod agent_page;
+pub mod agent_paying;
 pub mod agent_protocol;
 pub mod agent_record;
 pub mod agent_sites;

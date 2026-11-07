@@ -2505,8 +2505,8 @@ items where being right and being unusable are the same outcome.
       the engine itself (715),
       a page inside the conversation (702), the agent at work on a card's
       page — its column, outline, Stop and the person's gate, never a
-      password (704, ADR 0096), the split view while it works (819) — a plan and the next steps (824),
-      carrying on after taking over (825), a payment's details (826), an agent opening its own page (821),
+      password (704, ADR 0096), the split view while it works (819) — a card's field in a payment
+      provider's frame (858), an agent opening its own page (821),
       alo's own ring on a card (823), scrolling from the keyboard (754), a sign of more
       above (755), a wheel's lines smoothed (756), chats kept across
       launches (757), a chat named by its words (758), what the agent may
@@ -2522,7 +2522,13 @@ items where being right and being unusable are the same outcome.
       interface at once and kept beside the chats, a damaged file Inter and
       said — the owner's design of 7 November 2026, Inter's and DM Sans'
       optical sizes measured as Chrome 157's (853, 854, ADR 0084 amended);
-      alo's menu cutting the words it searches for at its own edge (855);
+      alo's menu cutting the words it searches for at its own edge (855),
+      its closing quote right after the `…` (857); alo's agent's plan —
+      done ticked, the current bold, the rest greyed — taking over and *Let
+      alo continue* telling the model what the person changed, and a
+      payment's amount, merchant and summary before *Pay*, a card's
+      details never an agent's — the owner's designs of 6 November 2026
+      (824, 825, 826, ADRs 0096 amended and 0099);
       the pointer following a card's page, a link's strip on an
       expanded card, alo's own menu and a link opened as the next turn, a
       closed list's normal dropdown and the agent's list in its column, and

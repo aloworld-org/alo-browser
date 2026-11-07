@@ -537,7 +537,7 @@ fn refused(refused: &Refused) -> Value {
             put("tab", Value::from(tab.as_str()));
             put("most", Value::from(*most));
         }
-        Refused::Password { tab, node } => {
+        Refused::Password { tab, node } | Refused::CardDetails { tab, node } => {
             put("tab", Value::from(tab.as_str()));
             put("node", id(*node));
         }
@@ -922,6 +922,29 @@ mod tests {
             "{\"answer\":\"refused\",\"refusal\":{\"kind\":\"NotCarriedOut\",\
              \"tab\":\"https://example.com/\"},\"said\":\"nothing was done in the tab at \
              https://example.com/: Chrome drew box#4 nowhere\",\"v\":1}\n"
+        );
+    }
+
+    #[test]
+    fn a_cards_details_refused_cross_as_their_own_kind_with_the_field() {
+        let refused = Answer::Refused(Refused::CardDetails {
+            tab: "https://shop.example/pay".to_owned(),
+            node: alo_box::BoxId::from_wire(7),
+        });
+        let written = write(None, &refused);
+        assert!(
+            written.starts_with(
+                "{\"answer\":\"refused\",\"refusal\":{\"kind\":\"CardDetails\",\"node\":"
+            ),
+            "{written}"
+        );
+        assert!(
+            written.contains("\"tab\":\"https://shop.example/pay\""),
+            "{written}"
+        );
+        assert!(
+            written.contains("paying details are the person's"),
+            "{written}"
         );
     }
 

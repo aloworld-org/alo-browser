@@ -1,6 +1,6 @@
 # ADR 0092 — Chats are kept on the machine, a file each, in words
 
-**Status:** accepted — built by queue items 757 and 758 (1 November 2026); amended for 814, 820, 789 and 791; § 2's *not encrypted* superseded by ADR 0098 (790)
+**Status:** accepted — built by queue items 757 and 758 (1 November 2026); amended for 814, 820, 789, 791 and 824; § 2's *not encrypted* superseded by ADR 0098 (790)
 **Date:** 2026-11-01
 **Context:** ADR 0085 (the conversation keeps every turn, per chat; an
 earlier card is its address, not a picture); ADR 0074 (the interface is a
@@ -379,4 +379,27 @@ painted offering its ×, pressed, the chat under *Earlier* — where, hovered,
 the panel's renderer finds it at 254 and its row offers *Delete*.
 Mutations — a closed chat put last rather than first, the painted × not
 kept by the drawing thread — each fail.
+
+## Amendment, 2026-11-07 — a run's plan is kept with it (queue item 824)
+
+Each run of alo's agent kept with its page (§ 820's amendment) keeps its
+plan as it last stood, when it wrote one: `"plan": {"steps": […], "on":
+n}` beside `"asked"`, `"steps"` and `"ended"` — its steps in the model's
+words, each with every text typed that the person did not say replaced
+by `…` as the steps' lines are (`agent_kept.rs`), `on` the place of the
+step it was on. Sealed with the rest of the file (ADR 0098). Read back
+checked as the wire checks it: one to five steps, none empty or past 80
+characters, `on` one of them; a run kept before plans were reads as
+having none. Drawn under the page's line once it is shown earlier, as the
+live column drew it: done ticked, the step it stopped on bold, the rest
+greyed; every step ticked when it finished. Nothing of a payment's details
+(ADR 0099) is kept.
+
+Checked by `chat_record`'s tests (a plan written and read back the same,
+a plan of six steps not read), `agent_kept`'s (a plan's typed address
+replaced by `…`), `conversation_work`'s (the plan kept as it is told, and
+a new run beginning with none), `the_agents_plan.rs` (a kept run's plan
+drawn as it stood) and through both Chromiums
+(`the_agent_at_work_on_a_card_through_chrome.rs`: the run carried on after
+taking over read back from the file with its plan of two steps).
 

@@ -107,6 +107,7 @@ fn step(line: &str, why: &str) -> Step {
 /// It acting: two steps, the second under way with why it chose.
 fn acting() -> AtWork {
     AtWork {
+        plan: None,
         asked: "Search Wikipedia for Kampala and open the article".to_owned(),
         steps: vec![
             step("Typing \u{201c}Kampala\u{201d} into Search Wikipedia", ""),
@@ -123,6 +124,7 @@ fn acting() -> AtWork {
 /// It asking before pressing *Send*.
 fn asking() -> AtWork {
     AtWork {
+        plan: None,
         asked: "Send my name, Ada, through the form".to_owned(),
         steps: vec![
             step("Typing \u{201c}Ada\u{201d} into Name", ""),
@@ -131,6 +133,7 @@ fn asking() -> AtWork {
         now: Now::Asking {
             what: "Press \u{201c}Send\u{201d} on 127.0.0.1:8765? It sends the form on this page."
                 .to_owned(),
+            paying: None,
         },
         choosing: None,
     }
@@ -139,6 +142,7 @@ fn asking() -> AtWork {
 /// It acting after twenty steps, each with why.
 fn twenty() -> AtWork {
     AtWork {
+        plan: None,
         asked: "Read every section".to_owned(),
         steps: (1..=20)
             .map(|n| step(&format!("Opening section {n}"), "it is the next one down"))

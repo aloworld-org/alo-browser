@@ -205,6 +205,9 @@ pub enum Claim {
         /// Its place.
         at: usize,
     },
+    /// The agent's *Let alo continue*, while it is held with the page the
+    /// person's (queue item 825).
+    Continue,
     /// The agent's *Stop*, while it works on the card's page (queue item
     /// 704).
     Stop,
@@ -276,6 +279,7 @@ impl Claim {
             | Claim::FullAnswer { .. }
             | Claim::Image { .. }
             | Claim::Stop
+            | Claim::Continue
             | Claim::Allow
             | Claim::NotNow
             | Claim::Choice { .. }
@@ -314,6 +318,7 @@ impl fmt::Display for Claim {
             Claim::FullAnswer { at } => write!(f, "the Full answer at place {at}"),
             Claim::Image { at } => write!(f, "the image found at place {at}"),
             Claim::Stop => f.write_str("the agent's Stop"),
+            Claim::Continue => f.write_str("the agent's Let alo continue"),
             Claim::Allow => f.write_str("the agent's Allow"),
             Claim::NotNow => f.write_str("the agent's Not now"),
             Claim::Choice { at } => write!(f, "the agent's choice at place {at}"),
@@ -404,6 +409,8 @@ fn pressables(part: Part) -> &'static [(&'static [&'static str], Pressable)] {
             // The agent at work on the card's page (queue item 704): Stop,
             // Allow and Not now each one of a kind, a choice by its place.
             (&["abtn stop"], Pressable::One(Claim::Stop)),
+            // *Let alo continue*, once the person took over (queue item 825).
+            (&["abtn continue"], Pressable::One(Claim::Continue)),
             (&["abtn allow"], Pressable::One(Claim::Allow)),
             (&["abtn notnow"], Pressable::One(Claim::NotNow)),
             (&["achoice"], Pressable::Placed(|at| Claim::Choice { at })),

@@ -90,6 +90,11 @@ pub enum Unanswered {
     /// conversation, which no agent types into (queue item 704, ADR 0096):
     /// the field, and nothing was typed.
     Password(alo_box::BoxId),
+    /// Text was to be put into a field of a card's details — its number,
+    /// security code or expiry — or one of its lists chosen in, on a page
+    /// shown in the conversation, which no agent does (queue item 826, ADR
+    /// 0099): the field, and nothing was done.
+    CardDetails(alo_box::BoxId),
 }
 
 /// The open tabs an agent may be answered from.

@@ -83,6 +83,9 @@ pub struct Shown<C, S> {
     /// The run of the agent at work on the card's page, while it works and
     /// *Stop* is drawn (queue item 704), by the browser process's number.
     pub working: Option<u64>,
+    /// The run of the agent held with the page the person's, while *Let alo
+    /// continue* is drawn (queue item 825), by the browser process's number.
+    pub paused: Option<u64>,
     /// The question the agent is asking the person, by the browser
     /// process's number, while *Allow* and *Not now* are drawn under it.
     pub asking: Option<u64>,
@@ -125,6 +128,7 @@ impl<C, S> Default for Shown<C, S> {
             pictured: Vec::new(),
             full_answer: Vec::new(),
             working: None,
+            paused: None,
             asking: None,
             choices: Vec::new(),
             hovered: None,
@@ -200,6 +204,9 @@ pub enum Decided<C, S> {
     },
     /// The agent's *Stop*, for its run of this number (queue item 704).
     Stop(u64),
+    /// The agent's *Let alo continue*, for its run of this number, held
+    /// with the page the person's (queue item 825).
+    Continue(u64),
     /// The agent's *Allow*, for its question of this number: the one the
     /// person was shown, and is still asked.
     Allow(u64),
@@ -420,7 +427,6 @@ where
     if let Some(refusal) = drawn_as_hidden(claim, painted.hidden, now.hidden) {
         return Decided::Refused(refusal);
     }
-    let not_asked = || Decided::Refused(Refusal::NotAsked { claim });
     match claim {
         Claim::NewChat => Decided::NewChat,
         Claim::Settings => Decided::Settings,
@@ -437,14 +443,9 @@ where
         }
         Claim::Back => Decided::Back,
         Claim::Forward => Decided::Forward,
-        // The agent's buttons (queue item 704): each only for what was
-        // painted and is still so — *Allow* allows the one question the
-        // person was shown, and none asked since.
-        Claim::Stop => same(painted.working, now.working).map_or_else(not_asked, Decided::Stop),
-        Claim::Allow => same(painted.asking, now.asking).map_or_else(not_asked, Decided::Allow),
-        Claim::NotNow => same(painted.asking, now.asking).map_or_else(not_asked, Decided::NotNow),
-        Claim::Choice { at } => held(Listed::Choices, at, &painted.choices, &now.choices)
-            .map_or_else(Decided::Refused, Decided::Choice),
+        Claim::Stop | Claim::Continue | Claim::Allow | Claim::NotNow | Claim::Choice { .. } => {
+            agents(claim, painted, now)
+        }
         Claim::MenuItem { at } => held(Listed::MenuItems, at, &painted.menu, &now.menu)
             .map_or_else(Decided::Refused, Decided::MenuItem),
         Claim::Face { .. } | Claim::LeaveSettings => in_settings(claim, painted, now),
@@ -568,6 +569,29 @@ where
 /// What was painted, if it is what is held now too.
 fn same_one<T: Clone + PartialEq>(painted: Option<&T>, now: Option<&T>) -> Option<T> {
     painted.filter(|&shown| now == Some(shown)).cloned()
+}
+
+/// A press on one of the agent's buttons (queue items 704, 825): each only
+/// for what was painted and is still so — *Allow* allows the one question
+/// the person was shown, and none asked since; *Let alo continue* carries
+/// on only the run the picture showed held.
+fn agents<C, S>(claim: Claim, painted: &Shown<C, S>, now: &Shown<C, S>) -> Decided<C, S>
+where
+    C: Clone + PartialEq,
+    S: Clone + PartialEq,
+{
+    let not_asked = || Decided::Refused(Refusal::NotAsked { claim });
+    match claim {
+        Claim::Stop => same(painted.working, now.working).map_or_else(not_asked, Decided::Stop),
+        Claim::Continue => {
+            same(painted.paused, now.paused).map_or_else(not_asked, Decided::Continue)
+        }
+        Claim::Allow => same(painted.asking, now.asking).map_or_else(not_asked, Decided::Allow),
+        Claim::NotNow => same(painted.asking, now.asking).map_or_else(not_asked, Decided::NotNow),
+        Claim::Choice { at } => held(Listed::Choices, at, &painted.choices, &now.choices)
+            .map_or_else(Decided::Refused, Decided::Choice),
+        other => Decided::Refused(Refusal::NotAsked { claim: other }),
+    }
 }
 
 /// The number painted, if it is the one now too.
