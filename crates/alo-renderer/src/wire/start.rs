@@ -69,6 +69,7 @@ impl Writer {
         }
         self.text(&start.typed);
         self.bool(start.focused);
+        self.editing(&start.editing);
         self.number(start.offers.len() as u64);
         for offer in &start.offers {
             match offer {
@@ -213,6 +214,7 @@ impl Reader<'_> {
         }
         let typed = self.text()?;
         let focused = self.bool()?;
+        let editing = self.editing()?;
         let mut offers = Vec::new();
         for _ in 0..self.count()? {
             offers.push(self.offer()?);
@@ -257,6 +259,7 @@ impl Reader<'_> {
             scale,
             typed,
             focused,
+            editing,
             offers,
             turns,
             down,

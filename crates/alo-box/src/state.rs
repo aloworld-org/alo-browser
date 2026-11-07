@@ -140,6 +140,11 @@ pub struct States {
     /// An agent told only an image's name would act as if a person could see
     /// the picture.
     pub broken: bool,
+    /// Which of a text field's characters are selected — a start and an
+    /// end, counted in characters — or where its caret stands when the two
+    /// are one (queue item 861): set only while something holds the field's
+    /// selection ([`alo_dom::text_selection`]).
+    pub selection: Option<(usize, usize)>,
 }
 
 impl States {
@@ -171,6 +176,7 @@ impl States {
             current: current(element),
             takes_text: alo_css::state::is_text_entry(element),
             broken: false,
+            selection: alo_dom::text_selection::of(document, id),
         }
     }
 
@@ -238,6 +244,11 @@ impl fmt::Display for States {
         }
         if self.broken {
             write_one(f, "broken")?;
+        }
+        match self.selection {
+            Some((start, end)) if start == end => write_one(f, &format!("caret={start}"))?,
+            Some((start, end)) => write_one(f, &format!("selection={start}..{end}"))?,
+            None => {}
         }
         Ok(())
     }

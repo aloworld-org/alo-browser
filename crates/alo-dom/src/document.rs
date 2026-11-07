@@ -77,6 +77,9 @@ pub struct Document {
     /// Each hovered `<label>` with the control it hovered when it was
     /// hovered ([`crate::hover`]).
     pub(crate) hovered_by_label: Vec<(NodeId, NodeId)>,
+    /// Each text field's selection, in characters of its text
+    /// ([`crate::text_selection`]).
+    pub(crate) selections: Vec<(NodeId, (usize, usize))>,
 }
 
 impl Document {
@@ -92,6 +95,7 @@ impl Document {
             being_parsed: false,
             hovered: None,
             hovered_by_label: Vec::new(),
+            selections: Vec::new(),
         }
     }
 

@@ -61,6 +61,20 @@ fn a_rect() -> Rect {
     }
 }
 
+/// A field's caret, a selection and a hostile composition, scrolled in a
+/// room (queue items 861, 848).
+fn an_editing() -> alo_renderer::field::Editing {
+    alo_renderer::field::Editing {
+        composing: Some(alo_renderer::field::Composing {
+            text: "きょう\0".to_owned(),
+            caret: 2,
+        }),
+        scrolled: 12.5,
+        room: Some(640.0),
+        ..alo_renderer::field::Editing::caret_at(3).selecting_from(11)
+    }
+}
+
 fn a_node(children: Vec<SnapshotNode>) -> SnapshotNode {
     SnapshotNode {
         id: id(7),
@@ -83,6 +97,8 @@ fn a_node(children: Vec<SnapshotNode>) -> SnapshotNode {
             takes_text: true,
             // A picture that failed crosses too (ADR 0046 § 5).
             broken: true,
+            // And a field's selection, in characters (queue item 861).
+            selection: Some((3, 7)),
         },
         // A field's hint crosses too, so the outline on the far side reads
         // as the tree did (ADR 0043 § 5).
@@ -184,6 +200,9 @@ fn every_message_to_a_renderer_survives_the_crossing() {
             // What a person typed, hostile, and what was offered for it.
             typed: "example.com</script>\0<b>".to_owned(),
             focused: true,
+            // Its caret, a selection and a composition (queue items 861,
+            // 848).
+            editing: an_editing(),
             offers: alo_renderer::typed::offers("example.com")
                 .into_iter()
                 .chain([Offer::Search("</script>\0<b>".to_owned())])
@@ -1018,6 +1037,110 @@ fn a_conversation_of_turns_and_its_reach_survive_the_crossing() {
         read_from_renderer(&write_from_renderer(&reached)),
         Ok(reached)
     );
+}
+
+/// Queue item 861: a field's editing and where its words were laid out
+/// cross whole, and a number past any field is refused by name.
+#[test]
+fn a_fields_editing_and_its_laid_out_words_cross_and_hostile_ones_are_refused() {
+    use alo_renderer::field::{Editing, FieldLaidOut};
+    let asked = ToRenderer::FieldLaidOut;
+    assert_eq!(read_to_renderer(&write_to_renderer(&asked)), Ok(asked));
+    let laid = FieldLaidOut {
+        left: 182.0,
+        top: 270.5,
+        height: 40.0,
+        room: 614.0,
+        scrolled: 21.5,
+        stops: vec![(0, 0.0), (1, 9.25), (3, 18.0)],
+    };
+    for answer in [
+        FromRenderer::FieldLaidOut(Some(laid.clone())),
+        FromRenderer::FieldLaidOut(None),
+    ] {
+        assert_eq!(
+            read_from_renderer(&write_from_renderer(&answer)),
+            Ok(answer.clone())
+        );
+    }
+    let refused_from = |answer: &FromRenderer| {
+        read_from_renderer(&write_from_renderer(answer))
+            .err()
+            .map(|why| why.why)
+            .unwrap_or_default()
+    };
+    // A length past any field, stops going back, and too many of them.
+    let far = FromRenderer::FieldLaidOut(Some(FieldLaidOut {
+        scrolled: 2.0e7,
+        ..laid.clone()
+    }));
+    assert!(
+        refused_from(&far).contains("scroll"),
+        "{}",
+        refused_from(&far)
+    );
+    let back = FromRenderer::FieldLaidOut(Some(FieldLaidOut {
+        stops: vec![(4, 0.0), (2, 9.0)],
+        ..laid.clone()
+    }));
+    assert!(refused_from(&back).contains("going back"));
+    let many = FromRenderer::FieldLaidOut(Some(FieldLaidOut {
+        stops: (0..=alo_renderer::typed::LONGEST_TYPED + 300)
+            .map(|at| (at, 0.0))
+            .collect(),
+        ..laid
+    }));
+    assert!(
+        refused_from(&many).contains("stops"),
+        "{}",
+        refused_from(&many)
+    );
+    // The panel's editing crosses as the first screen's does.
+    let panel = ToRenderer::Panel(Box::new(Panel {
+        searched: "lisbon".to_owned(),
+        searching: true,
+        editing: Editing::caret_at(2).selecting_from(6),
+        ..Panel::default()
+    }));
+    assert_eq!(
+        read_to_renderer(&write_to_renderer(&panel)),
+        Ok(panel.clone())
+    );
+    let refused_to = |message: &ToRenderer| {
+        read_to_renderer(&write_to_renderer(message))
+            .err()
+            .map(|why| why.why)
+            .unwrap_or_default()
+    };
+    // Scrolled less than nothing, a place past any field, and a
+    // composition longer than any drawn.
+    for (editing, said) in [
+        (
+            Editing {
+                scrolled: -1.0,
+                ..Editing::default()
+            },
+            "less than nothing",
+        ),
+        (Editing::caret_at(usize::MAX), "characters into a field"),
+        (
+            Editing {
+                composing: Some(alo_renderer::field::Composing {
+                    text: "あ".repeat(alo_renderer::field::LONGEST_COMPOSING + 1),
+                    caret: 0,
+                }),
+                ..Editing::default()
+            },
+            "composition",
+        ),
+    ] {
+        let start = ToRenderer::Start(Box::new(Start {
+            editing,
+            ..Start::default()
+        }));
+        let why = refused_to(&start);
+        assert!(why.contains(said), "{said}: {why}");
+    }
 }
 
 /// Queue item 755: a sign of more above or below placed past any room, or

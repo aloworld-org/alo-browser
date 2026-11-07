@@ -54,6 +54,7 @@ use alo_text::{Slant, Weight};
 mod agent;
 mod conversation;
 mod fetch;
+mod field;
 mod form;
 mod panel;
 mod pointer;
@@ -79,6 +80,11 @@ pub const LARGEST_MESSAGE: usize = 64 * 1024 * 1024;
 /// deeply as it was told would run out of stack on a message rather than
 /// returning an error. This is what makes the depth a refusal instead.
 pub const DEEPEST_TREE: usize = 512;
+
+/// The furthest into a field's text a place on the wire may be, in
+/// characters: further than any field of a page this engine draws holds
+/// (queue item 861), so a number past it is refused rather than believed.
+pub const MOST_PLACE: usize = 1 << 24;
 
 /// Why a message could not be read.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -222,6 +228,15 @@ impl Writer {
         }
         self.bool(states.takes_text);
         self.bool(states.broken);
+        // A field's selection, in characters (queue item 861).
+        match states.selection {
+            Some((start, end)) => {
+                self.bool(true);
+                self.number(start as u64);
+                self.number(end as u64);
+            }
+            None => self.bool(false),
+        }
     }
     fn target(&mut self, target: &Target) {
         match target {
@@ -280,6 +295,18 @@ impl Writer {
                 self.text(why);
             }
             Failure::NotTheConversation => self.tag(7),
+        }
+    }
+
+    /// A snapshot: whether it has a root, and the root with everything
+    /// under it.
+    fn snapshot(&mut self, snapshot: &Snapshot) {
+        match &snapshot.root {
+            Some(root) => {
+                self.bool(true);
+                self.node(root);
+            }
+            None => self.bool(false),
         }
     }
 
@@ -429,6 +456,7 @@ pub fn write_to_renderer(message: &ToRenderer) -> Vec<u8> {
             writer.float(at.x);
             writer.float(at.y);
         }
+        ToRenderer::FieldLaidOut => writer.tag(19),
     }
     writer.out
 }
@@ -473,13 +501,7 @@ pub fn write_from_renderer(message: &FromRenderer) -> Vec<u8> {
         }
         FromRenderer::Tree(snapshot) => {
             writer.tag(2);
-            match &snapshot.root {
-                Some(root) => {
-                    writer.bool(true);
-                    writer.node(root);
-                }
-                None => writer.bool(false),
-            }
+            writer.snapshot(snapshot);
         }
         FromRenderer::Acted {
             outcome,
@@ -533,6 +555,7 @@ pub fn write_from_renderer(message: &FromRenderer) -> Vec<u8> {
             writer.conversation_claim(claim.as_ref());
         }
         FromRenderer::ConversationReached(reach) => writer.conversation_reached(*reach),
+        FromRenderer::FieldLaidOut(laid) => writer.field_laid_out(laid.as_ref()),
     }
     writer.out
 }
@@ -913,7 +936,27 @@ impl<'a> Reader<'a> {
             },
             takes_text: self.bool()?,
             broken: self.bool()?,
+            selection: if self.bool()? {
+                let start = self.character()?;
+                let end = self.character()?;
+                if start > end {
+                    return Err(unreadable("a selection that ends before it starts"));
+                }
+                Some((start, end))
+            } else {
+                None
+            },
         })
+    }
+
+    /// A place in a field's text, in characters: never further than any
+    /// field holds ([`MOST_PLACE`]).
+    pub(super) fn character(&mut self) -> Result<usize, Unreadable> {
+        let said = self.number()?;
+        usize::try_from(said)
+            .ok()
+            .filter(|place| *place <= MOST_PLACE)
+            .ok_or_else(|| unreadable(format!("a place {said} characters into a field")))
     }
 
     fn target(&mut self) -> Result<Target, Unreadable> {
@@ -1332,6 +1375,7 @@ pub fn read_to_renderer(bytes: &[u8]) -> Result<ToRenderer, Unreadable> {
         18 => {
             ToRenderer::ConversationHover(alo_paint::Point::new(reader.float()?, reader.float()?))
         }
+        19 => ToRenderer::FieldLaidOut,
         other => return Err(unreadable(format!("a message tagged {other}"))),
     };
     reader.finished()?;
@@ -1444,6 +1488,7 @@ pub fn read_from_renderer(bytes: &[u8]) -> Result<FromRenderer, Unreadable> {
         10 => FromRenderer::Claimed(reader.claim()?),
         11 => FromRenderer::ConversationClaimed(reader.conversation_claim()?),
         12 => FromRenderer::ConversationReached(reader.conversation_reached()?),
+        13 => FromRenderer::FieldLaidOut(reader.field_laid_out()?),
         other => return Err(unreadable(format!("a message tagged {other}"))),
     };
     reader.finished()?;

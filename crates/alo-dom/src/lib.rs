@@ -136,6 +136,7 @@ pub mod scripts;
 pub mod serialize;
 pub mod sheets;
 pub mod submission;
+pub mod text_selection;
 pub mod title;
 pub mod validity;
 pub mod value;

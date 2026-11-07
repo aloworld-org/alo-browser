@@ -97,6 +97,11 @@ pub enum Drawn {
         /// How far they reach.
         reach: Reach,
     },
+    /// Where the part's field — the one box, or *Search chats* — was laid
+    /// out as it was just drawn, or nothing when it drew none (queue item
+    /// 861). Told just before the [`Drawn::Painted`] of the frame it was
+    /// laid out in.
+    Field(Part, Option<alo_renderer::field::FieldLaidOut>),
     /// Every drawing asked of the thread up to this number
     /// ([`ConversationDrawing::asked_through`]) has been drawn, or replaced
     /// by a later one before it was: told after what came of the newest
@@ -336,6 +341,9 @@ impl Holding {
                 self.painted.hovered = asked.showing.hovered;
                 self.painted.closing = asked.showing.closing;
                 self.painted.undo = asked.showing.undo;
+                // Where *Search chats*' words were laid out, told before
+                // the frame (queue item 861).
+                said.extend(self.field(Part::Panel));
             }
             said.extend(came);
         }
@@ -422,6 +430,9 @@ impl Holding {
                 // how far they were scrolled (queue item 703) — told before
                 // the frame, so the window aims a press on it by the offset
                 // it was drawn at from the moment it has it.
+                // Where the box's words were laid out, told before the
+                // frame (queue item 861).
+                said.extend(self.field(Part::Start));
                 if asked.start.conversing() {
                     said.extend(self.reach(
                         asked.start.turns.len(),
@@ -468,6 +479,29 @@ impl Holding {
                 let said = gone.to_string();
                 self.start.gone = Some(gone);
                 Some(Drawn::Said(Part::Start, said))
+            }
+        }
+    }
+
+    /// Ask `part`'s renderer where its field's words were laid out as it
+    /// just drew them (queue item 861): what the window places a press's
+    /// caret by and keeps the words' scroll in. Nothing when it answered
+    /// anything else; said, when it went.
+    fn field(&mut self, part: Part) -> Option<Drawn> {
+        let held = match part {
+            Part::Panel => &mut self.panel,
+            Part::Start => &mut self.start,
+        };
+        if held.gone.is_some() {
+            return None;
+        }
+        match self.renderers.ask(&held.site, &ToRenderer::FieldLaidOut) {
+            Ok(FromRenderer::FieldLaidOut(laid)) => Some(Drawn::Field(part, laid)),
+            Ok(_) => None,
+            Err(gone) => {
+                let said = gone.to_string();
+                held.gone = Some(gone);
+                Some(Drawn::Said(part, said))
             }
         }
     }

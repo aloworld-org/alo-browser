@@ -180,6 +180,11 @@ pub enum ToRenderer {
     /// the first screen's renderer; any other answers
     /// [`Failure::NotTheConversation`].
     ConversationReach,
+    /// Say where the field of the part it holds — the one box, or *Search
+    /// chats* — was laid out as it was last drawn (queue item 861):
+    /// answered with [`FromRenderer::FieldLaidOut`]. A renderer that holds
+    /// neither part answers [`Failure::NotTheConversation`].
+    FieldLaidOut,
 }
 
 /// What a renderer answers with.
@@ -386,6 +391,15 @@ pub enum FromRenderer {
     /// ([`crate::conversation_scroll::Reach::bounded`]), and never takes
     /// from it where a live card's page is.
     ConversationReached(crate::conversation_scroll::Reach),
+    /// Where the field of the part it holds was laid out, in answer to
+    /// [`ToRenderer::FieldLaidOut`] alone (queue item 861), or nothing when
+    /// the part as drawn has no field.
+    ///
+    /// **A claim about lengths in its own part, and nothing more**: the
+    /// browser process places the caret a person's press asks for and an
+    /// input method's candidates by it, inside the field, and keeps the
+    /// field's scroll; a renderer lying misplaces its own field's caret.
+    FieldLaidOut(Option<crate::field::FieldLaidOut>),
 }
 
 /// Why a request could not be answered.
@@ -514,6 +528,7 @@ impl fmt::Display for ToRenderer {
             ToRenderer::ConversationReach => {
                 f.write_str("say how far the first screen's conversation reaches")
             }
+            ToRenderer::FieldLaidOut => f.write_str("say where the part's field was laid out"),
             ToRenderer::Strip(strip) => write!(
                 f,
                 "hold the tab strip, {} open, at {}×{}",
@@ -616,7 +631,7 @@ mod tests {
             // Where a person's pointer is over the panel, and nothing else.
             ToRenderer::ConversationHover(_) => "a person's pointer over the panel",
             // Nothing: a question about the part it holds.
-            ToRenderer::ConversationReach => "nothing but the question",
+            ToRenderer::ConversationReach | ToRenderer::FieldLaidOut => "nothing but the question",
         };
         let answered = |answer: &FromRenderer| match answer {
             FromRenderer::UsingFont { .. }
@@ -635,6 +650,8 @@ mod tests {
             FromRenderer::ConversationClaimed(_) => "what in the part a press was on",
             // Two lengths of the part it was sent, and nothing else.
             FromRenderer::ConversationReached(_) => "how far the conversation reaches",
+            // Lengths of its own part's field, and nothing else.
+            FromRenderer::FieldLaidOut(_) => "where the part's field was laid out",
         };
 
         assert!(!sent(&ToRenderer::Paint).is_empty());

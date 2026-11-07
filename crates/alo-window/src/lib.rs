@@ -240,6 +240,8 @@ pub mod conversation_window;
 pub mod conversation_work;
 pub mod cursor;
 pub mod engine_pages;
+pub mod field_blink;
+pub mod field_edit;
 pub mod fonts;
 pub mod frame_place;
 pub mod frame_strip;
@@ -273,6 +275,9 @@ pub mod settings_file;
 pub mod showing;
 #[cfg(unix)]
 pub mod socket_place;
+pub mod text_field;
+pub mod text_stops;
+pub mod text_undo;
 pub mod typing;
 pub mod window;
 pub mod window_server;

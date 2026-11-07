@@ -81,6 +81,8 @@ pub mod fetch_filter;
 pub mod fetch_kept;
 pub mod fetch_make;
 pub mod fetch_owed;
+pub mod field;
+pub mod field_line;
 pub mod font_collection;
 pub mod font_units;
 pub mod fonts;

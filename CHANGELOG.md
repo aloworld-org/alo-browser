@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The box you type into is a real text field.** alo's one box and
+  *Search chats* now work as a Mac's own fields: a blinking caret you can
+  move with the arrows (by a word with ⌥, to the start or end with ⌘),
+  ⇧ to select, a click to place the caret, a double click for a word and
+  a drag; ⌘A, ⌘C, ⌘X and ⌘V with the system's clipboard (a pasted line
+  break becomes a space); ⌥- and ⌘-Backspace and the forward delete; ⌘Z
+  and ⇧⌘Z; long text scrolls to keep the caret in view; and input
+  methods — accents, Japanese, Chinese — compose in the box with their
+  candidates at the caret. Other ⌘ keys stay the browser's.
 - **A chat opened from an address is named by its site.** A chat whose
   first words were an address is now called by its host —
   *en.wikipedia.org* rather than *https://en.wikipedia.org/wiki/…* — and

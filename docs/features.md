@@ -899,9 +899,23 @@ The reason this exists rather than a faster fork of somebody else's engine.
   **Input methods** compose on the card's page, the candidates at the
   field's words' end (802). Through the machine's Chrome only the closed
   list and the input methods. Owed: a page's own pointer picture (846), a
-  caret moved back into the words (847), input methods in the box (848),
-  an option no one key reaches (849), the menu by keys (850), ⇧ and ⌥
-  presses (851), the strip's own face (852).
+  caret moved back into the words (847), an option no one key reaches
+  (849), the menu by keys (850), ⇧ and ⌥ presses (851), the strip's own
+  face (852).
+  **The one box and *Search chats* as text fields** (861, 848; the
+  owner's design of 7 November 2026): ⌘A, ⌘C, ⌘X and ⌘V, the system's
+  clipboard read with `pbpaste` and written with `pbcopy`, a paste one
+  line; the caret moved by the arrows, ⌥ by a word, ⌘ to an end, ⌥ and ⌘
+  with Backspace and the forward delete; ⇧ selecting; a press placing the
+  caret, a second selecting the word, a third everything, a drag; ⌘Z and
+  ⇧⌘Z grouped as macOS groups them; a caret 1 px of the ink, blinking half
+  a second; the selection on the ink's tint; long words scrolled to keep
+  the caret in view; input methods composing underlined at the caret, the
+  candidates under it; every other ⌘ key the browser's. An agent reads the
+  value and the selection as a range of characters. Owed: ⇧ with a press
+  (863), every script's marks (864), Ctrl's bindings (865), a drag past an
+  edge scrolling gradually (866), a drag on the sheet (867), an inactive
+  window's selection (868).
   **The first press on a card just opened** (805): the page's, measured —
   the window loses the keyboard two or three times for 10–30 ms as the
   card's Chromium starts and takes it back, and is the key window long

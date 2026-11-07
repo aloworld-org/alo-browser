@@ -49530,3 +49530,144 @@ leaky), 0 skipped** — *"The gate is met." (11 of 11 steps)*.
 `scripts/gate.sh` not edited.
 
 The next unused queue number is **863** and the next ADR is **0100**.
+
+## 2026-11-07 — items 861 (widened) and 848: the one box and *Search chats* as text fields
+
+Batched under one gate, at the owner's asking: the owner approved on 7
+November 2026 (*"Yes please"*) making the one box and *Search chats*
+behave as a Mac's text fields — 861 widened from ⌘A to the whole field,
+and 848's input methods with it — written into `docs/design/shell.md`
+(*The one box as a text field*) and both queue items as approved by the
+owner 2026-11-07, every detail the approval left open settled there.
+Contracts read: `CLAUDE.md`, `LOOP.md`, ADRs 0074 (amended in its status
+and consequences), 0002, 0084; 802's input-method road. No `unsafe`, no
+new crate, no new ADR (the next is still **0100**).
+
+**Settled** (shell.md has the words): the caret 1 px of the ink — 20 tall
+in the box, 16 in *Search chats* — on whole device pixels, blinking half
+a second shown and half hidden from its last move, drawn only while the
+field and the window have the keyboard and nothing is selected; the
+selection on the ink's tint `#d6d8da`, the letters kept in the ink (10.9 :
+1); long words scrolled only to keep the caret in view, as macOS's are,
+never past their end, the start shown without the keyboard; a paste one
+line (line breaks and tabs spaces, its ends' white space dropped, control
+characters out), 2,048 characters at most, 16 KiB of `pbpaste -Prefer
+txt` read; undo grouped as macOS's text system groups it (typing straight
+on one step; Backspaces in a row; a paste, a cut, Escape's emptying each
+alone; a move closing a step), 100 steps, forgotten when the box's words
+are chosen; six ⌘ keys the field's (A, C, X, V, Z, ⇧Z) and every other ⌘
+key the browser's or the system's, nothing with Ctrl; words as UAX #29
+nearly makes them (`en.wikipedia.org` one); a press at the nearest stop as
+drawn, a second within 500 ms and 4 px the word, a third everything, a
+drag; an agent reading the value and `caret=N` or `selection=a..b` in
+characters, never a place, no verb added.
+
+**Built.** `alo-window`: `text_field.rs`, `text_stops.rs`,
+`text_undo.rs`, `field_edit.rs` (one road for both fields), `typing.rs`
+rewritten, `field_blink.rs`, `clipboard.rs`'s `paste`, and
+`conversation_window/fields.rs` (a child module of the window: clipboard,
+presses, drag, blink, the scroll and room sent back, input methods);
+`conversation_box.rs` and `conversation_find.rs` hold a `TextField`.
+`alo-renderer`: `field.rs` (`Editing`, `FieldLaidOut`, `kept_in_view`),
+`field_line.rs` (the input's own words drawn in no colour; a line
+`aria-hidden` beside it in the template holding the words in runs, the
+selection's on the tint and a composition underlined, the caret placed by
+the measurer's cluster ends, the line moved left by its scroll),
+`ToRenderer::FieldLaidOut` / `FromRenderer::FieldLaidOut` (tags 19 and 13)
+and `wire/field.rs`, every length and place bounded. `alo-dom`'s
+`text_selection.rs` holds a field's selection as the document's state, as
+`hover` holds what is hovered, read into `alo-box`'s `States::selection`
+and across the wire. Found on the way: an absolutely placed box in a line
+is not built by this engine (it is placed against the initial containing
+block), so the caret stands beside a block of the runs; flex items drop a
+run's trailing space, so the runs are one inline line. The line draws the
+field's words on the very pixels the field drew them: **no existing
+reference moved**.
+
+**Tests:** unit (alo-window 837, among them the field 9, its stops 3, its
+undo 4, its keys 8, the road 1, the blink 1, the clipboard 1; the
+renderer's field 5 and line 5; the DOM's selection 2); the boundary
+(`messages_across_a_boundary.rs`, a new test of the editing, the laid-out
+words and their refusals; the selection crossing in a node's states);
+`the_box_as_a_text_field.rs` (6, layout in numbers — the field 183, 266,
+40 × 632; the caret 1 × 20 at 276 on its stop rounded, the stop 16 in
+`en.wikipedia.org`'s measured width to a 64th; the selection and a
+composition 20 tall at 276 within 2/64 of their stops; *Search chats* 46,
+111, 20 × 174, its selection and caret 16 tall at 113; scrolled so the
+caret stands at the room's edge; whole device pixels at two; the
+underline on row 293, under the letters only) and its references
+`field-caret-mid-text.png`, `field-selection.png`,
+`field-long-scrolled.png`, `panel-search-selected.png`, each run once
+without update mode (failing only on the missing file), written and looked
+at, the two with a caret redrawn and looked at again after the caret
+became 1 px; `the_box_as_a_text_field_in_the_window.rs` (2, the window's
+own road with the test's clock and clipboard: typed, ←←, a letter in at 5,
+the caret the one column its blink takes away at 500 ms and gives back at
+1,000, the next wake the blink's; ⌘→, ⇧⌥←, ⌘X onto the test's writer, ⌘V
+from its reader as one line; ⌘Z ⌘Z ⇧⌘Z ⇧⌘Z; presses, a double press, a
+drag past the end; ⌘A and Return going to the address and the box
+emptied; input methods allowed, composed, the candidates under the
+caret at the foot, committed `你好`; *Search chats* pasted into, ⌥⌫,
+Escape, ⌘Z, and a press on its scrolled words at the first letter shown).
+`the_conversation_window.rs` now holds `Drawn::Field` — each part's field
+told once, before its frame — and the two tests that read the drawing
+thread's channel strictly (`a_press_on_the_conversation.rs`,
+`typing_into_the_one_box.rs`) pass over it, as they pass over `Through`:
+the narrow change the coordinator allowed, and why. Every alo-window test
+that starts no Chrome: 962 passed. **Mutations**, each caught: a letter
+back moving on; typed text at the end; no word across `.`; ⌥ no word; ⌘V
+falling through; the caret a character on; the caret over a selection;
+the selection no run; the selection not told the agent; the composition
+not underlined (it survived at first — the check ran through the letters'
+own rows; it reads under them now and fails); the scroll never kept; the
+cut not written; the paste not read; newlines kept; a press placing
+nothing; no drag; a press unscrolled; every edit one step; typing never
+grouped; redo forgotten; input methods not for the box; a composition
+dropped; the blink never hidden.
+
+**By hand** (screen unlocked; release and CEF host built, the `.app`
+remade by `alo-bundle` with no keys; `--conversation --chats
+handrun38/chats`, `0700`; the window at 120, 60, 1280 × 852 points on the
+Retina display; keys through System Events, alo checked frontmost before
+each ⌘ key; the clipboard saved first (it was empty) and restored;
+screenshots in the session scratchpad's `handrun38/`): `kampla` typed
+(`01`), ←← the caret between `p` and `l` (`02`), `a` put in there —
+*kampala* (`03`); ⌥← ⌥← before *seven* and ⌥→ after it in *kampala city
+of seven hills* (`04`, `05`); ⇧⌥← *seven* on the tint (`06`), ⌘X — the
+system's clipboard read back as `seven` — (`07`), ⌘← ⌘V at the start
+(`08`), ⌘Z back with the caret where the paste went in (`09`); an address
+put on the clipboard with its newline from the terminal, ⌘A (`10`), ⌘V
+as one line (`11`), Return opening it as a card (`12`); at the window's
+foot, ⌘A over *hello world* (`13b`), typed over (`14b`), ⌘Z — *hello
+world* back, selected (`15b`); a press placing the caret after `en.w`
+(`16`), a double press selecting *kampala* (`17`), a drag (`18`); a long
+question scrolled to its end (`19`), ⌘← back at its start (`20`);
+*Search chats* pasted into — `wikipedia`, the chat found (`21`), ⇧⌥←
+selected (`22`); the layout's `^` dead key composed through the input
+methods' road, drawn underlined (`23`), then `ê` (`24`). **Found by hand,
+fixed:** the caret at 2 px was four device pixels on the Retina display
+and heavier than macOS's; 1 px, its references redrawn. **Seen but not a
+fault:** with a live card, an edit's frame came up to about a second after
+the key (`13`, `14`, `15` were taken too soon; `13b`, `14b`, `15b` after a
+second) — no speed claim is made. Quit with `tell application id
+"org.aloworld.Browser" to quit`; no alo process left; the pointer at
+1400, 1000. **Spend: none** — no search, no model. **Not seen by hand:
+Japanese or Chinese input and their candidate window** — no such input
+source is enabled on this Mac, and system settings were not changed; the
+caret's blink rate against macOS's own; undo of a composition; a
+triple press.
+
+Cut, queued: a ⇧-press (863), every script's marks (864), Ctrl's
+bindings (865), a drag past an edge scrolling gradually (866), a drag on
+the sheet (867), an inactive window's selection (868).
+
+ROADMAP: the interface line's owed list loses 848 and 861 and gains
+863–868; *Built since* names 861 and 848.
+
+**Gate: met, first run** (CEF_PATH set, the pointer at 1400, 1000; detached
+through `perl -MPOSIX=setsid` and waited on by its PID; `gate-batch18.log`).
+**Summary [1238.832s] 6624 tests run: 6624 passed (8 slow, 2 leaky), 0
+skipped** — *"The gate is met." (11 of 11 steps)*. `scripts/gate.sh` not
+edited.
+
+The next unused queue number is **869** and the next ADR is **0100**.

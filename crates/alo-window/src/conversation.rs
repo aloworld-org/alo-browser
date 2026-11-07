@@ -134,6 +134,15 @@ use alo_renderer::typed::Offer;
 use alo_url::Url;
 use std::time::Instant;
 
+/// One of alo's two fields a person types into (queue item 861).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Field {
+    /// The one box, on the first screen.
+    TheBox,
+    /// *Search chats*, in the panel.
+    SearchChats,
+}
+
 /// What the first screen says first, at any hour.
 pub const GREETING: &str = "Hello.";
 
@@ -314,6 +323,7 @@ impl Conversation {
             scale: 1.0,
             searched: self.find.typed().to_owned(),
             searching: self.find.focused(),
+            editing: self.find.field().editing(),
             hidden: self.railed(),
             deleted: self
                 .deleting
@@ -732,11 +742,7 @@ impl Conversation {
         // *Search chats* has the keyboard (queue item 711): its words, not
         // the box's.
         if self.find.focused() {
-            return if self.find.edit(edit) {
-                Typed::Changed
-            } else {
-                Typed::Unchanged
-            };
+            return Typed::of(self.find.edit(edit));
         }
         let typed = self.the_box.edit(edit, self.asks_first());
         if let Typed::Chose(offer) = &typed {
@@ -1403,6 +1409,7 @@ impl Conversation {
             scale: 1.0,
             typed: self.the_box.typed().to_owned(),
             focused: self.the_box.focused(),
+            editing: self.the_box.field().editing(),
             offers: self.the_box.offers(self.asks_first()),
             // Only the pictures each tab draws, the newest turns' first,
             // within the first screen's budget (queue item 743).
@@ -1450,6 +1457,36 @@ impl Conversation {
         self.card_keys = true;
         let searching = self.find.blur();
         self.the_box.blur() || searching
+    }
+
+    /// Which field has the keyboard, if one does: *Search chats* or the
+    /// one box (queue item 861).
+    pub fn field_focused(&self) -> Option<Field> {
+        if self.find.focused() {
+            Some(Field::SearchChats)
+        } else if self.the_box.focused() {
+            Some(Field::TheBox)
+        } else {
+            None
+        }
+    }
+
+    /// The field that has the keyboard, to place its caret, select in it
+    /// or compose in it (queue items 861, 848): none while neither has it.
+    pub fn field_mut(&mut self) -> Option<&mut crate::text_field::TextField> {
+        if self.find.focused() {
+            self.find.field_mut()
+        } else {
+            self.the_box.field_mut()
+        }
+    }
+
+    /// The field `which`, as it stands.
+    pub fn field(&self, which: Field) -> &crate::text_field::TextField {
+        match which {
+            Field::TheBox => self.the_box.field(),
+            Field::SearchChats => self.find.field(),
+        }
     }
 
     /// Whether a person's keys go to the card's page rather than the box:
@@ -2219,7 +2256,10 @@ mod tests {
         // Words in the box: its keys are its own.
         type_in(&mut conversation, "x");
         assert!(!conversation.keys_scroll());
-        let _ = conversation.edit(Edit::Erase);
+        let _ = conversation.edit(Edit::Erase(
+            crate::text_field::Unit::Character,
+            crate::text_field::Toward::Start,
+        ));
         assert!(conversation.keys_scroll(), "empty again");
         // Nothing has the keyboard: the conversation's.
         let _ = conversation.act(Pressed::Nothing);
@@ -3159,7 +3199,13 @@ mod tests {
         ));
         assert!(panel(&conversation).chats.is_empty(), "none called NEWx");
         assert!(conversation.showing().chats.is_empty());
-        assert!(matches!(conversation.edit(Edit::Erase), Typed::Changed));
+        assert!(matches!(
+            conversation.edit(Edit::Erase(
+                crate::text_field::Unit::Character,
+                crate::text_field::Toward::Start
+            )),
+            Typed::Changed
+        ));
         assert_eq!(conversation.showing().chats.len(), 2);
         assert!(matches!(conversation.edit(Edit::Choose), Typed::Unchanged));
         // A press on the box takes the keyboard back, keeping the words.

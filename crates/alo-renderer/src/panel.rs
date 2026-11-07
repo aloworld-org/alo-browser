@@ -58,6 +58,10 @@ pub struct Panel {
     pub searched: String,
     /// Whether *Search chats* has the keyboard.
     pub searching: bool,
+    /// Where *Search chats*' caret and selection stand, and an input
+    /// method's composition (queue items 861, 848): drawn only while it has
+    /// the keyboard ([`crate::field_line`]).
+    pub editing: crate::field::Editing,
     /// Whether the panel is hidden, drawn as the design's rail 64 wide:
     /// the mark, *New chat*, the chats ([`RAIL_CHATS`] of them, queue item
     /// 760) and *Show the panel* (queue item 711). The browser process
@@ -135,6 +139,7 @@ impl Default for Panel {
             scale: 1.0,
             searched: String::new(),
             searching: false,
+            editing: crate::field::Editing::default(),
             hidden: false,
             deleted: None,
             face: InterfaceFace::Inter,

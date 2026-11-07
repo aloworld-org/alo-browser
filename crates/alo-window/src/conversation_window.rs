@@ -87,7 +87,6 @@ use crate::conversation_search::{Came, Searched, Searcher};
 use crate::conversation_sheet::Slide;
 use crate::keys::{Held, Modifier, Press};
 use crate::scale::Scale;
-use crate::typing;
 use alo_layout::Size;
 use alo_renderer::Frame;
 use alo_renderer::card_menu::{CardMenu, MenuItem};
@@ -97,6 +96,8 @@ use alo_renderer::split_place::Stands;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
+
+mod fields;
 
 /// What the conversation's window hears from the threads it hands work to.
 #[derive(Debug)]
@@ -254,6 +255,9 @@ pub struct ConversationWindow {
     /// Input methods, as the window was last asked to take them (queue
     /// item 802): whether allowed, and where the caret was told to be.
     ime: Ime,
+    /// The one box and *Search chats* as text fields: the clipboard read,
+    /// a press placing the caret, the caret's blink (queue items 861, 848).
+    fields: fields::Fields,
 }
 
 /// Input methods in the conversation's window (queue item 802).
@@ -406,6 +410,7 @@ impl ConversationWindow {
             tells: Telling::Silent,
             clipboard: Box::new(crate::clipboard::copy),
             ime: Ime::default(),
+            fields: fields::Fields::default(),
         }
     }
 
@@ -416,18 +421,25 @@ impl ConversationWindow {
     /// has; and the candidates under the caret the page last said it has,
     /// mapped into the window.
     pub fn take_ime(&mut self) -> ImeAsked {
-        let allowed = self.conversation.keys_to_the_card() && !self.conversation.sheet();
+        let to_the_card = self.conversation.keys_to_the_card() && !self.conversation.sheet();
+        // Allowed for alo's own fields too (queue item 848).
+        let allowed = to_the_card || self.field_takes_input_methods();
         let changed =
             (allowed != std::mem::replace(&mut self.ime.allowed, allowed)).then_some(allowed);
-        if !allowed {
+        if !to_the_card {
             self.ime.caret = None;
+        }
+        if !allowed {
             self.ime.shown = None;
         }
-        let caret = self
-            .ime
-            .caret
-            .and_then(|caret| self.caret_in_the_window(caret))
-            .filter(|at| Some(*at) != self.ime.shown);
+        let caret = if to_the_card {
+            self.ime
+                .caret
+                .and_then(|caret| self.caret_in_the_window(caret))
+        } else {
+            self.field_caret_in_the_window()
+        }
+        .filter(|at| Some(*at) != self.ime.shown);
         if caret.is_some() {
             self.ime.shown = caret;
         }
@@ -463,6 +475,9 @@ impl ConversationWindow {
     /// selection counted in UTF-16 code units as it counts them.
     pub fn composing(&mut self, text: &str, selection: Option<(usize, usize)>) {
         if !self.conversation.keys_to_the_card() {
+            // alo's own field's, while one has the keyboard (queue item
+            // 848): its caret where the input method's is.
+            let _ = self.field_composing(text, selection.map(|(_, end)| end));
             return;
         }
         self.to_the_page(CardInput::Compose {
@@ -474,8 +489,12 @@ impl ConversationWindow {
     /// What an input method's composition came to, `text`, put into the
     /// card's page's field (queue item 802).
     pub fn committed(&mut self, text: &str) {
-        if self.conversation.keys_to_the_card() && !text.is_empty() {
-            self.to_the_page(CardInput::Commit(text.to_owned()));
+        if self.conversation.keys_to_the_card() {
+            if !text.is_empty() {
+                self.to_the_page(CardInput::Commit(text.to_owned()));
+            }
+        } else {
+            let _ = self.field_committed(text);
         }
     }
 
@@ -939,6 +958,10 @@ impl ConversationWindow {
         let mut start = self
             .conversation
             .start(start_viewport_as(window, scale, side), scale);
+        let mut panel = panel;
+        // The fields' carets as they stand now, and their words' scroll
+        // (queue item 861).
+        self.dress_fields(&mut panel, &mut start, self.now());
         // The conversation moved — scrolled, or a turn added — since it was
         // last drawn: its bar is whole again, and faded as it says (793).
         let now = self.now();
@@ -1230,6 +1253,12 @@ impl ConversationWindow {
     /// Chromium is starting, which is what took it, it takes the front
     /// back at once.
     pub fn focused(&mut self, focused: bool) {
+        // A field's caret is drawn only while the window has the keyboard
+        // (queue item 861).
+        if focused != self.front.focused && self.conversation.field_focused().is_some() {
+            self.ask_drawn();
+            self.redraw = true;
+        }
         self.front.focused = focused;
         if !focused && self.front.owed {
             self.front.asked = true;
@@ -1314,7 +1343,9 @@ impl ConversationWindow {
             .moving(now)
             .then_some(now + conversation_bar::FRAME);
         let bar = self.seen_drawn().and_then(|_| self.bar.wake_at(now));
-        [self.conversation.undo_until(), slide, bar]
+        // The caret's next blink (queue item 861).
+        let blink = self.field_wakes_at(now);
+        [self.conversation.undo_until(), slide, bar, blink]
             .into_iter()
             .flatten()
             .min()
@@ -1325,6 +1356,7 @@ impl ConversationWindow {
     /// slid on, and once back in let go; the bar drawn as faded as it now
     /// is.
     pub fn tick(&mut self, now: Instant) {
+        self.field_tick(now);
         if self.conversation.expire(now) {
             self.redraw = true;
             self.ask_drawn();
@@ -1457,6 +1489,9 @@ impl ConversationWindow {
                 self.to_the_page(pressed);
             }
             Some(card_aim::Aimed::Part(part, on)) => {
+                // Counted, for a field's word or everything (queue item
+                // 861), and kept until it is decided.
+                self.field_pressed_at(part, on, now);
                 if let Some(drawing) = self.drawing.as_mut() {
                     drawing.press(part, on);
                 }
@@ -1494,6 +1529,14 @@ impl ConversationWindow {
             }
             return;
         }
+        // A press selecting in a field, the button still down (queue item
+        // 861).
+        if let Some(card_aim::Aimed::Part(part, on)) = self.aimed(at)
+            && self.field_dragged(part, on)
+        {
+            self.ask_drawn();
+            self.redraw = true;
+        }
         // Over the panel, the row under the pointer offers Delete or its ×
         // (queue items 789, 791), and on the rail its name stands beside it
         // (760); off it, none does.
@@ -1520,6 +1563,7 @@ impl ConversationWindow {
     /// The main button came up: the page's, where the cursor is, after a
     /// press on it.
     pub fn main_button_released(&mut self) {
+        self.field_released();
         let at = self.cursor.and_then(|at| self.on_the_card(at));
         if let Some(input) = self.pointer.released(at) {
             self.to_the_page(input);
@@ -1618,7 +1662,15 @@ impl ConversationWindow {
         self.card_pressed(&pressed);
         self.agent_pressed(&pressed);
         let settings = self.conversation.settings().is_open();
+        let on_a_field = matches!(pressed, Decided::TheBox | Decided::SearchChats);
+        let field_pressed = on_a_field.then(|| pressed.clone());
         if self.conversation.act(pressed) {
+            self.ask_drawn();
+        }
+        // The caret placed where the field was pressed (queue item 861).
+        if let Some(field_pressed) = field_pressed
+            && self.field_press_decided(part, &field_pressed)
+        {
             self.ask_drawn();
         }
         // *Settings* opened or closed (queue item 854): a live card's page
@@ -2039,6 +2091,7 @@ impl ConversationWindow {
                 reach,
             }) => self.reached(turns, (down, offered, stands), reach),
             Heard::Drawn(Drawn::Through(number)) => self.drawn_through = number,
+            Heard::Drawn(Drawn::Field(part, laid)) => self.field_laid(part, laid),
         }
     }
 
@@ -2108,8 +2161,10 @@ impl ConversationWindow {
                 let now = self.now();
                 self.close_the_sheet(now);
             } else if self.conversation.find().focused()
-                && let Some(edit) = typing::edit(press, text)
-                && self.conversation.edit(edit) == Typed::Changed
+                && matches!(
+                    self.field_key(press, text),
+                    Some(Typed::Changed | Typed::Cut(_))
+                )
             {
                 self.ask_drawn();
                 self.redraw = true;
@@ -2154,16 +2209,16 @@ impl ConversationWindow {
             }
             return;
         }
-        let Some(edit) = typing::edit(press, text) else {
-            return;
-        };
         // Whether a card was live before the edit, which a search chosen by
         // Return puts away: asked after it, the card had already gone and
         // its page was never closed (found by hand, queue item 703).
         let had_a_card = self.conversation.card().is_some();
-        match self.conversation.edit(edit) {
-            Typed::Unchanged => {}
-            Typed::Changed => self.ask_drawn(),
+        let Some(typed) = self.field_key(press, text) else {
+            return;
+        };
+        match typed {
+            Typed::Unchanged | Typed::Copy(_) => {}
+            Typed::Changed | Typed::Cut(_) => self.ask_drawn(),
             Typed::Chose(chosen) => {
                 // A choice is a decision as a press is: what the last one
                 // came to is no longer said.

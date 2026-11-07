@@ -188,6 +188,10 @@ pub struct Renderer {
     /// Which part of the browser's own interface it holds, if any: the one
     /// thing a press on that part may be answered about.
     holds: Holds,
+    /// The field of the part it holds, as its line was last laid
+    /// ([`crate::field_line`], queue item 861): what
+    /// [`ToRenderer::FieldLaidOut`] is answered from.
+    field: Option<(crate::field_line::Field, crate::field_line::Laid)>,
 }
 
 /// Which part of the browser's own interface a renderer holds.
@@ -213,6 +217,7 @@ impl Renderer {
             )),
             pointed: Pointed::default(),
             holds: Holds::Nothing,
+            field: None,
             easel,
             page: None,
             held: None,
@@ -297,6 +302,7 @@ impl Renderer {
                 self.conversation_press(at)
             }
             ToRenderer::ConversationReach => self.conversation_reach(),
+            ToRenderer::FieldLaidOut => self.field_laid_out(),
         }
     }
 
@@ -797,7 +803,27 @@ impl Renderer {
         } else {
             panel_document::SHEET
         };
-        match panel_document::build(panel) {
+        let built = panel_document::build(panel).and_then(|mut document| {
+            // *Search chats* drawn with its caret and selection (queue item
+            // 861); the rail has no field.
+            self.field = if panel.hidden {
+                None
+            } else {
+                self.lay_field(
+                    &mut document,
+                    crate::field_line::SEARCH_CHATS,
+                    (&panel.searched, &panel.editing, panel.searching),
+                    (
+                        panel.face.family(),
+                        crate::field_line::SEARCH_SIZE,
+                        panel.scale,
+                    ),
+                )
+                .map_err(|unbuilt| panel_document::Unbuilt { why: unbuilt.why })?
+            };
+            Ok(document)
+        });
+        match built {
             Ok(document) => self.interface(
                 document,
                 panel.viewport,
@@ -826,10 +852,72 @@ impl Renderer {
                     start.face.family(),
                     start.scale,
                 );
+                // The box drawn with its caret and selection (queue item
+                // 861); *Settings* has no box.
+                self.field = if start.settings {
+                    None
+                } else {
+                    match self.lay_field(
+                        &mut document,
+                        crate::field_line::THE_BOX,
+                        (&start.typed, &start.editing, start.focused),
+                        (
+                            start.face.family(),
+                            crate::field_line::BOX_SIZE,
+                            start.scale,
+                        ),
+                    ) {
+                        Ok(field) => field,
+                        Err(unbuilt) => {
+                            return FromRenderer::Failed(Failure::NoStart { why: unbuilt.why });
+                        }
+                    }
+                };
                 self.start_built(start, document)
             }
             Err(unbuilt) => FromRenderer::Failed(Failure::NoStart { why: unbuilt.why }),
         }
+    }
+
+    /// Draw `field`'s line in `document` with what is typed, as `editing`
+    /// says it stands while it has the keyboard (`focused`), its words
+    /// measured in `family` at `size` on a screen of `scale` (queue item
+    /// 861): the field and how its line was laid, to answer
+    /// [`ToRenderer::FieldLaidOut`] with.
+    fn lay_field(
+        &self,
+        document: &mut alo_dom::Document,
+        field: crate::field_line::Field,
+        held: (&str, &crate::field::Editing, bool),
+        (family, size, scale): (&str, f32, f32),
+    ) -> Result<
+        Option<(crate::field_line::Field, crate::field_line::Laid)>,
+        crate::start_document::Unbuilt,
+    > {
+        let easel = self.easel.borrow();
+        let measurer = alo_text::TextMeasurer::new(&easel.fonts);
+        let style = crate::field_line::style(family, size, scale);
+        let laid = crate::field_line::put(document, field, held, (&measurer, &style), scale)?;
+        Ok(Some((field, laid)))
+    }
+
+    /// Where the field of the part it holds was laid out as last drawn
+    /// (queue item 861): nothing when the part has no field, and a renderer
+    /// holding no part of the conversation answers that it holds none.
+    fn field_laid_out(&mut self) -> FromRenderer {
+        if !matches!(self.holds, Holds::Conversation(_)) {
+            return FromRenderer::Failed(Failure::NotTheConversation);
+        }
+        self.fresh();
+        let easel = self.easel.borrow();
+        let (Some(document), Some(drawing)) = (self.document(), easel.drawn()) else {
+            return FromRenderer::Failed(Failure::NothingLoaded);
+        };
+        FromRenderer::FieldLaidOut(
+            self.field.as_ref().and_then(|(field, laid)| {
+                crate::field_line::laid_out(drawing, document, *field, laid)
+            }),
+        )
     }
 
     /// The first screen built as `document` from `start`, held.

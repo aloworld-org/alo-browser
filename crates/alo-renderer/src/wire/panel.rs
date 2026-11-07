@@ -31,6 +31,7 @@ impl Writer {
         self.bool(panel.settings);
         self.text(&panel.searched);
         self.bool(panel.searching);
+        self.editing(&panel.editing);
         self.bool(panel.hidden);
         self.bool(panel.deleted.is_some());
         if let Some(deleted) = &panel.deleted {
@@ -80,6 +81,7 @@ impl Reader<'_> {
         let settings = self.bool()?;
         let searched = self.text()?;
         let searching = self.bool()?;
+        let editing = self.editing()?;
         let hidden = self.bool()?;
         let deleted = if self.bool()? {
             Some(self.text()?)
@@ -121,6 +123,7 @@ impl Reader<'_> {
             scale,
             searched,
             searching,
+            editing,
             hidden,
             deleted,
             face,

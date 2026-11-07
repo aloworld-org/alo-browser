@@ -459,6 +459,9 @@ fn states_of(node: &AxNode, role: &Role) -> States {
         // block inside it, which is only where the text is drawn.
         takes_text: said("editable").is_some() && flag("focusable") == Some(true),
         broken: false,
+        // Chrome's accessibility tree says no field's selection; a card's
+        // page's is not read yet.
+        selection: None,
     }
 }
 

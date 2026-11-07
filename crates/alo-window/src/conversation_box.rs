@@ -31,15 +31,20 @@
 //! ([`crate::conversation_search`], queue item 708); choosing one that is
 //! not, or asking, says it is not set up yet and why ([`said`]).
 
+use crate::field_edit::{self, Made};
+use crate::text_field::TextField;
 use crate::typing::Edit;
 use alo_renderer::results::{PROVIDER, SetUp};
-use alo_renderer::typed::{LONGEST_TYPED, Offer, offers_for};
+use alo_renderer::typed::{Offer, offers_for};
 
 /// The one box.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct TheBox {
-    /// What a person has typed, at most [`LONGEST_TYPED`] characters.
-    typed: String,
+    /// What a person has typed, at most
+    /// [`alo_renderer::typed::LONGEST_TYPED`] characters, with its caret,
+    /// its selection and what can be undone ([`crate::text_field`], queue
+    /// item 861).
+    field: TextField,
     /// Whether it has the keyboard.
     focused: bool,
 }
@@ -50,17 +55,46 @@ pub enum Typed {
     /// Nothing: the box does not have the keyboard, or the edit left what
     /// is typed as it was.
     Unchanged,
-    /// What is typed, or whether the box has the keyboard, changed, and the
-    /// first screen is to be drawn again.
+    /// What is typed, where its caret stands, or whether the box has the
+    /// keyboard, changed, and the first screen is to be drawn again.
     Changed,
+    /// This was selected and is to go on the system's clipboard (⌘C):
+    /// nothing changed.
+    Copy(String),
+    /// This was selected, is to go on the system's clipboard, and was
+    /// taken out (⌘X): drawn again.
+    Cut(String),
     /// This offer was chosen.
     Chose(Offer),
+}
+
+impl Typed {
+    /// What `made` comes to, for a field that chooses nothing.
+    pub fn of(made: Made) -> Self {
+        match made {
+            Made::Nothing | Made::Theirs(_) => Typed::Unchanged,
+            Made::Changed => Typed::Changed,
+            Made::Copy(text) => Typed::Copy(text),
+            Made::Cut(text) => Typed::Cut(text),
+        }
+    }
 }
 
 impl TheBox {
     /// What is typed.
     pub fn typed(&self) -> &str {
-        &self.typed
+        self.field.text()
+    }
+
+    /// The field itself: its caret, its selection, a composition.
+    pub fn field(&self) -> &TextField {
+        &self.field
+    }
+
+    /// The field, to place its caret or compose in, while the box has the
+    /// keyboard.
+    pub fn field_mut(&mut self) -> Option<&mut TextField> {
+        self.focused.then_some(&mut self.field)
     }
 
     /// Whether the box has the keyboard.
@@ -74,7 +108,7 @@ impl TheBox {
     /// (queue item 704).
     pub fn offers(&self, asks_first: bool) -> Vec<Offer> {
         if self.focused {
-            offers_for(&self.typed, asks_first)
+            offers_for(self.field.text(), asks_first)
         } else {
             Vec::new()
         }
@@ -85,17 +119,17 @@ impl TheBox {
         !std::mem::replace(&mut self.focused, true)
     }
 
-    /// Take the keyboard from the box: whether that changed anything.
+    /// Take the keyboard from the box: whether that changed anything. A
+    /// composition is put away with it.
     pub fn blur(&mut self) -> bool {
+        let _ = self.field.compose("", 0);
         std::mem::replace(&mut self.focused, false)
     }
 
-    /// Empty the box, keeping the keyboard where it is: whether anything
-    /// was typed.
+    /// Empty the box, keeping the keyboard where it is, and forget what
+    /// could be undone, as choosing does: whether anything was typed.
     pub fn empty(&mut self) -> bool {
-        let typed = !self.typed.is_empty();
-        self.typed.clear();
-        typed
+        self.field.empty()
     }
 
     /// What the first offer is, if anything is offered: what Return and
@@ -105,35 +139,24 @@ impl TheBox {
     }
 
     /// Make `edit`, if the box has the keyboard, offering as `asks_first`
-    /// says.
+    /// says ([`crate::field_edit`]).
     pub fn edit(&mut self, edit: Edit, asks_first: bool) -> Typed {
         if !self.focused {
             return Typed::Unchanged;
         }
-        let changed = match edit {
-            Edit::Put(text) => {
-                let room = LONGEST_TYPED.saturating_sub(self.typed.chars().count());
-                let before = self.typed.len();
-                self.typed.extend(text.chars().take(room));
-                self.typed.len() != before
-            }
-            Edit::Erase => self.typed.pop().is_some(),
+        match field_edit::make(&mut self.field, edit) {
             // Empty, Escape lets the keyboard go.
-            Edit::Clear if self.typed.is_empty() => self.blur(),
-            Edit::Clear => {
-                self.typed.clear();
-                true
+            Made::Theirs(Edit::Clear) => {
+                if self.blur() {
+                    Typed::Changed
+                } else {
+                    Typed::Unchanged
+                }
             }
-            Edit::Choose => {
-                return self
-                    .choice(asks_first)
-                    .map_or(Typed::Unchanged, Typed::Chose);
-            }
-        };
-        if changed {
-            Typed::Changed
-        } else {
-            Typed::Unchanged
+            Made::Theirs(Edit::Choose) => self
+                .choice(asks_first)
+                .map_or(Typed::Unchanged, Typed::Chose),
+            made => Typed::of(made),
         }
     }
 }
@@ -165,11 +188,19 @@ pub fn said(chosen: &Offer, search: &SetUp, asking: &SetUp) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alo_renderer::typed::LONGEST_TYPED;
 
     fn focused() -> TheBox {
         let mut the_box = TheBox::default();
         assert!(the_box.focus());
         the_box
+    }
+
+    fn erase() -> Edit {
+        Edit::Erase(
+            crate::text_field::Unit::Character,
+            crate::text_field::Toward::Start,
+        )
     }
 
     fn put(the_box: &mut TheBox, text: &str) -> Typed {
@@ -239,12 +270,12 @@ mod tests {
     fn backspace_erases_and_escape_empties_then_lets_go() {
         let mut the_box = focused();
         let _ = put(&mut the_box, "exampl€");
-        assert_eq!(the_box.edit(Edit::Erase, false), Typed::Changed);
+        assert_eq!(the_box.edit(erase(), false), Typed::Changed);
         assert_eq!(the_box.typed(), "exampl");
         assert_eq!(the_box.edit(Edit::Clear, false), Typed::Changed);
         assert_eq!(the_box.typed(), "");
         assert!(the_box.focused());
-        assert_eq!(the_box.edit(Edit::Erase, false), Typed::Unchanged);
+        assert_eq!(the_box.edit(erase(), false), Typed::Unchanged);
         assert_eq!(the_box.edit(Edit::Clear, false), Typed::Changed);
         assert!(!the_box.focused());
     }
@@ -274,11 +305,36 @@ mod tests {
     }
 
     #[test]
-    fn markup_typed_is_held_as_typed() {
+    fn markup_typed_is_held_as_typed_and_control_characters_left_out() {
         let mut the_box = focused();
         for hostile in ["<b>", "</script>", "\u{0}"] {
             let _ = put(&mut the_box, hostile);
         }
-        assert_eq!(the_box.typed(), "<b></script>\u{0}");
+        assert_eq!(the_box.typed(), "<b></script>");
+    }
+
+    #[test]
+    fn select_all_then_typing_replaces_what_was_typed_and_copy_cut_say_what() {
+        let mut the_box = focused();
+        let _ = put(&mut the_box, "https://en.wikipedia.org");
+        assert_eq!(the_box.edit(Edit::SelectAll, false), Typed::Changed);
+        assert_eq!(
+            the_box.edit(Edit::Copy, false),
+            Typed::Copy("https://en.wikipedia.org".to_owned())
+        );
+        assert_eq!(put(&mut the_box, "example.com"), Typed::Changed);
+        assert_eq!(the_box.typed(), "example.com", "not glued after it (859)");
+        let _ = the_box.edit(Edit::SelectAll, false);
+        assert_eq!(
+            the_box.edit(Edit::Cut, false),
+            Typed::Cut("example.com".to_owned())
+        );
+        assert_eq!(the_box.typed(), "");
+        assert_eq!(the_box.edit(Edit::Undo, false), Typed::Changed);
+        assert_eq!(the_box.typed(), "example.com");
+        // Choosing empties it and forgets what could be undone.
+        assert!(matches!(the_box.edit(Edit::Choose, false), Typed::Chose(_)));
+        assert!(the_box.empty());
+        assert_eq!(the_box.edit(Edit::Undo, false), Typed::Unchanged);
     }
 }

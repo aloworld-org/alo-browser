@@ -2496,10 +2496,12 @@ items where being right and being unusable are the same outcome.
       Chrome (780), a page moving its card's window and the Dock and ⌘-Tab
       through the machine's Chrome (787, 788), a closed list pressed on a
       a page's own pointer picture (846), a caret moved back for an input
-      method (847), input methods in the box (848), a closed list's option
+      method (847), a closed list's option
       no one key reaches (849), alo's menu by keys (850), ⇧ and ⌥ on a
       link (851), the strip's own face and the face chosen (852),
-      *Settings* by keys (856), ⌘A in the one box (861),
+      *Settings* by keys (856), a ⇧-press, every script's marks, Ctrl's
+      bindings, a drag past an edge and on the sheet, and an inactive
+      window's selection in alo's own fields (863–868),
       an agent reaching a page the conversation
       opened (716), a field's value kept to one line by
       the engine itself (715),
@@ -2530,7 +2532,12 @@ items where being right and being unusable are the same outcome.
       details never an agent's — the owner's designs of 6 November 2026
       (824, 825, 826, ADRs 0096 amended and 0099); a chat opened from an
       address named by its host, glued addresses never one word, and its
-      site's letter on the rail (859, 860, ADR 0092 amended);
+      site's letter on the rail (859, 860, ADR 0092 amended); the one box
+      and *Search chats* as a Mac's text fields — the caret blinking and
+      moved by letters, words and to an end, selections by ⇧, presses and
+      drags, the clipboard, undo, long words scrolled, input methods at the
+      caret, an agent reading the selection in characters — the owner's
+      design of 7 November 2026 (861, 848);
       the pointer following a card's page, a link's strip on an
       expanded card, alo's own menu and a link opened as the next turn, a
       closed list's normal dropdown and the agent's list in its column, and

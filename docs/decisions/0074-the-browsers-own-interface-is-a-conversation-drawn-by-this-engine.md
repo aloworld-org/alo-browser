@@ -1,6 +1,6 @@
 # ADR 0074 — The browser's own interface is a conversation, drawn by this engine
 
-**Status:** accepted — the chats panel (699), the first screen (700), their window (709), a press on either (710), icons (712), going to a website from the one box (701) and opening it in the machine's Chrome (713, ADR 0075), the typefaces (706, ADR 0084), the conversation's turns, scrolled (703, ADR 0085), a press on an offer (714, 759), and *Search chats* and the button that hides the panel (711) built; the rest queued
+**Status:** accepted — the chats panel (699), the first screen (700), their window (709), a press on either (710), icons (712), going to a website from the one box (701) and opening it in the machine's Chrome (713, ADR 0075), the typefaces (706, ADR 0084), the conversation's turns, scrolled (703, ADR 0085), a press on an offer (714, 759), *Search chats* and the button that hides the panel (711), and the one box and *Search chats* as text fields — caret, selection, clipboard, undo, presses and input methods (861, 848) — built; the rest queued
 **Date:** 2026-10-30
 **Context:** ADR 0024 § 4 (the tab strip is a document of ours, rendered by
 the engine in a sandboxed renderer of its own); ADR 0002 (the layout tree is
@@ -158,6 +158,14 @@ provider was chosen (ADR 0082 § 0) and is asked as ADR 0083 says (708).
   `conversation_chrome.rs`), in Chrome's own window put over the first
   screen with no frame of ours beside it — **ADR 0075**, which says why
   this mode differs from ADR 0062's and what it costs under Stage Manager.
-  An agent reaching that page is 716.
+  An agent reaching that page is 716. The box and *Search chats* are text
+  fields (861, 848): what is typed, its caret and selection and what can
+  be undone are the browser process's (`text_field.rs`), sent with the
+  words as `Editing`; the renderer draws the caret, the selection and a
+  composition on a line over the field, `aria-hidden`, and answers where
+  the words were laid out (`FieldLaidOut`), by which a press's caret and
+  an input method's candidates are placed. An agent reads the field's
+  value and its selection in characters (`alo-dom`'s `text_selection`),
+  never a place.
 - `docs/design/shell.md` is the written form of the design and is what these
   items are checked against; the canvas it came from is the owner's.

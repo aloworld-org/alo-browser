@@ -23358,11 +23358,41 @@ What stage 2's exit gate actually measures: a person using it.
   an ADR allows it in the host, or measure another road. *needs design.
   Depends on 802.*
 
-- [ ] **848. Input methods in alo's own box and *Search chats* (cut from
+- [x] **848. Input methods in alo's own box and *Search chats* (cut from
   802).** The window allows input methods only while a card's page has the
   keyboard; Japanese and Chinese typed into the box arrive as its keys.
   Compose in the box's own text, drawn underlined by this engine, the
   candidates at its caret. *Depends on 802.*
+  **Design, approved by the owner 2026-11-07** (*"Yes please"*), with 861:
+  *Japanese and Chinese input methods, with the candidate window at the
+  caret* (`docs/design/shell.md`, *The one box as a text field*).
+  ***Done (7 November 2026), with 861.*** Input methods are allowed while
+  the box or *Search chats* has the keyboard (`take_ime`), as while a
+  card's page has it; winit's view stays the text-input client, so no
+  `unsafe` and no ADR. A preedit is the field's composition
+  (`TextField::compose`, its caret from winit's byte to characters), drawn
+  underlined in the ink at the caret in place of the selection by the
+  renderer (`field_line.rs`, `Editing::drawn`) and held in the field's
+  value as drawn; a commit goes in over the selection as typing does, one
+  undo step with typing beside it; a composition put away leaves nothing.
+  The candidates stand under the caret — 1 px wide, the field's height —
+  from where the renderer says the field's words were laid out
+  (`FieldLaidOut`, `field_caret_in_the_window`), in the panel's or the
+  sheet's place for *Search chats*. **Tests:** unit (`text_field`'s
+  compose and commit; `field.rs`'s composition over a selection;
+  `field_line.rs`'s run and value); the renderer
+  (`the_box_as_a_text_field.rs`: the composition's box in numbers, its
+  underline on row 293 under its letters and not before them, the caret at
+  its end, the value read with it); through the window's own road
+  (`the_box_as_a_text_field_in_the_window.rs`: allowed with the box,
+  composed, the candidates 30–60 px into the box's field at 748, 1 × 40,
+  committed `你好`). **Mutations**, each caught: input methods not allowed
+  for the box; a composition dropped; its underline taken away. **By
+  hand:** the ABC-AZERTY layout's own dead key, which macOS composes
+  through the same road — `^` drawn underlined in *Search chats*, then `ê`
+  put in (`handrun38/23`, `24`). **Not seen by hand: Japanese or Chinese**
+  — no such input source is enabled on this Mac, and system settings were
+  not changed — so the candidate window itself was not seen.
 
 - [ ] **849. A closed list's option no one key reaches, chosen by an agent
   on a card (cut from 810).** On a card the menu is never opened for an
@@ -23575,12 +23605,88 @@ What stage 2's exit gate actually measures: a person using it.
   *github.com*, *m.youtube.com*, two *en.wikipedia.org* and *www.bbc.com*
   (`07`), *www.bbc.com* named on hover (`08`) and opened by a press (`09`).
 
-- [ ] **861. ⌘A in the one box (found by 859).** The one box takes no ⌘
-  key and is edited only at its end (`typing.rs`), so ⌘A then typing does
-  not replace what is typed but goes on after it — how batch 16's hand run
-  sent one turn holding an address twice. Select all, and what typing over
-  a selection does, as macOS fields have it; decide with 850 and 848 how
-  the box's selection is drawn. *needs design. Depends on 850.*
+- [x] **861. The one box and *Search chats* as text fields (found by 859
+  as ⌘A in the one box; widened).** The one box took no ⌘ key and was
+  edited only at its end (`typing.rs`), so ⌘A then typing did not replace
+  what was typed but went on after it — how batch 16's hand run sent one
+  turn holding an address twice. Widened by the owner's approval to the
+  whole of a Mac's text field: paste, copy, cut, select all; the caret
+  moved by arrows, ⌥ by a word, ⌘ to an end, ⌥/⌘-Backspace and the forward
+  delete; a press placing the caret, ⇧ with the arrows, a drag and a
+  double press selecting; undo and redo; input methods (848); a drawn
+  caret and selection. *Depended on 850 for how a selection is drawn; that
+  is settled here, so it no longer does.*
+  **Design, approved by the owner 2026-11-07** (*"Yes please"*), every
+  open detail settled in `docs/design/shell.md`, *The one box as a text
+  field*: the caret 1 px of the ink, blinking half a second shown and half
+  hidden from its last move, on an injected clock; the selection on the
+  ink's tint, `#d6d8da`; long words scrolled only to keep the caret in
+  view; a paste one line, its ends' white space dropped, 2,048 characters
+  at most and 16 KiB read; undo grouped as macOS's text system groups it,
+  100 steps; six ⌘ keys the field's and every other the browser's; the
+  clipboard read with `pbpaste` behind an injectable reader; an agent
+  reading the value and the selection as characters.
+  ***Done (7 November 2026).*** **The browser process** (`alo-window`):
+  `text_field.rs` (the words, caret, anchor, composition), `text_stops.rs`
+  (a letter with its marks one place; words as UAX #29 nearly makes them),
+  `text_undo.rs` (the steps), `field_edit.rs` (the one road from a key's
+  edit to a field, the box's and *Search chats*' alike), `typing.rs`
+  rewritten (every key's edit, Mac and elsewhere), `field_blink.rs`,
+  `clipboard.rs`'s `paste` (`pbpaste -Prefer txt`, at most 16 KiB, cut
+  back to a whole character), and `conversation_window/fields.rs` (the
+  clipboard read and written, a press placing the caret, a second
+  selecting the word and a third everything, a drag, the blink, the words'
+  scroll and room sent back, input methods). **The renderer**: `field.rs`
+  (`Editing`, `FieldLaidOut`, the scroll rule), `field_line.rs` (the field's
+  own words drawn in no colour, a line `aria-hidden` over it holding the
+  words in runs — the selection's on the tint, a composition underlined —
+  the caret placed by the measurer's cluster ends on whole device pixels,
+  the line moved left by its scroll), `ToRenderer::FieldLaidOut` and
+  `FromRenderer::FieldLaidOut` on the wire, bounded (`wire/field.rs`). **The
+  agent's tree**: `alo-dom`'s `text_selection.rs` (a field's selection held
+  as the document's state, never an attribute a page could write, counted
+  in characters and clamped to the text it holds) read into `alo-box`'s
+  `States::selection`, crossing the wire, written `caret=16` or
+  `selection=8..18`. **Tests:** unit (the field 9, its stops 3, its undo
+  4, its keys 8, the one road 1, the blink 1, the clipboard 1, the box 1
+  new, the renderer's field 5 and line 5, the DOM's selection 2); the
+  boundary (`messages_across_a_boundary.rs`: the editing, the laid-out
+  words and the selection cross whole; scrolled less than nothing, a place
+  past any field, a composition too long, stops going back or too many and
+  a length past any field refused by name); the renderer
+  (`the_box_as_a_text_field.rs`, 6: the field at 183, 266, 40 × 632; the
+  caret 1 × 20 at 276 on the stop rounded, `en.wikipedia.org`'s width to
+  a 64th; the selection 20 tall at 276 as wide as its stops; scrolled so
+  the caret stands at the room's edge; *Search chats*' field 46, 111, 20 ×
+  174, its selection and caret 16 tall at 113; the caret on whole device
+  pixels at two; the agent reading `caret=16` and `selection=8..18`; no
+  caret in the blink's hidden half or without the keyboard); through the
+  window's own road (`the_box_as_a_text_field_in_the_window.rs`, 2: typed,
+  ←← and a letter in at 5, the caret found as the one column its blink
+  takes away at 500 ms and back at 1,000, the next wake at the blink; ⌘→,
+  ⇧⌥← selected, ⌘X onto the test's clipboard, ⌘V from its reader as one
+  line; ⌘Z ⌘Z ⇧⌘Z ⇧⌘Z; a press at the start, a second selecting `https`, a
+  drag past the end; ⌘A and Return going to the address and the box
+  emptied; *Search chats* pasted into, ⌥⌫, Escape and ⌘Z, a press on its
+  scrolled words at the first character shown). References, each run once
+  without update mode (failing only on the missing file), written and
+  looked at: `field-caret-mid-text.png`, `field-selection.png`,
+  `field-long-scrolled.png`, `panel-search-selected.png`; the two with a
+  caret redrawn when the caret became 1 px, looked at again. **No existing
+  reference moved**: the line over the field draws its words on the very
+  pixels the field drew them (`start-typed-into.png`, `panel-searched.png`
+  unchanged). Two tests that read the drawing thread's channel strictly
+  pass over `Drawn::Field`, and `the_conversation_window.rs` holds it — each
+  part's field told once before its frame. **Mutations**, each caught: a
+  letter back moving on; typed text going at the end; no word across a
+  `.`; ⌥ no word; ⌘V falling through; the caret a character on; the caret
+  over a selection; the selection no run; the selection not told the
+  agent; the scroll never kept; the cut not written; the paste not read;
+  newlines kept; a press placing nothing; no drag; a press unscrolled;
+  every edit one step; typing never grouped; redo forgotten; the blink
+  never hidden. **Found by hand, fixed:** a 2 px caret was four device
+  pixels on the Retina display and heavier than macOS's; it is 1 px.
+  Cut: 863–868.
 
 - [x] **862. A kept answer's test races a frame under load (found by
   859/860's gate).** `a_searchs_answer_in_the_window.rs`'s
@@ -23610,6 +23716,51 @@ What stage 2's exit gate actually measures: a person using it.
   tests that read the drawing thread's channel strictly
   (`a_press_on_the_conversation.rs`, `typing_into_the_one_box.rs`) pass
   over `Through`, which the second gate found.
+
+- [ ] **863. A press with ⇧ on alo's own field grows its selection (cut
+  from 861).** macOS's field takes ⇧ with a press as the selection grown
+  to it; a press with any modifier is nobody's yet (798, 805), so a ⇧-press
+  on the box is refused and said. Claim it as the field's when the press
+  lands on one, and only then. *Depends on 861.*
+
+- [ ] **864. The marks of every script hang on their letters (cut from
+  861).** An arrow steps over a letter and what hangs on it
+  (`text_stops.rs`) — the combining blocks, the selectors, an emoji's
+  sequence and a flag — but not a Devanagari vowel sign, a Thai mark or a
+  Hangul jamo sequence, which are stepped over alone. Read Unicode's
+  grapheme clusters (UAX #29) with no new crate, or from the renderer's own
+  cluster ends, measured against a Mac's field. *Depends on 861.*
+
+- [ ] **865. macOS's Ctrl bindings in alo's own fields (cut from 861).**
+  A Mac's field takes ⌃A and ⌃E (a line's start and end), ⌃K and ⌃Y (kill
+  and yank), ⌃F ⌃B ⌃D ⌃H ⌃T…; alo's fields take nothing with Ctrl. The
+  card's are 803. *Depends on 861.*
+
+- [ ] **866. A drag past a field's edge scrolls it gradually (cut from
+  861).** Dragged past an edge, alo's field selects to that end at once;
+  macOS's scrolls the words a little at a time while the pointer stays
+  past it, and a drag begun with a double press grows by words. *Depends
+  on 861.*
+
+- [ ] **867. A drag in *Search chats* on the sheet (cut from 861).** While
+  the panel slides over a narrow window as the sheet (776), a press there
+  places *Search chats*' caret but a drag selects nothing: the pointer's
+  moves over the sheet go to its hover alone. *Depends on 861.*
+
+- [ ] **868. A field's selection in a window without the keyboard (cut
+  from 861).** macOS draws an inactive window's selection grey; alo's keeps
+  the ink's tint. Decide the inactive colour from the palette and draw it.
+  *Depends on 861.*
+- [ ] **869. An edit in the box seen late while a live card is on screen
+  (found by 861's hand run).** With a card streaming beside the box, a key's
+  edit took up to about a second to be drawn (`handrun38/13`–`15` against
+  their `b` shots a second later); with no card it is at once. Measure where
+  the time goes — the drawing thread's queue behind the card's frames, the
+  renderer, or the window's pacing — before changing anything. *Closes
+  when:* an edit's drawing is measured from key to frame with a card
+  streaming, the cause named, and the edit drawn within one frame of the
+  box's renderer answering, with a test that fails without the fix.
+  *Depends on 861.*
 
 ## K. ★ The agent, on somebody else's pages
 

@@ -81,6 +81,10 @@ pub struct Start {
     /// Whether the box has the keyboard: a person pressed it, and what they
     /// type goes into it.
     pub focused: bool,
+    /// Where the box's caret and selection stand, and an input method's
+    /// composition (queue items 861, 848): drawn only while it has the
+    /// keyboard ([`crate::field_line`]).
+    pub editing: crate::field::Editing,
     /// What is offered under the box for what is typed, in order, the
     /// first what Return chooses ([`crate::typed::offers`]); none while
     /// nothing is typed.
@@ -145,6 +149,7 @@ impl Default for Start {
             scale: 1.0,
             typed: String::new(),
             focused: false,
+            editing: crate::field::Editing::default(),
             offers: Vec::new(),
             turns: Vec::new(),
             down: 0.0,

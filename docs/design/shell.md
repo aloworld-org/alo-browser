@@ -256,11 +256,114 @@ the one Return chooses on the paper's colour with 10 px corners:
   alo about “…”*, in quiet text, saying *Not set up yet* until the agent
   is built (704); a search's own answer is drawn with its results (707).
 
-Backspace erases the last character, Escape empties the box (and, empty,
-lets the keyboard go), and Return or *Go* chooses the first offer. A press
+Escape empties the box (and, empty, lets the keyboard go), and Return or
+*Go* chooses the first offer; every other key is a text field's, below. A press
 on any offer chooses that one as Return chooses the first (714); in a
 conversation the offers stand above the box, and a press on one standing
 over a live card's page is the offer's, not the page's (759).
+
+### The one box as a text field (items 861, 848)
+
+Approved by the owner 2026-11-07 (*"Yes please"*): the one box and
+*Search chats* behave as a text field does on a Mac — paste, copy, cut and
+select all; arrows moving the caret, by a word with ⌥ and to an end with
+⌘, ⌥ and ⌘ with Backspace erasing a word or to the start, the forward
+delete; a press placing the caret, ⇧ with the arrows, a drag and a double
+press selecting; undo and redo; Japanese and Chinese input methods with
+their candidates at the caret; a drawn caret and selection. Settled here,
+following macOS's own fields where in doubt:
+
+- **Keys**, while a field has the keyboard: ← → a letter back or on (a
+  letter with its marks, an emoji's sequence or a flag is one), ⌥ a word,
+  ⌘ to the start or the end; ↑ and ↓ to the start and the end, as a
+  one-line field has them; ⇧ with any of them grows or shrinks the
+  selection instead, and without ⇧ a selection is put away at its start
+  (←) or its end (→). Backspace erases the letter before the caret, ⌥ the
+  word before, ⌘ all before; ⌦ (fn-Backspace) the same after it. A letter
+  typed over a selection replaces it. Return, Escape, Tab, Home, End and
+  the paging keys are as before.
+- **A word** is what Unicode's word boundaries (UAX #29) make one, nearly:
+  letters, digits and `_`, going on across one `.`, `:`, `'`, `’` or `·`
+  between two of them, and digits across `,` or `;` between two digits —
+  so `en.wikipedia.org`, `don't` and `3,000` are each one word, and `/`,
+  spaces and other marks stand between words. ⌥→ passes over what stands
+  between to the next word's end, ⌥← to the word before's start.
+- **Shortcuts.** A field takes six ⌘ keys: ⌘A select all, ⌘C copy, ⌘X
+  cut, ⌘V paste, ⌘Z undo, ⇧⌘Z redo — by the key's letter in the person's
+  layout. **Every other ⌘ key is the browser's or the system's and types
+  nothing** — ⌘T, ⌘W, ⌘Q, ⌘, among them — and nothing with Ctrl types
+  (macOS's own Ctrl bindings in a field are 865). With no field holding
+  the keyboard the six go nowhere; with a card's page holding it, they are
+  the page's.
+- **The clipboard.** ⌘C and ⌘X put what is selected on the system's
+  clipboard with `pbcopy`, as *Copy link* does; ⌘V reads it with
+  `pbpaste -Prefer txt`, at most 16 KiB of it, cut back to a whole
+  character. A clipboard that cannot be read or written is said in the
+  first screen's line, and nothing changes. A test hands the window a
+  reader and a writer of its own, so no test touches a person's clipboard.
+- **What is pasted is one line**: each line break — `\r\n`, `\r`, `\n`,
+  U+2028, U+2029 — and each tab is a space, the white space at its two
+  ends is dropped (so a line copied with its newline pastes as the line,
+  and an address stays an address), and control characters are left out.
+  The field holds at most 2,048 characters, as before: what would go past
+  is left out, pasted or typed.
+- **The caret**: 1 px wide — a point, as macOS's own — in the ink, 20
+  tall in the box's 40, 16 in *Search chats*' 20, in the middle, standing
+  where its place's letters end, on whole device pixels (2 px, tried first,
+  read heavier than macOS's on a Retina display, by hand). It **blinks: shown half a second,
+  hidden half a second**, from the moment it last moved (an edit, an
+  arrow, a press, the field given the keyboard), so it is always there
+  while a person types or moves it. Half a second is Chromium's default
+  interval; a Mac's own setting is not read, and the rate was not measured
+  against macOS's fields. It is drawn only while the field and the window
+  both have the keyboard and nothing is selected.
+- **The selection** is drawn behind its letters on **the ink's tint** —
+  the ink at 18 % over the box's white, `#d6d8da` — the letters keeping the
+  ink, 10.9 : 1 on it; 20 tall in the box, 16 in *Search chats*. The
+  palette's ink is *what is selected* (ADR 0074 § 2); a block of solid ink
+  behind white letters read as a button, and the acting colour means the
+  agent. macOS greys a selection in a window without the keyboard; here it
+  keeps its tint (868).
+- **Words longer than the field** scroll only to keep the caret in view,
+  as macOS's do: a caret past the right edge brings it to stand at that
+  edge, one past the left edge to the left edge, one in view moves nothing;
+  the words are never scrolled while they fit, nor so far that room is left
+  after their end; whole device pixels. A field without the keyboard shows
+  its words' start.
+- **Undo** groups as macOS's text system does: letters typed straight on,
+  each where the one before left the caret, are one step; Backspaces in a
+  row are one, forward deletes another; a paste, a cut and the field
+  emptied with Escape are each a step alone; the first edit after the
+  caret was moved, the selection changed or a press placed it begins a new
+  step, and so does a letter typed over a selection. Undoing puts back the
+  words and where the caret and the selection were; ⇧⌘Z does it again,
+  until a new edit. At most 100 steps are kept. Choosing what the box holds
+  — going, searching, asking — empties it and forgets them.
+- **A press** on the field puts the caret at the place nearest it, as the
+  words were last drawn — scrolled, at the first letter shown; a second
+  press within half a second and 4 px selects the word there (or the run
+  of spaces, or the one mark); a third selects everything; the pointer
+  moved with the button still down after a first press selects from it, to
+  the place nearest the pointer — past an edge, to that end at once (a
+  gradual scroll while dragging past an edge is 866). A press with ⇧ is
+  not yet the selection grown (863).
+- **Input methods** (848): allowed while the box or *Search chats* has
+  the keyboard, as they are while a card's page has it (802). What is
+  being composed is drawn underlined, in the ink, at the caret in place of
+  the selection; the candidates stand under the caret — 1 px wide, the
+  field's height — and what is chosen goes in over the selection, as
+  typing does (one step with typing beside it). A composition put away
+  leaves nothing. While a person composes, the field's value as an agent
+  reads it holds what is composed, as a browser's field does.
+- **What an agent reads**: the field, a `textbox` named as before, its
+  value, and **its selection as a range of characters** — `caret=16` when
+  nothing is selected, `selection=8..18` when something is — counted in
+  Unicode characters, while it has the keyboard; never a place on the
+  screen (ADR 0002), and no verb is added. The line the words are drawn on
+  is hidden from it.
+- ***Search chats*** is the same field in every way, its words 13.5 px:
+  Return chooses nothing, and Escape empties it and then lets the keyboard
+  go.
 
 ### Going there (item 713)
 
@@ -584,7 +687,8 @@ underlined in the page's field as Chrome's own input methods do, and what
 is chosen put in — and their candidates stand under where the person is
 typing: the end of the field's words, on their line, or the start of an
 empty field (847: a caret moved back into the words). alo's own box and
-*Search chats* take no input method yet (848).
+*Search chats* take them too, their candidates at their own caret (848,
+*The one box as a text field*).
 
 *Back* and *Forward* are the page's own session history, as Chrome holds it:
 each is drawn dark and pressable only when there is a page of the card's

@@ -403,6 +403,14 @@ fn painted_confined(window: (u32, u32), scale: Scale) -> Result<(Frame, Frame), 
             // A first screen with no turns is not measured (queue item 703).
             Ok(Drawn::Reached { .. }) => return Err("a greeting was measured".to_owned()),
             Ok(Drawn::Hovered(over)) => return Err(format!("nothing was hovered: {over:?}")),
+            // Each part's field laid out, told before its frame (queue
+            // item 861): both parts hold one.
+            Ok(Drawn::Field(part, Some(_)))
+                if (part == Part::Panel && panel.is_none())
+                    || (part == Part::Start && start.is_none()) => {}
+            Ok(Drawn::Field(part, laid)) => {
+                return Err(format!("{part}'s field told out of turn: {laid:?}"));
+            }
             Ok(Drawn::Through(number)) => {
                 return Err(format!("drawn through {number} before both were painted"));
             }

@@ -22,6 +22,8 @@
   --acting-text: #7a3a24;
   --acting-tint: #f6e7e0;
   --done: #2f6b5e;
+  /* What is selected in a field: the ink at 18 % over white (item 861). */
+  --selected: #d6d8da;
 }
 
 * {
@@ -86,19 +88,65 @@ a {
   background: var(--surface);
 }
 
-.ask {
+/* The field and the line its words are drawn on (queue item 861): the
+   field is what an agent reads, its own words drawn in no colour; the
+   line over it, which nothing reads, draws them — the selection on its
+   tint, a composition underlined, the caret over them — moved left as
+   far as they are scrolled, and clipped to the field's room. */
+.field {
+  position: relative;
   flex-grow: 1;
   min-width: 0;
   height: 40px;
+  overflow: hidden;
+}
+
+.ask {
+  display: block;
+  width: 100%;
+  height: 40px;
   border: 0;
   background: transparent;
-  color: var(--ink);
+  color: transparent;
   font-family: var(--face), system-ui, sans-serif;
   font-size: 16px;
   /* What a person typed stays one line, inside the field, however long
      it is (queue item 701). */
   white-space: nowrap;
   overflow: hidden;
+}
+
+.field-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 40px;
+  line-height: 40px;
+  color: var(--ink);
+  font-family: var(--face), system-ui, sans-serif;
+  font-size: 16px;
+  white-space: pre;
+}
+
+/* What is selected, on the ink's tint: the ink at 18 % over the box's
+   white, so the words keep their colour and stand 10.9 : 1 on it. */
+.field-line .selected {
+  background: var(--selected);
+}
+
+/* What an input method is composing, underlined as macOS underlines it. */
+.field-line .composed {
+  text-decoration: underline;
+}
+
+/* The caret: a pixel of the ink, 20 tall, in the middle of the field,
+   placed by its number. */
+.field-line .caret {
+  position: absolute;
+  top: 10px;
+  width: 1px;
+  height: 20px;
+  background: var(--ink);
 }
 
 .go {
