@@ -23521,6 +23521,18 @@ What stage 2's exit gate actually measures: a person using it.
   when:* measured through both Chromiums on a local page framing a
   cross-site card field, and the refusal shown to hold there, or the field
   shown unreachable. *Depends on 826.*
+- [ ] **859. A chat named from two addresses runs them together.** Seen in
+  batch 16's hand run (`12-taken-over.png`): a chat whose turns were two
+  addresses is named *https://en.wikipedia.orghttp…*, the second joined to
+  the first with no space. A chat's name is made in `chat_name.rs`. *Closes
+  when:* a name drawn from several turns never joins two words without a
+  space, an address in a name reads as its host (*en.wikipedia.org*), and a
+  unit test holds both.
+- [ ] **860. The rail's initials for a chat named by an address.** Every
+  chat named after an address shows *H* on the rail (760), so they cannot be
+  told apart. *Closes when:* such a chat's initials come from its host's
+  name (*W* for *en.wikipedia.org*, skipping *www* and *en*), with a unit
+  test, the rail's reference redrawn and looked at. *Depends on 859.*
 
 ## K. ★ The agent, on somebody else's pages
 
