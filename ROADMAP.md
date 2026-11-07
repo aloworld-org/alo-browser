@@ -2501,9 +2501,9 @@ items where being right and being unusable are the same outcome.
       link (851), the strip's own face and the face chosen (852),
       *Settings* by keys (856), a ⇧-press, every script's marks, Ctrl's
       bindings, a drag past an edge and on the sheet, and an inactive
-      window's selection in alo's own fields (863–868), the offers
-      opening or closing beside a card painted whole (871), the window's
-      redraw after an edit and the frame carried whole (872),
+      window's selection in alo's own fields (863–868), the window
+      presented without copying all of it and a card's picture composed
+      off its event loop (873),
       an agent reaching a page the conversation
       opened (716), a field's value kept to one line by
       the engine itself (715),
@@ -2543,7 +2543,10 @@ items where being right and being unusable are the same outcome.
       the first screen by a renderer of its own, so an edit in the box is
       never behind one of its frames (869, ADR 0100, ADR 0076 amended),
       and a letter typed beside it painting again only the box and its
-      offers (870, ADR 0101);
+      offers (870, ADR 0101), the first letter painting only where the
+      conversation's clip moved, from coverage kept, a frame crossing as
+      only what changed and the window composing only that (871, 872, ADR
+      0102);
       the pointer following a card's page, a link's strip on an
       expanded card, alo's own menu and a link opened as the next turn, a
       closed list's normal dropdown and the agent's list in its column, and

@@ -90,6 +90,7 @@ pub mod font_units;
 pub mod fonts;
 pub mod form_body;
 pub mod frame;
+pub mod frame_patch;
 pub mod generic;
 pub mod held;
 pub mod hit;

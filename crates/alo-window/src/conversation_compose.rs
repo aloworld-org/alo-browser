@@ -114,6 +114,32 @@ impl ConversationScene<'_> {
 pub fn compose_conversation(scene: &ConversationScene<'_>, lettering: &Lettering) -> Canvas {
     let (width, height) = scene.window;
     let mut canvas = Canvas::new(width, height, background());
+    compose_onto(&mut canvas, scene, lettering);
+    canvas
+}
+
+/// The window's pixels inside `region` composed again onto `canvas`, the
+/// window's size, holding them as they were composed before (queue item
+/// 872, [`crate::conversation_composed`]): put back to the paper and
+/// composed exactly as [`compose_conversation`] composes them, every pixel
+/// outside left alone. Each step is a pixel's own arithmetic onto that
+/// pixel, so a pixel inside comes out as composing the whole window makes
+/// it.
+pub fn compose_within(
+    canvas: &mut Canvas,
+    scene: &ConversationScene<'_>,
+    lettering: &Lettering,
+    region: alo_paint::Region,
+) {
+    canvas.reset(region, background());
+    canvas.confine(Some(region));
+    compose_onto(canvas, scene, lettering);
+    canvas.confine(None);
+}
+
+/// Everything [`compose_conversation`] draws over the paper, onto `canvas`.
+fn compose_onto(canvas: &mut Canvas, scene: &ConversationScene<'_>, lettering: &Lettering) {
+    let (width, height) = scene.window;
     let placed = ConversationPlacement::of(scene.window, scene.scale, scene.parts());
     let room = placed.panel_room;
     canvas.fill_rect(0, 0, room.width, room.height, panel());
@@ -121,26 +147,51 @@ pub fn compose_conversation(scene: &ConversationScene<'_>, lettering: &Lettering
         // The card's page first, where the first screen left it clear, so
         // what the first screen draws over its place stands over it.
         if let Some(beneath_it) = scene.beneath {
-            beneath(&mut canvas, beneath_it, frame, placed.start);
+            beneath(canvas, beneath_it, frame, placed.start);
         }
-        copy(&mut canvas, frame, placed.start);
+        copy(canvas, frame, placed.start);
     }
     if let Some(frame) = scene.panel {
-        copy(&mut canvas, frame, placed.panel);
+        copy(canvas, frame, placed.panel);
     }
     if let Some(sheet) = &scene.sheet {
         canvas.fill_rect(0, 0, width, height, shade(sheet.shade));
-        slid(&mut canvas, sheet.frame, sheet.left);
+        slid(canvas, sheet.frame, sheet.left);
     }
     for (sentence, rect) in [
         (scene.start_sentence, placed.start_notice),
         (scene.panel_sentence, placed.panel_notice),
     ] {
         if let (Some(sentence), Some(rect)) = (sentence, rect) {
-            lettering.draw(&mut canvas, rect, sentence, scene.scale, notice_line());
+            lettering.draw(canvas, rect, sentence, scene.scale, notice_line());
         }
     }
-    canvas
+}
+
+/// The place of the card's `picture` at `place` in the first screen's
+/// `frame` standing at `room`, in the window's pixels: what [`beneath`]
+/// draws, and nothing outside it.
+pub(crate) fn beneath_rect(
+    (picture, place): (&Frame, Beneath),
+    frame: (u32, u32),
+    room: PixelRect,
+) -> PixelRect {
+    let span = |at: i32, length: u32, size: u32| {
+        let from = i64::from(at).clamp(0, i64::from(size));
+        let to = (i64::from(at) + i64::from(length)).clamp(0, i64::from(size));
+        (
+            u32::try_from(from).unwrap_or(0),
+            u32::try_from(to - from).unwrap_or(0),
+        )
+    };
+    let (x, width) = span(place.left, picture.width.min(place.width), frame.0);
+    let (y, height) = span(place.top, picture.height.min(place.height), frame.1);
+    PixelRect {
+        x: room.x + x,
+        y: room.y + y,
+        width,
+        height,
+    }
 }
 
 /// The card's `picture` onto `canvas` one to one at `place` in the first
@@ -159,11 +210,24 @@ fn beneath(
     frame: &Frame,
     room: PixelRect,
 ) {
-    for y in 0..picture.height.min(place.height) {
+    // Only the rows and columns a confined canvas would keep (queue item
+    // 872): the others would be refused pixel by pixel all the same.
+    let (rows, columns) = kept_steps(
+        canvas,
+        (
+            i64::from(room.x) + i64::from(place.left),
+            i64::from(room.y) + i64::from(place.top),
+        ),
+        (
+            picture.width.min(place.width),
+            picture.height.min(place.height),
+        ),
+    );
+    for y in rows {
         let Some(down) = within(place.top, y, frame.height) else {
             continue;
         };
-        for x in 0..picture.width.min(place.width) {
+        for x in columns.clone() {
             let Some(across) = within(place.left, x, frame.width) else {
                 continue;
             };
@@ -195,6 +259,30 @@ fn beneath(
             );
         }
     }
+}
+
+/// The steps down and across a run of `size` pixels whose first is at
+/// `from` in the window that land on what `canvas` is confined to: all of
+/// them on a canvas that is not.
+pub(crate) fn kept_steps(
+    canvas: &Canvas,
+    from: (i64, i64),
+    size: (u32, u32),
+) -> (core::ops::Range<u32>, core::ops::Range<u32>) {
+    let Some(region) = canvas.confinement() else {
+        return (0..size.1, 0..size.0);
+    };
+    let clamp = |base: i64, length: u32, at: u32| {
+        u32::try_from((i64::from(at) - base).clamp(0, i64::from(length))).unwrap_or(0)
+    };
+    let range = |base: i64, length: u32, (low, high): (u32, u32)| {
+        let first = clamp(base, length, low);
+        first..clamp(base, length, high).max(first)
+    };
+    (
+        range(from.1, size.1, (region.top, region.bottom)),
+        range(from.0, size.0, (region.left, region.right)),
+    )
 }
 
 /// `step` on from `at`, if that is inside `0..size`.

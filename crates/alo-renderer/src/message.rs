@@ -84,6 +84,12 @@ pub enum ToRenderer {
     Leave,
     /// Draw what is loaded.
     Paint,
+    /// Draw what is loaded, answering with only what changed since the last
+    /// frame this renderer sent, which the asker holds (queue item 872, ADR
+    /// 0102): [`FromRenderer::PaintedOver`] — or [`FromRenderer::Painted`],
+    /// whole, when what changed cannot be said as a rectangle of it, as for
+    /// a first frame or one of another size.
+    PaintOver,
     /// Read the page as an agent reads it.
     ReadTree,
     /// Do something to the page, naming what to do it to.
@@ -298,6 +304,9 @@ pub enum FromRenderer {
     },
     /// A picture.
     Painted(Frame),
+    /// What of the picture changed since the last one this renderer sent, in
+    /// answer to [`ToRenderer::PaintOver`] (queue item 872).
+    PaintedOver(crate::frame_patch::Patch),
     /// The tree, as it was at that instant.
     Tree(Box<Snapshot>),
     /// A verb ran, and this is what it did.
@@ -528,6 +537,7 @@ impl fmt::Display for ToRenderer {
             ToRenderer::Visibility(to) => write!(f, "the page is {}", to.as_str()),
             ToRenderer::Leave => f.write_str("leave the page"),
             ToRenderer::Paint => f.write_str("paint"),
+            ToRenderer::PaintOver => f.write_str("paint what changed"),
             ToRenderer::ReadTree => f.write_str("read the tree"),
             ToRenderer::Act { target, verb } => write!(f, "{verb:?} {target}"),
             ToRenderer::Fetched(fetched) => write!(f, "{fetched}"),
@@ -636,6 +646,7 @@ mod tests {
             | ToRenderer::Visibility(_)
             | ToRenderer::Leave
             | ToRenderer::Paint
+            | ToRenderer::PaintOver
             | ToRenderer::ReadTree
             | ToRenderer::Act { .. } => "a page, a font, or a thing to do to one",
             // Where a person's button went, and nothing about what it went to.
@@ -674,6 +685,7 @@ mod tests {
             | FromRenderer::UsingGenerics { .. }
             | FromRenderer::Loaded { .. }
             | FromRenderer::Painted(_)
+            | FromRenderer::PaintedOver(_)
             | FromRenderer::Tree(_)
             | FromRenderer::Acted { .. }
             | FromRenderer::Delivered { .. }

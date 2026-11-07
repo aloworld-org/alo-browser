@@ -2955,3 +2955,76 @@ fn a_cards_page_beneath_the_first_screen_crosses_and_hostile_ones_are_refused() 
         assert!(read_from_renderer(&whole[..cut]).is_err(), "cut at {cut}");
     }
 }
+
+/// Queue item 872: the ask to paint only what changed, and what changed of
+/// a frame, each cross whole — a rectangle of pixels, and nothing changed;
+/// a rectangle past the frame's side or foot, pixels more or fewer than the
+/// rectangle's, and every truncation are refused, never panicked on.
+#[test]
+fn what_changed_of_a_frame_crosses_and_hostile_ones_are_refused() {
+    use alo_renderer::frame_patch::Patch;
+    let asked = ToRenderer::PaintOver;
+    assert_eq!(read_to_renderer(&write_to_renderer(&asked)), Ok(asked));
+    let patch = Patch {
+        width: 2080,
+        height: 1640,
+        left: 205,
+        top: 1264,
+        across: 3,
+        down: 2,
+        pixels: (0..24).collect(),
+    };
+    let nothing = Patch {
+        across: 0,
+        down: 0,
+        pixels: Vec::new(),
+        ..patch.clone()
+    };
+    for answer in [
+        FromRenderer::PaintedOver(patch.clone()),
+        FromRenderer::PaintedOver(nothing),
+    ] {
+        assert_eq!(
+            read_from_renderer(&write_from_renderer(&answer)),
+            Ok(answer.clone())
+        );
+    }
+    let refused = |patch: Patch| {
+        read_from_renderer(&write_from_renderer(&FromRenderer::PaintedOver(patch)))
+            .err()
+            .map(|why| why.why)
+            .unwrap_or_default()
+    };
+    assert!(
+        refused(Patch {
+            left: 2078,
+            ..patch.clone()
+        })
+        .contains("a patch of 3×2 at 2078, 1264")
+    );
+    assert!(
+        refused(Patch {
+            top: 1639,
+            ..patch.clone()
+        })
+        .contains("of a 2080×1640 frame")
+    );
+    let mut short = patch.clone();
+    short.pixels.pop();
+    assert!(refused(short).contains("carrying 23 bytes"));
+    let mut long = patch.clone();
+    long.pixels.push(0);
+    assert!(refused(long).contains("carrying 25 bytes"));
+    assert!(
+        refused(Patch {
+            left: u32::MAX,
+            across: 2,
+            ..patch.clone()
+        })
+        .contains("at 4294967295")
+    );
+    let whole = write_from_renderer(&FromRenderer::PaintedOver(patch));
+    for cut in 0..whole.len() {
+        assert!(read_from_renderer(&whole[..cut]).is_err(), "cut at {cut}");
+    }
+}

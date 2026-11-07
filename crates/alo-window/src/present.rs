@@ -84,6 +84,37 @@ impl<W: HasDisplayHandle + HasWindowHandle + Clone> Presenter<W> {
             .present()
             .map_err(|why| format!("the buffer could not be shown: {why}"))
     }
+
+    /// Show pixels already made words ([`packed`]), `width` by `height`,
+    /// row by row: what the conversation's window keeps between redraws
+    /// (queue item 872, [`crate::conversation_composed`]), copied as they
+    /// are.
+    ///
+    /// # Errors
+    ///
+    /// What `softbuffer` said when the buffer could not be had or shown.
+    pub fn show_words(&mut self, (width, height): (u32, u32), words: &[u32]) -> Result<(), String> {
+        let (Some(width), Some(height)) = (NonZeroU32::new(width), NonZeroU32::new(height)) else {
+            return Ok(());
+        };
+        self.surface
+            .resize(width, height)
+            .map_err(|why| format!("the surface could not be resized: {why}"))?;
+        let mut buffer = self
+            .surface
+            .buffer_mut()
+            .map_err(|why| format!("no buffer to draw into: {why}"))?;
+        if buffer.len() == words.len() {
+            buffer.copy_from_slice(words);
+        } else {
+            for (word, made) in buffer.iter_mut().zip(words) {
+                *word = *made;
+            }
+        }
+        buffer
+            .present()
+            .map_err(|why| format!("the buffer could not be shown: {why}"))
+    }
 }
 
 /// A pixel as the word `softbuffer` takes: `0x00RRGGBB`.

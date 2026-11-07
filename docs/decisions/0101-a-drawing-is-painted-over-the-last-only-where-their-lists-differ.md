@@ -1,6 +1,6 @@
 # ADR 0101 — A drawing is painted over the last only where their lists differ
 
-**Status:** accepted — built by queue item 870 (7 November 2026)
+**Status:** accepted — built by queue item 870 (7 November 2026); § 2 extended and what was left answered by ADR 0102 (queue items 871, 872)
 **Date:** 2026-11-07
 **Context:** ADR 0100 (a card's page drawn beneath the first screen by a
 renderer of its own, which left an edit's own paint at 137–143 ms with a
@@ -206,3 +206,15 @@ twentieth of the frame; every edit — the offers opening and closing, a
 letter, words, a selection, typing over it, the caret moved, the card
 closed — exactly the frame a renderer that never drew paints, every byte,
 at one and at two), and units in each new file.
+
+## Amended (7 November 2026, queue items 871 and 872)
+
+ADR 0102 answers both items left above. § 2 now also matches an item inside
+pushes alike **but for clips**, and counts it only where it can reach and
+where the masks of the clips that differ differ. Those masks are measured on
+the very masks `render` makes. The coverage a drawing makes is kept for the
+next, bit for bit by what it was made from (`alo_paint::Kept`). That is the
+answer this ADR's rejection of filling inside the region asked for: what was
+filled is kept, not filled again from another origin. The first letter
+beside a card is answered in 37–47 ms on this Mac, from 145–169. The
+window's redraw and the frame carried whole are 0102's §§ 3–4.

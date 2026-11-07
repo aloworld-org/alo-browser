@@ -49900,3 +49900,95 @@ detached through `perl -MPOSIX=setsid` and waited on by its PID;
 `gate-batch20.log`). **Summary [1210.695s] 6662 tests run: 6662 passed (6 slow, 1 leaky), 0 skipped** — *"The gate is met." (11 of 11 steps)*. `scripts/gate.sh` not edited.
 
 The next unused queue number is **873** and the next ADR is **0102**.
+
+## 2026-11-07 — items 871 and 872: the first letter beside a card, and only what changed crossing and composed
+
+Owner's go-ahead: "Yes". **Measured first**, by hand (release, alo's CEF
+host, the `.app` remade by `alo-bundle` with no keys for each build; the
+Retina display at two; the window at 120, 60, 1280 × 852; `--conversation
+--chats` in `handrun41/chats-*`, `0700`; the box pressed with `cliclick`,
+then keys through System Events, alo checked frontmost; ADR 0100's local page
+opened as a card by its address, ten letters, ten Backspaces, five letters,
+0.7 s apart; wall-clock timestamps in the window, the drawing thread and the
+renderer, put by `handrun41/probe.py` into this tree and a worktree of
+eb4b0c4 alike and taken out; every row in `handrun41/measured-before.txt`
+and `measured-after.txt`). Before: the first letter beside the card
+answered in 168.8 ms and presented at 231, emptying the box 145.2 and 183,
+each other letter 33–40 and 76–140; with no card 33–41 and 65–73. In the
+lists the card was **not changed at all** — only the conversation's clip
+ended at 590 where it ended at 716 — so ADR 0101 left it unmatched and its
+shadows reached past half the canvas (871). After the renderer answered,
+per letter: the frame made bytes 4.5 ms, written and read 5.5, **composed
+whole in floats 22.4**, made words and presented **15.2**, and 0–42 ms
+waiting for an event loop composing a card picture the same way (872).
+
+**The fixes (ADR 0102, ADR 0101 amended).** 871: `alo_paint::damage`
+matches items inside pushes alike but for clips, counting them only where
+they reach and the two clips' masks differ, measured on the very masks
+`render` makes (`clip::mask`, `clip::differ`); every coverage, blurred
+shadow, mask and combined clip a drawing makes is kept for the next, keyed
+bit for bit (`alo_paint::Kept`, `Drawing::kept`, at most 64 MiB). 872: a
+renderer asked `ToRenderer::PaintOver` sends only the rectangle its drawings
+since the last frame it sent painted again (`FromRenderer::PaintedOver`,
+`frame_patch::Patch`, `Easel::send`), the drawing thread puts it over the
+frame it holds and tells the window whole frames as before; the window keeps
+its pixels and words and composes again only where its inputs changed
+(`conversation_composed::Composed`, `compose_within`,
+`Presenter::show_words`).
+
+**After:** the first letter beside the card answered in **39.5 ms**
+(37.4 the second time; 35.2 with no card) and presented at 81 (56);
+emptying 32.8 and 68; each other letter **17–23 ms**, presented **30–35 ms**
+after its key, at most 57 (behind a card picture); with no card 32–38;
+`en.wikipedia.org/wiki/Kampala` as a card (an address, no search) the first
+letter 47.0 / 74 from 135.5 / 171, others 31–35 from 67–70. A letter crosses
+in 0.3–0.4 MB (from 13.6), is composed in 2–3 ms over about 70,000 pixels and
+presented in 10.4. **Cut, queued (873):** the 10.4 ms present — `softbuffer`
+on macOS hands over a new zeroed buffer each frame, so the window's 17 MB
+are copied whole — and the waits behind a card picture composed on the
+event loop.
+
+**Tests:** `alo-renderer`'s `an_edit_paints_again_only_what_it_changed.rs`
+(the offers opening and closing beside a card paint at most a quarter of the
+frame and blur no shadow), `a_frame_crosses_only_what_changed.rs` (new: a
+letter crosses in a twentieth of the bytes, the first in a quarter, nothing
+changed in none, two drawings between asks together, a whole frame starting
+them again, another size whole, every held frame every byte the frame sent
+whole), `messages_across_a_boundary.rs` (the ask and the patch cross;
+hostile patches and every truncation refused); units in `clip` (3), `kept`
+(3), `repaint` (a clip's foot moved), `damage` (a differing clip only where
+its mask does — the old expectation of the whole fill updated to it),
+`frame_patch` (3), `conversation_composed` (3). **Mutations**, each caught,
+logs in `handrun41/mut/`: clips never allowed to differ; nothing kept
+between drawings; masks taken to differ nowhere; every frame sent whole;
+only the last drawing's change sent (survived the first version of the test,
+whose two drawings both touched the box — rewritten so the first opens the
+offers and the second moves the caret); the card's picture not compared;
+the first screen's pixels never compared.
+
+**By hand** (screenshots in `handrun41/`, `before-*` and `after-*`: `00`
+opened, `01` the card streaming, `02` the first letter with the offers and
+the card cut at their edge, `03` `helloworld`, `04` emptied, the card whole
+again with its shadow; for the card, no card and Kampala). Found while
+running, not a fault of this change: the box needs a press before System
+Events' keys reach it, and `127.0.0.1:8739` typed bare is opened as
+`https://`. **Not seen by hand:** scale one, the panel's renderer painting
+over (it asks `PaintOver` too), the sheet, a resize while streaming, the
+split view with the agent at work. Quit with `tell application id
+"org.aloworld.Browser" to quit`; the local server stopped; no alo process
+left; the pointer at 1400, 1000. **Spend: none.**
+
+CHANGELOG, conformance (the edit's row), ROADMAP (*Built since* names 871
+and 872; the owed list trades them for 873), QUEUE (871 ticked, 872 ticked as
+cut, 873 added), ADR 0102, ADR 0101 amended.
+
+**Load:** the two edit and crossing test binaries beside sixteen `yes`,
+**10 of 10** (`handrun41/load.out`), every `yes` killed after. The
+2.5-million-picture test took **384 s** alone (386 s at eb4b0c4, 870's
+measure).
+
+**Gate: met, first run** (CEF_PATH set, the pointer at 1400, 1000;
+detached through `perl -MPOSIX=setsid` and waited on by its PID;
+`gate-batch21.log`). **Summary [1166.118s] 6679 tests run: 6679 passed (5 slow, 1 leaky), 0 skipped** — *"The gate is met." (11 of 11 steps)*. `scripts/gate.sh` not edited.
+
+The next unused queue number is **874** and the next ADR is **0103**.

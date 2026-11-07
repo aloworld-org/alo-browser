@@ -6,6 +6,18 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Every letter, the first among them, is on screen at once beside a live
+  page.** The first letter typed beside a page open as a card opens the
+  suggestions under the box, and alo drew the whole conversation again for
+  it, the card's soft shadow included: about a quarter of a second on this
+  Mac. Now only the strip the suggestions uncover or hide is drawn again,
+  and what was already drawn — a shadow's blur, a shape's edges — is kept
+  and reused rather than worked out again. The renderer also sends the
+  window only the part of the picture that changed, and the window puts
+  together only that part. A letter beside a card is on screen in about 30
+  to 35 ms, from about 100; the first in about 55 to 80, from about 230;
+  with no card about 35, from about 70. Every pixel is as it would have
+  been drawn whole.
 - **Typing beside a live page is as quick as typing with none.** With a
   page open as a card, each letter typed into the box made alo draw the
   whole conversation again, the card's shadow and edges included, which

@@ -12,6 +12,11 @@
 //!
 //! - each letter after the first paints again a region of at most a
 //!   twentieth of the frame, at the box, beside a card and with none;
+//! - the first letter beside a card, which opens the offers and ends the
+//!   conversation's clip higher, and emptying the box, which closes them,
+//!   each paint again at most a quarter of the frame — the box, the offers
+//!   and the strip between the clip's two feet — and blur neither of the
+//!   card's shadows again (queue item 871);
 //! - every edit — a letter, the offers opening and closing, a selection,
 //!   typing over it, the caret moved, the card closed — comes out exactly,
 //!   every byte of every pixel, as a renderer that never drew the screen
@@ -144,6 +149,37 @@ fn a_letter_beside_a_card_paints_again_only_the_box_and_its_offers() -> Result<(
                 region.area(),
             );
         }
+    }
+    Ok(())
+}
+
+#[test]
+fn the_offers_opening_and_closing_beside_a_card_paint_again_only_where_the_clip_moved()
+-> Result<(), String> {
+    let mut renderer = Renderer::new(fonts());
+    painted(&mut renderer, screen(2.0, true, ""))?;
+    for (edit, typed) in [("opening the offers", "h"), ("closing them", "")] {
+        let (frame, repainted) = painted(&mut renderer, screen(2.0, true, typed))?;
+        let whole = u64::from(frame.width) * u64::from(frame.height);
+        let Repainted::Within(region) = repainted else {
+            return Err(format!(
+                "{edit} beside a card painted {repainted:?}, where only the box, the \
+                 offers and the conversation's foot changed"
+            ));
+        };
+        assert!(
+            region.area() * 4 <= whole,
+            "{edit} beside a card painted {region:?}, {} of {whole} pixels",
+            region.area(),
+        );
+        let made = renderer
+            .rendered()
+            .map(|drawing| drawing.kept.made())
+            .ok_or("no drawing was kept")?;
+        assert_eq!(
+            made.blurred, 0,
+            "{edit} beside a card blurred its shadows again: {made:?}"
+        );
     }
     Ok(())
 }

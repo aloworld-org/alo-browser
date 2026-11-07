@@ -151,8 +151,17 @@ impl Canvas {
         if color.is_invisible() {
             return;
         }
-        for row in 0..height {
-            for column in 0..width {
+        // Only the rows and columns a confined canvas would keep (queue item
+        // 872): the others would be refused pixel by pixel all the same.
+        let (rows, columns) = match self.confined {
+            Some(region) => (
+                steps(top, height, (region.top, region.bottom)),
+                steps(left, width, (region.left, region.right)),
+            ),
+            None => (0..height, 0..width),
+        };
+        for row in rows {
+            for column in columns.clone() {
                 let (Some(x), Some(y)) = (offset(left, column), offset(top, row)) else {
                     continue;
                 };
@@ -229,6 +238,16 @@ impl Canvas {
 fn offset(base: i32, step: u32) -> Option<u32> {
     let step = i32::try_from(step).ok()?;
     u32::try_from(base.checked_add(step)?).ok()
+}
+
+/// The steps of a run `length` long from `base` that land between `from`
+/// and `to`.
+fn steps(base: i32, length: u32, (from, to): (u32, u32)) -> core::ops::Range<u32> {
+    let clamp = |at: u32| {
+        let step = (i64::from(at) - i64::from(base)).clamp(0, i64::from(length));
+        u32::try_from(step).unwrap_or(0)
+    };
+    clamp(from)..clamp(to).max(clamp(from))
 }
 
 #[cfg(test)]

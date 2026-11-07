@@ -226,6 +226,7 @@ pub mod conversation_bar;
 pub mod conversation_box;
 pub mod conversation_chrome;
 pub mod conversation_compose;
+pub mod conversation_composed;
 pub mod conversation_drawing;
 pub mod conversation_find;
 pub mod conversation_fold;

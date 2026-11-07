@@ -180,7 +180,7 @@ use crate::closing::Closing;
 use crate::compose::{FrameScene, compose, compose_frame};
 use crate::conversation_agents::Reaching;
 use crate::conversation_chrome::ChromeOpener;
-use crate::conversation_compose::compose_conversation;
+use crate::conversation_composed::Composed;
 use crate::conversation_drawing::ConversationDrawing;
 use crate::conversation_fold::LEAST_SIZE;
 use crate::conversation_glide::FRAME;
@@ -982,6 +982,7 @@ pub fn conversation(
         lettering,
         window: None,
         presenter: None,
+        composed: Composed::new(),
         modifiers: ModifiersState::empty(),
         failed: None,
         closing,
@@ -1010,6 +1011,9 @@ struct Conversing<'c> {
     lettering: Lettering,
     window: Option<Rc<Window>>,
     presenter: Option<Presenter<Rc<Window>>>,
+    /// The window's pixels as last composed, composed again only where what
+    /// they are made from changed (queue item 872).
+    composed: Composed,
     /// The modifier keys held.
     modifiers: ModifiersState,
     /// Why the window had to stop, if it did.
@@ -1076,9 +1080,10 @@ impl Conversing<'_> {
         let Some(scene) = self.state.scene() else {
             return;
         };
-        let canvas = compose_conversation(&scene, &self.lettering);
+        let size = scene.window;
+        let (words, _) = self.composed.compose(&scene, &self.lettering);
         if let Some(presenter) = self.presenter.as_mut()
-            && let Err(why) = presenter.show(&canvas)
+            && let Err(why) = presenter.show_words(size, words)
         {
             self.failed = Some(why);
         }

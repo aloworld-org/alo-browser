@@ -21,8 +21,9 @@
 use crate::canvas::Canvas;
 use crate::damage::{Damage, damage};
 use crate::display::DisplayList;
+use crate::kept::Kept;
 use crate::region::Region;
-use crate::render::render;
+use crate::render::draw;
 use alo_value::Rgba;
 
 /// What painting a list again changed.
@@ -37,6 +38,17 @@ pub enum Repainted {
 }
 
 impl Repainted {
+    /// What two paints one after the other changed between them (queue
+    /// item 872): the smallest region holding both, or every pixel.
+    #[must_use]
+    pub fn joined(self, other: Self) -> Self {
+        match (self, other) {
+            (Repainted::Whole, _) | (_, Repainted::Whole) => Repainted::Whole,
+            (Repainted::Nothing, other) | (other, Repainted::Nothing) => other,
+            (Repainted::Within(one), Repainted::Within(two)) => Repainted::Within(one.joined(two)),
+        }
+    }
+
     /// How many pixels were painted again on a canvas of `size`.
     pub fn area(self, size: (u32, u32)) -> u64 {
         match self {
@@ -54,28 +66,38 @@ impl Repainted {
 /// else comes out wrong where the lists draw alike, which is why
 /// `alo-renderer` hands one in only with the list it was drawn from, at the
 /// same size, scale and ground.
+///
+/// What coverage `kept` holds is taken where it can be and what is made is
+/// kept for the next drawing ([`crate::kept`], queue item 871): the masks of
+/// clips compared, and every shape, shadow and clip drawn or passed over.
 pub fn repaint(
     before: &DisplayList,
     after: &DisplayList,
     canvas: &mut Canvas,
     ground: Rgba,
+    kept: &mut Kept,
 ) -> Repainted {
     let size = (canvas.width(), canvas.height());
-    match damage(before, after, size) {
-        Damage::None => Repainted::Nothing,
+    kept.begin();
+    let repainted = match damage(before, after, size, kept) {
+        // Nothing drawn, and what is kept is kept as it was: the two lists
+        // draw alike, so it is all still this list's.
+        Damage::None => return Repainted::Nothing,
         Damage::Within(region) => {
             canvas.reset(region, ground);
             canvas.confine(Some(region));
-            render(after, canvas);
+            draw(after, canvas, Some(kept));
             canvas.confine(None);
             Repainted::Within(region)
         }
         Damage::Whole => {
             *canvas = Canvas::new(size.0, size.1, ground);
-            render(after, canvas);
+            draw(after, canvas, Some(kept));
             Repainted::Whole
         }
-    }
+    };
+    kept.end();
+    repainted
 }
 
 #[cfg(test)]
@@ -85,6 +107,7 @@ mod tests {
     use crate::fill_rule::FillRule;
     use crate::paint::Paint;
     use crate::path::Path;
+    use crate::render::render;
     use alo_box::BoxId;
 
     fn list(items: Vec<DisplayItem>) -> DisplayList {
@@ -149,7 +172,7 @@ mod tests {
         ));
         let (before, after) = (list(before), list(after));
         let mut canvas = drawn(&before, (120, 80));
-        let repainted = repaint(&before, &after, &mut canvas, Rgba::WHITE);
+        let repainted = repaint(&before, &after, &mut canvas, Rgba::WHITE, &mut Kept::new());
         assert_eq!(canvas, drawn(&after, (120, 80)));
         assert_eq!(
             repainted,
@@ -185,7 +208,7 @@ mod tests {
         };
         let (before, after) = (with(30.0), with(34.0));
         let mut canvas = drawn(&before, (60, 50));
-        let repainted = repaint(&before, &after, &mut canvas, Rgba::WHITE);
+        let repainted = repaint(&before, &after, &mut canvas, Rgba::WHITE, &mut Kept::new());
         assert!(matches!(repainted, Repainted::Within(_)), "{repainted:?}");
         assert_eq!(canvas, drawn(&after, (60, 50)));
     }
@@ -195,16 +218,60 @@ mod tests {
         let one = list(vec![fill(2.0, 2.0, 4.0, 4.0, Rgba::BLACK)]);
         let mut canvas = drawn(&one, (8, 8));
         assert_eq!(
-            repaint(&one, &one, &mut canvas, Rgba::WHITE),
+            repaint(&one, &one, &mut canvas, Rgba::WHITE, &mut Kept::new()),
             Repainted::Nothing
         );
         let two = DisplayList::from_parts(one.items().to_vec(), Vec::new(), 2.0);
         let mut grown = Canvas::new(16, 16, Rgba::WHITE);
         assert_eq!(
-            repaint(&one, &two, &mut grown, Rgba::WHITE),
+            repaint(&one, &two, &mut grown, Rgba::WHITE, &mut Kept::new()),
             Repainted::Whole
         );
         assert_eq!(grown, drawn(&two, (16, 16)));
         assert_eq!(Repainted::Whole.area((16, 16)), 256);
+    }
+
+    #[test]
+    fn a_clip_whose_foot_moves_paints_again_only_the_strip_between_from_what_was_kept() {
+        // A card's shadow and fill inside the conversation's clip, which ends
+        // higher once the offers open (queue item 871): only the rows between
+        // the two feet differ, and the shadow is not blurred again for them.
+        let inside = |foot: f32| {
+            list(vec![
+                fill(0.0, 0.0, 120.0, 90.0, Rgba::from_rgba8(240, 238, 230, 255)),
+                DisplayItem::PushClip {
+                    box_id: BoxId::from_index_for_tests(0),
+                    path: Path::rectangle(4.0, 4.0, 112.0, foot - 4.0),
+                },
+                shadow(20.0, 20.0),
+                fill(20.0, 20.0, 30.0, 50.0, Rgba::WHITE),
+                DisplayItem::PopClip,
+            ])
+        };
+        let (open, closed) = (inside(52.5), inside(80.0));
+        let mut kept = Kept::new();
+        let mut canvas = Canvas::new(120, 90, Rgba::WHITE);
+        crate::render::render_keeping(&closed, &mut canvas, &mut kept);
+        assert_eq!(kept.made().blurred, 1);
+        for (before, after) in [(&closed, &open), (&open, &closed)] {
+            let repainted = repaint(before, after, &mut canvas, Rgba::WHITE, &mut kept);
+            assert_eq!(
+                canvas,
+                drawn(after, (120, 80 + 10)),
+                "every pixel as drawn whole"
+            );
+            let Repainted::Within(region) = repainted else {
+                panic!("a clip's foot moving painted {repainted:?}");
+            };
+            assert!(
+                region.top >= 52 && region.bottom <= 81,
+                "only the rows between the feet: {region:?}"
+            );
+            assert_eq!(
+                kept.made().blurred,
+                0,
+                "the shadow is taken as it was blurred"
+            );
+        }
     }
 }

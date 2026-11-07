@@ -30,8 +30,17 @@ use crate::coverage::Coverage;
 /// colour kept.
 pub fn clear(target: &mut Canvas, covered: &Coverage, inside: &dyn Fn(u32, u32) -> u8) {
     let (left, top) = covered.origin();
-    for row in 0..covered.height() {
-        for column in 0..covered.width() {
+    // Only the rows and columns a confined canvas would keep (queue item
+    // 871): the others would be refused pixel by pixel all the same.
+    let (rows, columns) = match target.confinement() {
+        Some(region) => (
+            crate::render::span(top, covered.height(), (region.top, region.bottom)),
+            crate::render::span(left, covered.width(), (region.left, region.right)),
+        ),
+        None => (0..covered.height(), 0..covered.width()),
+    };
+    for row in rows {
+        for column in columns.clone() {
             let value = covered.at(column, row);
             if value == 0 {
                 continue;

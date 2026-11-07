@@ -221,8 +221,15 @@ fn draw_agent_lines(
 /// Blended over what is there rather than written, so a frame with a
 /// transparent pixel shows the window's colour there instead of black.
 pub(crate) fn copy(canvas: &mut Canvas, frame: &Frame, rect: PixelRect) {
-    for y in rect.y..rect.y + rect.height {
-        for x in rect.x..rect.x + rect.width {
+    // Only the rows and columns a confined canvas would keep (queue item
+    // 872): the others would be refused pixel by pixel all the same.
+    let (rows, columns) = crate::conversation_compose::kept_steps(
+        canvas,
+        (i64::from(rect.x), i64::from(rect.y)),
+        (rect.width, rect.height),
+    );
+    for y in rows.start + rect.y..rows.end + rect.y {
+        for x in columns.start + rect.x..columns.end + rect.x {
             let Some((red, green, blue, alpha)) = frame.at(x - rect.x, y - rect.y) else {
                 continue;
             };

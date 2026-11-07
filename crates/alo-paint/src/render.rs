@@ -23,12 +23,15 @@
 
 use crate::blur::blurred;
 use crate::canvas::Canvas;
+use crate::clip::{Clip, mask};
 use crate::clipped_picture::draw_clipped_picture;
 use crate::coverage::Coverage;
 use crate::display::{DisplayItem, DisplayList};
 use crate::drawn_picture::draw_faded_picture;
 use crate::extent::reach_of;
+use crate::fill_rule::FillRule;
 use crate::glyph::outline_at;
+use crate::kept::{Kept, Key, Made};
 use crate::paint::Paint;
 use crate::path::{Path, Point};
 use crate::picture_filter::Uploads;
@@ -37,18 +40,46 @@ use crate::region::Region;
 use crate::synthesis::leaned;
 use alo_text::{Direction, Font, shape_at};
 use alo_value::{Matrix, Rgba};
+use std::sync::Arc;
 
 /// Draw a display list onto a canvas, at the scale the list was built for
 /// ([`DisplayList::scale`]): a canvas of device pixels, the page's size in
 /// CSS pixels times the scale.
 pub fn render(list: &DisplayList, canvas: &mut Canvas) {
+    draw(list, canvas, None);
+}
+
+/// The same, taking every shape's coverage, shadow and clip it can from
+/// what the drawing before it kept, and keeping what this one makes for
+/// the next (queue item 871, [`crate::kept`]): the same pixels, since a
+/// kept coverage is the very coverage that would have been made.
+pub fn render_keeping(list: &DisplayList, canvas: &mut Canvas, kept: &mut Kept) {
+    kept.begin();
+    draw(list, canvas, Some(kept));
+    kept.end();
+}
+
+/// A clip in force, and what it is kept as when coverage is kept.
+struct Held {
+    clip: Arc<Clip>,
+    key: Option<Key>,
+}
+
+/// The clip in force, innermost of those open.
+fn innermost(clips: &[Held]) -> Option<&Clip> {
+    clips.last().map(|held| held.clip.as_ref())
+}
+
+/// [`render`], keeping coverage in `kept` when there is one. The caller
+/// begins and ends the drawing in it.
+pub(crate) fn draw(list: &DisplayList, canvas: &mut Canvas, mut kept: Option<&mut Kept>) {
     // The screen's growth is the transform outside every other, so a box's
     // own transform happens in CSS pixels and lands in device pixels.
     let screen = Matrix::scaling(list.scale());
     // Three stacks, because three things nest. A clip applies to a subtree; a
     // transform applies to a subtree and composes with the ones outside it; a
     // group is a subtree drawn somewhere else and composited back.
-    let mut clips: Vec<Clip> = Vec::new();
+    let mut clips: Vec<Held> = Vec::new();
     let mut transforms: Vec<Matrix> = Vec::new();
     let mut groups: Vec<(f32, Canvas)> = Vec::new();
     // What Chrome's decode cache holds by the time each picture is drawn:
@@ -62,6 +93,9 @@ pub fn render(list: &DisplayList, canvas: &mut Canvas) {
     for item in list.items() {
         let current = transforms.last().copied().unwrap_or(screen);
         if seen.passes_over(item, current, list.scale()) {
+            // Not drawn, but still this list's: what it was made as is
+            // kept for the next drawing.
+            touch(kept.as_deref_mut(), item, current, (width, height));
             continue;
         }
         match item {
@@ -75,34 +109,20 @@ pub fn render(list: &DisplayList, canvas: &mut Canvas) {
             } => {
                 let target = groups.last_mut().map_or(&mut *canvas, |(_, under)| under);
                 let placed = (*rect, current, *fade);
-                draw_picture_item(target, picture, placed, clips.last(), &mut uploads);
+                draw_picture_item(target, picture, placed, innermost(&clips), &mut uploads);
             }
             DisplayItem::Beneath { rect, .. } => {
-                clear_beneath(canvas, &mut groups, (*rect, current), clips.last());
+                let covered = filled(
+                    kept.as_deref_mut(),
+                    &moved(&rectangle(*rect), current),
+                    FillRule::NonZero,
+                    (width, height),
+                );
+                clear_beneath(canvas, &mut groups, &covered, innermost(&clips));
             }
-            DisplayItem::PaintedGlyph {
-                steps,
-                pen,
-                to_css,
-                fade,
-                ..
-            } => {
-                // Its program run on a surface of its own (queue item 785).
+            DisplayItem::PaintedGlyph { .. } | DisplayItem::LayeredGlyph { .. } => {
                 let target = groups.last_mut().map_or(&mut *canvas, |(_, under)| under);
-                let clip = clips.last();
-                let placement = font_units(*pen, *to_css).then(current);
-                crate::painted_glyph::draw_painted(target, steps, placement, *fade, &|x, y| {
-                    clip.map_or(u8::MAX, |clip| clip.at(x, y))
-                });
-            }
-            DisplayItem::LayeredGlyph { layers, fade, .. } => {
-                // Its layers over each other, then faded once (queue item
-                // 830).
-                let target = groups.last_mut().map_or(&mut *canvas, |(_, under)| under);
-                let clip = clips.last();
-                crate::glyph_fade::draw_faded_layers(target, layers, *fade, current, &|x, y| {
-                    clip.map_or(u8::MAX, |clip| clip.at(x, y))
-                });
+                draw_colour_glyph(target, item, current, innermost(&clips));
             }
             DisplayItem::PushTransform { matrix, .. } => {
                 // The inner transform happens first, in the coordinates the
@@ -128,7 +148,7 @@ pub fn render(list: &DisplayList, canvas: &mut Canvas) {
             DisplayItem::PushClip { path, .. } => {
                 let shape = moved(path, current);
                 let unseen = seen.push(&shape);
-                clips.push(clipped(clips.last(), &shape, unseen));
+                clips.push(clipped(clips.last(), &shape, unseen, kept.as_deref_mut()));
             }
             DisplayItem::PopClip => {
                 clips.pop();
@@ -142,21 +162,32 @@ pub fn render(list: &DisplayList, canvas: &mut Canvas) {
                 // wrote a million pixels wide costs a page of mask, not more.
                 draw_coverage(
                     target,
-                    &fill_on_page(&moved(path, current), *rule, (width, height)),
+                    &filled(
+                        kept.as_deref_mut(),
+                        &moved(path, current),
+                        *rule,
+                        (width, height),
+                    ),
                     paint,
                     current,
-                    clips.last(),
+                    innermost(&clips),
                 );
             }
             DisplayItem::Shadow { .. }
             | DisplayItem::LettersShadow { .. }
             | DisplayItem::GlyphShadow { .. } => {
                 let target = groups.last_mut().map_or(&mut *canvas, |(_, group)| group);
-                draw_shadow_item(target, item, current, clips.last());
+                draw_shadow_item(
+                    target,
+                    item,
+                    current,
+                    innermost(&clips),
+                    kept.as_deref_mut(),
+                );
             }
             DisplayItem::Text { .. } => {
                 let target = groups.last_mut().map_or(&mut *canvas, |(_, group)| group);
-                draw_text(target, item, current, clips.last(), list.scale());
+                draw_text(target, item, current, innermost(&clips), list.scale());
             }
         }
     }
@@ -165,16 +196,147 @@ pub fn render(list: &DisplayList, canvas: &mut Canvas) {
 /// The clip in force inside `outer` once `shape`, already under the
 /// transform in force, is pushed. A clip the confined region cannot see
 /// (`unseen`) lets nothing through there, which a clip of no pixels says
-/// without making its mask.
-fn clipped(outer: Option<&Clip>, shape: &Path, unseen: bool) -> Clip {
-    let mask = if unseen {
-        Clip::from(&Coverage::empty())
-    } else {
-        Clip::from(&fill(shape))
+/// without making its mask. With coverage kept, its mask and the clips it
+/// is combined with are taken as kept where they can be.
+fn clipped(outer: Option<&Held>, shape: &Path, unseen: bool, kept: Option<&mut Kept>) -> Held {
+    let Some(kept) = kept else {
+        let mask = if unseen {
+            Clip::from(&Coverage::empty())
+        } else {
+            Clip::from(&mask(shape))
+        };
+        let clip = match outer {
+            Some(outer) => outer.clip.intersected(&mask),
+            None => mask,
+        };
+        return Held {
+            clip: Arc::new(clip),
+            key: None,
+        };
     };
-    match outer {
-        Some(outer) => outer.intersected(&mask),
-        None => mask,
+    let own = Key::of(Made::Mask, &[], shape);
+    let key = Key::within(outer.and_then(|outer| outer.key.as_ref()), &own);
+    if unseen {
+        kept.touch(&own);
+        kept.touch(&key);
+        return Held {
+            clip: Arc::new(Clip::from(&Coverage::empty())),
+            key: Some(key),
+        };
+    }
+    let made = kept.coverage(&own, Made::Mask, || mask(shape));
+    let clip = kept.clip(&key, || {
+        let mask = Clip::from(&made);
+        match outer {
+            Some(outer) => outer.clip.intersected(&mask),
+            None => mask,
+        }
+    });
+    Held {
+        clip,
+        key: Some(key),
+    }
+}
+
+/// A shape filled on a page by a rule, as kept when it was, and kept when
+/// coverage is.
+fn filled(
+    kept: Option<&mut Kept>,
+    shape: &Path,
+    rule: FillRule,
+    page: (u32, u32),
+) -> Arc<Coverage> {
+    match kept {
+        Some(kept) => kept.coverage(&filled_key(shape, rule, page), Made::Filled, || {
+            fill_on_page(shape, rule, page)
+        }),
+        None => Arc::new(fill_on_page(shape, rule, page)),
+    }
+}
+
+fn filled_key(shape: &Path, rule: FillRule, page: (u32, u32)) -> Key {
+    let rule = match rule {
+        FillRule::NonZero => 0,
+        FillRule::EvenOdd => 1,
+    };
+    Key::of(Made::Filled, &[rule, page.0, page.1], shape)
+}
+
+/// A box's shadow: its shape filled and blurred by `radius` device pixels,
+/// as kept when it was, and kept when coverage is.
+fn shadowed(kept: Option<&mut Kept>, shape: &Path, radius: f32) -> Arc<Coverage> {
+    match kept {
+        Some(kept) => kept.coverage(&shadow_key(shape, radius), Made::Blurred, || {
+            blurred(&fill(shape), radius)
+        }),
+        None => Arc::new(blurred(&fill(shape), radius)),
+    }
+}
+
+fn shadow_key(shape: &Path, radius: f32) -> Key {
+    Key::of(Made::Blurred, &[radius.to_bits()], shape)
+}
+
+/// A colour glyph: its program run on a surface of its own (queue item
+/// 785), or its layers over each other and then faded once (queue item
+/// 830), inside the clip in force. Anything else draws nothing.
+fn draw_colour_glyph(
+    target: &mut Canvas,
+    item: &DisplayItem,
+    current: Matrix,
+    clip: Option<&Clip>,
+) {
+    let inside = |x, y| clip.map_or(u8::MAX, |clip| clip.at(x, y));
+    match item {
+        DisplayItem::PaintedGlyph {
+            steps,
+            pen,
+            to_css,
+            fade,
+            ..
+        } => {
+            let placement = font_units(*pen, *to_css).then(current);
+            crate::painted_glyph::draw_painted(target, steps, placement, *fade, &inside);
+        }
+        DisplayItem::LayeredGlyph { layers, fade, .. } => {
+            crate::glyph_fade::draw_faded_layers(target, layers, *fade, current, &inside);
+        }
+        _ => {}
+    }
+}
+
+/// A rectangle as a shape.
+fn rectangle(rect: alo_layout::Rect) -> Path {
+    Path::rectangle(rect.left(), rect.top(), rect.size.width, rect.size.height)
+}
+
+/// An item passed over on a confined canvas, kept for the next drawing as
+/// what it was made as, when coverage is kept.
+fn touch(kept: Option<&mut Kept>, item: &DisplayItem, current: Matrix, page: (u32, u32)) {
+    if let Some(kept) = kept {
+        for key in keys_of(item, current, page) {
+            kept.touch(&key);
+        }
+    }
+}
+
+/// What an item passed over would have been kept as: its fill, its shadow
+/// or the place it leaves clear.
+fn keys_of(item: &DisplayItem, current: Matrix, page: (u32, u32)) -> Vec<Key> {
+    match item {
+        DisplayItem::Fill { path, rule, .. } => {
+            vec![filled_key(&moved(path, current), *rule, page)]
+        }
+        DisplayItem::Shadow { path, blur, .. } => vec![shadow_key(
+            &moved(path, current),
+            blur * current.scale_factor(),
+        )],
+        DisplayItem::Beneath { rect, .. } => vec![filled_key(
+            &moved(&rectangle(*rect), current),
+            FillRule::NonZero,
+            page,
+        )],
+        _ => Vec::new(),
     }
 }
 
@@ -277,21 +439,13 @@ impl Seen {
 fn clear_beneath(
     canvas: &mut Canvas,
     groups: &mut [(f32, Canvas)],
-    (rect, current): (alo_layout::Rect, Matrix),
+    covered: &Coverage,
     clip: Option<&Clip>,
 ) {
-    let covered = fill_on_page(
-        &moved(
-            &Path::rectangle(rect.left(), rect.top(), rect.size.width, rect.size.height),
-            current,
-        ),
-        crate::FillRule::NonZero,
-        (canvas.width(), canvas.height()),
-    );
     let inside = |x, y| clip.map_or(u8::MAX, |clip| clip.at(x, y));
-    crate::beneath::clear(canvas, &covered, &inside);
+    crate::beneath::clear(canvas, covered, &inside);
     for (_, group) in groups {
-        crate::beneath::clear(group, &covered, &inside);
+        crate::beneath::clear(group, covered, &inside);
     }
 }
 
@@ -379,12 +533,18 @@ fn draw_text(
 /// radius grown with the transform, because a shadow is blurred in the
 /// box's own coordinates and then moved with it. Anything else draws
 /// nothing.
-fn draw_shadow_item(target: &mut Canvas, item: &DisplayItem, current: Matrix, clip: Option<&Clip>) {
+fn draw_shadow_item(
+    target: &mut Canvas,
+    item: &DisplayItem,
+    current: Matrix,
+    clip: Option<&Clip>,
+    kept: Option<&mut Kept>,
+) {
     let (soft, color) = match item {
         DisplayItem::Shadow {
             path, blur, color, ..
         } => (
-            blurred(&fill(&moved(path, current)), blur * current.scale_factor()),
+            shadowed(kept, &moved(path, current), blur * current.scale_factor()),
             *color,
         ),
         DisplayItem::LettersShadow {
@@ -401,10 +561,10 @@ fn draw_shadow_item(target: &mut Canvas, item: &DisplayItem, current: Matrix, cl
         DisplayItem::GlyphShadow {
             cast, blur, color, ..
         } => (
-            blurred(
+            Arc::new(blurred(
                 &crate::glyph_shadow::coverage(cast, current),
                 blur * current.scale_factor(),
-            ),
+            )),
             *color,
         ),
         _ => return,
@@ -448,7 +608,7 @@ pub fn font_units(pen: (f32, f32), to_css: f32) -> Matrix {
 /// A path is built in the page's coordinates, so a box with no transform over
 /// it is left exactly alone — which is almost every box, and is why this asks
 /// before it copies.
-fn moved(path: &Path, transform: Matrix) -> Path {
+pub(crate) fn moved(path: &Path, transform: Matrix) -> Path {
     if transform.is_identity() {
         return path.clone();
     }
@@ -608,82 +768,10 @@ fn draw_coverage(
             if inside == 0 {
                 continue;
             }
-            let combined = multiply(value, inside);
+            let combined = crate::clip::multiply(value, inside);
             canvas.blend(x, y, color, combined);
         }
     }
-}
-
-/// A clip, as coverage over the whole page.
-///
-/// Held in page coordinates rather than relative to the clipping box, because
-/// what it is asked is always "is this pixel inside" — and answering that from
-/// a shape with its own origin means an offset at every lookup.
-#[derive(Debug, Clone)]
-struct Clip {
-    left: i32,
-    top: i32,
-    width: u32,
-    height: u32,
-    data: Vec<u8>,
-}
-
-impl Clip {
-    fn from(coverage: &Coverage) -> Self {
-        let (left, top) = coverage.origin();
-        Self {
-            left,
-            top,
-            width: coverage.width(),
-            height: coverage.height(),
-            data: coverage.data().to_vec(),
-        }
-    }
-
-    /// How much of a page pixel this clip lets through.
-    fn at(&self, x: u32, y: u32) -> u8 {
-        let (Some(column), Some(row)) = (back(x, self.left), back(y, self.top)) else {
-            return 0;
-        };
-        if column >= self.width || row >= self.height {
-            return 0;
-        }
-        let index = (row as usize) * (self.width as usize) + (column as usize);
-        self.data.get(index).copied().unwrap_or(0)
-    }
-
-    /// Where this clip and another overlap.
-    fn intersected(&self, inner: &Self) -> Self {
-        let mut data = Vec::with_capacity(inner.data.len());
-        for row in 0..inner.height {
-            for column in 0..inner.width {
-                let value = inner
-                    .data
-                    .get((row as usize) * (inner.width as usize) + (column as usize))
-                    .copied()
-                    .unwrap_or(0);
-                let (Some(x), Some(y)) = (place(inner.left, column), place(inner.top, row)) else {
-                    data.push(0);
-                    continue;
-                };
-                data.push(multiply(value, self.at(x, y)));
-            }
-        }
-        Self {
-            left: inner.left,
-            top: inner.top,
-            width: inner.width,
-            height: inner.height,
-            data,
-        }
-    }
-}
-
-/// Two coverages combined, as a fraction of a fraction.
-fn multiply(left: u8, right: u8) -> u8 {
-    let product = u32::from(left) * u32::from(right);
-    // Rounded rather than truncated, so that full coverage stays full.
-    u8::try_from((product + 127) / 255).unwrap_or(255)
 }
 
 /// The middle of a pixel, which is where a gradient is sampled: sampling at
@@ -699,17 +787,12 @@ pub(crate) fn pixel_centre(position: u32) -> f32 {
 
 /// The steps of a mask `length` long from `origin` that land on the page
 /// between `from` and `to`.
-fn span(origin: i32, length: u32, (from, to): (u32, u32)) -> core::ops::Range<u32> {
+pub(crate) fn span(origin: i32, length: u32, (from, to): (u32, u32)) -> core::ops::Range<u32> {
     let clamp = |at: u32| {
         let step = (i64::from(at) - i64::from(origin)).clamp(0, i64::from(length));
         u32::try_from(step).unwrap_or(0)
     };
     clamp(from)..clamp(to).max(clamp(from))
-}
-
-/// A page position back into a mask's own coordinates.
-fn back(position: u32, origin: i32) -> Option<u32> {
-    u32::try_from(i64::from(position) - i64::from(origin)).ok()
 }
 
 /// Where a pixel of the mask lands on the canvas, or [`None`] when it is off

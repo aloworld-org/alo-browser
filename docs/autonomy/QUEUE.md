@@ -23876,7 +23876,7 @@ What stage 2's exit gate actually measures: a person using it.
   painted whole, 151.9 ms (871); the window's redraw after the
   answer (26–38 ms, once 7) and the frame carried whole (872).
 
-- [ ] **871. The offers opening or closing beside a card, painted whole
+- [x] **871. The offers opening or closing beside a card, painted whole
   (found by 870).** The first letter typed beside a card opens the offers
   under the box; the conversation's room shrinks with them and its clip
   ends at 590 CSS pixels where it ended at 716. The card is clipped anew
@@ -23892,8 +23892,38 @@ What stage 2's exit gate actually measures: a person using it.
   streaming card is answered in roughly what it takes with no card,
   measured on hardware, and a test counts what it painted again.
   *Depends on 870.*
+  ***Done (7 November 2026).*** **Measured** (release, the Retina display
+  at two, ADR 0100's page streaming as a card; wall-clock timestamps in the
+  window, the drawing thread and the renderer, then taken out;
+  `handrun41/measured-before.txt` from a worktree of eb4b0c4): the first
+  letter answered in 168.8 ms and presented at 231; emptying the box 145.2
+  and 183. In the lists the card is **not changed at all** — every item
+  bit for bit the same — only the conversation's clip ends at 590 where it
+  ended at 716, so ADR 0101 left all of it unmatched and its shadows
+  reached past half the canvas. **The fix (ADR 0102 §§ 1–2, ADR 0101
+  amended):** `alo_paint::damage` matches items inside pushes alike but for
+  clips and counts them only where they reach and where the two clips'
+  masks differ, measured on the very masks `render` makes
+  (`alo_paint::clip::mask`, `differ`); and every coverage, blurred shadow,
+  mask and combined clip a drawing makes is kept for the next, keyed bit
+  for bit by what it was made from (`alo_paint::Kept`, `Drawing::kept`,
+  64 MiB at most). **After** (`handrun41/measured-after.txt`): the first
+  letter answered in **39.5 ms** (37.4 the second time) against 35.2 with
+  no card, presented at 81 (56); emptying 32.8 and 68; the region painted
+  1888 × 377, a fifth of the frame, no shadow blurred. In the renderer alone
+  a steady letter fell from 21 to 15 ms too (the background no longer
+  filled again). **Tests:** `an_edit_paints_again_only_what_it_changed.rs`
+  gains the offers opening and closing beside a card painting at most a
+  quarter of the frame and blurring no shadow (`Kept::made`), every edit
+  still every byte as drawn whole; units in `clip` (3), `kept` (3),
+  `repaint` (a clip's foot moved), `damage` (a clip that differs, only
+  where its mask does). **Mutations**, each caught (`handrun41/mut/`):
+  clips never allowed to differ (*opening the offers beside a card painted
+  Whole*); nothing kept between drawings (*blurred its shadows again*);
+  masks taken to differ nowhere (*the first letter, opening the offers at
+  2 was painted otherwise than drawn whole, first at 113, 1180*).
 
-- [ ] **872. The window's redraw after an edit, and the frame carried
+- [x] **872. The window's redraw after an edit, and the frame carried
   whole (found by 870).** With an edit painted only where it changed
   (870), a letter beside a card is answered by the first screen's renderer
   in 35 ms on this Mac, where the renderer's own work, measured alone off
@@ -23905,6 +23935,48 @@ What stage 2's exit gate actually measures: a person using it.
   not needed, never a pixel moved. *Closes when:* each is measured before
   and after on hardware, with a test that counts the work. *Depends on
   870.*
+  ***Done, cut (7 November 2026).*** **Measured** (as 871): after the
+  renderer answered, at eb4b0c4, per letter: the frame made bytes 4.5 ms,
+  written and read 5.5, **composed whole in floats 22.4**, made words and
+  presented **15.2**, and 0–42 ms waiting for the event loop, busy
+  composing a card picture the same way; with no card a letter took
+  66–73 ms key to screen. **The fix (ADR 0102 §§ 3–4):** a renderer asked
+  `ToRenderer::PaintOver` sends only the rectangle its drawings since the
+  last frame it sent painted again (`FromRenderer::PaintedOver`,
+  `frame_patch::Patch`, `Easel::send`); the drawing thread puts it over the
+  frame it holds and tells the window the whole frame as before; the
+  window keeps its pixels and their words and composes again only where
+  what they are made from changed (`conversation_composed::Composed`,
+  `compose_within`), presenting the kept words (`Presenter::show_words`).
+  **After:** a letter crosses in 0.3–0.4 MB (from 13.6), composed in 2–3
+  ms over about 70,000 pixels, presented in 10.4; key to screen **30–35
+  ms** beside the card (from 76–140), 32–38 with none (from 65–73), 31–35
+  beside `en.wikipedia.org/wiki/Kampala` (from 67–70). **Tests:**
+  `a_frame_crosses_only_what_changed.rs` (bytes crossing, every held frame
+  every byte the frame sent whole), `messages_across_a_boundary.rs` (the
+  ask and answer cross; hostile patches and every truncation refused),
+  units in `frame_patch` (3) and `conversation_composed` (3, words composed
+  again counted, every word as composed whole). **Mutations**, each caught:
+  every frame sent whole (*typing "h" crossed whole, 13644825 bytes*);
+  only the last drawing's change sent (*both changes, every byte*); the
+  card's picture not compared and the first screen's pixels never
+  compared (each *every word as composed whole* fails). **Cut, queued:**
+  the 10.4 ms present and the waits behind a card picture (873).
+
+- [ ] **873. The window presented without copying all of it, and a card's
+  picture composed off its event loop (found by 872).** After 872 a letter
+  is composed in 2–3 ms, and then presented in 10.4 ms: `softbuffer` 0.4.8
+  hands the window server a new zeroed buffer each frame on macOS (`age`
+  0), so the window's 17 MB of words are copied whole and made a `CGImage`
+  every time. And a new picture of a live card — 15 a second — is composed
+  and presented on the window's event loop, so a letter arriving during
+  one waits up to 25 ms more (key to screen at most 57 ms where it is
+  otherwise 30–35). Measure what a surface that keeps its last frame
+  (`IOSurface`, a Metal layer) costs and what `unsafe` it needs — its own
+  ADR before any — and whether the card's page can be composed off the
+  event loop or given to the window server as a layer of its own, never a
+  pixel moved. *Closes when:* each is measured on hardware before and
+  after, with a test that counts the work. *Depends on 872.*
 
 ## K. ★ The agent, on somebody else's pages
 

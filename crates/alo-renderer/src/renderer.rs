@@ -289,6 +289,7 @@ impl Renderer {
             ToRenderer::Visibility(to) => self.visibility(to),
             ToRenderer::Leave => self.leave(),
             ToRenderer::Paint => self.paint(),
+            ToRenderer::PaintOver => self.paint_over(),
             ToRenderer::ReadTree => self.read_tree(),
             ToRenderer::Act { target, verb } => self.act(&target, &verb),
             ToRenderer::Fetched(fetched) => self.delivered(&fetched),
@@ -1129,8 +1130,8 @@ impl Renderer {
 
     fn paint(&mut self) -> FromRenderer {
         self.fresh();
-        let easel = self.easel.borrow();
-        let Some(drawing) = easel.drawn() else {
+        let mut easel = self.easel.borrow_mut();
+        let Some(drawing) = easel.drawn().cloned() else {
             return FromRenderer::Failed(Failure::NothingLoaded);
         };
         if drawing.canvas.is_empty() {
@@ -1138,7 +1139,35 @@ impl Renderer {
                 why: "the window has no size".to_owned(),
             });
         }
+        easel.send();
         FromRenderer::Painted(Frame::from_canvas(&drawing.canvas))
+    }
+
+    /// Only what changed since the last frame sent, to an asker that holds
+    /// it (queue item 872): the region every drawing since painted again, or
+    /// the whole frame when that is every pixel.
+    fn paint_over(&mut self) -> FromRenderer {
+        self.fresh();
+        let mut easel = self.easel.borrow_mut();
+        let Some(drawing) = easel.drawn().cloned() else {
+            return FromRenderer::Failed(Failure::NothingLoaded);
+        };
+        if drawing.canvas.is_empty() {
+            return FromRenderer::Failed(Failure::Unpaintable {
+                why: "the window has no size".to_owned(),
+            });
+        }
+        match easel.send() {
+            alo_paint::Repainted::Whole => {
+                FromRenderer::Painted(Frame::from_canvas(&drawing.canvas))
+            }
+            alo_paint::Repainted::Nothing => {
+                FromRenderer::PaintedOver(crate::frame_patch::Patch::of(&drawing.canvas, None))
+            }
+            alo_paint::Repainted::Within(region) => FromRenderer::PaintedOver(
+                crate::frame_patch::Patch::of(&drawing.canvas, Some(region)),
+            ),
+        }
     }
 
     fn read_tree(&mut self) -> FromRenderer {

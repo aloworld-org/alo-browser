@@ -70,6 +70,9 @@ pub struct Drawing {
     /// all of it, or only where its list differs from the drawing's before
     /// it, painted over ([`crate::paint_over`]).
     pub repainted: alo_paint::Repainted,
+    /// The coverage it made, kept for the next drawing to take rather than
+    /// make again (queue item 871, [`alo_paint::Kept`]).
+    pub kept: alo_paint::Kept,
     /// Everything the style sheets themselves asked for that was refused.
     ///
     /// Kept separately because the sheets are consumed by the cascade: a
@@ -401,7 +404,7 @@ pub fn draw_over(
     // pixels: the list is drawn at its scale onto it (ADR 0057 § 4).
     let scale = screen.scale();
     let ground = screen.ground();
-    let (canvas, repainted) = crate::paint_over::painted(
+    let (canvas, repainted, kept) = crate::paint_over::painted(
         &display,
         (whole(size.width * scale), whole(size.height * scale)),
         ground,
@@ -420,6 +423,7 @@ pub fn draw_over(
         canvas,
         ground,
         repainted,
+        kept,
         sheet_issues,
         wanted,
     }

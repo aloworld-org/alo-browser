@@ -15,23 +15,28 @@
 //! the same colour, it is painted again only where the two display lists
 //! can differ ([`alo_paint::repaint()`]), and comes out as a canvas painted
 //! whole would. Otherwise it is painted whole, as before.
+//!
+//! The coverage the last drawing made — its shapes, its shadows blurred,
+//! its clips — is handed on with it ([`alo_paint::Kept`], queue item 871),
+//! so a pixel of a card's shadow painted again is painted from the shadow
+//! as it was blurred, not blurred again.
 
 use std::rc::Rc;
 
-use alo_paint::{Canvas, DisplayList, Repainted, repaint};
+use alo_paint::{Canvas, DisplayList, Kept, Repainted, repaint};
 use alo_value::Rgba;
 
 use crate::pipeline::Drawing;
 
 /// `display` painted onto a canvas of `size` device pixels made in
 /// `ground`: over `before`'s canvas where that is one it can be, or onto a
-/// new one. What it painted is said with it.
+/// new one. What it painted is said with it, and the coverage it kept.
 pub fn painted(
     display: &DisplayList,
     size: (u32, u32),
     ground: Rgba,
     before: Option<Rc<Drawing>>,
-) -> (Canvas, Repainted) {
+) -> (Canvas, Repainted, Kept) {
     let fits = |drawing: &Drawing| {
         (drawing.canvas.width(), drawing.canvas.height()) == size && drawing.ground == ground
     };
@@ -42,22 +47,27 @@ pub fn painted(
             Ok(Drawing {
                 display: was,
                 mut canvas,
+                mut kept,
                 ..
             }) => {
-                let repainted = repaint(&was, display, &mut canvas, ground);
-                (canvas, repainted)
+                let repainted = repaint(&was, display, &mut canvas, ground, &mut kept);
+                (canvas, repainted, kept)
             }
             // Somebody still reads it: a copy is painted over.
             Err(shared) => {
                 let mut canvas = shared.canvas.clone();
-                let repainted = repaint(&shared.display, display, &mut canvas, ground);
-                (canvas, repainted)
+                let mut kept = shared.kept.clone();
+                let repainted = repaint(&shared.display, display, &mut canvas, ground, &mut kept);
+                (canvas, repainted, kept)
             }
         },
+        // Another size or colour: what was kept was made for another page
+        // of pixels, and a shape filled on it may be cut otherwise.
         _ => {
             let mut canvas = Canvas::new(size.0, size.1, ground);
-            alo_paint::render(display, &mut canvas);
-            (canvas, Repainted::Whole)
+            let mut kept = Kept::new();
+            alo_paint::render_keeping(display, &mut canvas, &mut kept);
+            (canvas, Repainted::Whole, kept)
         }
     }
 }

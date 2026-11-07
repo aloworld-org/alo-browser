@@ -321,11 +321,18 @@ struct Held {
     site: Site,
     /// What happened to it, once it has gone.
     gone: Option<Gone>,
+    /// The last frame it sent, as the window was told it: what it is asked
+    /// to paint only the changes to (queue item 872, ADR 0102).
+    frame: Option<Frame>,
 }
 
 impl Held {
     fn at(site: Site) -> Self {
-        Self { site, gone: None }
+        Self {
+            site,
+            gone: None,
+            frame: None,
+        }
     }
 }
 
@@ -670,12 +677,38 @@ fn drawn(
     if held.gone.is_some() {
         return None;
     }
+    // Only what changed since the frame it holds, once it holds one: the
+    // renderer says the rest is as it was (queue item 872).
+    let paint = if held.frame.is_some() {
+        ToRenderer::PaintOver
+    } else {
+        ToRenderer::Paint
+    };
     let answer = renderers
         .ask(&held.site, work)
         .and_then(|built| match built {
-            FromRenderer::Loaded { .. } => renderers.ask(&held.site, &ToRenderer::Paint),
+            FromRenderer::Loaded { .. } => renderers.ask(&held.site, &paint),
             other => Ok(other),
         });
+    let mut patched = false;
+    let answer = match answer {
+        Ok(FromRenderer::PaintedOver(patch)) => {
+            patched = held.frame.as_mut().is_some_and(|frame| patch.onto(frame));
+            match held.frame.as_ref().filter(|_| patched) {
+                Some(frame) => Ok(FromRenderer::Painted(frame.clone())),
+                // Not of the frame it holds: the whole frame asked for, and
+                // kept as it comes.
+                None => renderers.ask(&held.site, &ToRenderer::Paint),
+            }
+        }
+        other => other,
+    };
+    if !patched {
+        held.frame = match &answer {
+            Ok(FromRenderer::Painted(frame)) => Some(frame.clone()),
+            _ => None,
+        };
+    }
     Some(match answer {
         Ok(FromRenderer::Painted(frame)) => Drawn::Painted(part, frame),
         Ok(FromRenderer::Failed(failure)) => {

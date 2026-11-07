@@ -58,6 +58,7 @@ mod fetch;
 mod field;
 mod form;
 mod panel;
+mod patch;
 mod pointer;
 mod results;
 mod sheet;
@@ -126,6 +127,12 @@ impl Writer {
     }
     fn float(&mut self, value: f32) {
         self.out.extend_from_slice(&value.to_be_bytes());
+    }
+    /// A tag, and a point after it.
+    fn point(&mut self, tag: u8, at: alo_paint::Point) {
+        self.tag(tag);
+        self.float(at.x);
+        self.float(at.y);
     }
     fn bytes(&mut self, value: &[u8]) {
         self.number(value.len() as u64);
@@ -433,11 +440,7 @@ pub fn write_to_renderer(message: &ToRenderer) -> Vec<u8> {
             writer.tag(12);
             writer.pointer(pointer);
         }
-        ToRenderer::StripPress(at) => {
-            writer.tag(13);
-            writer.float(at.x);
-            writer.float(at.y);
-        }
+        ToRenderer::StripPress(at) => writer.point(13, *at),
         ToRenderer::Panel(panel) => {
             writer.tag(14);
             writer.panel(panel);
@@ -446,19 +449,12 @@ pub fn write_to_renderer(message: &ToRenderer) -> Vec<u8> {
             writer.tag(15);
             writer.start(start);
         }
-        ToRenderer::ConversationPress(at) => {
-            writer.tag(16);
-            writer.float(at.x);
-            writer.float(at.y);
-        }
+        ToRenderer::ConversationPress(at) => writer.point(16, *at),
         ToRenderer::ConversationReach => writer.tag(17),
-        ToRenderer::ConversationHover(at) => {
-            writer.tag(18);
-            writer.float(at.x);
-            writer.float(at.y);
-        }
+        ToRenderer::ConversationHover(at) => writer.point(18, *at),
         ToRenderer::FieldLaidOut => writer.tag(19),
         ToRenderer::PictureBeneath => writer.tag(20),
+        ToRenderer::PaintOver => writer.tag(22),
         ToRenderer::CardPicture(picture) => {
             writer.tag(21);
             writer.card_picture(picture);
@@ -504,6 +500,10 @@ pub fn write_from_renderer(message: &FromRenderer) -> Vec<u8> {
             writer.number(u64::from(frame.width));
             writer.number(u64::from(frame.height));
             writer.bytes(&frame.pixels);
+        }
+        FromRenderer::PaintedOver(patch) => {
+            writer.tag(15);
+            writer.patch(patch);
         }
         FromRenderer::Tree(snapshot) => {
             writer.tag(2);
@@ -1384,6 +1384,7 @@ pub fn read_to_renderer(bytes: &[u8]) -> Result<ToRenderer, Unreadable> {
         }
         19 => ToRenderer::FieldLaidOut,
         20 => ToRenderer::PictureBeneath,
+        22 => ToRenderer::PaintOver,
         21 => ToRenderer::CardPicture(Box::new(reader.card_picture()?)),
         other => return Err(unreadable(format!("a message tagged {other}"))),
     };
@@ -1496,6 +1497,7 @@ pub fn read_from_renderer(bytes: &[u8]) -> Result<FromRenderer, Unreadable> {
         }
         10 => FromRenderer::Claimed(reader.claim()?),
         tag @ 11..=14 => reader.of_a_part(tag)?,
+        15 => FromRenderer::PaintedOver(reader.patch()?),
         other => return Err(unreadable(format!("a message tagged {other}"))),
     };
     reader.finished()?;

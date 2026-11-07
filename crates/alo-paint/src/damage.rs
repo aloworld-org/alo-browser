@@ -36,18 +36,37 @@
 //!
 //! A clip or a transform pushed or popped unmatched draws nothing itself;
 //! what it changes is how the items inside it are drawn, and those, inside
-//! pushes the other list has none of, are unmatched and counted. The whole
+//! pushes the other list has none of, are unmatched and counted.
+//!
+//! # Inside a clip that differs
+//!
+//! An item may also be matched inside pushes that draw alike **but for
+//! clips** (queue item 871): the same transforms and groups in the same
+//! order, and in some places one clip's shape where the other list has
+//! another's — the conversation's clip ending higher once the offers open
+//! under the box, around a card that is drawn exactly as it was. A clip
+//! changes an item's pixels only through its mask at each pixel
+//! ([`crate::clip`]): `render` multiplies the item's coverage by every
+//! clip's mask at that pixel and by nothing else of the clip. So where each
+//! pair of clips that differ has equal masks, the item draws alike, and it
+//! is counted only where it can reach *and* some pair's masks differ
+//! ([`crate::clip::differ`], measured on the very masks `render` makes).
+//! A group or a picture matched so is the whole canvas, since neither is
+//! drawn only through a mask. The whole
 //! canvas is also the answer when the lists are nested otherwise than a
 //! stack, when a reach cannot be said, at another scale, when what is left
 //! to line up is too long to line up cheaply, and when the damage reaches
 //! half the canvas, which costs less to paint whole than to keep finding
 //! out.
 
+use crate::clip::{differ, mask};
 use crate::display::{DisplayItem, DisplayList};
 use crate::extent::{Reach, reach_of};
 use crate::glyph_shadow::Cast;
+use crate::kept::{Kept, Key, Made};
 use crate::region::Region;
 use alo_value::Matrix;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 /// The most pairs of items the middle of two lists is lined up over: two
@@ -71,21 +90,28 @@ pub enum Damage {
 }
 
 /// Where `before` and `after`, each drawn onto a canvas of `size` at its
-/// own scale, can differ.
-pub fn damage(before: &DisplayList, after: &DisplayList, size: (u32, u32)) -> Damage {
+/// own scale, can differ. The masks of clips that differ are taken from
+/// `kept`, and kept in it, as `render` takes them ([`crate::kept`]).
+pub fn damage(
+    before: &DisplayList,
+    after: &DisplayList,
+    size: (u32, u32),
+    kept: &mut Kept,
+) -> Damage {
     if before.scale().to_bits() != after.scale().to_bits() {
         return Damage::Whole;
     }
     let (Some(old), Some(new)) = (Walked::of(before), Walked::of(after)) else {
         return Damage::Whole;
     };
-    let Some((old_matched, new_matched)) = aligned(&old, &new) else {
+    let Some(lined) = aligned(&old, &new) else {
         return Damage::Whole;
     };
+    let (old_matched, new_matched) = (&lined.old, &lined.new);
     let mut found = Found::new(size);
     for (walked, matched, scale) in [
-        (&old, &old_matched, before.scale()),
-        (&new, &new_matched, after.scale()),
+        (&old, old_matched, before.scale()),
+        (&new, new_matched, after.scale()),
     ] {
         for (index, item) in walked.items.iter().enumerate() {
             if matched.get(index).copied().unwrap_or(false) {
@@ -106,7 +132,91 @@ pub fn damage(before: &DisplayList, after: &DisplayList, size: (u32, u32)) -> Da
             }
         }
     }
+    // What is matched inside clips that differ, where their masks do.
+    let mut masks = Masks {
+        old: &old,
+        new: &new,
+        size,
+        kept,
+        differing: HashMap::new(),
+    };
+    let mut clips = Vec::new();
+    for &(i, j) in &lined.pairs {
+        clips.clear();
+        let context = (
+            old.inside.get(i).copied().flatten(),
+            new.inside.get(j).copied().flatten(),
+        );
+        if !inside_alike(&old, &new, context, lined.first, &mut clips) {
+            return Damage::Whole;
+        }
+        if clips.is_empty() {
+            continue;
+        }
+        let Some(&item) = new.items.get(j) else {
+            return Damage::Whole;
+        };
+        match item {
+            DisplayItem::PushGroup { .. } | DisplayItem::PopGroup | DisplayItem::Picture { .. } => {
+                return Damage::Whole;
+            }
+            DisplayItem::PushClip { .. }
+            | DisplayItem::PopClip
+            | DisplayItem::PushTransform { .. }
+            | DisplayItem::PopTransform => continue,
+            _ => {}
+        }
+        let mut within: Option<Region> = None;
+        for &pair in &clips {
+            if let Some(region) = masks.differ(pair) {
+                within = Some(within.map_or(region, |was| was.joined(region)));
+            }
+        }
+        if let Some(within) = within {
+            found.add_within(item, new.at.get(j).copied(), after.scale(), Some(within));
+            if found.whole {
+                return Damage::Whole;
+            }
+        }
+    }
     found.damage()
+}
+
+/// Where pairs of clips, one of each list, let different amounts through:
+/// each pair measured once, on the masks `render` makes for them.
+struct Masks<'a, 'b> {
+    old: &'a Walked<'b>,
+    new: &'a Walked<'b>,
+    size: (u32, u32),
+    kept: &'a mut Kept,
+    differing: HashMap<(usize, usize), Option<Region>>,
+}
+
+impl Masks<'_, '_> {
+    fn differ(&mut self, (i, j): (usize, usize)) -> Option<Region> {
+        if let Some(&found) = self.differing.get(&(i, j)) {
+            return found;
+        }
+        let found = match (self.mask(true, i), self.mask(false, j)) {
+            (Some(one), Some(other)) => differ(&one, &other, self.size),
+            // Not a clip after all: every pixel may differ.
+            _ => Region::whole(self.size.0, self.size.1),
+        };
+        self.differing.insert((i, j), found);
+        found
+    }
+
+    /// The mask of the clip pushed at `index` of the list before (`old`) or
+    /// after, under the transform in force there, as `render` makes it.
+    fn mask(&mut self, old: bool, index: usize) -> Option<Arc<crate::Coverage>> {
+        let walked = if old { self.old } else { self.new };
+        let DisplayItem::PushClip { path, .. } = walked.items.get(index)? else {
+            return None;
+        };
+        let shape = crate::render::moved(path, *walked.at.get(index)?);
+        let key = Key::of(Made::Mask, &[], &shape);
+        Some(self.kept.coverage(&key, Made::Mask, || mask(&shape)))
+    }
 }
 
 /// A list's drawing items with, for each, the transform it is drawn under
@@ -178,32 +288,51 @@ fn pops(push: &DisplayItem, pop: &DisplayItem) -> bool {
     )
 }
 
+/// Two lists lined up.
+struct Lined {
+    /// Which items of the list before are matched.
+    old: Vec<bool>,
+    /// Which items of the list after are.
+    new: Vec<bool>,
+    /// Each pair matched, past the items both lists begin with alike.
+    pairs: Vec<(usize, usize)>,
+    /// How many items both begin with alike, inside the very same pushes.
+    first: usize,
+}
+
 /// The two lists lined up: which items of each are matched to one of the
-/// other, in order — all those they start and end with alike, and the most
-/// of what is left between ([`MOST_PAIRS`]). [`None`] when what is left is
-/// too long to line up.
-fn aligned(old: &Walked, new: &Walked) -> Option<(Vec<bool>, Vec<bool>)> {
+/// other, in order — all those they start with alike, inside the very same
+/// pushes, then those they end with and the most of what is left between
+/// ([`MOST_PAIRS`]), inside pushes alike but for clips. [`None`] when what
+/// is left is too long to line up.
+fn aligned(old: &Walked, new: &Walked) -> Option<Lined> {
     let (n, m) = (old.items.len(), new.items.len());
-    let alike = |i: usize, j: usize, start: usize| {
-        matches!((old.items.get(i), new.items.get(j)), (Some(was), Some(is)) if same(was, is))
-            && same_inside(
-                old,
-                new,
-                (
-                    old.inside.get(i).copied().flatten(),
-                    new.inside.get(j).copied().flatten(),
-                ),
-                start,
-            )
+    let mut scratch = Vec::new();
+    let mut alike = |i: usize, j: usize, start: usize, exactly: bool| {
+        if !matches!((old.items.get(i), new.items.get(j)), (Some(was), Some(is)) if same(was, is)) {
+            return false;
+        }
+        scratch.clear();
+        inside_alike(
+            old,
+            new,
+            (
+                old.inside.get(i).copied().flatten(),
+                new.inside.get(j).copied().flatten(),
+            ),
+            start,
+            &mut scratch,
+        ) && (!exactly || scratch.is_empty())
     };
     let mut first = 0;
-    while first < n.min(m) && alike(first, first, first) {
+    while first < n.min(m) && alike(first, first, first, true) {
         first += 1;
     }
     let mut last = 0;
-    while last < n.min(m) - first && alike(n - 1 - last, m - 1 - last, first) {
+    while last < n.min(m) - first && alike(n - 1 - last, m - 1 - last, first, false) {
         last += 1;
     }
+    let mut pairs: Vec<(usize, usize)> = (0..last).map(|k| (n - 1 - k, m - 1 - k)).collect();
     let mut old_matched = vec![false; n];
     let mut new_matched = vec![false; m];
     for index in (0..first).chain(n - last..n) {
@@ -218,7 +347,12 @@ fn aligned(old: &Walked, new: &Walked) -> Option<(Vec<bool>, Vec<bool>)> {
     }
     let (rows, columns) = (n - last - first, m - last - first);
     if rows == 0 || columns == 0 {
-        return Some((old_matched, new_matched));
+        return Some(Lined {
+            old: old_matched,
+            new: new_matched,
+            pairs,
+            first,
+        });
     }
     if rows.saturating_mul(columns) > MOST_PAIRS {
         return None;
@@ -229,7 +363,7 @@ fn aligned(old: &Walked, new: &Walked) -> Option<(Vec<bool>, Vec<bool>)> {
     let mut best = vec![0_u32; (rows + 1) * width];
     for row in (0..rows).rev() {
         for column in (0..columns).rev() {
-            let value = if alike(first + row, first + column, first) {
+            let value = if alike(first + row, first + column, first, false) {
                 best.get((row + 1) * width + column + 1)
                     .copied()
                     .unwrap_or(0)
@@ -251,13 +385,14 @@ fn aligned(old: &Walked, new: &Walked) -> Option<(Vec<bool>, Vec<bool>)> {
             .get((row + 1) * width + column + 1)
             .copied()
             .unwrap_or(0);
-        if here == next + 1 && alike(first + row, first + column, first) {
+        if here == next + 1 && alike(first + row, first + column, first, false) {
             if let Some(flag) = old_matched.get_mut(first + row) {
                 *flag = true;
             }
             if let Some(flag) = new_matched.get_mut(first + column) {
                 *flag = true;
             }
+            pairs.push((first + row, first + column));
             row += 1;
             column += 1;
         } else if best.get((row + 1) * width + column).copied().unwrap_or(0) >= here {
@@ -266,18 +401,26 @@ fn aligned(old: &Walked, new: &Walked) -> Option<(Vec<bool>, Vec<bool>)> {
             column += 1;
         }
     }
-    Some((old_matched, new_matched))
+    Some(Lined {
+        old: old_matched,
+        new: new_matched,
+        pairs,
+        first,
+    })
 }
 
-/// Whether two items are drawn inside pushes that draw alike, in the same
-/// order: the pushes open around them compared outwards, as far as the
-/// first `start` items both lists begin with alike, where two of the same
-/// place are the same push inside the same pushes.
-fn same_inside(
+/// Whether two items are drawn inside pushes that draw alike but for clips,
+/// in the same order: the pushes open around them compared outwards, as
+/// far as the first `start` items both lists begin with alike, where two of
+/// the same place are the same push inside the same pushes. Each pair of
+/// clips that differ, one pushed at `i` before and one at `j` after, is put
+/// in `clips`; none are when the pushes draw alike.
+fn inside_alike(
     old: &Walked,
     new: &Walked,
     (mut was, mut is): (Option<usize>, Option<usize>),
     start: usize,
+    clips: &mut Vec<(usize, usize)>,
 ) -> bool {
     for _ in 0..DEEPEST {
         match (was, is) {
@@ -290,7 +433,13 @@ fn same_inside(
                     return false;
                 };
                 if !same(push, other) {
-                    return false;
+                    if !matches!(
+                        (push, other),
+                        (DisplayItem::PushClip { .. }, DisplayItem::PushClip { .. })
+                    ) {
+                        return false;
+                    }
+                    clips.push((i, j));
                 }
                 was = old.inside.get(i).copied().flatten();
                 is = new.inside.get(j).copied().flatten();
@@ -320,11 +469,29 @@ impl Found {
     /// What `item` can reach, drawn under `current`, added; a reach that
     /// cannot be said, or a damage of half the canvas or more, is the whole.
     fn add(&mut self, item: &DisplayItem, current: Option<Matrix>, scale: f32) {
+        self.add_within(item, current, scale, None);
+    }
+
+    /// The same, of only what is inside `limit` when there is one.
+    fn add_within(
+        &mut self,
+        item: &DisplayItem,
+        current: Option<Matrix>,
+        scale: f32,
+        limit: Option<Region>,
+    ) {
         let Some(current) = current else {
             self.whole = true;
             return;
         };
-        match reach_of(item, current, scale, self.size) {
+        let reach = match (reach_of(item, current, scale, self.size), limit) {
+            (Reach::Within(region), Some(limit)) => {
+                region.meeting(limit).map_or(Reach::Nothing, Reach::Within)
+            }
+            (Reach::Unknown, Some(limit)) => Reach::Within(limit),
+            (reach, _) => reach,
+        };
+        match reach {
             Reach::Nothing => {}
             Reach::Unknown => self.whole = true,
             Reach::Within(region) => {
@@ -562,7 +729,10 @@ mod tests {
                 fill(10.0, 5.0, Rgba::BLACK),
             ])
         };
-        assert_eq!(damage(&one(), &one(), (200, 100)), Damage::None);
+        assert_eq!(
+            damage(&one(), &one(), (200, 100), &mut Kept::new()),
+            Damage::None
+        );
     }
 
     #[test]
@@ -576,7 +746,7 @@ mod tests {
             fill(30.0, 5.0, Rgba::BLACK),
         ]);
         assert_eq!(
-            damage(&before, &after, (200, 100)),
+            damage(&before, &after, (200, 100), &mut Kept::new()),
             Damage::Within(Region {
                 left: 9,
                 top: 9,
@@ -600,7 +770,7 @@ mod tests {
             DisplayItem::PopClip,
         ]);
         assert_eq!(
-            damage(&before, &after, (200, 100)),
+            damage(&before, &after, (200, 100), &mut Kept::new()),
             Damage::Within(Region {
                 left: 9,
                 top: 9,
@@ -633,7 +803,7 @@ mod tests {
             at(30.0),
         ]);
         assert_eq!(
-            damage(&before, &after, (200, 100)),
+            damage(&before, &after, (200, 100), &mut Kept::new()),
             Damage::Within(Region {
                 left: 19,
                 top: 9,
@@ -653,7 +823,7 @@ mod tests {
             DisplayItem::PopClip,
         ]);
         assert_eq!(
-            damage(&before, &after, (200, 100)),
+            damage(&before, &after, (200, 100), &mut Kept::new()),
             Damage::Within(Region {
                 left: 9,
                 top: 9,
@@ -672,7 +842,7 @@ mod tests {
             DisplayItem::PopTransform,
         ]);
         assert_eq!(
-            damage(&before, &crossed, (200, 100)),
+            damage(&before, &crossed, (200, 100), &mut Kept::new()),
             Damage::Whole,
             "pushes that do not nest as a stack are drawn otherwise than walked",
         );
@@ -694,14 +864,20 @@ mod tests {
             ])
         };
         assert_eq!(
-            damage(&inside(clip()), &inside(narrower), (200, 100)),
+            damage(
+                &inside(clip()),
+                &inside(narrower),
+                (200, 100),
+                &mut Kept::new()
+            ),
             Damage::Within(Region {
-                left: 0,
+                left: 2,
                 top: 9,
                 right: 6,
                 bottom: 21
             }),
-            "the fill inside is drawn inside another clip; the one after it is not",
+            "the fill inside is drawn inside another clip, and differs only where that \
+             clip's mask does; the one after it is not",
         );
     }
 
@@ -719,11 +895,11 @@ mod tests {
             ])
         };
         assert_eq!(
-            damage(&grouped(0.5), &grouped(0.25), (200, 100)),
+            damage(&grouped(0.5), &grouped(0.25), (200, 100), &mut Kept::new()),
             Damage::Whole
         );
         assert_eq!(
-            damage(&grouped(0.5), &grouped(0.5), (200, 100)),
+            damage(&grouped(0.5), &grouped(0.5), (200, 100), &mut Kept::new()),
             Damage::None
         );
         let picture = |pixels: Arc<crate::Canvas>| DisplayItem::Picture {
@@ -737,7 +913,8 @@ mod tests {
             damage(
                 &list(vec![picture(pixels())]),
                 &list(vec![picture(pixels())]),
-                (8, 8)
+                (8, 8),
+                &mut Kept::new()
             ),
             Damage::Whole,
             "equal pixels in another picture are another picture's first draw",
@@ -748,7 +925,10 @@ mod tests {
     fn another_scale_or_most_of_the_canvas_is_the_whole_canvas() {
         let one = list(vec![fill(0.0, 5.0, Rgba::BLACK)]);
         let two = DisplayList::from_parts(Vec::new(), Vec::new(), 2.0);
-        assert_eq!(damage(&one, &two, (200, 100)), Damage::Whole);
+        assert_eq!(
+            damage(&one, &two, (200, 100), &mut Kept::new()),
+            Damage::Whole
+        );
         let wide = list(vec![fill(0.0, 200.0, Rgba::BLACK)]);
         let tall = list(vec![DisplayItem::Fill {
             box_id: BoxId::from_index_for_tests(0),
@@ -756,6 +936,9 @@ mod tests {
             paint: Paint::Solid(Rgba::BLACK),
             rule: FillRule::NonZero,
         }]);
-        assert_eq!(damage(&wide, &tall, (200, 100)), Damage::Whole);
+        assert_eq!(
+            damage(&wide, &tall, (200, 100), &mut Kept::new()),
+            Damage::Whole
+        );
     }
 }
