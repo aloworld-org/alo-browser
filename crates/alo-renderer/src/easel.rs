@@ -51,7 +51,7 @@ use crate::inline_style::Judged;
 use crate::linked::Linked;
 use crate::objected::Objected;
 use crate::page::Page;
-use crate::pipeline::{Drawing, draw};
+use crate::pipeline::{Drawing, draw_over};
 use crate::resource::Resource;
 use crate::screen::Screen;
 
@@ -85,6 +85,11 @@ pub struct Easel {
     /// What the last drawing produced, and the document's change count when
     /// it was made.
     drawn: Option<(Rc<Drawing>, u64)>,
+    /// The last drawing of the page it held before this one, kept only to be
+    /// painted over by this page's first ([`crate::paint_over`], queue item
+    /// 870): the first screen is a new page for every letter typed, and
+    /// almost all of it is drawn as it was.
+    before: Option<Rc<Drawing>>,
     /// How many times a page has been drawn, for a test that asks how often.
     draws: u64,
     /// The pictures a document of the browser's own interface is drawn with,
@@ -124,6 +129,7 @@ impl Easel {
             objected: Objected::new(),
             restyle: false,
             drawn: None,
+            before: None,
             draws: 0,
             lent: Vec::new(),
             clear: false,
@@ -142,7 +148,7 @@ impl Easel {
         self.stated = page.stated();
         self.objected = Objected::new();
         self.restyle = false;
-        self.drawn = None;
+        self.keep_to_paint_over();
         self.lent = Vec::new();
         self.clear = false;
     }
@@ -171,7 +177,9 @@ impl Easel {
     }
 
     /// No page on it: the one it had was left (ADR 0039 § 2), and nothing
-    /// is drawn until the next is loaded. The fonts stay.
+    /// is drawn until the next is loaded. The fonts stay, and so do its
+    /// last drawing's pixels, for the next page's first drawing to be
+    /// painted over.
     pub(crate) fn clear(&mut self) {
         self.sheets = String::new();
         self.url = Url::about_blank();
@@ -181,8 +189,17 @@ impl Easel {
         self.stated = Policies::none();
         self.objected = Objected::new();
         self.restyle = false;
-        self.drawn = None;
+        self.keep_to_paint_over();
         self.lent = Vec::new();
+    }
+
+    /// The last drawing kept as the one the next page's first is painted
+    /// over (queue item 870): what it drew stays only as pixels to paint
+    /// over, never as a drawing anything reads.
+    fn keep_to_paint_over(&mut self) {
+        if let Some((drawing, _)) = self.drawn.take() {
+            self.before = Some(drawing);
+        }
     }
 
     /// The page holds `under` from now on: its headers' policies and every
@@ -205,16 +222,20 @@ impl Easel {
         let (found, more) = judged.objections();
         self.objected.owe(found, more);
         let linked = self.linked.for_draw(document, &self.url);
-        let drawing = draw(
+        let before = self
+            .drawn
+            .take()
+            .map(|(drawing, _)| drawing)
+            .or_else(|| self.before.take());
+        let drawing = draw_over(
             document,
-            &self.sheets,
+            (&self.sheets, &linked, &self.lent),
             Screen::new(viewport)
                 .at_scale(self.scale)
                 .on_nothing(self.clear),
             &self.fonts,
-            &linked,
-            &self.lent,
             &judged,
+            before,
         );
         self.drawn = Some((Rc::new(drawing), document.change_count()));
         self.draws = self.draws.saturating_add(1);

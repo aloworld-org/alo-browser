@@ -32,6 +32,15 @@
 //! says "the row's background moved four pixels", where an image says only
 //! that some bytes differ.
 //!
+//! # Painting again where two lists differ
+//!
+//! A list drawn over the canvas of the list before it is painted again only
+//! where the two can differ ([`repaint()`], ADR 0101): [`damage`] lines the
+//! two up and says where, from where each changed item can reach
+//! ([`extent`]); the canvas is confined to that [`Region`] while the whole
+//! new list is drawn, so every pixel comes out as a canvas painted whole
+//! would hold it.
+//!
 //! # Coverage is not colour
 //!
 //! A rasterised shape says **how much of each pixel it covers**, from zero to
@@ -55,11 +64,13 @@ pub mod contour;
 pub mod control;
 pub mod corner;
 pub mod coverage;
+pub mod damage;
 pub mod decoration;
 pub mod display;
 pub mod drawing;
 pub mod drawn_picture;
 pub mod encode;
+pub mod extent;
 pub mod face;
 pub mod fill_rule;
 mod gif_picture;
@@ -82,7 +93,9 @@ pub mod picture;
 pub mod picture_filter;
 pub mod raster;
 mod refine;
+pub mod region;
 pub mod render;
+pub mod repaint;
 pub mod skip_ink;
 pub mod snap;
 pub mod stroke;
@@ -107,5 +120,7 @@ pub use hit::box_at;
 pub use paint::Paint;
 pub use path::{Path, Point, Segment};
 pub use raster::{fill, fill_on_page};
+pub use region::Region;
 pub use render::{outlined_run, outlined_run_at, render};
+pub use repaint::{Repainted, repaint};
 pub use stroke::{Dashes, LineCap, LineJoin, Stroke};

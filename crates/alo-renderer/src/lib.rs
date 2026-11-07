@@ -105,6 +105,7 @@ pub mod navigate;
 pub mod news_document;
 pub mod objected;
 pub mod page;
+pub mod paint_over;
 pub mod panel;
 pub mod panel_document;
 pub mod pictures;

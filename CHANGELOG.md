@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Typing beside a live page is as quick as typing with none.** With a
+  page open as a card, each letter typed into the box made alo draw the
+  whole conversation again, the card's shadow and edges included, which
+  took about three times as long as with no card. Now only the part of the
+  screen a letter changes is drawn again, the box and what it offers, and
+  every pixel comes out as it would have drawn whole. A letter is on screen
+  in about 65 ms on this Mac, from about 180. The first letter, which
+  opens the offers and changes how the card is cut, is still drawn whole.
 - **Typing beside a live page is no longer held up by it.** With a page
   open as a card that keeps moving, an edit in the box could take up to a
   second to show; every new picture of the page redrew the whole

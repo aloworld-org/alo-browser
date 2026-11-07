@@ -49797,3 +49797,106 @@ skipped** — *"The gate is met." (11 of 11 steps)*. `scripts/gate.sh` not
 edited.
 
 The next unused queue number is **871** and the next ADR is **0101**.
+
+## 2026-11-07 — item 870: an edit painted again only where it changed
+
+Owner's go-ahead: "Go ahead". **Measured first.** By hand (release, the
+Retina display at two, ADR 0100's local page under CSS animations, the
+window at 120, 60, 1280 × 852; timestamps put where a key reaches the
+window, where the drawing thread asks the first screen's renderer and hears
+it, and where the frame is presented, then taken out;
+`handrun40/measured-before.txt`, painting over switched off in the same
+tree): a letter answered in 140.9–162.0 ms (median 143.7) beside the
+streaming card against 51.5–54.6 with it closed — 869's numbers again —
+and presented 155–190 against 84–88. In the renderer alone (a temporary
+example at the window's first screen, 1040 × 820 at two, timestamps in the
+pipeline and in `alo_paint::render`, all taken out), of 112 ms: style 1.6,
+layout 1.9, the list 0.3, **paint 103**, bytes 4; of the paint, the card's
+two shadows 26.5 + 22.3, the background 13.4, the card's fill and border
+13, four clips 16, the place left clear 5.7. **The cause:** every letter is
+a new first screen and was painted whole — 83 ms of the card painted
+again for a letter that changed none of it. Not layout (the same with no
+card), not the list, not a PNG (frames cross as RGBA).
+
+**The fix (ADR 0101):** the easel keeps its last drawing, across a new page
+and a page left, and the next is painted over it (`alo_renderer::
+paint_over`, `pipeline::draw_over`) where its canvas is the same size and
+ground. `alo_paint::damage` lines the two display lists up — the ends they
+share, then the longest run alike — matching two items only when they draw
+alike bit for bit (a picture the very same picture, a face the very same
+face, `Font::is`) inside pushes that draw alike in the same order; each
+unmatched item counts where it can reach (`alo_paint::extent`, from the
+very bounds `render` draws it in); an unmatched group or picture, pushes
+not nested as a stack, an unknown reach, another scale, a middle past 2¹⁸
+pairs or half the canvas is the whole canvas. `alo_paint::repaint` puts
+that region back to the ground, confines the canvas to it
+(`Canvas::confine`: every write refused outside it) and draws the whole new
+list; a confined `render` passes over fills, shadows and places left clear
+that cannot reach what the clips let through of the region, never makes a
+clip's mask the region cannot see, and keeps a coverage's rows and columns
+to it. Every pixel comes out as painted whole. The first cut lined the
+lists up by their ends alone and painted the card again on every letter —
+the offers come before the card in the list and the box after it — found
+by the timing example and replaced before any hand run.
+
+**After** (`handrun40/measured-after.txt`): each letter after the first
+answered in **33.5–37.7 ms** (median 35.3) beside the streaming card and
+32.7–37.8 with none (the first 51.6), presented **42–69 ms** after its key;
+in the renderer alone a letter repaints about 100,000 of 3.4 million pixels
+in 21 ms with a card and 21 without (from 113 and 30). **Still:** the first
+letter beside a card, 151.9 ms, presented at 190 — it opens the offers, the
+conversation's clip ends at 590 where it ended at 716, and the card is
+clipped anew, so all of it is unmatched and its shadows reach past half
+the canvas (871); and the window's 26–38 ms (once 7) between the answer and
+the present, with the frame carried whole (872).
+
+**Tests:** `alo-renderer`'s `an_edit_paints_again_only_what_it_changed.rs`
+— four tests: each letter after the first, beside a card and with none,
+repaints at most a twentieth of the frame (`Drawing::repainted`, a count
+of pixels, never a clock); eleven edits — the offers opening and closing,
+letters, words, a selection, typing over it, the caret moved, the card
+closed — each every byte the frame a renderer that never drew paints, at
+one, and at two in two runs (a frame at two is four times the pixels, and
+the debug build paints one whole in seconds). Units: `region` (4),
+`extent` (3), `damage` (8, among them a run put in before and a change
+after, a clip that differs, a group or picture that differs, crossed
+pushes), `repaint` (3, one a translucent picture across the region). The
+2.5-million-picture test took 386 s against 403 s at cefc60e (each alone,
+neither under load). **Mutations**, each caught, logs in `handrun40/mut/`:
+painted whole always (*typing "he" with a card true painted Whole*); a text
+item reaching nothing (*a letter at 2 was painted otherwise than drawn
+whole, first at 439, 1264*); pushes' contexts ignored (*the first letter,
+opening the offers at 2 … first at 113, 1180*); the canvas not confined —
+**survived the screen's tests**, since every item of the first screen that
+crosses the region is drawn through coverage kept to it, and is caught by
+`repaint`'s translucent picture, drawn over itself outside the region.
+
+**By hand** (screen unlocked; release and CEF host, the `.app` remade by
+`alo-bundle` with no keys for each of the two builds; `--conversation
+--chats` in `handrun40/chats-before` and `chats-after`, `0700`; keys
+through System Events, alo checked frontmost first; the address typed and
+Return to open the card; ten letters 0.7 s apart beside it, Escape, the
+card closed by its ×, ten letters with none; screenshots in `handrun40/`):
+the card streaming (`01`), `helloworld` typed beside it at once and 300 ms
+after (`02`, `03`), one more letter shot 100 ms after its keystroke with the
+offers and the clipped card about it, a full-size crop showing no stale
+pixel at the offers' edge (`04`), typed with the card closed (`05`); the
+before build's `b00`–`b04`. **Not seen by hand:** scale one, a heavier real
+site, the split view with the agent at work, the panel's renderer (it
+paints over its last drawing the same way, and was not measured). Quit with
+`tell application id "org.aloworld.Browser" to quit`; the local server
+stopped; no alo process left; the pointer at 1400, 1000. **Spend: none.**
+
+CHANGELOG, conformance (the edit's row), ROADMAP (*Built since* names 870;
+the owed list trades 870 for 871 and 872), QUEUE (870 ticked as cut, 871
+and 872 added), ADR 0101.
+
+**Load:** the new test's binary (its four tests) beside sixteen `yes`,
+**10 of 10** (121–122 s each; `handrun40/load.out`), every `yes` killed
+after.
+
+**Gate: met, first run** (CEF_PATH set, the pointer at 1400, 1000;
+detached through `perl -MPOSIX=setsid` and waited on by its PID;
+`gate-batch20.log`). **Summary [1210.695s] 6662 tests run: 6662 passed (6 slow, 1 leaky), 0 skipped** — *"The gate is met." (11 of 11 steps)*. `scripts/gate.sh` not edited.
+
+The next unused queue number is **873** and the next ADR is **0102**.

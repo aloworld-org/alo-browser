@@ -27,11 +27,13 @@ use crate::clipped_picture::draw_clipped_picture;
 use crate::coverage::Coverage;
 use crate::display::{DisplayItem, DisplayList};
 use crate::drawn_picture::draw_faded_picture;
+use crate::extent::reach_of;
 use crate::glyph::outline_at;
 use crate::paint::Paint;
 use crate::path::{Path, Point};
 use crate::picture_filter::Uploads;
 use crate::raster::{fill, fill_on_page};
+use crate::region::Region;
 use crate::synthesis::leaned;
 use alo_text::{Direction, Font, shape_at};
 use alo_value::{Matrix, Rgba};
@@ -54,9 +56,14 @@ pub fn render(list: &DisplayList, canvas: &mut Canvas) {
     // item 179).
     let mut uploads = Uploads::default();
     let (width, height) = (canvas.width(), canvas.height());
+    let confined = canvas.confinement();
+    let mut seen = Seen::of(confined, (width, height));
 
     for item in list.items() {
         let current = transforms.last().copied().unwrap_or(screen);
+        if seen.passes_over(item, current, list.scale()) {
+            continue;
+        }
         match item {
             // Where a pointer finds a box, which is nothing to draw.
             DisplayItem::Area { .. } => {}
@@ -108,7 +115,9 @@ pub fn render(list: &DisplayList, canvas: &mut Canvas) {
             DisplayItem::PushGroup { opacity, .. } => {
                 // A surface of its own, transparent, the size of the page: the
                 // group is drawn whole and faded once.
-                groups.push((*opacity, Canvas::new(width, height, Rgba::TRANSPARENT)));
+                let mut group = Canvas::new(width, height, Rgba::TRANSPARENT);
+                group.confine(confined);
+                groups.push((*opacity, group));
             }
             DisplayItem::PopGroup => {
                 if let Some((opacity, group)) = groups.pop() {
@@ -117,14 +126,13 @@ pub fn render(list: &DisplayList, canvas: &mut Canvas) {
                 }
             }
             DisplayItem::PushClip { path, .. } => {
-                let mask = Clip::from(&fill(&moved(path, current)));
-                clips.push(match clips.last() {
-                    Some(outer) => outer.intersected(&mask),
-                    None => mask,
-                });
+                let shape = moved(path, current);
+                let unseen = seen.push(&shape);
+                clips.push(clipped(clips.last(), &shape, unseen));
             }
             DisplayItem::PopClip => {
                 clips.pop();
+                seen.pop();
             }
             DisplayItem::Fill {
                 path, paint, rule, ..
@@ -150,6 +158,114 @@ pub fn render(list: &DisplayList, canvas: &mut Canvas) {
                 let target = groups.last_mut().map_or(&mut *canvas, |(_, group)| group);
                 draw_text(target, item, current, clips.last(), list.scale());
             }
+        }
+    }
+}
+
+/// The clip in force inside `outer` once `shape`, already under the
+/// transform in force, is pushed. A clip the confined region cannot see
+/// (`unseen`) lets nothing through there, which a clip of no pixels says
+/// without making its mask.
+fn clipped(outer: Option<&Clip>, shape: &Path, unseen: bool) -> Clip {
+    let mask = if unseen {
+        Clip::from(&Coverage::empty())
+    } else {
+        Clip::from(&fill(shape))
+    };
+    match outer {
+        Some(outer) => outer.intersected(&mask),
+        None => mask,
+    }
+}
+
+/// What a confined canvas's clips let through of its region.
+enum Open {
+    /// Every pixel: the canvas is not confined.
+    Everywhere,
+    /// The pixels of this region.
+    Within(Region),
+    /// No pixel.
+    Nowhere,
+}
+
+/// On a canvas confined to a region (queue item 870, [`crate::repaint`]),
+/// what of the region each clip in force still lets through: an item that
+/// cannot reach that is passed over, and a clip that cannot reach it is
+/// never made. Nothing is passed over on a canvas that is not confined.
+struct Seen {
+    region: Option<Region>,
+    size: (u32, u32),
+    /// What each clip pushed lets through of the region, [`None`] nothing.
+    through: Vec<Option<Region>>,
+}
+
+impl Seen {
+    fn of(region: Option<Region>, size: (u32, u32)) -> Self {
+        Self {
+            region,
+            size,
+            through: Vec::new(),
+        }
+    }
+
+    /// What of the region the clips in force let through.
+    fn open(&self) -> Open {
+        match (self.region, self.through.last()) {
+            (None, _) => Open::Everywhere,
+            (Some(region), None) => Open::Within(region),
+            (Some(_), Some(Some(through))) => Open::Within(*through),
+            (Some(_), Some(None)) => Open::Nowhere,
+        }
+    }
+
+    /// Whether `item`, drawn under `current` on a screen of `scale`, can be
+    /// passed over: it changes no pixel the clips let through of the
+    /// region. Only a shape, a shadow and a place left clear are asked —
+    /// what is costly to make and plain to bound ([`crate::extent`]);
+    /// anything else is drawn, and its pixels outside the region are passed
+    /// over by the canvas itself.
+    fn passes_over(&self, item: &DisplayItem, current: Matrix, scale: f32) -> bool {
+        if !matches!(
+            item,
+            DisplayItem::Fill { .. }
+                | DisplayItem::Shadow { .. }
+                | DisplayItem::LettersShadow { .. }
+                | DisplayItem::Beneath { .. }
+        ) {
+            return false;
+        }
+        match self.open() {
+            Open::Everywhere => false,
+            Open::Nowhere => true,
+            Open::Within(open) => reach_of(item, current, scale, self.size)
+                .region(self.size)
+                .and_then(|reach| reach.meeting(open))
+                .is_none(),
+        }
+    }
+
+    /// A clip of `shape`, already under the transform in force, pushed:
+    /// whether the region cannot see it at all.
+    fn push(&mut self, shape: &Path) -> bool {
+        let open = match self.open() {
+            Open::Everywhere => return false,
+            Open::Nowhere => None,
+            Open::Within(open) => Some(open),
+        };
+        let reach = shape
+            .bounds()
+            .and_then(|bounds| Region::around(bounds, self.size));
+        let through = open
+            .zip(reach)
+            .and_then(|(open, reach)| open.meeting(reach));
+        self.through.push(through);
+        through.is_none()
+    }
+
+    /// The last clip popped.
+    fn pop(&mut self) {
+        if self.region.is_some() {
+            self.through.pop();
         }
     }
 }
@@ -461,8 +577,17 @@ fn draw_coverage(
         return;
     };
     let (left, top) = coverage.origin();
-    for row in 0..coverage.height() {
-        for column in 0..coverage.width() {
+    // Only the rows and columns a confined canvas would keep (queue item
+    // 870): the others would be passed over pixel by pixel all the same.
+    let (rows, columns) = match canvas.confinement() {
+        Some(region) => (
+            span(top, coverage.height(), (region.top, region.bottom)),
+            span(left, coverage.width(), (region.left, region.right)),
+        ),
+        None => (0..coverage.height(), 0..coverage.width()),
+    };
+    for row in rows {
+        for column in columns.clone() {
             let value = coverage.at(column, row);
             if value == 0 {
                 continue;
@@ -570,6 +695,16 @@ pub(crate) fn pixel_centre(position: u32) -> f32 {
     )]
     let middle = position as f32 + 0.5;
     middle
+}
+
+/// The steps of a mask `length` long from `origin` that land on the page
+/// between `from` and `to`.
+fn span(origin: i32, length: u32, (from, to): (u32, u32)) -> core::ops::Range<u32> {
+    let clamp = |at: u32| {
+        let step = (i64::from(at) - i64::from(origin)).clamp(0, i64::from(length));
+        u32::try_from(step).unwrap_or(0)
+    };
+    clamp(from)..clamp(to).max(clamp(from))
 }
 
 /// A page position back into a mask's own coordinates.

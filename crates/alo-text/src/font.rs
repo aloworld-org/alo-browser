@@ -284,6 +284,25 @@ enum Pictures {
 }
 
 impl Font {
+    /// Whether `other` is this very face, set the same way: the same bytes
+    /// held once — the one load both were cloned from — at the same index,
+    /// filed and set alike (queue item 870). Two loads of equal bytes are
+    /// not the same face here; saying so costs a repaint, never a wrong
+    /// pixel.
+    pub fn is(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.data, &other.data)
+            && self.index == other.index
+            && self.family == other.family
+            && self.weight == other.weight
+            && self.slant == other.slant
+            && self.axis == other.axis
+            && self.optical == other.optical
+            && self.optical_sizing == other.optical_sizing
+            && self.pictures == other.pictures
+            && self.layered == other.layered
+            && self.last_resort == other.last_resort
+    }
+
     /// Load a font from its bytes.
     ///
     /// Returns [`None`] if the bytes are not a font this engine can read —

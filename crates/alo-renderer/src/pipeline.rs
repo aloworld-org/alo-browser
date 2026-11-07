@@ -63,6 +63,13 @@ pub struct Drawing {
     pub display: DisplayList,
     /// The picture.
     pub canvas: Canvas,
+    /// The colour its canvas was made in, before anything was drawn: white,
+    /// or nothing for the rail ([`Screen::ground`]).
+    pub ground: alo_value::Rgba,
+    /// What of the picture was painted for this drawing (queue item 870):
+    /// all of it, or only where its list differs from the drawing's before
+    /// it, painted over ([`crate::paint_over`]).
+    pub repainted: alo_paint::Repainted,
     /// Everything the style sheets themselves asked for that was refused.
     ///
     /// Kept separately because the sheets are consumed by the cascade: a
@@ -271,6 +278,27 @@ pub fn draw(
     resources: &[Resource],
     judged: &Judged,
 ) -> Drawing {
+    draw_over(
+        document,
+        (css, linked, resources),
+        screen,
+        fonts,
+        judged,
+        None,
+    )
+}
+
+/// The same, painted over `before`, the drawing made before it, where its
+/// canvas can be ([`crate::paint_over`], queue item 870): what the easel
+/// draws with, handing over its last drawing.
+pub fn draw_over(
+    document: &Document,
+    (css, linked, resources): (&str, &[(String, String)], &[Resource]),
+    screen: Screen,
+    fonts: &FontDatabase,
+    judged: &Judged,
+    before: Option<Rc<Drawing>>,
+) -> Drawing {
     let agent = parse_stylesheet(USER_AGENT_STYLE_SHEET);
     // A page's own `<style>` elements, then whatever the caller supplied. In
     // that order because a later sheet overrides an earlier one, and a caller
@@ -372,12 +400,13 @@ pub fn draw(
     // document of ours drawn on nothing, the rail (queue item 760). In device
     // pixels: the list is drawn at its scale onto it (ADR 0057 § 4).
     let scale = screen.scale();
-    let mut canvas = Canvas::new(
-        whole(size.width * scale),
-        whole(size.height * scale),
-        screen.ground(),
+    let ground = screen.ground();
+    let (canvas, repainted) = crate::paint_over::painted(
+        &display,
+        (whole(size.width * scale), whole(size.height * scale)),
+        ground,
+        before,
     );
-    alo_paint::render(&display, &mut canvas);
 
     // After the boxes exist, because it is the text that was actually built
     // that decides which families a page really asked for.
@@ -389,6 +418,8 @@ pub fn draw(
         layout,
         display,
         canvas,
+        ground,
+        repainted,
         sheet_issues,
         wanted,
     }

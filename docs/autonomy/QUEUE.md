@@ -23823,7 +23823,7 @@ What stage 2's exit gate actually measures: a person using it.
   colour now, the card's white. **Still owed:** the edit's own paint with
   a card on the first screen, and the window's redraw (870).
 
-- [ ] **870. An edit's paint with a card on the first screen (found by
+- [x] **870. An edit's paint with a card on the first screen (found by
   869).** With the card's frames out of its way (869), an edit in the box
   is the first frame the first screen's renderer paints after its key —
   and that paint takes 137–143 ms at two with a card in the conversation,
@@ -23835,6 +23835,76 @@ What stage 2's exit gate actually measures: a person using it.
   needed — never a pixel moved. *Closes when:* each is measured before and
   after, on hardware, and an edit beside a streaming card is presented
   within 100 ms of its key on this Mac. *Depends on 869.*
+  ***Done, cut (7 November 2026).*** **Measured** (release, the Retina
+  display at two, ADR 0100's local page streaming; timestamps put where a
+  key reaches the window, where the drawing thread asks the first screen's
+  renderer and hears it, and where the frame is presented, then taken
+  out; `handrun40/measured-before.txt` with painting over switched off in
+  the same tree): a letter answered in **140.9–162.0 ms** (median 143.7)
+  with the card against 51.5–54.6 with none, presented 155–190 against
+  84–88. In the renderer, at two, of 112 ms: style 1.6, layout 1.9, the
+  list 0.3, **paint 103**, the frame made bytes 4 — and of the paint, the
+  card's two shadows blurred 49, its fill and border 13, four clips 16 and
+  the place left clear 6: **83 ms of the card painted again for a letter
+  that changed none of it.** Not layout, not the list, not a PNG. **The
+  fix (ADR 0101):** the renderer keeps its last drawing and paints the
+  next over it only where their display lists can differ —
+  `alo_paint::damage` lines the two lists up, matching items that draw
+  alike inside pushes that draw alike, and counts each unmatched one where
+  it can reach (`extent`); the canvas is confined to that region
+  (`Canvas::confine`) and the whole new list drawn (`repaint`), passing
+  over what cannot reach it; anything it cannot vouch for is painted
+  whole. **After:** each letter after the first answered in **33.5–37.7
+  ms** (median 35.3) beside the streaming card and 32.7–37.8 with none,
+  presented **42–69 ms** after its key; in the renderer alone, 21 ms with
+  a card and 21 without, a region of about 100,000 of 3.4 million pixels.
+  **Tests:** `alo-renderer`'s `an_edit_paints_again_only_what_it_changed.rs`
+  (each letter after the first, beside a card and with none, repaints at
+  most a twentieth of the frame; eleven edits — the offers opening and
+  closing, letters, words, a selection, typing over it, the caret moved,
+  the card closed — each exactly, every byte, the frame a renderer that
+  never drew paints, at one and at two); units in `region`, `extent`,
+  `damage` (8) and `repaint` (3, one a translucent picture across the
+  region). **Mutations**, each caught: painted whole always (*typing "he"
+  with a card painted Whole*); a text item reaching nothing (*a letter at
+  2 was painted otherwise than drawn whole*); the canvas not confined
+  (caught by `repaint`'s translucent picture — the screen's own items all
+  keep to the region through their coverage, so the screen's test alone
+  passed it); pushes' contexts ignored (*the first letter, opening the
+  offers at 2 … first at 113, 1180*). **Cut, queued:** the first letter
+  beside a card, which opens the offers and clips the card anew — still
+  painted whole, 151.9 ms (871); the window's redraw after the
+  answer (26–38 ms, once 7) and the frame carried whole (872).
+
+- [ ] **871. The offers opening or closing beside a card, painted whole
+  (found by 870).** The first letter typed beside a card opens the offers
+  under the box; the conversation's room shrinks with them and its clip
+  ends at 590 CSS pixels where it ended at 716. The card is clipped anew
+  there, so ADR 0101's comparison finds every item of the card drawn inside
+  another clip, its shadows reach past half the canvas, and the first
+  screen is painted whole: **151.9 ms** answered beside a streaming card on
+  this Mac against 51.6 with none, presented 190 ms after the key.
+  Emptying the box closes them and does the same. Paint only where the
+  two clips differ — matching items whose pushes differ only in a clip,
+  and counting the pixels where the two clips' masks can differ — or keep
+  what the card's shadows and fills were filled as from the drawing
+  before, never a pixel moved. *Closes when:* the first letter beside a
+  streaming card is answered in roughly what it takes with no card,
+  measured on hardware, and a test counts what it painted again.
+  *Depends on 870.*
+
+- [ ] **872. The window's redraw after an edit, and the frame carried
+  whole (found by 870).** With an edit painted only where it changed
+  (870), a letter beside a card is answered by the first screen's renderer
+  in 35 ms on this Mac, where the renderer's own work, measured alone off
+  the window, is about 21 ms; the window then takes 26–38 ms more (once 7) to compose and
+  present it.
+  Measure where both go — the 3.4-million-pixel frame carried whole for a
+  region of 100,000, made bytes and read back, the window composing the
+  first screen over the card's picture a pixel at a time — and cut what is
+  not needed, never a pixel moved. *Closes when:* each is measured before
+  and after on hardware, with a test that counts the work. *Depends on
+  870.*
 
 ## K. ★ The agent, on somebody else's pages
 

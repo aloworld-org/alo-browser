@@ -17,6 +17,7 @@
 //! software path blends in eight bits and is up to a unit darker, which is
 //! an approximation for speed rather than a different answer.
 
+use crate::region::Region;
 use alo_value::Rgba;
 
 /// A rectangle of pixels.
@@ -25,6 +26,10 @@ pub struct Canvas {
     width: u32,
     height: u32,
     pixels: Vec<Rgba>,
+    /// The only pixels anything drawn onto it may change, while a list is
+    /// painted again over the drawing it holds ([`crate::repaint`], queue
+    /// item 870); [`None`], every pixel.
+    confined: Option<Region>,
 }
 
 impl Canvas {
@@ -39,6 +44,39 @@ impl Canvas {
             width,
             height,
             pixels: vec![background; count],
+            confined: None,
+        }
+    }
+
+    /// Change only the pixels of `region` from now on, whatever is drawn
+    /// onto it, or every pixel again for [`None`] (queue item 870).
+    ///
+    /// Every pixel is changed only through [`Self::blend`],
+    /// [`Self::replace`], [`Self::fill_rect`] and [`Self::draw_over`], and
+    /// each asks this first. So a list drawn onto a confined canvas leaves
+    /// every pixel outside the region exactly as it was, and puts every
+    /// pixel inside it exactly as drawing the list onto the whole canvas
+    /// would have: nothing drawn here reads one pixel to write another.
+    pub fn confine(&mut self, region: Option<Region>) {
+        self.confined = region;
+    }
+
+    /// The pixels it is confined to, if it is.
+    pub fn confinement(&self) -> Option<Region> {
+        self.confined
+    }
+
+    /// Every pixel of `region` put back to `color`, as a canvas made in it
+    /// starts: where a list is painted again from nothing.
+    pub fn reset(&mut self, region: Region, color: Rgba) {
+        for y in region.top..region.bottom.min(self.height) {
+            for x in region.left..region.right.min(self.width) {
+                if let Some(index) = self.index(x, y)
+                    && let Some(pixel) = self.pixels.get_mut(index)
+                {
+                    *pixel = color;
+                }
+            }
         }
     }
 
@@ -77,7 +115,7 @@ impl Canvas {
         if coverage == 0 {
             return;
         }
-        let Some(index) = self.index(x, y) else {
+        let Some(index) = self.writable(x, y) else {
             return;
         };
         let Some(under) = self.pixels.get(index).copied() else {
@@ -97,7 +135,7 @@ impl Canvas {
     /// [`Rgba::over`]'s, as a smoothed picture's is
     /// ([`crate::mix_onto`]). A pixel off the canvas is passed over.
     pub fn replace(&mut self, x: u32, y: u32, made: impl FnOnce(Rgba) -> Rgba) {
-        let Some(index) = self.index(x, y) else {
+        let Some(index) = self.writable(x, y) else {
             return;
         };
         if let Some(pixel) = self.pixels.get_mut(index) {
@@ -134,15 +172,26 @@ impl Canvas {
         if opacity <= 0.0 {
             return;
         }
-        for y in 0..self.height.min(other.height) {
-            for x in 0..self.width.min(other.width) {
+        let (width, height) = (self.width.min(other.width), self.height.min(other.height));
+        let Some(within) = Region::whole(width, height) else {
+            return;
+        };
+        let within = match self.confined {
+            Some(confined) => match confined.meeting(within) {
+                Some(both) => both,
+                None => return,
+            },
+            None => within,
+        };
+        for y in within.top..within.bottom {
+            for x in within.left..within.right {
                 let Some(over) = other.at(x, y) else {
                     continue;
                 };
                 if over.alpha <= 0.0 {
                     continue;
                 }
-                let Some(index) = self.index(x, y) else {
+                let Some(index) = self.writable(x, y) else {
                     continue;
                 };
                 let Some(under) = self.pixels.get(index).copied() else {
@@ -157,6 +206,15 @@ impl Canvas {
                 }
             }
         }
+    }
+
+    /// Where a pixel is held, if it is on the canvas and drawing may change
+    /// it.
+    fn writable(&self, x: u32, y: u32) -> Option<usize> {
+        if self.confined.is_some_and(|region| !region.holds(x, y)) {
+            return None;
+        }
+        self.index(x, y)
     }
 
     fn index(&self, x: u32, y: u32) -> Option<usize> {
