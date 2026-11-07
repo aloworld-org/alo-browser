@@ -122,6 +122,7 @@ pub fn box_at(list: &DisplayList, at: Point) -> Option<BoxId> {
             | DisplayItem::PushGroup { .. }
             | DisplayItem::PopGroup
             | DisplayItem::Picture { .. }
+            | DisplayItem::Beneath { .. }
             | DisplayItem::LayeredGlyph { .. }
             | DisplayItem::PaintedGlyph { .. }
             | DisplayItem::Text { .. } => {}

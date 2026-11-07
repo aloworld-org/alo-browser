@@ -23751,7 +23751,7 @@ What stage 2's exit gate actually measures: a person using it.
   from 861).** macOS draws an inactive window's selection grey; alo's keeps
   the ink's tint. Decide the inactive colour from the palette and draw it.
   *Depends on 861.*
-- [ ] **869. An edit in the box seen late while a live card is on screen
+- [x] **869. An edit in the box seen late while a live card is on screen
   (found by 861's hand run).** With a card streaming beside the box, a key's
   edit took up to about a second to be drawn (`handrun38/13`–`15` against
   their `b` shots a second later); with no card it is at once. Measure where
@@ -23761,6 +23761,80 @@ What stage 2's exit gate actually measures: a person using it.
   streaming, the cause named, and the edit drawn within one frame of the
   box's renderer answering, with a test that fails without the fix.
   *Depends on 861.*
+  ***Done (7 November 2026).*** **Measured** (release, the Retina display
+  at two, a local page under CSS animations in the card; timestamps put
+  for the measurement and taken out): before, a key's drawing was begun
+  116–182 ms after the key, answered by the first screen's renderer at
+  326–392 and presented at **376–448 ms**; with the card closed, begun at
+  0.1, presented at 84–90. Chromium sent 59.6 frames a second, 13 MiB a
+  second — **under ADR 0090's 24, so not the pace**. **The cause:** each
+  frame of the card was a new first screen — its PNG the card's `<img>` —
+  built and painted whole in the renderer that draws the box, 204 ms
+  (p90 229) against 53 with no card; that renderer was always painting
+  one, so an edit waited for it (≈160 ms) and was then painted with the
+  card again (≈205). The window also redrew for every frame Chromium sent,
+  22 a second, 76% busy. **The fix (ADR 0100, ADR 0076 amended):** once a
+  card has a frame the first screen is asked for with its page **beneath**
+  (`PictureAt::Beneath`, no bytes sent): the `<img>` laid out and read by
+  an agent as before, its place painted clear (`alo_paint::beneath`,
+  `DisplayItem::Beneath`: alpha taken by the coverage, colour kept) and
+  said in device pixels (`ToRenderer::PictureBeneath`, told before the
+  frame as `Drawn::Beneath`); the newest frame drawn for that place by a
+  confined renderer of its own on a thread of its own
+  (`conversation_picture`, `ToRenderer::CardPicture`,
+  `alo_renderer::card_picture`, newest only, numbered for
+  `drawn_as_asked`); the window composes it under the first screen over
+  the colour kept where the place was cleared (`conversation_compose`), so
+  the menu, offers and rounded corners stand over it and a translucent
+  page shows the card's white. Only the card's first frame asks for the
+  first screen, and a frame asks no redraw until its picture is drawn.
+  **After:** begun **0.1 ms** after the key, answered at 137–143, heard
+  0.1–0.2 ms after, presented at **173–180 ms**, one 36 ms redraw after
+  the answer; the card drawn 15.1 times a second (from 4.2), 66 ms a
+  picture. **Tests:** `alo-renderer`'s `the_cards_page_beneath.rs` (4: the
+  place in numbers at one and two, clear and the bar and border around it
+  not; composed at one against `card-holding-a-frame.png` and at two
+  against the card drawn then — one level a channel at most, 18 and 22
+  pixels on the rounded corners; a frame with clear and half-seen pixels
+  at both); `messages_across_a_boundary.rs` (a card beneath, the question,
+  the place and the picture to draw cross; a place of no size, past a side
+  or too far, a picture not a PNG, of no size or past one frame refused by
+  name; every truncation refused); `alo-window`'s
+  `an_edit_beside_a_streaming_card.rs` (the window's own road, real
+  renderers, a still clock: three more frames each seen with **nothing
+  but its picture told** and no redraw asked; a letter typed between two
+  frames drawn in **the one** first-screen frame painted after it; another
+  card never holding the first card's picture); units (the hole 3, the
+  place 2, the picture 3, the picture thread 1, the composition 1). **Beside
+  sixteen `yes`:** 10/10. **Mutations**, each caught: the code before the
+  fix (the frame in the first screen, every frame asking for it) — *a
+  frame of the card drew the first screen again*, in 4.6 s; no hole; not
+  composed; the kept colour not used; the first card's picture kept as
+  another opens; a picture never forgotten; a frame asking a redraw; no
+  place told. `the_conversation_window.rs`, which reads the drawing
+  thread's channel strictly, gains arms for the two new kinds, each an
+  error with no card (nothing of a card is told without one);
+  `offers_and_the_panel_pressed_in_the_window.rs` and
+  `a_conversation_scrolled_through_chrome.rs` (found by the first gate
+  run) read the first screen as composed (`first_screen_seen`), since the
+  card's page is no longer in its frame. **Found by hand, fixed:** the picture first drawn over
+  nothing showed the window's paper through a page with no background —
+  the Chromium alo carries draws one clear; it is drawn over the kept
+  colour now, the card's white. **Still owed:** the edit's own paint with
+  a card on the first screen, and the window's redraw (870).
+
+- [ ] **870. An edit's paint with a card on the first screen (found by
+  869).** With the card's frames out of its way (869), an edit in the box
+  is the first frame the first screen's renderer paints after its key —
+  and that paint takes 137–143 ms at two with a card in the conversation,
+  against 53 with none; the window's compose and present then take 36
+  more, and 74% of its thread while a card streams (15 pictures a second,
+  66 ms each in their own renderer). Measure where the first screen's
+  paint goes with a card (its shadow blurred at two, the conversation laid
+  out again) and where the window's redraw goes, and cut what is not
+  needed — never a pixel moved. *Closes when:* each is measured before and
+  after, on hardware, and an edit beside a streaming card is presented
+  within 100 ms of its key on this Mac. *Depends on 869.*
 
 ## K. ★ The agent, on somebody else's pages
 

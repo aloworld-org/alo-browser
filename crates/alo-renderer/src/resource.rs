@@ -34,6 +34,11 @@ pub struct Resource {
     pub content_type: Option<String>,
     /// What came back.
     pub bytes: Vec<u8>,
+    /// A picture drawn beneath the page by whoever shows it, never in it,
+    /// at this natural size in CSS pixels: no bytes, and its `<img>` leaves
+    /// its place clear (queue item 869, ADR 0100). [`None`] for every
+    /// resource a page loads.
+    pub beneath: Option<(u16, u16)>,
 }
 
 impl Resource {
@@ -43,6 +48,19 @@ impl Resource {
             src: src.into(),
             content_type: content_type.map(str::to_owned),
             bytes,
+            beneath: None,
+        }
+    }
+
+    /// A picture named `src` drawn beneath the page rather than in it, at
+    /// `natural` CSS pixels (queue item 869, ADR 0100): the card's page,
+    /// whose frames the conversation's window draws under the first screen.
+    pub fn beneath(src: impl Into<String>, natural: (u16, u16)) -> Self {
+        Self {
+            src: src.into(),
+            content_type: None,
+            bytes: Vec::new(),
+            beneath: Some(natural),
         }
     }
 

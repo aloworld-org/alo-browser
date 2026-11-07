@@ -398,6 +398,10 @@ pub struct PaintContext<'a> {
     /// making one needs the document and the styles of elements that have no
     /// box, and this crate has neither.
     pub drawings: &'a std::collections::BTreeMap<BoxId, Drawing>,
+    /// The boxes whose picture is drawn beneath the canvas by whoever shows
+    /// it, never on it: each leaves its picture's place clear (queue item
+    /// 869, ADR 0100, [`crate::beneath`]).
+    pub beneath: &'a std::collections::BTreeSet<BoxId>,
 }
 
 /// Build the display list for a laid-out document.
@@ -1430,9 +1434,11 @@ impl Builder<'_> {
     /// ([`crate::content_curve`], queue item 769) — and drawn whole when
     /// nothing of the curve is left.
     fn picture_of(&self, id: BoxId, out: &mut Vec<DisplayItem>) {
-        let Some(picture) = self.context.pictures.get(&id) else {
+        let beneath = self.context.beneath.contains(&id);
+        let picture = self.context.pictures.get(&id);
+        if picture.is_none() && !beneath {
             return;
-        };
+        }
         let Some(geometry) = self.layout.get(id) else {
             return;
         };
@@ -1445,11 +1451,16 @@ impl Builder<'_> {
         if let Some(path) = curve {
             out.push(DisplayItem::PushClip { box_id: id, path });
         }
-        out.push(DisplayItem::Picture {
-            box_id: id,
-            rect,
-            picture: std::sync::Arc::clone(picture),
-            fade: u8::MAX,
+        out.push(match picture {
+            Some(picture) if !beneath => DisplayItem::Picture {
+                box_id: id,
+                rect,
+                picture: std::sync::Arc::clone(picture),
+                fade: u8::MAX,
+            },
+            // A picture drawn beneath leaves its place clear (queue item
+            // 869, ADR 0100).
+            _ => DisplayItem::Beneath { box_id: id, rect },
         });
         if trimmed {
             out.push(DisplayItem::PopClip);

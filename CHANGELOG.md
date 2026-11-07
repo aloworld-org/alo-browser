@@ -6,6 +6,13 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Typing beside a live page is no longer held up by it.** With a page
+  open as a card that keeps moving, an edit in the box could take up to a
+  second to show; every new picture of the page redrew the whole
+  conversation, and the box waited its turn. The page is now drawn on its
+  own, beneath the conversation, so an edit goes straight to the screen —
+  in under two tenths of a second on this Mac, from nearly half a second
+  or more — and the page itself moves about four times as smoothly.
 - **The box you type into is a real text field.** alo's one box and
   *Search chats* now work as a Mac's own fields: a blinking caret you can
   move with the arrows (by a word with ⌥, to the start or end with ⌘),

@@ -108,8 +108,20 @@ enum Column {
 }
 
 /// The picture the card's `<img>` names, if it holds a frame: what the
-/// drawing is handed beside the document.
+/// drawing is handed beside the document — or, for a card whose picture is
+/// drawn beneath the first screen, a picture of no bytes at the page box's
+/// size, whose place is left clear (queue item 869, ADR 0100).
 pub fn frame(card: &Card) -> Option<Resource> {
+    if card.picture_at == crate::card::PictureAt::Beneath {
+        let (width, height) = crate::card::PAGE_SIZE;
+        return Some(Resource::beneath(
+            FRAME_SRC,
+            (
+                u16::try_from(width).unwrap_or(u16::MAX),
+                u16::try_from(height).unwrap_or(u16::MAX),
+            ),
+        ));
+    }
     card.frame
         .as_ref()
         .map(|png| Resource::new(FRAME_SRC, None, png.clone()))
@@ -174,7 +186,7 @@ fn fill(document: &mut Document, made: NodeId, card: &Card, column: Column) -> R
                 why: format!("the card's loading could not be put in its bar: {refused}"),
             })?;
     }
-    if card.frame.is_some() {
+    if card.frame.is_some() || card.picture_at == crate::card::PictureAt::Beneath {
         let page = of_class(document, made, "page")?;
         let picture = element(document, "img")?;
         attribute(document, picture, "class", "shot")?;

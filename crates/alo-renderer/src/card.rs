@@ -61,6 +61,10 @@ pub struct Card {
     /// The last frame Chrome drew of the page: a PNG's bytes, or nothing
     /// before the first has arrived.
     pub frame: Option<Vec<u8>>,
+    /// Where the page's picture is drawn (queue item 869, ADR 0100): in the
+    /// card, from [`Card::frame`], or beneath the first screen by the
+    /// window.
+    pub picture_at: PictureAt,
     /// Whether the page is still loading: the newest document of its own
     /// frame has not loaded, as the browser process last heard (queue item
     /// 751).
@@ -81,6 +85,21 @@ pub struct Card {
     /// alo's own menu over its page, while a person's secondary press
     /// opened it (queue item 798).
     pub menu: Option<CardMenu>,
+}
+
+/// Where a card's page is drawn (queue item 869, ADR 0100).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum PictureAt {
+    /// In the card, as its `<img>`'s picture, from [`Card::frame`]: a card
+    /// with no frame draws the card's white there.
+    #[default]
+    InTheCard,
+    /// Beneath the first screen, by the conversation's window: the
+    /// `<img>` is laid out and read by an agent as it is with a frame, and
+    /// its place is left clear, [`Card::frame`] not sent. What the window
+    /// asks for once a frame has come, so a new frame of the page never
+    /// paints the first screen again.
+    Beneath,
 }
 
 /// A card's shield: a switch, pressed to turn blocking off for the page's
@@ -104,6 +123,7 @@ impl Card {
             back: false,
             forward: false,
             frame: None,
+            picture_at: PictureAt::InTheCard,
             loading: true,
             agent: None,
             ran: Vec::new(),
@@ -116,6 +136,14 @@ impl Card {
     #[must_use]
     pub fn loaded(mut self) -> Self {
         self.loading = false;
+        self
+    }
+
+    /// The same card, its page's picture drawn beneath the first screen
+    /// rather than in it (queue item 869, ADR 0100).
+    #[must_use]
+    pub fn pictured_beneath(mut self) -> Self {
+        self.picture_at = PictureAt::Beneath;
         self
     }
 

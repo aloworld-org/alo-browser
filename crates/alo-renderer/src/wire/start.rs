@@ -146,6 +146,8 @@ impl Writer {
             }
             None => self.bool(false),
         }
+        // Its picture drawn beneath the first screen (queue item 869).
+        self.bool(card.picture_at == crate::card::PictureAt::Beneath);
         // The agent at work on its page (queue item 704).
         self.agent_work(card.agent.as_ref());
         // Its shield (queue item 807).
@@ -351,6 +353,11 @@ impl Reader<'_> {
         } else {
             None
         };
+        let picture_at = if self.bool()? {
+            crate::card::PictureAt::Beneath
+        } else {
+            crate::card::PictureAt::InTheCard
+        };
         let agent = self.agent_work()?;
         let shield = if self.bool()? {
             let blocked = u32::try_from(self.number()?)
@@ -373,6 +380,7 @@ impl Reader<'_> {
             back,
             forward,
             frame,
+            picture_at,
             loading,
             agent,
             // Never sent with the live card: drawn once it is shown earlier.

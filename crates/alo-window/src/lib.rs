@@ -231,6 +231,7 @@ pub mod conversation_find;
 pub mod conversation_fold;
 pub mod conversation_glide;
 pub mod conversation_keys;
+pub mod conversation_picture;
 pub mod conversation_place;
 pub mod conversation_search;
 pub mod conversation_settings;

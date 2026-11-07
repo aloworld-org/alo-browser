@@ -97,6 +97,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
 
+mod beneath;
 mod fields;
 
 /// What the conversation's window hears from the threads it hands work to.
@@ -181,6 +182,9 @@ pub struct ConversationWindow {
     /// The number of the newest drawing the drawing thread has said is
     /// drawn ([`Drawn::Through`], queue item 862).
     drawn_through: u64,
+    /// The live card's page, drawn beneath the first screen (queue item
+    /// 869, ADR 0100).
+    beneath: beneath::CardBeneath,
     /// The modifier keys held.
     held: Held,
     /// Whether the window has the keyboard, and the front is to be taken
@@ -385,6 +389,7 @@ impl ConversationWindow {
             drawn_stands: Stands::InTheConversation,
             painting_down: None,
             drawn_through: 0,
+            beneath: beneath::CardBeneath::default(),
             held: Held::NOTHING,
             front: Front::default(),
             redraw: false,
@@ -958,6 +963,8 @@ impl ConversationWindow {
         let mut start = self
             .conversation
             .start(start_viewport_as(window, scale, side), scale);
+        // The card's page drawn beneath it, not in it (queue item 869).
+        beneath::pictured_beneath(&mut start);
         let mut panel = panel;
         // The fields' carets as they stand now, and their words' scroll
         // (queue item 861).
@@ -1039,6 +1046,7 @@ impl ConversationWindow {
             side: self.conversation.side(),
             named: self.conversation.rail_named(),
             sheet: self.sheet_scene(now),
+            beneath: self.beneath_scene(),
         })
     }
 
@@ -1949,11 +1957,24 @@ impl ConversationWindow {
                 // Another page: nothing held, hovered or counted on it, and
                 // the arrow until it asks for another shape.
                 self.pointer.forget();
+                self.card_changed();
                 self.page_cursor = card_cursor::ARROW;
                 self.conversation.open_card(url);
                 true
             }
-            Went::Framed(png) => self.conversation.framed(png),
+            // Drawn beneath the first screen, which only the card's first
+            // frame changes — its picture's place appears (queue item 869).
+            Went::Framed(png) => {
+                let first = self
+                    .conversation
+                    .card()
+                    .is_some_and(|card| card.frame.is_none());
+                let held = self.conversation.framed(png);
+                if held {
+                    self.ask_pictured();
+                }
+                held && first
+            }
             Went::Moved(url) => self.conversation.moved_card(url),
             Went::Loading(loading) => self.conversation.card_loading(loading),
             Went::Travel(travel) => self.conversation.card_travel(travel),
@@ -1961,14 +1982,17 @@ impl ConversationWindow {
             // its own leaves its address (queue item 703).
             Went::Unopened { .. } => {
                 self.front.owed = false;
+                self.card_changed();
                 self.conversation.card_failed(Some(said))
             }
             Went::Closed(_) => {
                 self.front.owed = false;
+                self.card_changed();
                 self.conversation.card_failed(None)
             }
             Went::Shut(_) => {
                 self.front.owed = false;
+                self.card_changed();
                 self.conversation.close_card()
             }
             Went::Opened { shown, .. } => {
@@ -2054,7 +2078,9 @@ impl ConversationWindow {
 
     /// What a thread told the window: acted on, and the window drawn again.
     pub fn heard(&mut self, heard: Heard) {
-        self.redraw = true;
+        // A frame of the card's page changes nothing drawn until its
+        // picture is (queue item 869): every other news may.
+        self.redraw |= !matches!(heard, Heard::Chrome(Went::Framed(_)));
         match heard {
             Heard::Chrome(went) => self.went(went),
             Heard::Searched(searched) => self.searched(searched),
@@ -2078,6 +2104,8 @@ impl ConversationWindow {
                     .painting_down
                     .take()
                     .unwrap_or((0.0, 0, Stands::InTheConversation));
+                // Where it left the card's page clear (queue item 869).
+                self.beneath_painted();
             }
             Heard::Drawn(Drawn::Said(Part::Panel, said)) => self.panel_said = Some(said),
             Heard::Drawn(Drawn::Said(Part::Start, said)) => self.start_said = Some(said),
@@ -2092,17 +2120,21 @@ impl ConversationWindow {
             }) => self.reached(turns, (down, offered, stands), reach),
             Heard::Drawn(Drawn::Through(number)) => self.drawn_through = number,
             Heard::Drawn(Drawn::Field(part, laid)) => self.field_laid(part, laid),
+            Heard::Drawn(Drawn::Beneath(place)) => self.beneath_told(place),
+            Heard::Drawn(Drawn::Pictured { frame, number }) => self.pictured(frame, number),
         }
     }
 
     /// Whether what the window holds painted is what it last asked drawn:
     /// the drawing thread has said it drew the newest drawing sent, or
-    /// none was sent (queue item 862). What a picture of the window is
-    /// compared after, rather than after a while.
+    /// none was sent (queue item 862), and the card's page beneath the
+    /// first screen is the newest asked for (queue item 869). What a picture
+    /// of the window is compared after, rather than after a while.
     pub fn drawn_as_asked(&self) -> bool {
         self.drawing
             .as_ref()
             .is_none_or(|drawing| drawing.asked_through() == self.drawn_through)
+            && self.pictured_as_asked()
     }
 
     /// The first screen is about to be told painted with `turns` turns

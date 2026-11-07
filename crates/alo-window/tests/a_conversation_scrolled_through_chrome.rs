@@ -274,8 +274,12 @@ impl Driven {
             .unwrap_or_default()
     }
 
+    /// The first screen as a person sees it: the card's page drawn
+    /// beneath its frame (queue item 869).
     fn painted(&self) -> Option<Frame> {
-        self.window.scene().and_then(|scene| scene.start.cloned())
+        self.window
+            .scene()
+            .and_then(|scene| scene.first_screen_seen())
     }
 }
 

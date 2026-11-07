@@ -70,6 +70,9 @@ pub fn render(list: &DisplayList, canvas: &mut Canvas) {
                 let placed = (*rect, current, *fade);
                 draw_picture_item(target, picture, placed, clips.last(), &mut uploads);
             }
+            DisplayItem::Beneath { rect, .. } => {
+                clear_beneath(canvas, &mut groups, (*rect, current), clips.last());
+            }
             DisplayItem::PaintedGlyph {
                 steps,
                 pen,
@@ -148,6 +151,31 @@ pub fn render(list: &DisplayList, canvas: &mut Canvas) {
                 draw_text(target, item, current, clips.last(), list.scale());
             }
         }
+    }
+}
+
+/// A picture drawn beneath the canvas (queue item 869, ADR 0100): its
+/// rectangle under the transform in force, inside the clip in force, made
+/// clear on the canvas and on every group drawn through, so what is beneath
+/// the canvas shows through all of them.
+fn clear_beneath(
+    canvas: &mut Canvas,
+    groups: &mut [(f32, Canvas)],
+    (rect, current): (alo_layout::Rect, Matrix),
+    clip: Option<&Clip>,
+) {
+    let covered = fill_on_page(
+        &moved(
+            &Path::rectangle(rect.left(), rect.top(), rect.size.width, rect.size.height),
+            current,
+        ),
+        crate::FillRule::NonZero,
+        (canvas.width(), canvas.height()),
+    );
+    let inside = |x, y| clip.map_or(u8::MAX, |clip| clip.at(x, y));
+    crate::beneath::clear(canvas, &covered, &inside);
+    for (_, group) in groups {
+        crate::beneath::clear(group, &covered, &inside);
     }
 }
 
@@ -713,6 +741,7 @@ mod tests {
                 fonts: &fonts,
                 pictures: &std::collections::BTreeMap::new(),
                 drawings: &std::collections::BTreeMap::new(),
+                beneath: &std::collections::BTreeSet::new(),
             },
         );
         assert!(list.is_empty());

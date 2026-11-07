@@ -219,6 +219,7 @@ fn a_window_narrowed_past_760_is_the_rail_and_the_conversation_beside_it() {
         side,
         named: false,
         sheet: None,
+        beneath: None,
     };
     let canvas = compose_conversation(
         &scene,
@@ -341,6 +342,7 @@ fn shown_at_700_the_panel_slides_over_the_conversation_as_a_sheet_over_a_shade()
             left: sheet_left(slide.left(out), Scale::ONE),
             shade: slide.shade(out),
         }),
+        beneath: None,
     };
     let placed = ConversationPlacement::of(window, Scale::ONE, scene.parts());
     assert_eq!(
@@ -387,6 +389,7 @@ fn shown_at_700_the_panel_slides_over_the_conversation_as_a_sheet_over_a_shade()
                 left,
                 shade: slide.shade(part),
             }),
+            beneath: None,
             ..scene
         },
         &lettering,
@@ -419,6 +422,7 @@ fn the_rail_at_759_names_the_chat_the_pointer_is_over_past_its_edge() {
         side: Side::Rail,
         named: true,
         sheet: None,
+        beneath: None,
     };
     let placed = ConversationPlacement::of(FOLDED, Scale::ONE, scene.parts());
     assert_eq!(

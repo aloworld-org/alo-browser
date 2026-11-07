@@ -303,6 +303,11 @@ impl Renderer {
             }
             ToRenderer::ConversationReach => self.conversation_reach(),
             ToRenderer::FieldLaidOut => self.field_laid_out(),
+            ToRenderer::PictureBeneath => self.picture_beneath(),
+            ToRenderer::CardPicture(picture) => match crate::card_picture::draw(&picture) {
+                Ok(frame) => FromRenderer::Painted(frame),
+                Err(failure) => FromRenderer::Failed(failure),
+            },
         }
     }
 
@@ -918,6 +923,22 @@ impl Renderer {
                 crate::field_line::laid_out(drawing, document, *field, laid)
             }),
         )
+    }
+
+    /// Where the part it holds left its place clear for a picture drawn
+    /// beneath it, as last drawn (queue item 869): nothing when it left
+    /// none, and a renderer holding no part of the conversation answers
+    /// that it holds none.
+    fn picture_beneath(&mut self) -> FromRenderer {
+        if !matches!(self.holds, Holds::Conversation(_)) {
+            return FromRenderer::Failed(Failure::NotTheConversation);
+        }
+        self.fresh();
+        let easel = self.easel.borrow();
+        let Some(drawing) = easel.drawn() else {
+            return FromRenderer::Failed(Failure::NothingLoaded);
+        };
+        FromRenderer::PictureBeneath(crate::beneath::of(&drawing.display))
     }
 
     /// The first screen built as `document` from `start`, held.

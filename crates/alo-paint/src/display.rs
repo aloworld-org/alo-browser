@@ -222,6 +222,16 @@ pub enum DisplayItem {
         /// (queue item 830); every other picture is drawn whole, at 255.
         fade: u8,
     },
+    /// Where a picture drawn beneath the canvas shows through (queue item
+    /// 869, ADR 0100): every pixel of the rectangle under the transform in
+    /// force, inside the clip in force, made clear by as much as a picture
+    /// there would have covered it ([`crate::beneath`]).
+    Beneath {
+        /// The box whose picture is drawn beneath.
+        box_id: BoxId,
+        /// Where the picture stands, in page coordinates.
+        rect: Rect,
+    },
     /// A glyph drawn in layers of colour (`COLR` version 0, queue item 766):
     /// its layers put over each other on a surface of their own, as
     /// Chrome's rasteriser makes a glyph's picture, and that drawn at the
@@ -274,6 +284,7 @@ impl DisplayItem {
             | DisplayItem::LettersShadow { box_id, .. }
             | DisplayItem::GlyphShadow { box_id, .. }
             | DisplayItem::Picture { box_id, .. }
+            | DisplayItem::Beneath { box_id, .. }
             | DisplayItem::LayeredGlyph { box_id, .. }
             | DisplayItem::PaintedGlyph { box_id, .. }
             | DisplayItem::Text { box_id, .. }
@@ -374,6 +385,14 @@ impl DisplayList {
                 DisplayItem::Picture { .. }
                 | DisplayItem::LayeredGlyph { .. }
                 | DisplayItem::PaintedGlyph { .. } => writeln!(out, "{}", drawn_line(item)),
+                DisplayItem::Beneath { box_id, rect } => writeln!(
+                    out,
+                    "beneath {box_id} at ({}, {}) {}×{}",
+                    rect.left(),
+                    rect.top(),
+                    rect.right() - rect.left(),
+                    rect.bottom() - rect.top(),
+                ),
                 DisplayItem::Fill {
                     box_id,
                     path,

@@ -58,6 +58,7 @@ fn draw(html: &str, css: &str) -> (DisplayList, Canvas) {
             fonts: &database,
             pictures: &std::collections::BTreeMap::new(),
             drawings: &std::collections::BTreeMap::new(),
+            beneath: &std::collections::BTreeSet::new(),
         },
     );
 

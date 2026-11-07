@@ -172,6 +172,24 @@ impl Renderers {
             .with_generics(machine.generics)
     }
 
+    /// Renderers started by the same program with the same arguments and
+    /// the same patience, holding none of these and handed no fonts: for a
+    /// thread of its own whose renderer draws no text — the card's picture
+    /// (queue item 869, ADR 0100).
+    #[must_use]
+    pub fn twin(&self) -> Self {
+        Self {
+            program: self.program.clone(),
+            arguments: self.arguments.clone(),
+            faces: Vec::new(),
+            generics: Generics::new(),
+            held: HashMap::new(),
+            order: Vec::new(),
+            started: 0,
+            patience: self.patience,
+        }
+    }
+
     /// The fonts every renderer is given.
     pub fn fonts(&self) -> &[Face] {
         &self.faces

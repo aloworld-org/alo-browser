@@ -128,6 +128,7 @@ fn composed(
             side: Side::Panel,
             named: false,
             sheet: None,
+            beneath: None,
         },
         &lettering()?,
     ))
@@ -220,6 +221,7 @@ fn the_window_at(window: (u32, u32), scale: Scale, name: &str) -> Result<(), Str
             side: Side::Panel,
             named: false,
             sheet: None,
+            beneath: None,
         }
         .parts(),
     );
@@ -323,6 +325,7 @@ fn the_window_hidden_at(window: (u32, u32), scale: Scale, name: &str) -> Result<
         side,
         named: false,
         sheet: None,
+        beneath: None,
     };
     let canvas = compose_conversation(&scene, &lettering()?);
     let placed = ConversationPlacement::of(window, scale, scene.parts());
@@ -413,6 +416,10 @@ fn painted_confined(window: (u32, u32), scale: Scale) -> Result<(Frame, Frame), 
             }
             Ok(Drawn::Through(number)) => {
                 return Err(format!("drawn through {number} before both were painted"));
+            }
+            // No card, so nothing of a card's page beneath (queue item 869).
+            Ok(drawn @ (Drawn::Beneath(_) | Drawn::Pictured { .. })) => {
+                return Err(format!("a card's page told with no card: {drawn:?}"));
             }
             Err(why) => return Err(format!("nothing was painted: {why}")),
         }

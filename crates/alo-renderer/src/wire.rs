@@ -52,6 +52,7 @@ use alo_net::referrer::Policy;
 use alo_text::{Slant, Weight};
 
 mod agent;
+mod beneath;
 mod conversation;
 mod fetch;
 mod field;
@@ -457,6 +458,11 @@ pub fn write_to_renderer(message: &ToRenderer) -> Vec<u8> {
             writer.float(at.y);
         }
         ToRenderer::FieldLaidOut => writer.tag(19),
+        ToRenderer::PictureBeneath => writer.tag(20),
+        ToRenderer::CardPicture(picture) => {
+            writer.tag(21);
+            writer.card_picture(picture);
+        }
     }
     writer.out
 }
@@ -556,6 +562,7 @@ pub fn write_from_renderer(message: &FromRenderer) -> Vec<u8> {
         }
         FromRenderer::ConversationReached(reach) => writer.conversation_reached(*reach),
         FromRenderer::FieldLaidOut(laid) => writer.field_laid_out(laid.as_ref()),
+        FromRenderer::PictureBeneath(place) => writer.picture_beneath(*place),
     }
     writer.out
 }
@@ -1376,6 +1383,8 @@ pub fn read_to_renderer(bytes: &[u8]) -> Result<ToRenderer, Unreadable> {
             ToRenderer::ConversationHover(alo_paint::Point::new(reader.float()?, reader.float()?))
         }
         19 => ToRenderer::FieldLaidOut,
+        20 => ToRenderer::PictureBeneath,
+        21 => ToRenderer::CardPicture(Box::new(reader.card_picture()?)),
         other => return Err(unreadable(format!("a message tagged {other}"))),
     };
     reader.finished()?;
@@ -1486,11 +1495,24 @@ pub fn read_from_renderer(bytes: &[u8]) -> Result<FromRenderer, Unreadable> {
             FromRenderer::Left { issues, fetches }
         }
         10 => FromRenderer::Claimed(reader.claim()?),
-        11 => FromRenderer::ConversationClaimed(reader.conversation_claim()?),
-        12 => FromRenderer::ConversationReached(reader.conversation_reached()?),
-        13 => FromRenderer::FieldLaidOut(reader.field_laid_out()?),
+        tag @ 11..=14 => reader.of_a_part(tag)?,
         other => return Err(unreadable(format!("a message tagged {other}"))),
     };
     reader.finished()?;
     Ok(message)
+}
+
+impl Reader<'_> {
+    /// What a part of the conversation's renderer answers about the part,
+    /// by its `tag`: a press's claim, its reach, its field, or its place
+    /// left clear.
+    fn of_a_part(&mut self, tag: u8) -> Result<FromRenderer, Unreadable> {
+        Ok(match tag {
+            11 => FromRenderer::ConversationClaimed(self.conversation_claim()?),
+            12 => FromRenderer::ConversationReached(self.conversation_reached()?),
+            13 => FromRenderer::FieldLaidOut(self.field_laid_out()?),
+            14 => FromRenderer::PictureBeneath(self.picture_beneath()?),
+            other => return Err(unreadable(format!("a message tagged {other}"))),
+        })
+    }
 }

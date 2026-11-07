@@ -363,6 +363,7 @@ pub fn draw(
             fonts,
             pictures: &drawn_in.rasters,
             drawings: &drawings,
+            beneath: &drawn_in.beneath,
         },
     );
 

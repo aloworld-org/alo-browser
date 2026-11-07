@@ -49671,3 +49671,129 @@ skipped** — *"The gate is met." (11 of 11 steps)*. `scripts/gate.sh` not
 edited.
 
 The next unused queue number is **869** and the next ADR is **0100**.
+
+## 2026-11-07 — item 869: a card's page drawn beneath the first screen, so an edit is never behind its frames
+
+The owner's *"Go ahead"*: with a live card streaming beside the box, a
+key's edit was drawn up to a second late (`handrun38/13`–`15`). Contracts
+read: `CLAUDE.md`, `LOOP.md`, ADRs 0076 (amended), 0090 (held, not
+amended), 0074, 0024 § 2, 0005; queue items 861 and 862. No `unsafe`, no
+new crate. **ADR 0100** is new; the next is **0101**.
+
+**Measured first** (release; the Retina display at two; alo's CEF host
+holding a local page under CSS animations, `127.0.0.1:8739`; timestamps
+put, for the measurement only, at the key's arrival, the drawing sent, the
+drawing thread beginning it, the first screen's renderer answering, the
+window hearing it and the frame presented; then taken out — none is left).
+Before (2541477): a key presented **376–448 ms** after it — begun by the
+drawing thread at 116–182, answered at 326–392; with the card closed
+84–90 (begun at 0.1, answered at 52). The first screen's renderer took 204
+ms (p90 229) for each frame of the card and drew 4.2 of them a second;
+Chromium sent 59.6 frames a second, 13 MiB a second, **under ADR 0090's
+24, so the pace held nothing back**; the window redrew 22 times a second,
+76% busy. **The cause:** the renderer that draws the box was the one that
+drew every frame of the card — each frame's PNG was the card's `<img>`,
+and the whole first screen was built and painted again around it — so an
+edit waited for the frame being painted and was then painted with the card
+again.
+
+**The fix** (ADR 0100): the first screen asks for its card's page
+**beneath** it once a frame has come (`card::PictureAt::Beneath`, no bytes
+sent), leaves its place clear (`alo_paint::beneath`, `DisplayItem::
+Beneath`, `PaintContext::beneath`, `Resource::beneath`) and says where in
+device pixels (`ToRenderer::PictureBeneath`, `alo_renderer::beneath`,
+`Drawn::Beneath` before the frame); the newest frame is drawn for that
+place by a confined renderer of its own on a thread of its own
+(`conversation_picture`'s `CardPictures`, `ToRenderer::CardPicture`,
+`alo_renderer::card_picture`, `Renderers::twin`, `Drawn::Pictured`,
+numbered into `drawn_as_asked`); the window composes it under the first
+screen over the colour the hole kept (`conversation_compose`'s `beneath`,
+`ConversationScene::beneath` and `first_screen_seen`,
+`conversation_window/beneath.rs`). Only a card's first frame asks for the
+first screen; a frame asks no redraw of the window until its picture is
+drawn; a card replaced or put away leaves no picture of its page in the
+next card's place. After: a key **begun 0.1 ms** after it, answered at
+137–143, presented at **173–180 ms** (one 36 ms redraw after the answer);
+the card 15.1 pictures a second, 66 ms each.
+
+**Tests:** units (alo-paint's hole 3, among them the hole composed over
+the picture equal to the picture drawn in place on a soft clip's edge
+under a translucent menu; the place 2; the card's picture 3; its thread 1;
+the composition 1) — alo-paint 394, alo-renderer 459, alo-window 839
+`--lib`, all passing; `alo-renderer`'s `the_cards_page_beneath.rs` (4:
+layout in numbers — 81, 145, 878 × 520 at one, 162, 290, 1756 × 1040 at
+two, every pixel clear but the rounded corners, the bar and border around
+it drawn; **reference**: composed at one against the committed
+`card-holding-a-frame.png` and at two against the card drawn with its
+picture in it, one level a channel at most on 18 and 22 pixels, all on the
+rounded corners; a frame with clear and half-seen pixels at one and two);
+`messages_across_a_boundary.rs` (each new message crosses; a place of no
+size, past 8,192 a side or past 2²⁰ away, a picture not a PNG, of no size
+or past one frame refused by name; every truncation refused);
+`alo-window`'s `an_edit_beside_a_streaming_card.rs` (the window's own road,
+real renderers, a still clock: the place at 81, 123 of the first screen for
+a card that is the one turn; three frames each seen with nothing told but
+its picture and no redraw asked; a letter typed between two frames drawn in
+the one first-screen frame painted after it; another card never holding the
+first card's picture, checked before anything is heard). **Beside sixteen
+`yes`:** 10/10 (about 39 s each), every `yes` killed after. **Mutations**,
+each caught: the code before the fix (the frame in the first screen, every
+frame asking for it) — *a frame of the card drew the first screen again*,
+in 4.6 s; no hole; not composed; the kept colour not used; the first
+card's picture kept as another opens (it survived at first — the check ran
+only after news, and the new picture could come first; it is checked as
+the other card opens now); a picture never forgotten; a frame asking a
+redraw; no place told. A window mutation run after alo-renderer's was
+first run against a mutated `alo-render` the renderer's test had rebuilt;
+rebuilt and run again before it was counted. Two tests read narrowly
+differently: `the_conversation_window.rs`, which reads the drawing thread
+strictly, gains arms for `Drawn::Beneath` and `Drawn::Pictured`, each an
+error there (no card, so nothing of one is told — the first screen tells
+no place without a card beneath, which keeps every strict reader's order);
+`offers_and_the_panel_pressed_in_the_window.rs` and
+`a_conversation_scrolled_through_chrome.rs` read the first screen as
+composed (`first_screen_seen`), since the card's page is no longer in its
+frame — the second found by the first gate run, which failed on it alone
+(*the conversation drawn scrolled did not happen*: it looked for the
+page's colour in the first screen's frame); after it, every alo-window
+test through both Chromiums, 1,112, passed. Scenes built
+literally in tests gain `beneath: None`; alo-paint's tests' contexts gain
+an empty `beneath`.
+
+**By hand** (screen unlocked; release and CEF host built, the `.app`
+remade by `alo-bundle` with no keys, rebuilt after each fix; `--chats` in
+the session scratchpad's `handrun39/`, `0700`; the window at 120, 60, 1280
+× 852 points on the Retina display; keys through System Events, alo
+checked frontmost before each ⌘ key; screenshots and both measurements,
+`measured-before.txt` and `measured-after.txt`, in `handrun39/`): the
+card streaming (`01`, `02` — 496 of 700 of its rows changed between them);
+`hello` typed at the foot (`03`); ⌘A, typed over, ⌘Z — each shot at once
+(`04`, `05`, `06`, taken a few milliseconds after the key, still before its
+paint) and 300 ms after (`04b`, `05b`, `06b`: selected, `x`, `hello`
+selected again); `08` after the last fix. **Found by hand, fixed:** a page
+with no background of its own showed the window's paper (243, 241, 237)
+through the card — the Chromium alo carries draws it clear — where the
+card's white showed before; the picture is drawn over the colour kept
+under it now, and the same page shows (255, 255, 255) (`07`). **Not seen
+by hand:** a heavier real site (no network page was used, so no claim is
+made about `en.wikipedia.org`'s second), a resize while streaming, the
+split view with the agent at work, scale one. Quit with `tell application
+id "org.aloworld.Browser" to quit`; the local server stopped; no alo
+process left; the pointer at 1400, 1000. **Spend: none.**
+
+Cut, queued: **870**, the edit's own paint with a card on the first screen
+(137–143 ms against 53) and the window's 36 ms redraw.
+
+ROADMAP: the interface line's *Built since* names 869; its owed list gains
+870.
+
+**Gate: met, second run** (CEF_PATH set, the pointer at 1400, 1000;
+detached through `perl -MPOSIX=setsid` and waited on by its PID;
+`gate-batch19.log`). The first run (`gate-batch19-first.log`) failed on
+`a_conversation_scrolled_through_chrome` alone, the test that read the
+card's page in the first screen's frame (above), 130 tests not run after
+it. **Summary [1201.363s] 6640 tests run: 6640 passed (5 slow, 1 leaky), 0
+skipped** — *"The gate is met." (11 of 11 steps)*. `scripts/gate.sh` not
+edited.
+
+The next unused queue number is **871** and the next ADR is **0101**.

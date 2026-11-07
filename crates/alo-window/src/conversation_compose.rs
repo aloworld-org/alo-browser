@@ -16,9 +16,11 @@ use crate::colours::{background, notice_line, panel, shade};
 use crate::compose::copy;
 use crate::conversation_place::{ConversationPlacement, Parts, Side};
 use crate::notice::Lettering;
+use crate::place::PixelRect;
 use crate::scale::Scale;
 use alo_paint::Canvas;
 use alo_renderer::Frame;
+use alo_renderer::beneath::Beneath;
 
 /// Everything the conversation's window is made from.
 #[derive(Debug, Clone, Copy)]
@@ -45,6 +47,10 @@ pub struct ConversationScene<'a> {
     /// The whole panel standing over the conversation as a sheet in a
     /// narrow window, as far out as it is (queue item 776).
     pub sheet: Option<SheetScene<'a>>,
+    /// The live card's page, drawn beneath the first screen's frame where
+    /// that frame left its place clear, in device pixels of the frame
+    /// (queue item 869, ADR 0100).
+    pub beneath: Option<(&'a Frame, Beneath)>,
 }
 
 /// The sheet, as it is composed at one instant.
@@ -60,6 +66,27 @@ pub struct SheetScene<'a> {
 }
 
 impl ConversationScene<'_> {
+    /// The first screen as a person sees it: its frame, with the live
+    /// card's page drawn beneath where it left that clear (queue item 869)
+    /// — what the window composes in the first screen's room, in that
+    /// frame's own pixels. Nothing before its renderer painted one.
+    pub fn first_screen_seen(&self) -> Option<Frame> {
+        let frame = self.start?;
+        let Some((picture, place)) = self.beneath else {
+            return Some(frame.clone());
+        };
+        let mut canvas = Canvas::new(frame.width, frame.height, alo_value::Rgba::TRANSPARENT);
+        let whole = PixelRect {
+            x: 0,
+            y: 0,
+            width: frame.width,
+            height: frame.height,
+        };
+        beneath(&mut canvas, (picture, place), frame, whole);
+        copy(&mut canvas, frame, whole);
+        Some(Frame::from_canvas(&canvas))
+    }
+
     /// What is in it to place: the frames' sizes in device pixels, and
     /// which of them has something to say.
     pub fn parts(&self) -> Parts {
@@ -91,6 +118,11 @@ pub fn compose_conversation(scene: &ConversationScene<'_>, lettering: &Lettering
     let room = placed.panel_room;
     canvas.fill_rect(0, 0, room.width, room.height, panel());
     if let Some(frame) = scene.start {
+        // The card's page first, where the first screen left it clear, so
+        // what the first screen draws over its place stands over it.
+        if let Some(beneath_it) = scene.beneath {
+            beneath(&mut canvas, beneath_it, frame, placed.start);
+        }
         copy(&mut canvas, frame, placed.start);
     }
     if let Some(frame) = scene.panel {
@@ -109,6 +141,66 @@ pub fn compose_conversation(scene: &ConversationScene<'_>, lettering: &Lettering
         }
     }
     canvas
+}
+
+/// The card's `picture` onto `canvas` one to one at `place` in the first
+/// screen's `frame`, standing in its `room` — the place's own corner
+/// wherever the frame put it, the part of it outside the frame not drawn
+/// (queue item 869).
+///
+/// Over the colour the frame kept where it left the place clear, made
+/// opaque: the colour that was under the picture's place — the card's
+/// surface — so a page's translucent pixels show it, as they did over it in
+/// the card ([`alo_paint::beneath`] keeps a cleared pixel's colour). The
+/// frame then goes over the picture.
+fn beneath(
+    canvas: &mut Canvas,
+    (picture, place): (&Frame, Beneath),
+    frame: &Frame,
+    room: PixelRect,
+) {
+    for y in 0..picture.height.min(place.height) {
+        let Some(down) = within(place.top, y, frame.height) else {
+            continue;
+        };
+        for x in 0..picture.width.min(place.width) {
+            let Some(across) = within(place.left, x, frame.width) else {
+                continue;
+            };
+            let (Some((red, green, blue, alpha)), Some((under_red, under_green, under_blue, _))) =
+                (picture.at(x, y), frame.at(across, down))
+            else {
+                continue;
+            };
+            let (at_x, at_y) = (room.x + across, room.y + down);
+            if alpha == u8::MAX {
+                // Opaque, as nearly every pixel of a page is: its own colour,
+                // which is what drawing it over anything makes.
+                canvas.replace(at_x, at_y, |_| {
+                    alo_value::Rgba::from_rgba8(red, green, blue, 255)
+                });
+                continue;
+            }
+            canvas.blend(
+                at_x,
+                at_y,
+                alo_value::Rgba::from_rgba8(under_red, under_green, under_blue, 255),
+                u8::MAX,
+            );
+            canvas.blend(
+                at_x,
+                at_y,
+                alo_value::Rgba::from_rgba8(red, green, blue, 255),
+                alpha,
+            );
+        }
+    }
+}
+
+/// `step` on from `at`, if that is inside `0..size`.
+fn within(at: i32, step: u32, size: u32) -> Option<u32> {
+    let along = i64::from(at) + i64::from(step);
+    u32::try_from(along).ok().filter(|along| *along < size)
 }
 
 /// `frame` onto `canvas` one to one from `left` device pixels across —
@@ -168,6 +260,7 @@ mod tests {
             side: Side::Panel,
             named: false,
             sheet: None,
+            beneath: None,
         }
     }
 
@@ -181,6 +274,77 @@ mod tests {
             assert_eq!(rgba8(&canvas, 480, y), Some(background().to_rgba8()));
             assert_eq!(rgba8(&canvas, 599, y), Some(background().to_rgba8()));
         }
+    }
+
+    /// The card's page is drawn under the first screen's frame, one to one
+    /// at its place in the frame, showing where the frame is clear and as
+    /// much as it is clear, never outside the first screen's room — and
+    /// [`ConversationScene::first_screen_seen`] is the room as composed
+    /// (queue item 869).
+    #[test]
+    fn the_cards_page_shows_beneath_the_first_screen_where_it_is_clear_inside_its_room() {
+        // Blue, clear at (2, 1)–(3, 2) and half clear at (2, 1).
+        let mut start = solid(6, 4, (0, 0, 255, 255));
+        for (x, y, alpha) in [(2, 1, 127), (3, 1, 0), (2, 2, 0), (3, 2, 0)] {
+            let at = usize::try_from((y * 6 + x) * 4 + 3).unwrap_or(0);
+            start.pixels[at] = alpha;
+        }
+        let green = solid(3, 3, (0, 255, 0, 255));
+        let place = Beneath {
+            left: 2,
+            top: 1,
+            width: 3,
+            height: 3,
+        };
+        let scene = ConversationScene {
+            start: Some(&start),
+            beneath: Some((&green, place)),
+            ..bare((246, 4), Scale::ONE)
+        };
+        let canvas = compose_conversation(&scene, &lettering());
+        assert_eq!(rgba8(&canvas, 243, 2), Some((0, 255, 0, 255)), "clear");
+        assert_eq!(rgba8(&canvas, 242, 2), Some((0, 255, 0, 255)));
+        let (red, half_green, half_blue, alpha) = rgba8(&canvas, 242, 1).unwrap_or_default();
+        assert_eq!((red, alpha), (0, 255));
+        assert!(half_green.abs_diff(128) <= 1 && half_blue.abs_diff(127) <= 1);
+        assert_eq!(rgba8(&canvas, 244, 2), Some((0, 0, 255, 255)), "drawn over");
+        assert_eq!(rgba8(&canvas, 243, 3), Some((0, 0, 255, 255)));
+        let seen = scene
+            .first_screen_seen()
+            .unwrap_or_else(|| solid(0, 0, (0, 0, 0, 0)));
+        for y in 0..4 {
+            for x in 0..6 {
+                assert_eq!(
+                    seen.at(x, y),
+                    rgba8(&canvas, 240 + x, y),
+                    "seen as composed at {x},{y}"
+                );
+            }
+        }
+        // A clear pixel of the page shows the colour the frame kept where
+        // it cleared its place — the card's surface — not the paper.
+        let mut clear_page = green.clone();
+        // The pixel at (1, 1) of three across: the fifth, its alpha.
+        clear_page.pixels[4 * 4 + 3] = 0;
+        let translucent = ConversationScene {
+            beneath: Some((&clear_page, place)),
+            ..scene
+        };
+        let canvas = compose_conversation(&translucent, &lettering());
+        assert_eq!(
+            rgba8(&canvas, 243, 2),
+            Some((0, 0, 255, 255)),
+            "the kept colour"
+        );
+        assert_eq!(rgba8(&canvas, 242, 2), Some((0, 255, 0, 255)));
+        // A place left of the frame's edge is not drawn on the panel.
+        let left = ConversationScene {
+            beneath: Some((&green, Beneath { left: -2, ..place })),
+            ..scene
+        };
+        let canvas = compose_conversation(&left, &lettering());
+        assert_eq!(rgba8(&canvas, 239, 2), Some(panel().to_rgba8()));
+        assert_eq!(rgba8(&canvas, 238, 2), Some(panel().to_rgba8()));
     }
 
     #[test]
@@ -287,6 +451,7 @@ mod tests {
                 left: -200,
                 shade: 0.32,
             }),
+            beneath: None,
             ..bare((300, 4), Scale::ONE)
         };
         let canvas = compose_conversation(&scene, &lettering());
@@ -342,6 +507,7 @@ mod tests {
                 left: 0,
                 shade: 0.32,
             }),
+            beneath: None,
             ..scene
         };
         let canvas = compose_conversation(&scene, &lettering());

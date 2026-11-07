@@ -2859,3 +2859,99 @@ fn a_cards_shield_crosses_as_it_was_sent() {
         assert_eq!(back, original);
     }
 }
+
+/// Queue item 869: a card drawn beneath the first screen, the question of
+/// where it was left clear and its answer, and the card's page to draw,
+/// each cross whole; a place of no size, past any side or too far, a
+/// picture that is not a PNG, of no size or past what a frame carries
+/// back, and every truncation are refused by name, never panicked on.
+#[test]
+fn a_cards_page_beneath_the_first_screen_crosses_and_hostile_ones_are_refused() {
+    use alo_renderer::beneath::{Beneath, FURTHEST, MOST_SIDE};
+    use alo_renderer::card::{Card, PictureAt};
+    use alo_renderer::card_picture::CardPicture;
+    let url = alo_url::parse("https://en.wikipedia.org/wiki/Kampala").expect("an address");
+    let start = ToRenderer::Start(Box::new(Start {
+        turns: vec![Turn::Page(Card::new("kampala", url).pictured_beneath())],
+        ..Start::default()
+    }));
+    let crossed = read_to_renderer(&write_to_renderer(&start));
+    assert_eq!(crossed, Ok(start.clone()));
+    assert!(matches!(
+        crossed,
+        Ok(ToRenderer::Start(start)) if start.card().is_some_and(|card| card.picture_at == PictureAt::Beneath)
+    ));
+    let asked = ToRenderer::PictureBeneath;
+    assert_eq!(read_to_renderer(&write_to_renderer(&asked)), Ok(asked));
+    let png = b"\x89PNG\r\n\x1a\nthe rest".to_vec();
+    let picture = |png: Vec<u8>, width: u32, height: u32| {
+        ToRenderer::CardPicture(Box::new(CardPicture { png, width, height }))
+    };
+    let drawn = picture(png.clone(), 1756, 1040);
+    assert_eq!(read_to_renderer(&write_to_renderer(&drawn)), Ok(drawn));
+    let refused_to = |message: &ToRenderer| {
+        read_to_renderer(&write_to_renderer(message))
+            .err()
+            .map(|why| why.why)
+            .unwrap_or_default()
+    };
+    assert!(refused_to(&picture(b"GIF89a".to_vec(), 4, 4)).contains("not a PNG"));
+    assert!(refused_to(&picture(png.clone(), 0, 4)).contains("no size"));
+    assert!(refused_to(&picture(png.clone(), MOST_SIDE + 1, 4)).contains("past"));
+    assert!(
+        refused_to(&picture(png.clone(), MOST_SIDE, MOST_SIDE)).contains("past what one frame"),
+        "{}",
+        refused_to(&picture(png.clone(), MOST_SIDE, MOST_SIDE))
+    );
+    let place = Beneath {
+        left: -40,
+        top: 290,
+        width: 1756,
+        height: 1040,
+    };
+    for answer in [
+        FromRenderer::PictureBeneath(Some(place)),
+        FromRenderer::PictureBeneath(None),
+    ] {
+        assert_eq!(
+            read_from_renderer(&write_from_renderer(&answer)),
+            Ok(answer.clone())
+        );
+    }
+    let refused_from = |place: Beneath| {
+        read_from_renderer(&write_from_renderer(&FromRenderer::PictureBeneath(Some(
+            place,
+        ))))
+        .err()
+        .map(|why| why.why)
+        .unwrap_or_default()
+    };
+    assert!(refused_from(Beneath { width: 0, ..place }).contains("no size"));
+    assert!(
+        refused_from(Beneath {
+            height: MOST_SIDE + 1,
+            ..place
+        })
+        .contains("past")
+    );
+    assert!(
+        refused_from(Beneath {
+            top: FURTHEST + 1,
+            ..place
+        })
+        .contains("further")
+    );
+    // Cut short anywhere, each is refused rather than panicked on.
+    for whole in [
+        write_to_renderer(&picture(png, 1756, 1040)),
+        write_to_renderer(&start),
+    ] {
+        for cut in 0..whole.len() {
+            assert!(read_to_renderer(&whole[..cut]).is_err(), "cut at {cut}");
+        }
+    }
+    let whole = write_from_renderer(&FromRenderer::PictureBeneath(Some(place)));
+    for cut in 0..whole.len() {
+        assert!(read_from_renderer(&whole[..cut]).is_err(), "cut at {cut}");
+    }
+}

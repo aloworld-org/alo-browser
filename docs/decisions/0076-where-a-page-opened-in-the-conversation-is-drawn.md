@@ -1,6 +1,6 @@
 # ADR 0076 — Where a page opened in the conversation is drawn
 
-**Status:** accepted — B, chosen by the owner on 30 October 2026; the card built by queue item 717 (31 October 2026, *Built* below), input by 718; B4's park amended by queue item 771 (1 November 2026, *Amended* below); the windows a parked card's Chromium opens beside it, by queue item 808 (1 November 2026, the third *Amended* below); what the carried Chromium tells beside the pipe, a link's strip and a closed list pressed, by queue items 799, 811, 798, 810 and 802 (7 November 2026, the fourth *Amended* below)
+**Status:** accepted — B, chosen by the owner on 30 October 2026; the card built by queue item 717 (31 October 2026, *Built* below), input by 718; B4's park amended by queue item 771 (1 November 2026, *Amended* below); the windows a parked card's Chromium opens beside it, by queue item 808 (1 November 2026, the third *Amended* below); what the carried Chromium tells beside the pipe, a link's strip and a closed list pressed, by queue items 799, 811, 798, 810 and 802 (7 November 2026, the fourth *Amended* below); where the frames are drawn, beneath the first screen by a renderer of their own, by queue item 869 and ADR 0100 (7 November 2026, the fifth *Amended* below)
 **Date:** 2026-10-30
 **Context:** ADR 0058 (Chromium is a renderer we drive); ADR 0059 (the
 product path and the engine path); ADR 0061 (Chrome draws the page in its own
@@ -1035,3 +1035,21 @@ foot, and one asked lower was not drawn.
 `a_closed_list_pressed_on_a_card_through_chrome.rs`; through the machine's
 Chrome: `a_closed_list_on_a_card_chosen_by_one_key_through_chrome.rs`,
 `an_input_methods_composition_on_a_card_through_chrome.rs`.
+
+## Amended (7 November 2026, queue item 869, ADR 0100): the frames drawn beneath the first screen
+
+B drew each of Chrome's frames as the card's `<img>` in the first screen's
+document, so every frame painted the whole first screen again: 204 ms of its
+renderer at two, measured, against 53 ms with no card. A key's edit in the
+box waited behind that paint and was then painted with the card again: 376–448
+ms from the key to the screen, and up to about a second by hand on a heavier
+page. ADR 0100 decides that the first screen leaves the card's page clear
+and says where, and that a renderer of its own draws the newest frame for
+that place, beneath the first screen. A frame no longer reaches the
+renderer that draws the box, and an edit begins 0.1 ms after its key. The
+frame is still decoded only in a confined renderer, through the one picture
+path every `<img>` takes; the card reads to an agent as it did; and
+composed, it is the card drawn with its picture in it, within one level a
+channel on the rounded corners alone. The stream and its pace (ADR 0090)
+are unchanged.
+

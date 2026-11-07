@@ -29,6 +29,15 @@
 //! `alo-renderer` says it in; no fresh process draws it behind the person's
 //! back (ADR 0005).
 //!
+//! # The card's page beneath the first screen
+//!
+//! Queue item 869, ADR 0100: the live card's page is drawn by a renderer of
+//! its own on a thread of its own ([`crate::conversation_picture`]), and
+//! the first screen leaves its place clear and says where
+//! ([`Drawn::Beneath`]). A frame of the card asks for that picture alone,
+//! never for the first screen, so a key's edit in the box is never behind
+//! one.
+//!
 //! # A person's press
 //!
 //! Queue item 710, ADR 0024 § 5. The window decides from its own
@@ -48,6 +57,7 @@
 //! as it is asked is said as a drawing's would be.
 
 use crate::conversation::{ChatId, Pressed, Showing};
+use crate::conversation_picture::CardPictures;
 use alo_paint::Point;
 use alo_renderer::conversation_claim::Claim;
 use alo_renderer::conversation_decide::{self, decide};
@@ -108,6 +118,21 @@ pub enum Drawn {
     /// of them, so a window that has heard it holds the frames of what it
     /// last asked (queue item 862).
     Through(u64),
+    /// Where the first screen left its place clear for the card's page, in
+    /// device pixels of the frame it was just drawn in, or nothing when it
+    /// left none (queue item 869, ADR 0100). Told just before the
+    /// [`Drawn::Painted`] of that frame.
+    Beneath(Option<alo_renderer::beneath::Beneath>),
+    /// The card's page drawn for that place, or nothing when it could not
+    /// be (and was said); `number` says which picture asked
+    /// ([`ConversationDrawing::pictured_through`]) it answers, every one
+    /// before it replaced (queue item 869).
+    Pictured {
+        /// The picture, at the place's size.
+        frame: Option<Frame>,
+        /// The number of the newest picture asked that it answers.
+        number: u64,
+    },
 }
 
 /// How the thread tells the window what was drawn: whether anybody heard.
@@ -150,6 +175,9 @@ pub struct ConversationDrawing {
     /// How many drawings have been sent: the number of the newest.
     numbered: u64,
     thread: Option<JoinHandle<()>>,
+    /// The thread drawing the card's page beneath the first screen (queue
+    /// item 869); [`None`] once finished.
+    pictures: Option<CardPictures>,
 }
 
 impl ConversationDrawing {
@@ -166,7 +194,18 @@ impl ConversationDrawing {
         // Both parts are the interface, so their renderers are handed the
         // design's typefaces beside whatever fonts they were given (ADR 0084).
         let faces = crate::fonts::for_the_interface(renderers.fonts());
+        // The card's page has a renderer of its own, which draws no text.
+        let twin = renderers.twin();
         let renderers = renderers.with_fonts(faces);
+        // Both threads tell the window, one at a time.
+        let tell = std::sync::Arc::new(std::sync::Mutex::new(tell));
+        let telling = std::sync::Arc::clone(&tell);
+        let pictures = CardPictures::start(
+            twin,
+            Box::new(move |drawn| telling.lock().is_ok_and(|tell| tell(drawn))),
+        )?;
+        let tell: TellConversation =
+            Box::new(move |drawn| tell.lock().is_ok_and(|tell| tell(drawn)));
         let (asked, asking) = channel();
         let holding = Holding {
             renderers,
@@ -183,7 +222,33 @@ impl ConversationDrawing {
             sent: None,
             numbered: 0,
             thread: Some(thread),
+            pictures: Some(pictures),
         })
+    }
+
+    /// Have the card's page drawn from `png` for the first screen's clear
+    /// `place`, unless that is what was last asked (queue item 869).
+    /// Returns at once: the picture is told to the window.
+    pub fn picture(&mut self, png: &[u8], place: alo_renderer::beneath::Beneath) {
+        if let Some(pictures) = self.pictures.as_mut() {
+            pictures.draw(png, place);
+        }
+    }
+
+    /// Forget the picture last asked, so the next is asked whatever it is:
+    /// the card it was of has gone (queue item 869).
+    pub fn forget_picture(&mut self) {
+        if let Some(pictures) = self.pictures.as_mut() {
+            pictures.forget();
+        }
+    }
+
+    /// The number of the newest picture of the card's page asked, which
+    /// [`Drawn::Pictured`] says once it is drawn; 0 before any is.
+    pub fn pictured_through(&self) -> u64 {
+        self.pictures
+            .as_ref()
+            .map_or(0, CardPictures::asked_through)
     }
 
     /// Have `asked` drawn, unless it is what was last sent. Returns at once:
@@ -242,9 +307,11 @@ impl ConversationDrawing {
     /// renderer in the middle of painting is waited for.
     pub fn finish(mut self) -> bool {
         self.asked = None;
+        let pictured = self.pictures.take().is_none_or(CardPictures::finish);
         self.thread
             .take()
             .is_none_or(|thread| thread.join().is_ok())
+            && pictured
     }
 }
 
@@ -433,6 +500,8 @@ impl Holding {
                 // Where the box's words were laid out, told before the
                 // frame (queue item 861).
                 said.extend(self.field(Part::Start));
+                // Where the card's page goes beneath it (queue item 869).
+                said.extend(self.beneath(&asked.start));
                 if asked.start.conversing() {
                     said.extend(self.reach(
                         asked.start.turns.len(),
@@ -502,6 +571,32 @@ impl Holding {
                 let said = gone.to_string();
                 held.gone = Some(gone);
                 Some(Drawn::Said(part, said))
+            }
+        }
+    }
+
+    /// Ask the first screen's renderer where it left its place clear for
+    /// the card's page, when `start` has a card drawn beneath it (queue
+    /// item 869): what the window is told — nothing when it has no such
+    /// card, which the window takes as no place, when its renderer has gone
+    /// or answered anything else — or said, when it went.
+    fn beneath(&mut self, start: &Start) -> Option<Drawn> {
+        let beneath = start
+            .card()
+            .is_some_and(|card| card.picture_at == alo_renderer::card::PictureAt::Beneath);
+        if !beneath || self.start.gone.is_some() {
+            return None;
+        }
+        match self
+            .renderers
+            .ask(&self.start.site, &ToRenderer::PictureBeneath)
+        {
+            Ok(FromRenderer::PictureBeneath(place)) => Some(Drawn::Beneath(place)),
+            Ok(_) => None,
+            Err(gone) => {
+                let said = gone.to_string();
+                self.start.gone = Some(gone);
+                Some(Drawn::Said(Part::Start, said))
             }
         }
     }

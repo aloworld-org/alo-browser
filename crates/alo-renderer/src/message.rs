@@ -185,6 +185,17 @@ pub enum ToRenderer {
     /// answered with [`FromRenderer::FieldLaidOut`]. A renderer that holds
     /// neither part answers [`Failure::NotTheConversation`].
     FieldLaidOut,
+    /// Say where the part it holds left its place clear for a picture drawn
+    /// beneath it, as it was last drawn — the live card's page (queue item
+    /// 869, ADR 0100): answered with [`FromRenderer::PictureBeneath`]. A
+    /// renderer that holds no part of the conversation answers
+    /// [`Failure::NotTheConversation`].
+    PictureBeneath,
+    /// Draw the card's page from Chrome's frame into a place of this size
+    /// (queue item 869, ADR 0100): answered with [`FromRenderer::Painted`],
+    /// the frame decoded in this process ([`crate::card_picture`]), or with
+    /// [`Failure::Unpaintable`]. Holds no page and lets go of none.
+    CardPicture(Box<crate::card_picture::CardPicture>),
 }
 
 /// What a renderer answers with.
@@ -400,6 +411,16 @@ pub enum FromRenderer {
     /// input method's candidates by it, inside the field, and keeps the
     /// field's scroll; a renderer lying misplaces its own field's caret.
     FieldLaidOut(Option<crate::field::FieldLaidOut>),
+    /// Where the part it holds left its place clear for a picture drawn
+    /// beneath it, in answer to [`ToRenderer::PictureBeneath`] alone, in
+    /// device pixels of the frame it last painted — or nothing when it left
+    /// none (queue item 869, ADR 0100).
+    ///
+    /// **A claim about its own frame, and nothing more**: the window draws
+    /// the card's picture there under the first screen's frame, inside the
+    /// first screen's room. A renderer lying puts the card's page elsewhere
+    /// in its own part, which it could draw anything over anyway.
+    PictureBeneath(Option<crate::beneath::Beneath>),
 }
 
 /// Why a request could not be answered.
@@ -529,6 +550,16 @@ impl fmt::Display for ToRenderer {
                 f.write_str("say how far the first screen's conversation reaches")
             }
             ToRenderer::FieldLaidOut => f.write_str("say where the part's field was laid out"),
+            ToRenderer::PictureBeneath => {
+                f.write_str("say where the part left its place clear for a picture beneath it")
+            }
+            ToRenderer::CardPicture(picture) => write!(
+                f,
+                "draw a card's page of {} bytes into {}×{}",
+                picture.png.len(),
+                picture.width,
+                picture.height
+            ),
             ToRenderer::Strip(strip) => write!(
                 f,
                 "hold the tab strip, {} open, at {}×{}",
@@ -631,7 +662,12 @@ mod tests {
             // Where a person's pointer is over the panel, and nothing else.
             ToRenderer::ConversationHover(_) => "a person's pointer over the panel",
             // Nothing: a question about the part it holds.
-            ToRenderer::ConversationReach | ToRenderer::FieldLaidOut => "nothing but the question",
+            ToRenderer::ConversationReach
+            | ToRenderer::FieldLaidOut
+            | ToRenderer::PictureBeneath => "nothing but the question",
+            // Chrome's frame of the card's page, which only the card's
+            // picture's renderer is sent, and the size of its place.
+            ToRenderer::CardPicture(_) => "a card's page, as Chrome drew it",
         };
         let answered = |answer: &FromRenderer| match answer {
             FromRenderer::UsingFont { .. }
@@ -652,6 +688,8 @@ mod tests {
             FromRenderer::ConversationReached(_) => "how far the conversation reaches",
             // Lengths of its own part's field, and nothing else.
             FromRenderer::FieldLaidOut(_) => "where the part's field was laid out",
+            // A place in its own frame, and nothing else.
+            FromRenderer::PictureBeneath(_) => "where the part left a place clear",
         };
 
         assert!(!sent(&ToRenderer::Paint).is_empty());

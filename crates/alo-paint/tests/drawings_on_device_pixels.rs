@@ -82,6 +82,7 @@ fn drawn(scale: f32, drawing: Drawing) -> Option<DisplayList> {
             fonts: &fonts,
             pictures: &std::collections::BTreeMap::new(),
             drawings: &drawings,
+            beneath: &std::collections::BTreeSet::new(),
         },
     ))
 }

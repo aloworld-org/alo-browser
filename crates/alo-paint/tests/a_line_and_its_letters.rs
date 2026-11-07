@@ -54,6 +54,7 @@ fn draw(body: &str, css: &str) -> DisplayList {
             fonts: &database,
             pictures: &std::collections::BTreeMap::new(),
             drawings: &std::collections::BTreeMap::new(),
+            beneath: &std::collections::BTreeSet::new(),
         },
     )
 }

@@ -39,7 +39,7 @@ use alo_box::{BoxId, BoxKind, BoxTree, NaturalSize, Shown};
 use alo_dom::{Document, NodeId};
 use alo_layout::LayoutTree;
 use alo_paint::{Canvas, Drawing};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 /// Every picture a page's `<img>` elements show, read and sized.
@@ -52,6 +52,9 @@ pub struct Pictures {
     rasters: BTreeMap<NodeId, Arc<Canvas>>,
     /// SVG files, by `<img>` element, each with the `src` it was named by.
     svgs: BTreeMap<NodeId, (String, SvgPicture)>,
+    /// The `<img>` elements whose picture is drawn beneath the page (queue
+    /// item 869, ADR 0100).
+    beneath: BTreeSet<NodeId>,
     /// What could not be shown, one line each.
     pub issues: Vec<String>,
 }
@@ -64,6 +67,9 @@ pub struct Boxed<'p> {
     /// SVG files, by box, each with the `src` it was named by, to be drawn
     /// once layout has said how big the box is.
     svgs: BTreeMap<BoxId, &'p (String, SvgPicture)>,
+    /// The boxes whose picture is drawn beneath the page: what paint leaves
+    /// clear (queue item 869, ADR 0100).
+    pub beneath: BTreeSet<BoxId>,
 }
 
 impl Pictures {
@@ -100,6 +106,13 @@ impl Pictures {
                     .push(format!("no picture was loaded for {src:?}"));
                 continue;
             };
+            if let Some((width, height)) = resource.beneath {
+                pictures
+                    .shown
+                    .show(id, NaturalSize::sized(f32::from(width), f32::from(height)));
+                pictures.beneath.insert(id);
+                continue;
+            }
             if resource.is_svg() {
                 match SvgPicture::read(&resource.bytes) {
                     Ok(picture) => {
@@ -151,6 +164,9 @@ impl Pictures {
             }
             if let Some(svg) = self.svgs.get(node) {
                 by_box.svgs.insert(id, svg);
+            }
+            if self.beneath.contains(node) {
+                by_box.beneath.insert(id);
             }
         }
         by_box

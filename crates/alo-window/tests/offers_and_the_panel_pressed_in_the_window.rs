@@ -187,9 +187,12 @@ impl Driven {
             .unwrap_or_default()
     }
 
-    /// The first screen as its renderer last painted it.
+    /// The first screen as its renderer last painted it, as a person sees
+    /// it: the card's page drawn beneath it (queue item 869).
     fn painted(&self) -> Option<Frame> {
-        self.window.scene().and_then(|scene| scene.start.cloned())
+        self.window
+            .scene()
+            .and_then(|scene| scene.first_screen_seen())
     }
 
     /// The sizes of the panel's and the first screen's frames, as last
