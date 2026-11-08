@@ -45,14 +45,19 @@ pub fn append_runs(document: &mut Document, turn: NodeId, runs: &[Ran]) -> Resul
     for ran in runs {
         let asked = words(document, "p", &format!("you {REQUEST}"), &ran.asked)?;
         append(document, turn, asked)?;
-        let made = make(document, ran)?;
+        let made = kept(document, ran)?;
         append(document, turn, made)?;
     }
     Ok(())
 }
 
-/// What alo did in `ran`: its steps and how it ended.
-fn make(document: &mut Document, ran: &Ran) -> Result<NodeId, Unbuilt> {
+/// What alo did in `ran`: its steps and how it ended — for a turn whose
+/// bubble already says what was asked (queue item 821), on its own.
+///
+/// # Errors
+///
+/// As [`append_runs`].
+pub fn kept(document: &mut Document, ran: &Ran) -> Result<NodeId, Unbuilt> {
     let made = element(document, "div")?;
     attribute(document, made, "class", "ran")?;
     attribute(document, made, "role", "region")?;

@@ -180,7 +180,7 @@ impl TheBox {
 pub fn said(chosen: &Offer, search: &SetUp, asking: &SetUp) -> String {
     if let Offer::Ask(words) = chosen {
         return match asking {
-            SetUp::Ready => format!("alo is working on the page: \u{201c}{words}\u{201d}"),
+            SetUp::Ready => format!("alo is at work on \u{201c}{words}\u{201d}"),
             SetUp::Not(why) if why.trim().is_empty() => "asking alo is not set up yet".to_owned(),
             SetUp::Not(why) => format!("asking alo is not set up yet: {why}"),
         };
@@ -274,7 +274,7 @@ mod tests {
         let ask = Offer::Ask("send it".to_owned());
         assert_eq!(
             said(&ask, &SetUp::Ready, &SetUp::Ready),
-            "alo is working on the page: \u{201c}send it\u{201d}"
+            "alo is at work on \u{201c}send it\u{201d}"
         );
         assert_eq!(
             said(

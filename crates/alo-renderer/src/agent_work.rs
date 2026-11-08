@@ -45,6 +45,16 @@ pub const WORKING: &str = "alo is working on this page \u{b7} click anywhere to 
 pub const PAUSED: &str =
     "You took over: the page is yours. alo carries on from it as you leave it.";
 
+/// What the agent says when the page it reached asks the person to sign in
+/// (queue item 821): the page is handed over, as when they take it over.
+pub const SIGN_IN: &str =
+    "This site needs you to sign in: the page is yours. Sign in on it, then let alo continue.";
+
+/// What the working line says while a run that began with no page open
+/// finds the site to work on (queue item 821): there is no page yet to
+/// take over.
+pub const FINDING: &str = "alo is finding the site to work on";
+
 /// The agent at work on a card's page.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AtWork {
@@ -121,6 +131,10 @@ pub enum Now {
     /// (*click anywhere to take over*), and it carries on from the page as
     /// they leave it when they press *Let alo continue* (queue item 825).
     Paused,
+    /// Held because the page it reached asks the person to sign in (queue
+    /// item 821): the page is theirs, as when they take it over, and it
+    /// carries on when they press *Let alo continue*.
+    SignIn,
     /// Stuck: why, and what it could do instead, the closest to what was
     /// asked first.
     Stuck {
@@ -163,7 +177,7 @@ impl AtWork {
 
     /// Whether it is held while the page is the person's (queue item 825).
     pub fn is_paused(&self) -> bool {
-        matches!(self.now, Now::Paused)
+        matches!(self.now, Now::Paused | Now::SignIn)
     }
 
     /// Whether its task is finished, so that every step of its plan is
@@ -219,6 +233,10 @@ mod tests {
         };
         assert!(work.is_working());
         work.now = Now::Paused;
+        assert!(!work.is_working());
+        assert!(work.is_paused());
+        // A sign-in page hands it over as taking over does (queue item 821).
+        work.now = Now::SignIn;
         assert!(!work.is_working());
         assert!(work.is_paused());
         for now in [

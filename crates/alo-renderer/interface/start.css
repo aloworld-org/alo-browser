@@ -1872,3 +1872,122 @@ a {
   font-size: 14.5px;
   line-height: 23px;
 }
+
+/* *alo at work* (queue item 878, docs/design/shell.md, *Settings*): one
+   white box of three rows 44 tall, ruled off from each other, 14 under the
+   section's line — each row its name at the left in the ink, 600, and at
+   its right a stepper 28 tall (Fewer, the number, More) or the two choices
+   of asking, drawn as the faces' radios are. */
+.limits {
+  margin-top: 14px;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.lrow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  column-gap: 16px;
+  min-height: 44px;
+}
+
+/* The rule over a row is its own pixel: 1 more, so its words and its
+   stepper stand on whole pixels in the 44 under it. */
+.lrow + .lrow {
+  min-height: 45px;
+  border-top: 1px solid #eee8de;
+}
+
+.lname {
+  font-size: 13.5px;
+  line-height: 20px;
+  font-weight: 600;
+}
+
+.stepper {
+  display: flex;
+  align-items: center;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.stepper.keyed {
+  box-shadow: 0 0 0 3px rgba(27, 36, 51, 0.33);
+}
+
+.lbtn {
+  width: 30px;
+  height: 26px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 26px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.lbtn.off {
+  color: var(--quiet);
+  opacity: 0.5;
+}
+
+.lvalue {
+  width: 40px;
+  border-left: 1px solid #eee8de;
+  border-right: 1px solid #eee8de;
+  font-size: 13.5px;
+  line-height: 26px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.askopts {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 16px;
+}
+
+.askopt {
+  display: flex;
+  align-items: center;
+  column-gap: 6px;
+  height: 28px;
+  padding: 0 8px;
+  margin: 0 -8px;
+  border-radius: 8px;
+  color: var(--quiet);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.askopt.on {
+  color: var(--ink);
+}
+
+/* On the white box it stands on, so the ring is seen only outside it:
+   this engine draws an outer shadow under a transparent box (877). */
+.askopt.on.keyed {
+  background: var(--surface);
+  box-shadow: 0 0 0 3px rgba(27, 36, 51, 0.33);
+}
+
+/* alo asked with no page open (queue item 821): its column on a white box
+   rounded 12 under what the person asked, as a run kept with a page is
+   drawn — no page above it, so no rule over it and no outline. */
+.begun {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.begun .agent {
+  border-top: 0;
+}

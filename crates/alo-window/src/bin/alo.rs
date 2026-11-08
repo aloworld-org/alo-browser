@@ -250,9 +250,14 @@ fn in_the_conversation(opening: &Opening, chromium: Chromium, bundle: Option<&Bu
         match alo_window::conversation_agents::relay(opening.agents.clone()) {
             Ok((orders, reaching)) => {
                 let listening = listen(&orders, &opening.agents);
-                let agent = answer
-                    .clone()
-                    .map(|provider| alo_window::conversation_agent::Agent::new(provider, orders));
+                // It begins with no page open through the box's own search
+                // (queue item 821), and opens only sites agents are kept
+                // to.
+                let agent = answer.clone().map(|provider| {
+                    alo_window::conversation_agent::Agent::new(provider, orders)
+                        .searching_with(search.clone().ok())
+                        .kept_to(opening.agents.clone())
+                });
                 (reaching, listening, agent)
             }
             Err(why) => {

@@ -28,7 +28,7 @@ use alo_renderer::generic::Generics;
 use alo_renderer::host::Renderers;
 use alo_renderer::start::{self, KeptSite, Start};
 use alo_renderer::start_document::{
-    ADD_A_SITE, GO_TO_THE_SITE, NOT_SET_UP, SUGGESTIONS, ask_about, search_for,
+    ADD_A_SITE, ASK_TO_DO_IT, GO_TO_THE_SITE, NOT_SET_UP, SUGGESTIONS, search_for,
 };
 use alo_renderer::typed::{LONGEST_TYPED, offers};
 use alo_renderer::{Frame, FromRenderer, Renderer, Snapshot, SnapshotNode, ToRenderer};
@@ -248,7 +248,8 @@ fn an_address_typed_is_offered_to_go_to_first_then_search_and_ask() {
         vec![
             some(&format!("{GO_TO_THE_SITE} https://example.com/")),
             some(&format!("{} {NOT_SET_UP}", search_for("example.com"))),
-            some(&format!("{} {NOT_SET_UP}", ask_about("example.com"))),
+            // With no page open, alo finds the site (queue item 821).
+            some(&format!("{ASK_TO_DO_IT} {NOT_SET_UP}")),
         ],
         "{outline}"
     );
@@ -334,7 +335,7 @@ fn a_question_is_offered_to_search_and_ask_and_never_to_go() {
         names(&options),
         vec![
             Some(format!("{} {NOT_SET_UP}", search_for("what is x"))),
-            Some(format!("{} {NOT_SET_UP}", ask_about("what is x"))),
+            Some(format!("{ASK_TO_DO_IT} {NOT_SET_UP}")),
         ],
         "{outline}"
     );
@@ -395,7 +396,7 @@ fn a_hostile_typed_string_stays_a_value_and_text() {
                 .collect::<Vec<String>>(),
             vec![
                 format!("{} {NOT_SET_UP}", search_for(hostile)),
-                format!("{} {NOT_SET_UP}", ask_about(hostile)),
+                format!("{ASK_TO_DO_IT} {NOT_SET_UP}"),
             ],
             "{hostile:?}"
         );

@@ -215,6 +215,7 @@ fn every_message_to_a_renderer_survives_the_crossing() {
             face: InterfaceFace::PlusJakartaSans,
             settings: false,
             settings_keyed: None,
+            limits: alo_renderer::agent_limits::Limits::default(),
         })),
         ToRenderer::Start(Box::default()),
         // A person's press on a part of the conversation, anywhere in it.
@@ -721,6 +722,50 @@ fn the_agent_at_work_crosses_and_too_many_steps_or_choices_are_refused() {
 /// strangers' words intact; a plan past five steps, on no step or with a
 /// step past its line, and what a press pays in more lines than are drawn
 /// or a line too long, are refused.
+/// Queue item 821: a turn asked with no page crosses — live as the newest
+/// turn, kept anywhere — and live anywhere else, or keeping two runs, is
+/// refused.
+#[test]
+fn a_turn_asked_with_no_page_crosses_and_live_only_as_the_newest() {
+    use alo_renderer::agent_asked::Asked;
+    use alo_renderer::agent_ran::Ran;
+    use alo_renderer::agent_work::AtWork;
+    let asked = |agent: Option<AtWork>, runs: usize| {
+        Turn::Asked(Asked {
+            said: "find </p> the hours".to_owned(),
+            agent,
+            ran: vec![Ran::starting("find </p> the hours"); runs],
+        })
+    };
+    let start = |turns: Vec<Turn>| {
+        ToRenderer::Start(Box::new(Start {
+            turns,
+            ..Start::default()
+        }))
+    };
+    for original in [
+        start(vec![asked(Some(AtWork::starting("x\0")), 1)]),
+        start(vec![asked(None, 1), asked(Some(AtWork::starting("y")), 1)]),
+        start(vec![asked(None, 0)]),
+    ] {
+        let bytes = write_to_renderer(&original);
+        let back = read_to_renderer(&bytes)
+            .unwrap_or_else(|why| panic!("{original:?} did not survive: {why}"));
+        assert_eq!(back, original);
+    }
+    for (refused, why) in [
+        (
+            start(vec![asked(Some(AtWork::starting("x")), 1), asked(None, 1)]),
+            "not the newest",
+        ),
+        (start(vec![asked(None, 2)]), "more than its one run"),
+    ] {
+        let bytes = write_to_renderer(&refused);
+        let said = read_to_renderer(&bytes).expect_err("refused").to_string();
+        assert!(said.contains(why), "{said}");
+    }
+}
+
 #[test]
 fn a_plan_a_pause_and_a_payment_cross_and_past_their_bounds_are_refused() {
     use alo_renderer::agent_paying::{MOST_SUMMARY, PAYING_LINE};
@@ -744,6 +789,8 @@ fn a_plan_a_pause_and_a_payment_cross_and_past_their_bounds_are_refused() {
     let nows = vec![
         Now::Acting,
         Now::Paused,
+        // Handed over to sign in (queue item 821).
+        Now::SignIn,
         Now::Asking {
             what: "Pay on shop.example?".to_owned(),
             paying: Some(Box::new(Paying {
@@ -3052,6 +3099,28 @@ fn settings_and_where_the_keyboard_is_on_it_cross_and_nothing_else_does() {
             face: InterfaceFace::Geist,
             ..Start::default()
         })),
+        // *alo at work*'s three, and its limits (queue item 878).
+        ToRenderer::Start(Box::new(Start {
+            settings: true,
+            settings_keyed: Some(SettingsKeyed::Sites),
+            limits: alo_renderer::agent_limits::Limits::checked(
+                10,
+                100,
+                alo_renderer::agent_limits::Asks::Every,
+            )
+            .unwrap_or_default(),
+            ..Start::default()
+        })),
+        ToRenderer::Start(Box::new(Start {
+            settings: true,
+            settings_keyed: Some(SettingsKeyed::Actions),
+            ..Start::default()
+        })),
+        ToRenderer::Start(Box::new(Start {
+            settings: true,
+            settings_keyed: Some(SettingsKeyed::Asks),
+            ..Start::default()
+        })),
     ];
     for original in messages {
         let bytes = write_to_renderer(&original);
@@ -3075,7 +3144,7 @@ fn settings_and_where_the_keyboard_is_on_it_cross_and_nothing_else_does() {
     assert_eq!(differing.len(), 1, "{differing:?}");
     let at = differing.first().copied().unwrap_or_default();
     assert_eq!((back.get(at), font.get(at)), (Some(&2), Some(&3)));
-    for hostile in [4_u8, 9, 255] {
+    for hostile in [7_u8, 9, 255] {
         let mut bytes = font.clone();
         if let Some(byte) = bytes.get_mut(at) {
             *byte = hostile;

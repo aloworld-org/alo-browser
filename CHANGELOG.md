@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **alo can start a task with no page open.** Type what you want and choose
+  *Ask alo to do it* — the second line under the box — and alo finds the
+  site itself: it searches, opens a result or a site you named, and works
+  on it as a card in the conversation, each step shown as it goes. It asks
+  you first before opening any other site (*alo wants to open …*), never
+  opens anything on your own computer or home network unless you typed
+  that address, and opens at most three sites for one task. When a site
+  needs you to sign in, alo hands you the page and waits; *Let alo
+  continue* carries on once you have. How many sites and steps a task may
+  take, and whether alo asks before every site, are yours to set in
+  *Settings*, under the new *alo at work*.
 - **Typing works the moment alo opens.** The box at the centre of a new
   window, and of every new chat, now has the keyboard with its caret
   blinking, so what you type goes straight into it — no click first. ⌘T,

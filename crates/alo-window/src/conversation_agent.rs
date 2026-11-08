@@ -35,7 +35,8 @@
 //!
 //! # Its limits
 //!
-//! At most [`MOST_STEPS`] verbs, and [`MOST_TOKENS`] tokens as `OpenAI`'s
+//! At most [`Limits::actions`] steps — [`MOST_STEPS`] unless the person set
+//! otherwise — and [`MOST_TOKENS`] tokens as `OpenAI`'s
 //! `usage` counts them; [`PATIENCE`] for each answer of the model's and
 //! [`VERB_PATIENCE`] for each of the page's. Past any, the run stops and
 //! says which.
@@ -82,12 +83,37 @@
 //! read off the page by the browser process ([`crate::agent_paying`],
 //! queue item 826), and pressed only after *Pay* — and only if the page,
 //! read again, would ask exactly the same, amount and all.
+//!
+//! # Beginning with no page, and another site
+//!
+//! With no page open (queue item 821, ADR 0103) the model is sent none and
+//! begins with two more steps: `search`, asked through the box's own search
+//! ([`crate::brave_search::search`]), its sites told to the model as words
+//! ([`crate::agent_found`]); and `open`, a result by its number or an
+//! address, judged by the browser process ([`crate::agent_opening`]) —
+//! opened as if the person had, asked of them first, or refused, and at
+//! most [`Limits::sites`] sites a run. A page it opens is opened by the
+//! window ([`Said::Opening`]) as a card, through the road a person's
+//! address takes; once the card is up ([`Run::opened`]) the run reads it
+//! through the relay as any page. A page it reaches that asks the person
+//! to sign in ([`crate::agent_signin`]) — or that refuses it a password —
+//! hands the page over ([`Said::SignIn`]), as taking it over does, until
+//! *Let alo continue*.
+//!
+//! # Its limits, the person's
+//!
+//! How many actions a run takes and how many sites it opens, and whether
+//! it asks before every site, are the person's ([`Limits`], queue item
+//! 878), read by the window as the run starts and kept for the whole run.
 
 use crate::agent_changes::{self, Reached};
+use crate::agent_found::FoundSites;
 use crate::agent_gate::{self, Question};
+use crate::agent_opening::{self, Against, Judged, Visited};
 use crate::agent_page;
-use crate::agent_protocol::{self, Asking, Call, PERSON, Taken};
+use crate::agent_protocol::{self, Asking, Begin, Call, PERSON, Taken};
 use crate::agent_record::Caller;
+use crate::agent_sites::AgentSites;
 use crate::answer_protocol::Spent;
 use crate::asking::{Answer, Ask, Refused};
 use crate::inbox::Orders;
@@ -97,17 +123,26 @@ use alo_agent::{Outcome, Target, Verb};
 use alo_box::BoxId;
 use alo_net::Pool;
 use alo_net::cause::Identities;
+use alo_net::resolve::{Reach, Resolver, Unresolved};
 use alo_renderer::Snapshot;
+use alo_renderer::agent_limits::Limits;
 use alo_renderer::agent_paying::Paying;
 use alo_renderer::agent_plan::Plan;
+use alo_url::Url;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender, channel};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
-/// The most verbs one run carries out before it stops.
-pub const MOST_STEPS: usize = 20;
+/// The most steps one run takes before it stops unless the person set
+/// otherwise (queue item 878): ADR 0096 § 4's twenty.
+pub const MOST_STEPS: usize = alo_renderer::agent_limits::DEFAULT_ACTIONS as usize;
+
+/// What the model is told of a step of the person's after a page asked
+/// them to sign in (queue item 821).
+pub const SIGNED_IN: &str = "The page asked the person to sign in, and alo handed it to them; \
+they let alo continue";
 
 /// The most tokens one run spends, sent and written, as `OpenAI` counts
 /// them.
@@ -196,6 +231,20 @@ pub enum Said {
     },
     /// What one step cost, as `OpenAI` counted it: said on the terminal.
     Spent(Spent),
+    /// It opens the page at `url` (queue item 821): the window opens it as
+    /// a card answering `said`, the run moved onto it, and says when it is
+    /// up ([`Run::opened`]) or why it could not be opened
+    /// ([`Run::unopened`]).
+    Opening {
+        /// Where: boxed, as few runs open a page and every word a run says
+        /// is carried in a `Said`.
+        url: Box<Url>,
+        /// What the card's bubble says.
+        said: String,
+    },
+    /// The page it reached asks the person to sign in (queue item 821): it
+    /// is handed over, and the run held, until *Let alo continue*.
+    SignIn,
 }
 
 impl Said {
@@ -212,7 +261,7 @@ impl Said {
 pub type TellAgent = Arc<dyn Fn(AgentSaid) -> bool + Send + Sync>;
 
 /// What a person answered a question with.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum Person {
     /// *Allow*, for the question numbered so.
     Allow(u64),
@@ -220,16 +269,48 @@ enum Person {
     NotNow(u64),
     /// *Let alo continue*, once the page was the person's (queue item 825).
     Continue,
+    /// The page the run asked to open is up as a card (queue item 821).
+    Opened,
+    /// It could not be opened, and why.
+    Unopened(String),
+}
+
+/// How a name is resolved before a site is opened: the machine's resolver
+/// unless a test says otherwise (queue item 821).
+pub type Resolving = Arc<dyn Fn(&str, u16, Reach) -> Result<(), Unresolved> + Send + Sync>;
+
+/// The machine's resolver, as every request's names are resolved (ADR
+/// 0008).
+fn the_machines(host: &str, port: u16, reach: Reach) -> Result<(), Unresolved> {
+    Resolver::new().resolve(host, port, reach).map(|_| ())
 }
 
 /// The agent, as the window holds it: the model it asks, and the orders it
 /// reaches the card by — the agent socket's own.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Agent {
     provider: Provider,
     orders: Orders,
     /// How long a run is held while the page is the person's.
     most_pause: Duration,
+    /// What a run searches with, the box's own search, if it is set up
+    /// (queue item 821).
+    search: Option<crate::brave_search::Provider>,
+    /// The sites agents are kept to, which a site it opens must be one of.
+    sites: AgentSites,
+    /// How a name is resolved before a site is opened.
+    resolve: Resolving,
+}
+
+impl core::fmt::Debug for Agent {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("Agent")
+            .field("provider", &self.provider)
+            .field("most_pause", &self.most_pause)
+            .field("search", &self.search.is_some())
+            .field("sites", &self.sites)
+            .finish_non_exhaustive()
+    }
 }
 
 impl Agent {
@@ -240,7 +321,37 @@ impl Agent {
             provider,
             orders,
             most_pause: MOST_PAUSE,
+            search: None,
+            sites: AgentSites::Every,
+            resolve: Arc::new(the_machines),
         }
+    }
+
+    /// The same agent, searching with `search` — the box's own provider —
+    /// when a run needs to find a site (queue item 821); none, and a run
+    /// told searching is not set up.
+    #[must_use]
+    pub fn searching_with(mut self, search: Option<crate::brave_search::Provider>) -> Self {
+        self.search = search;
+        self
+    }
+
+    /// The same agent, opening only sites of `sites` — those a person named
+    /// with `--agent-site`, which every agent's ask is kept to.
+    #[must_use]
+    pub fn kept_to(mut self, sites: AgentSites) -> Self {
+        self.sites = sites;
+        self
+    }
+
+    /// The same agent, resolving names with `resolve` rather than the
+    /// machine's resolver: a Rust constructor, for a test that answers
+    /// names itself, as [`Provider::at`] is for one that answers as the
+    /// model.
+    #[must_use]
+    pub fn resolving_with(mut self, resolve: Resolving) -> Self {
+        self.resolve = resolve;
+        self
     }
 
     /// The same agent, a run of it held at most `most` while the page is
@@ -252,12 +363,19 @@ impl Agent {
     }
 
     /// Start run `run` of the agent on what the person `asked`, telling the
-    /// window with `tell`. Returns at once.
+    /// window with `tell`, kept for the whole run to `limits` — the
+    /// person's, read as it starts (queue item 878). Returns at once.
     ///
     /// # Errors
     ///
     /// What the system said when no thread could be started.
-    pub fn start(&self, run: u64, asked: String, tell: TellAgent) -> std::io::Result<Run> {
+    pub fn start(
+        &self,
+        run: u64,
+        asked: String,
+        tell: TellAgent,
+        limits: Limits,
+    ) -> std::io::Result<Run> {
         let stopped = Arc::new(AtomicBool::new(false));
         let paused = Arc::new(AtomicBool::new(false));
         let (person, answers) = channel();
@@ -275,6 +393,11 @@ impl Agent {
             spent: Spent::default(),
             questions: 0,
             identities: Identities::default(),
+            limits,
+            found: FoundSites::default(),
+            visited: Visited::default(),
+            had_page: false,
+            signing_in: false,
         };
         let thread = std::thread::Builder::new()
             .name("alo-conversation-agent".to_owned())
@@ -335,6 +458,16 @@ impl Run {
         let _ = self.person.send(Person::NotNow(question));
     }
 
+    /// The page it asked to open is up as a card (queue item 821).
+    pub fn opened(&self) {
+        let _ = self.person.send(Person::Opened);
+    }
+
+    /// The page it asked to open could not be opened, for `why`.
+    pub fn unopened(&self, why: String) {
+        let _ = self.person.send(Person::Unopened(why));
+    }
+
     /// Stop it and wait for its thread: whether it ended rather than
     /// panicked.
     pub fn finish(mut self) -> bool {
@@ -371,6 +504,18 @@ struct Running {
     spent: Spent,
     questions: u64,
     identities: Identities,
+    /// How far it may go, the person's, read as it started (queue item
+    /// 878).
+    limits: Limits,
+    /// What its searches found, by number (queue item 821).
+    found: FoundSites,
+    /// The sites it has been on, and how many it opened.
+    visited: Visited,
+    /// Whether it has read a page: once it has, no page open is a page
+    /// gone.
+    had_page: bool,
+    /// Whether it is held because a page asked the person to sign in.
+    signing_in: bool,
 }
 
 /// Why a run ends where it does: what it says last, or nothing when it was
@@ -436,20 +581,26 @@ impl Running {
             {
                 return ended;
             }
-            if self.verbs() >= MOST_STEPS {
+            let most = usize::from(self.limits.actions);
+            if self.verbs() >= most {
                 return Some(stopped(format!(
-                    "alo stopped after {MOST_STEPS} steps without finishing. Ask again to go on \
+                    "alo stopped after {most} steps without finishing. Ask again to go on \
                      from what the page shows now."
                 )));
             }
-            let (tab, snapshot) = match self.read() {
-                Ok(read) => read,
+            // The page as it is now — or, before any is open, none (queue
+            // item 821).
+            let page = match self.read_if_open() {
+                Ok(page) => page,
                 Err(ended) => match self.held(ended) {
                     Some(ended) => return ended,
                     None => continue,
                 },
             };
-            let call = match self.choose(&mut pool, &tab, &snapshot) {
+            let page = page
+                .as_ref()
+                .map(|(tab, snapshot)| (tab.as_str(), &**snapshot));
+            let call = match self.choose(&mut pool, page) {
                 Ok(call) => call,
                 Err(ended) => match self.held(ended) {
                     Some(ended) => return ended,
@@ -469,6 +620,20 @@ impl Running {
                 } => {
                     self.planned(plan.as_deref(), on);
                     if let Err(ended) = self.act(node, verb, step, why)
+                        && let Some(ended) = self.held(ended)
+                    {
+                        return ended;
+                    }
+                }
+                Call::Begin {
+                    begin,
+                    step,
+                    why,
+                    plan,
+                    on,
+                } => {
+                    self.planned(plan.as_deref(), on);
+                    if let Err(ended) = self.begin(&mut pool, &begin, step, why)
                         && let Some(ended) = self.held(ended)
                     {
                         return ended;
@@ -546,8 +711,13 @@ impl Running {
             ),
             None => "alo had not read the page before the person took it over.".to_owned(),
         };
+        let step = if core::mem::replace(&mut self.signing_in, false) {
+            SIGNED_IN
+        } else {
+            PERSON
+        };
         self.steps.push(Taken {
-            step: PERSON.to_owned(),
+            step: step.to_owned(),
             came_to: changed.clone(),
             person: true,
         });
@@ -598,6 +768,12 @@ impl Running {
         match self.ask(Ask::Read { tab: tab.clone() })? {
             Answer::Tree { snapshot, .. } => {
                 self.left = Some((tab.clone(), (*snapshot).clone()));
+                self.had_page = true;
+                // Where it is now: a site it is on, never counted as one it
+                // opened (queue item 821).
+                if let Ok(url) = alo_url::parse(&tab) {
+                    self.visited.been_on(&url);
+                }
                 Ok((tab, snapshot))
             }
             Answer::Refused(refused) => Err(Some(stopped(format!(
@@ -607,19 +783,36 @@ impl Running {
         }
     }
 
-    /// Ask the model for the next step on the page at `tab`, read as
-    /// `snapshot`.
-    fn choose(&mut self, pool: &mut Pool, tab: &str, snapshot: &Snapshot) -> Result<Call, Ended> {
-        let tree = agent_page::text(snapshot);
+    /// The page as it is now, as [`Running::read`] reads it — or, before
+    /// the run has read any (queue item 821), [`None`] when no page is open.
+    fn read_if_open(&mut self) -> Result<Option<(String, Box<Snapshot>)>, Ended> {
+        if !self.had_page {
+            match self.ask(Ask::Tabs)? {
+                Answer::Tabs(tabs) if tabs.is_empty() => return Ok(None),
+                Answer::Tabs(_) => {}
+                _ => return Ok(None),
+            }
+        }
+        self.read().map(Some)
+    }
+
+    /// Ask the model for the next step on `page` — its address, and its
+    /// tree — or with no page open.
+    fn choose(&mut self, pool: &mut Pool, page: Option<(&str, &Snapshot)>) -> Result<Call, Ended> {
+        let (tab, tree) = page.map_or((String::new(), String::new()), |(tab, snapshot)| {
+            (tab.to_owned(), agent_page::text(snapshot))
+        });
         let body = agent_protocol::request_body(
             self.agent.provider.model(),
             &Asking {
                 asked: &self.asked,
                 plan: self.plan.as_ref(),
-                address: tab,
+                address: &tab,
                 tree: &tree,
                 steps: &self.steps,
-                left: MOST_STEPS.saturating_sub(self.verbs()),
+                left: usize::from(self.limits.actions).saturating_sub(self.verbs()),
+                sites_left: usize::from(self.limits.sites)
+                    .saturating_sub(self.visited.opened_count()),
             },
         );
         let request = self
@@ -706,6 +899,7 @@ impl Running {
             target: Target::Node(node),
             verb,
         })?;
+        let mut went = false;
         let came_to = match &answer {
             Answer::Done { outcome, .. } => {
                 if matches!(
@@ -713,16 +907,22 @@ impl Running {
                     Outcome::Followed { .. } | Outcome::Submitted { .. }
                 ) {
                     std::thread::sleep(SETTLE);
+                    went = true;
                 }
                 outcome.to_string()
             }
+            // The agent trying to sign in (queue item 821): the page is the
+            // person's, as a sign-in page reached is.
             Answer::Refused(Refused::Password { .. }) => {
-                return Err(Some(Said::Stuck {
-                    why: "This page asks for a password, and alo never types one: signing in is \
-                          yours. Sign in on the page, then ask alo again."
+                self.steps.push(Taken {
+                    step: line,
+                    came_to: "The page asked for a password, which alo never types: alo handed \
+                              the page to the person to sign in."
                         .to_owned(),
-                    choices: Vec::new(),
-                }));
+                    person: false,
+                });
+                self.sign_in();
+                return Ok(());
             }
             Answer::Refused(Refused::CardDetails { .. }) => {
                 return Err(Some(Said::Stuck {
@@ -737,7 +937,149 @@ impl Running {
             came_to,
             person: false,
         });
+        // Gone to another page by a link or a form: one that asks the
+        // person to sign in is handed to them (queue item 821).
+        if went {
+            let (_, now) = self.read()?;
+            if crate::agent_signin::asks_to_sign_in(&now) {
+                self.sign_in();
+            }
+        }
         Ok(())
+    }
+
+    /// The page is the person's to sign in on (queue item 821): held, as
+    /// when they take it over, until *Let alo continue*.
+    fn sign_in(&mut self) {
+        self.signing_in = true;
+        self.paused.store(true, Ordering::SeqCst);
+        let _ = self.say(Said::SignIn);
+    }
+
+    /// A step that begins (queue item 821): a search, or a site opened —
+    /// its line said, what came of it told to the model next time.
+    fn begin(
+        &mut self,
+        pool: &mut Pool,
+        begin: &Begin,
+        line: String,
+        why: String,
+    ) -> Result<(), Ended> {
+        let line = if line.is_empty() {
+            match begin {
+                Begin::Search(words) => format!("Searching for \u{201c}{words}\u{201d}"),
+                Begin::Result(number) => format!("Opening result {number}"),
+                Begin::Address(address) => format!("Opening {address}"),
+            }
+        } else {
+            line
+        };
+        if !self.say(Said::Step {
+            line: line.clone(),
+            why,
+            typed: None,
+        }) {
+            return Err(None);
+        }
+        let came_to = match begin {
+            Begin::Search(words) => self.search(pool, words)?,
+            Begin::Result(_) | Begin::Address(_) => self.open(begin)?,
+        };
+        self.steps.push(Taken {
+            step: line,
+            came_to,
+            person: false,
+        });
+        Ok(())
+    }
+
+    /// Search for `words` through the box's own search: what came of it,
+    /// in words, its sites kept by number.
+    fn search(&mut self, pool: &mut Pool, words: &str) -> Result<String, Ended> {
+        if self.is_halted() {
+            return Err(None);
+        }
+        let Some(provider) = self.agent.search.clone() else {
+            return Ok(
+                "alo cannot search: searching is not set up in this browser. Open a site by \
+                 its address instead."
+                    .to_owned(),
+            );
+        };
+        let answered = crate::brave_search::search(&provider, pool, &mut self.identities, words);
+        if self.is_halted() {
+            return Err(None);
+        }
+        Ok(self.found.searched(words, answered.showing))
+    }
+
+    /// Open what `begin` names, once the browser process's judgement
+    /// (`crate::agent_opening`) lets it — and the person, when it asks
+    /// them: what came of it, in words.
+    fn open(&mut self, begin: &Begin) -> Result<String, Ended> {
+        let resolve = Arc::clone(&self.agent.resolve);
+        let mut resolving = move |host: &str, port: u16, reach: Reach| resolve(host, port, reach);
+        let judged = agent_opening::judge(
+            begin,
+            &Against {
+                asked: &self.asked,
+                found: &self.found,
+                visited: &self.visited,
+                limits: self.limits,
+                agent_sites: &self.agent.sites,
+            },
+            &mut resolving,
+        );
+        let (url, said) = match judged {
+            Judged::Refused(why) => return Ok(format!("Not opened: {why}.")),
+            Judged::Ask { url, said, what } => {
+                let host = alo_url::reading::host(&url);
+                self.wait_for_the_person(&what, None, &format!("alo did not open {host}."))?;
+                let _ = self.say(Said::Allowed);
+                (url, said)
+            }
+            Judged::Open { url, said } => (url, said),
+        };
+        if self.is_halted() {
+            return Err(None);
+        }
+        if !self.say(Said::Opening {
+            url: Box::new(url.clone()),
+            said,
+        }) {
+            return Err(None);
+        }
+        let since = Instant::now();
+        loop {
+            if self.is_halted() {
+                return Err(None);
+            }
+            if since.elapsed() >= VERB_PATIENCE {
+                return Err(Some(stopped(format!(
+                    "alo stopped: the page did not open within {} seconds.",
+                    VERB_PATIENCE.as_secs()
+                ))));
+            }
+            match self.answers.recv_timeout(LOOK) {
+                Ok(Person::Opened) => break,
+                Ok(Person::Unopened(why)) => {
+                    return Ok(format!("{} could not be opened: {why}", url.serialised));
+                }
+                // An answer to a question no longer asked answers nothing.
+                Ok(_) | Err(RecvTimeoutError::Timeout) => {}
+                Err(RecvTimeoutError::Disconnected) => return Err(None),
+            }
+        }
+        self.visited.opened(&url);
+        // Given the time a page takes to arrive before it is read.
+        std::thread::sleep(SETTLE * 2);
+        let (at, now) = self.read()?;
+        if crate::agent_signin::asks_to_sign_in(&now) {
+            self.sign_in();
+        }
+        Ok(format!(
+            "Opened {at}: it is the page you are given now, a card in the person's conversation."
+        ))
     }
 
     /// Ask the person `what`, and wait for their answer: go on after
@@ -751,38 +1093,10 @@ impl Running {
         host: &str,
     ) -> Result<(), Ended> {
         let what = asked.what.as_str();
-        self.questions += 1;
-        let question = self.questions;
-        if !self.say(Said::Asking {
-            question,
-            what: what.to_owned(),
-            paying: asked.paying.clone(),
-        }) {
-            return Err(None);
-        }
-        loop {
-            // Stopped, or the page taken over: the question is dropped.
-            if self.is_halted() {
-                return Err(None);
-            }
-            match self.answers.recv_timeout(LOOK) {
-                Ok(Person::Allow(answered)) if answered == question => break,
-                Ok(Person::NotNow(answered)) if answered == question => {
-                    return Err(Some(stopped(format!(
-                        "Not done: you said not now. {}",
-                        what.split('?')
-                            .next()
-                            .map_or(String::new(), |asked| format!(
-                                "alo did not {}.",
-                                lowered(asked)
-                            ))
-                    ))));
-                }
-                // An answer to another question is no answer to this one.
-                Ok(_) | Err(RecvTimeoutError::Timeout) => {}
-                Err(RecvTimeoutError::Disconnected) => return Err(None),
-            }
-        }
+        let not_done = what.split('?').next().map_or(String::new(), |asked| {
+            format!("alo did not {}.", lowered(asked))
+        });
+        self.wait_for_the_person(what, asked.paying.clone(), &not_done)?;
         // Allowed: only what the person was shown. The page is read again,
         // and a page that would now be asked something else — the button
         // renamed, gone — is not pressed.
@@ -798,6 +1112,45 @@ impl Running {
         }
         let _ = self.say(Said::Allowed);
         Ok(())
+    }
+}
+
+impl Running {
+    /// Ask the person `what` — paying `paying`, when it pays — and wait for
+    /// their answer: [`Ok`] once allowed; ended, saying `not_done`, after
+    /// *Not now*, or once stopped or taken over.
+    fn wait_for_the_person(
+        &mut self,
+        what: &str,
+        paying: Option<Paying>,
+        not_done: &str,
+    ) -> Result<(), Ended> {
+        self.questions += 1;
+        let question = self.questions;
+        if !self.say(Said::Asking {
+            question,
+            what: what.to_owned(),
+            paying,
+        }) {
+            return Err(None);
+        }
+        loop {
+            // Stopped, or the page taken over: the question is dropped.
+            if self.is_halted() {
+                return Err(None);
+            }
+            match self.answers.recv_timeout(LOOK) {
+                Ok(Person::Allow(answered)) if answered == question => return Ok(()),
+                Ok(Person::NotNow(answered)) if answered == question => {
+                    return Err(Some(stopped(format!(
+                        "Not done: you said not now. {not_done}"
+                    ))));
+                }
+                // An answer to another question is no answer to this one.
+                Ok(_) | Err(RecvTimeoutError::Timeout) => {}
+                Err(RecvTimeoutError::Disconnected) => return Err(None),
+            }
+        }
     }
 }
 
@@ -1041,7 +1394,9 @@ mod tests {
         let agent = agent(provider, orders);
         let (tell, heard) = channel();
         let tell: TellAgent = Arc::new(move |said: AgentSaid| tell.send(said).is_ok());
-        let running = agent.start(1, "send my name".to_owned(), tell).unwrap();
+        let running = agent
+            .start(1, "send my name".to_owned(), tell, Limits::default())
+            .unwrap();
         let mut said: Vec<Said> = Vec::new();
         let by = Instant::now() + Duration::from_secs(30);
         let mut quiet = Instant::now();
@@ -1432,6 +1787,363 @@ mod tests {
             "alo stopped: the page was yours for 10 minutes. Ask again to go on from what the \
              page shows now."
         );
+    }
+
+    /// Where a fake world's one card is, if one is open: no page until the
+    /// run's own open is answered (queue item 821).
+    type OpenAt = Arc<Mutex<Option<String>>>;
+
+    /// A card's thread answering as [`card_of`] does, but with no tab until
+    /// `open_at` holds one, and then that tab.
+    fn world_of(shown: Shown, open_at: OpenAt) -> (Orders, Acted) {
+        let (orders, _, inbox) = inbox::inbox();
+        let acted = Arc::new(Mutex::new(Vec::new()));
+        let kept = Arc::clone(&acted);
+        std::thread::spawn(move || {
+            while let Ok(Arrival::Order(Order::Agent { ask, reply, .. })) = inbox.recv() {
+                let at = open_at.lock().map(|at| at.clone()).unwrap_or_default();
+                let answer = match (ask, at) {
+                    (Ok(Ask::Tabs), at) => Answer::Tabs(at.into_iter().collect()),
+                    (Ok(Ask::Read { tab }), Some(_)) => Answer::Tree {
+                        tab,
+                        snapshot: Box::new(
+                            shown.lock().map(|page| page.clone()).unwrap_or_default(),
+                        ),
+                    },
+                    (Ok(Ask::Act { tab, target, verb }), Some(_)) => {
+                        if let Ok(mut acted) = kept.lock() {
+                            acted.push((target.clone(), verb.clone()));
+                        }
+                        let Target::Node(node) = target else {
+                            return;
+                        };
+                        Answer::Done {
+                            tab,
+                            outcome: Outcome::Activated { node, name: None },
+                            issues: Vec::new(),
+                        }
+                    }
+                    (Ok(Ask::Read { tab } | Ask::Act { tab, .. }), None) => {
+                        Answer::Refused(Refused::NoSuchTab { tab })
+                    }
+                    _ => return,
+                };
+                let _ = reply.send(answer);
+            }
+        });
+        (orders, acted)
+    }
+
+    /// Brave Search's answer, written by hand in its shape, finding the
+    /// Uganda Museum, a page on this machine and Visit Uganda.
+    const FOUND: &str = r#"{"type":"search","web":{"type":"search","results":[{"title":"Uganda Museum","url":"https://ugandamuseum.go.ug/","description":"Open daily from 10."},{"title":"A page here","url":"http://192.168.1.20/","description":""},{"title":"Visit Uganda","url":"https://visit.example/museum","description":""}]}}"#;
+
+    /// What a run begun with no page came to, as [`run_on`] gives it, and
+    /// the addresses the window was asked to open, and the searches asked.
+    struct Begun {
+        said: Vec<Said>,
+        acted: Vec<(Target, Verb)>,
+        bodies: Vec<String>,
+        opened: Vec<String>,
+        searched: Vec<String>,
+    }
+
+    /// Run the agent with no page open on what the person `asked`, the
+    /// model answering `script`, a search answering [`FOUND`], kept to
+    /// `limits`; the page it opens is `shown`, and `person` answers each
+    /// question.
+    fn begun(
+        asked: &str,
+        script: Vec<(u16, String)>,
+        shown: Snapshot,
+        limits: Limits,
+        person: impl Fn(&Run, u64) + Send + 'static,
+    ) -> Begun {
+        let open_at: OpenAt = Arc::new(Mutex::new(None));
+        let (orders, acted) = world_of(Arc::new(Mutex::new(shown)), Arc::clone(&open_at));
+        let (endpoint, bodies) = model(script);
+        let (search_at, searched) = model(vec![(200, FOUND.to_owned()); 4]);
+        let provider = Provider::at(&endpoint, Key::of("test-key-not-real").unwrap()).unwrap();
+        let search = crate::brave_search::Provider::at(
+            &search_at.replace("/v1/responses", "/res/v1/web/search"),
+            Key::of("search-key-not-real").unwrap(),
+        )
+        .unwrap();
+        // Names resolve to a public address but this test's own.
+        let agent = Agent::new(provider, orders)
+            .searching_with(Some(search))
+            .resolving_with(Arc::new(|_: &str, _: u16, _: Reach| Ok(())));
+        let (tell, heard) = channel();
+        let tell: TellAgent = Arc::new(move |said: AgentSaid| tell.send(said).is_ok());
+        let running = agent.start(1, asked.to_owned(), tell, limits).unwrap();
+        let mut said: Vec<Said> = Vec::new();
+        let mut opened = Vec::new();
+        let by = Instant::now() + Duration::from_secs(40);
+        while Instant::now() < by {
+            let Ok(heard) = heard.recv_timeout(Duration::from_millis(200)) else {
+                continue;
+            };
+            match &heard.said {
+                // The window opens it as a card, and says it is up.
+                Said::Opening { url, .. } => {
+                    opened.push(url.serialised.clone());
+                    if let Ok(mut at) = open_at.lock() {
+                        *at = Some(url.serialised.clone());
+                    }
+                    running.opened();
+                }
+                Said::Asking { question, .. } => person(&running, *question),
+                // The person signs in, and lets alo continue.
+                Said::SignIn => running.carry_on(),
+                _ => {}
+            }
+            let ends = heard.said.ends();
+            said.push(heard.said);
+            if ends {
+                break;
+            }
+        }
+        assert!(running.finish());
+        let take = |kept: &Arc<Mutex<Vec<String>>>| {
+            kept.lock().map(|kept| kept.clone()).unwrap_or_default()
+        };
+        Begun {
+            said,
+            acted: acted.lock().map(|acted| acted.clone()).unwrap_or_default(),
+            bodies: take(&bodies),
+            opened,
+            searched: take(&searched),
+        }
+    }
+
+    #[test]
+    fn with_no_page_it_searches_opens_a_result_with_no_question_and_works_on_it() {
+        // Queue item 821.
+        let ran = begun(
+            "find the opening hours of the Uganda Museum",
+            vec![
+                calling(
+                    "search",
+                    r#"{"words":"Uganda Museum opening hours","step":"Searching for the museum","why":"","plan":["Find the museum's site","Read its hours"],"on":1}"#,
+                ),
+                calling(
+                    "open",
+                    r#"{"result":1,"address":null,"step":"Opening the Uganda Museum's site","why":"","plan":null,"on":1}"#,
+                ),
+                calling("done", r#"{"result":"It opens daily from 10."}"#),
+            ],
+            page(),
+            Limits::default(),
+            |_, _| panic!("a search's result is opened with no question"),
+        );
+        assert_eq!(
+            steps_of(&ran.said),
+            [
+                "Searching for the museum",
+                "Opening the Uganda Museum's site"
+            ]
+        );
+        assert_eq!(ran.opened, ["https://ugandamuseum.go.ug/"]);
+        assert_eq!(ran.searched.len(), 1, "one search");
+        assert!(ran.acted.is_empty());
+        assert!(
+            matches!(ran.said.last(), Some(Said::Done { .. })),
+            "{:?}",
+            ran.said
+        );
+        // No page sent at first; the results as words; then the page.
+        assert!(
+            ran.bodies[0].contains(r#"\"page\":null"#),
+            "{}",
+            ran.bodies[0]
+        );
+        assert!(
+            ran.bodies[0].contains(r#"\"sites_left\":3"#),
+            "{}",
+            ran.bodies[0]
+        );
+        assert!(
+            ran.bodies[1].contains("1. Uganda Museum \u{2014} https://ugandamuseum.go.ug/"),
+            "{}",
+            ran.bodies[1]
+        );
+        assert!(
+            ran.bodies[2].contains(r#"\"address\":\"https://ugandamuseum.go.ug/\""#),
+            "{}",
+            ran.bodies[2]
+        );
+        assert!(
+            ran.bodies[2].contains(r#"\"sites_left\":2"#),
+            "{}",
+            ran.bodies[2]
+        );
+    }
+
+    #[test]
+    fn a_site_neither_found_nor_named_is_asked_and_not_now_opens_nothing() {
+        let ran = begun(
+            "find the opening hours of the Uganda Museum",
+            vec![calling(
+                "open",
+                r#"{"result":null,"address":"wikipedia.org","step":"Opening Wikipedia","why":"","plan":null,"on":1}"#,
+            )],
+            page(),
+            Limits::default(),
+            Run::not_now,
+        );
+        assert!(ran.opened.is_empty(), "{:?}", ran.opened);
+        assert!(
+            ran.said.contains(&Said::Asking {
+                question: 1,
+                what: "alo wants to open wikipedia.org. It is not a site a search found or one \
+                       you named."
+                    .to_owned(),
+                paying: None,
+            }),
+            "{:?}",
+            ran.said
+        );
+        assert_eq!(
+            ran.said.last(),
+            Some(&Said::Stopped {
+                why: "Not done: you said not now. alo did not open wikipedia.org.".to_owned()
+            })
+        );
+        assert_eq!(ran.bodies.len(), 1, "the model is not asked again");
+    }
+
+    #[test]
+    fn this_machines_address_is_refused_unless_named_and_the_sites_are_counted() {
+        // A result on this machine's network is refused, the model told.
+        let ran = begun(
+            "find the museum",
+            vec![
+                calling(
+                    "search",
+                    r#"{"words":"museum","step":"","why":"","plan":null,"on":1}"#,
+                ),
+                calling(
+                    "open",
+                    r#"{"result":2,"address":null,"step":"","why":"","plan":null,"on":1}"#,
+                ),
+                calling(
+                    "open",
+                    r#"{"result":null,"address":"localhost:8080","step":"","why":"","plan":null,"on":1}"#,
+                ),
+                calling("stuck", r#"{"why":"Nothing to open.","choices":[]}"#),
+            ],
+            page(),
+            Limits::default(),
+            |_, _| panic!("nothing is asked"),
+        );
+        assert!(ran.opened.is_empty(), "{:?}", ran.opened);
+        for body in &ran.bodies[2..4] {
+            assert!(body.contains("on this machine or its network"), "{body}");
+        }
+        // Named by the person, it opens; and a second site past a limit of
+        // one is refused.
+        let one = Limits::checked(1, 20, alo_renderer::agent_limits::Asks::Unnamed).unwrap();
+        let ran = begun(
+            "read 127.0.0.1:8080/page.html, then the museum",
+            vec![
+                calling(
+                    "open",
+                    r#"{"result":null,"address":"127.0.0.1:8080/page.html","step":"","why":"","plan":null,"on":1}"#,
+                ),
+                calling(
+                    "search",
+                    r#"{"words":"museum","step":"","why":"","plan":null,"on":1}"#,
+                ),
+                calling(
+                    "open",
+                    r#"{"result":1,"address":null,"step":"","why":"","plan":null,"on":1}"#,
+                ),
+                calling("done", r#"{"result":"Read it."}"#),
+            ],
+            page(),
+            one,
+            |_, _| panic!("nothing is asked"),
+        );
+        assert_eq!(ran.opened, ["http://127.0.0.1:8080/page.html"]);
+        assert!(
+            ran.bodies[3].contains("alo has opened the 1 site one task may open"),
+            "{}",
+            ran.bodies[3]
+        );
+    }
+
+    #[test]
+    fn its_limits_are_the_persons_read_as_it_starts() {
+        // Queue item 878: five actions, then it stops.
+        let five = Limits::checked(3, 5, alo_renderer::agent_limits::Asks::Unnamed).unwrap();
+        let script = (0..8)
+            .map(|_| {
+                calling(
+                    "search",
+                    r#"{"words":"museum","step":"Searching","why":"","plan":null,"on":1}"#,
+                )
+            })
+            .collect();
+        let ran = begun("find it", script, page(), five, |_, _| {});
+        assert_eq!(ran.searched.len(), 5, "five searches, one an action each");
+        assert_eq!(steps_of(&ran.said).len(), 5);
+        assert_eq!(
+            ran.said.last(),
+            Some(&Said::Stopped {
+                why: "alo stopped after 5 steps without finishing. Ask again to go on from \
+                      what the page shows now."
+                    .to_owned()
+            })
+        );
+        // Asking before every site: even a search's result is asked.
+        let every = Limits::checked(3, 20, alo_renderer::agent_limits::Asks::Every).unwrap();
+        let ran = begun(
+            "find it",
+            vec![
+                calling(
+                    "search",
+                    r#"{"words":"museum","step":"","why":"","plan":null,"on":1}"#,
+                ),
+                calling(
+                    "open",
+                    r#"{"result":1,"address":null,"step":"","why":"","plan":null,"on":1}"#,
+                ),
+                calling("done", r#"{"result":"Opened."}"#),
+            ],
+            page(),
+            every,
+            Run::allow,
+        );
+        assert!(ran.said.iter().any(|said| matches!(said, Said::Asking { what, .. } if what == "alo wants to open ugandamuseum.go.ug.")));
+        assert_eq!(ran.opened, ["https://ugandamuseum.go.ug/"]);
+    }
+
+    #[test]
+    fn a_sign_in_page_reached_hands_the_page_over_and_it_carries_on() {
+        let mut signing_in = page();
+        if let Some(root) = signing_in.root.as_mut() {
+            let mut field = node(30, KnownRole::TextBox, Some("Password"), Vec::new());
+            field.states.takes_text = true;
+            root.children.push(field);
+        }
+        let ran = begun(
+            "read my orders on shop.example",
+            vec![
+                calling(
+                    "open",
+                    r#"{"result":null,"address":"shop.example/orders","step":"Opening the shop","why":"","plan":null,"on":1}"#,
+                ),
+                calling("done", r#"{"result":"Read them."}"#),
+            ],
+            signing_in,
+            Limits::default(),
+            |_, _| panic!("a site named is opened with no question"),
+        );
+        assert_eq!(ran.opened, ["https://shop.example/orders"]);
+        assert!(ran.said.contains(&Said::SignIn), "{:?}", ran.said);
+        assert!(matches!(ran.said.last(), Some(Said::Done { .. })));
+        // The model told, as a step of the person's.
+        assert!(ran.bodies[1].contains(SIGNED_IN), "{}", ran.bodies[1]);
     }
 
     #[test]

@@ -1,6 +1,6 @@
 # ADR 0096 — alo's own agent runs in the browser process, through the same road as any agent
 
-**Status:** accepted — built by queue item 704 (1 November 2026); amended by item 819 (the split view, below), and by items 824, 825 and 826 (its plan, taking over and carrying on, a payment's details and a card's — 7 November 2026, below; ADR 0099)
+**Status:** accepted — built by queue item 704 (1 November 2026); amended by item 819 (the split view, below), by items 824, 825 and 826 (its plan, taking over and carrying on, a payment's details and a card's — 7 November 2026, below; ADR 0099), and by items 821 and 878 (beginning with no page, a sign-in page handed over, and its limits the person's — 8 November 2026, below; ADR 0103)
 **Date:** 2026-11-01
 **Context:** ADR 0002 (the layout tree is the agent's tree; no verb takes a
 coordinate; no screenshot to the agent); ADR 0052 (the agent's gate and the
@@ -203,15 +203,16 @@ first*, and with no key why, as the answer does.
   and drawn under the page's line once it is shown earlier. Chrome's
   inspector highlight over a card is gone too (item 822, ADR 0066's
   amendment).
-- **An agent that opens its own page**: alo works only on the page open as
-  a card — item 821.
+- ~~**An agent that opens its own page**~~ — built 8 November 2026 (items
+  821 and 878, ADR 0103, the third amendment below).
 - ~~**Taking over and carrying on**~~ — built 7 November 2026 (item 825,
   below).
 - ~~**What, when, where and how much** in a payment's question~~ — built 7
   November 2026 as the amount, the merchant and the page's own summary
   lines, with *Pay* (item 826, below, and ADR 0099).
-- **Settings for what alo may do** — item 705; **the record read back** —
-  item 678.
+- **Settings for what alo may do** — how far a run goes is the person's
+  since item 878 (ADR 0103 § 4); the rest is item 705; **the record read
+  back** — item 678.
 
 ## Amendment — 1 November 2026: the split view (item 819)
 
@@ -305,3 +306,38 @@ not change.
 - **Kept** (ADR 0092): each run's plan as it last stood, scrubbed as its
   lines are; nothing of a payment's details.
 
+
+## Amendment — 8 November 2026: beginning with no page, a sign-in page handed over, and its limits the person's (items 821, 878; ADR 0103)
+
+The owner's design of 8 November 2026, approved in full (queue item 821,
+`docs/design/shell.md`, *Beginning with no page*). Decided in **ADR
+0103**; what changes here:
+
+- **§ 1, the road**: unchanged for reading and acting. A site the agent
+  opens is opened by the window through the road a person's address takes
+  — never by the run itself — and read through the relay once its card is
+  up.
+- **§ 2, its tools**: two more that begin, `search` (the box's own search,
+  its sites told as words) and `open` (a result's number or an address),
+  each with `step`, `why`, `plan` and `on`; neither takes a position.
+  Whether a site is opened, asked first or refused is the browser
+  process's (ADR 0103 § 2), never the model's.
+- **§ 3, what is sent**: `"page": null` while no page is open, and
+  `sites_left` with every request; a search's sites, as words, in the
+  step's outcome.
+- **§ 4, its limits**: the steps a run takes and the sites it opens are the
+  person's, read as it starts (ADR 0103 § 4): 20 and 3 unless set; the
+  token limit is unchanged.
+- **§ 5, the person's gate**: also asks *alo wants to open …* before a
+  site neither found nor named (or any site, when the person set so);
+  *Not now* ends the run, as for a press.
+- **§ 6, never a password**: the card still refuses a password for every
+  agent; met by alo's agent, the page is **handed to the person to sign
+  in** — held as when they take it over, with *Let alo continue* — rather
+  than the run ending stuck; and so is a page it reaches that shows a
+  password field (ADR 0103 § 3).
+- **§ 7, what the person sees**: with no page, the box's second line is
+  *Ask alo to do it* — *alo finds the site and works on it*; the run stands
+  in a turn of its own, its working line *alo is finding the site to work
+  on*, until the page it opens arrives as a card and the run moves onto
+  it.

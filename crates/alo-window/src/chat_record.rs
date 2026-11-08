@@ -24,6 +24,9 @@
 //!   typed that the person did not say (`crate::agent_kept`); a run still
 //!   at work is written as alo closing stops it.
 //! - **A page that could not be opened** — what was said, and why not.
+//! - **alo asked with no page open** (queue item 821) that opened none —
+//!   what was asked and its one run, as a page's runs are kept; read back
+//!   as kept, never at work.
 //!
 //! - **A search's answer** (queue item 814), in words: a written one's
 //!   line, sentences and points, each with the numbers of the sites it
@@ -62,6 +65,7 @@
 //! one is the provider's to say, and more than [`MOST_SITES`] are not read.
 //! Nothing read asks anything of the network.
 
+use alo_renderer::agent_asked::Asked as AskedWithNoPage;
 use alo_renderer::agent_plan::Plan;
 use alo_renderer::agent_ran::{Ended, MOST_RUNS, Ran};
 use alo_renderer::agent_work::{MOST_STEPS, Step};
@@ -141,6 +145,15 @@ fn turn(turn: &Turn) -> Value {
             object([
                 ("said", Value::from(said.as_str())),
                 ("why", Value::from(why.as_str())),
+            ]),
+        )]),
+        // alo asked with no page open (queue item 821): its run, kept as a
+        // page's are.
+        Turn::Asked(asked) => object([(
+            "asked",
+            object([
+                ("said", Value::from(asked.said.as_str())),
+                ("ran", asked.ran.iter().map(run).collect()),
             ]),
         )]),
     }
@@ -423,6 +436,20 @@ fn read_turn(value: &Value) -> Result<Turn, Unread> {
             said: text(failed, "said")?,
             why: text(failed, "why")?,
         });
+    }
+    if let Some(Value::Object(asked)) = turn.get("asked") {
+        let ran = read_runs(asked)?;
+        if ran.len() > 1 {
+            return Err(Unread(format!(
+                "it holds {} runs for one turn asked with no page, which holds one",
+                ran.len()
+            )));
+        }
+        return Ok(Turn::Asked(AskedWithNoPage {
+            said: text(asked, "said")?,
+            agent: None,
+            ran,
+        }));
     }
     Err(Unread(
         "it is no kind of turn this browser keeps".to_owned(),
@@ -1111,6 +1138,42 @@ mod tests {
         assert!(
             matches!(read(before.as_bytes()).expect("read").turns.first(), Some(Turn::Visited { ran, .. }) if ran.is_empty())
         );
+    }
+
+    #[test]
+    fn a_run_asked_with_no_page_is_kept_and_read_back_not_at_work() {
+        // Queue item 821.
+        let mut ran = runs().remove(0);
+        ran.asked = "find the Uganda Museum's hours".to_owned();
+        let asked = AskedWithNoPage {
+            said: "find the Uganda Museum's hours".to_owned(),
+            agent: Some(alo_renderer::agent_work::AtWork::starting("x")),
+            ran: vec![ran.clone()],
+        };
+        let text = write("x", &[Turn::Asked(asked)]);
+        assert!(
+            text.contains("\"asked\":{\"ran\":[{\"asked\":\"find the Uganda Museum's hours\""),
+            "{text}"
+        );
+        let kept = read(text.as_bytes()).expect("read");
+        assert_eq!(
+            kept.turns,
+            vec![Turn::Asked(AskedWithNoPage {
+                said: "find the Uganda Museum's hours".to_owned(),
+                agent: None,
+                ran: vec![ran.clone()],
+            })]
+        );
+        assert_eq!(write("x", &kept.turns), text);
+        let two = write(
+            "x",
+            &[Turn::Asked(AskedWithNoPage {
+                said: "s".to_owned(),
+                agent: None,
+                ran: vec![ran.clone(), ran],
+            })],
+        );
+        assert!(matches!(read(two.as_bytes()), Err(Unread(why)) if why.contains("2 runs")));
     }
 
     #[test]

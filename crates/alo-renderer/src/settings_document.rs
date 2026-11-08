@@ -8,11 +8,12 @@
 //!
 //! The screen's `main` loses the greeting, the box and the groups, and
 //! holds the template's `<template id="settings">` instead: *Back to the
-//! chat*, the page's heading, and one section, **Font** — a radio group
+//! chat*, the page's heading, and two sections: **Font** — a radio group
 //! named *Font* holding a radio for each face a person may set the
 //! interface's words in ([`InterfaceFace::ALL`]), each named by the face
 //! and checked when it is the one chosen ([`Start::face`]) — an `<input
-//! type=radio>`, drawn as Chrome draws one, in the ink.
+//! type=radio>`, drawn as Chrome draws one, in the ink — and, under it,
+//! **alo at work** (queue item 878, [`crate::settings_work_document`]).
 //!
 //! # Each face shown as it would be
 //!
@@ -111,6 +112,9 @@ pub fn put(document: &mut Document, start: &Start) -> Result<(), Unbuilt> {
         let radio = make_face(document, face, chosen, chosen && font)?;
         append(document, faces, radio)?;
     }
+    // *alo at work*, under *Font* (queue item 878).
+    let work = crate::settings_work_document::make(document, start.limits, start.settings_keyed)?;
+    append(document, page, work)?;
     Ok(())
 }
 
@@ -264,7 +268,7 @@ mod tests {
         let of = |node, name| document.attribute_by_name(node, name).map(str::to_owned);
         let radios: Vec<(Option<String>, bool)> = document
             .descendants(document.root())
-            .filter(|&node| of(node, "type").as_deref() == Some("radio"))
+            .filter(|&node| of(node, "name").as_deref() == Some("face"))
             .map(|node| (of(node, "aria-label"), of(node, "checked").is_some()))
             .collect();
         assert_eq!(

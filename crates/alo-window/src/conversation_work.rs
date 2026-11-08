@@ -9,12 +9,14 @@
 //! live card ([`alo_renderer::card::Card::agent`]) for the first screen to
 //! draw.
 //!
-//! # Set up only on a card
+//! # On a card, or with no page open
 //!
-//! The agent works on the page open as a card, and nowhere else in this
-//! cut: asking alo is set up while a card is open and the model can be
-//! asked, and says why not otherwise — no key, or no page open (an agent
-//! that opens its own page is queue item 821).
+//! Asking alo is set up while the model can be asked, and says why not
+//! otherwise — no key. With a card open the run works on its page; with
+//! none (queue item 821) it is held in a turn of its own,
+//! [`alo_renderer::agent_asked::Asked`], until it opens a page — and then
+//! on that page's card, moved there as the conversation opens it. Either
+//! holds a run the same way ([`Holds`]).
 //!
 //! # A run's words, kept to its card
 //!
@@ -45,6 +47,7 @@
 
 use crate::agent_kept::{self, Heard};
 use crate::conversation_agent::{AgentSaid, Said};
+use alo_renderer::agent_asked::Asked;
 use alo_renderer::agent_plan::Plan;
 use alo_renderer::agent_ran::{Ended, MOST_RUNS, Ran};
 use alo_renderer::agent_work::{AtWork, MOST_STEPS, Now, Step};
@@ -55,8 +58,44 @@ use alo_renderer::results::SetUp;
 /// work.
 pub const REPLACED: &str = "You asked alo something else, so it stopped.";
 
-/// What a person is told when asking alo needs a page open.
-pub const NO_PAGE: &str = "open a page first: alo works on the page open in the conversation";
+/// What holds a run of the agent: the live card, or a turn asked with no
+/// page open (queue item 821).
+pub trait Holds {
+    /// The agent at work there, if it is.
+    fn agent(&self) -> Option<&AtWork>;
+    /// The same, to change.
+    fn agent_mut(&mut self) -> &mut Option<AtWork>;
+    /// The runs kept there, oldest first.
+    fn ran_mut(&mut self) -> &mut Vec<Ran>;
+}
+
+impl Holds for Card {
+    fn agent(&self) -> Option<&AtWork> {
+        self.agent.as_ref()
+    }
+
+    fn agent_mut(&mut self) -> &mut Option<AtWork> {
+        &mut self.agent
+    }
+
+    fn ran_mut(&mut self) -> &mut Vec<Ran> {
+        &mut self.ran
+    }
+}
+
+impl Holds for Asked {
+    fn agent(&self) -> Option<&AtWork> {
+        self.agent.as_ref()
+    }
+
+    fn agent_mut(&mut self) -> &mut Option<AtWork> {
+        &mut self.agent
+    }
+
+    fn ran_mut(&mut self) -> &mut Vec<Ran> {
+        &mut self.ran
+    }
+}
 
 /// The agent, as the conversation holds it.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -101,24 +140,21 @@ impl Work {
         self.set_up = set_up;
     }
 
-    /// Whether asking alo can be done, there being a card or not: only
-    /// with one, and the model set up.
-    pub fn asking(&self, card: bool) -> SetUp {
-        match &self.set_up {
-            SetUp::Ready if card => SetUp::Ready,
-            SetUp::Ready => SetUp::Not(NO_PAGE.to_owned()),
-            not @ SetUp::Not(_) => not.clone(),
-        }
+    /// Whether asking alo can be done: the model set up — with a card open
+    /// or none (queue item 821).
+    pub fn asking(&self) -> SetUp {
+        self.set_up.clone()
     }
 
-    /// Start a run on `card` for what the person `asked`: whether it
-    /// started, which it does only when asking is set up. A run at work
-    /// before it is stopped first, said so on the card.
-    pub fn start(&mut self, card: &mut Card, asked: &str) -> bool {
-        if self.asking(true) != SetUp::Ready {
+    /// Start a run on `card` — a live card, or a turn asked with no page —
+    /// for what the person `asked`: whether it started, which it does only
+    /// when asking is set up. A run at work before it is stopped first,
+    /// said so on the card.
+    pub fn start<H: Holds + ?Sized>(&mut self, card: &mut H, asked: &str) -> bool {
+        if self.asking() != SetUp::Ready {
             return false;
         }
-        if self.at_work(Some(card)).is_some() {
+        if self.at_work(Some(&*card)).is_some() {
             self.keep(
                 card,
                 Some(&Ended::Stopped {
@@ -130,21 +166,22 @@ impl Work {
         self.run = Some(self.runs);
         self.question = None;
         self.to_start = Some((self.runs, asked.to_owned()));
-        card.agent = Some(AtWork::starting(asked));
+        *card.agent_mut() = Some(AtWork::starting(asked));
         self.keeping = (asked.to_owned(), Vec::new());
         self.plan = None;
-        card.ran.push(Ran::starting(asked));
-        if card.ran.len() > MOST_RUNS {
-            card.ran.remove(0);
+        let ran = card.ran_mut();
+        ran.push(Ran::starting(asked));
+        if ran.len() > MOST_RUNS {
+            ran.remove(0);
         }
         true
     }
 
     /// The run at work kept on `card` as it stands — ended as `ended`, or
     /// still at work — in place of the newest kept there.
-    fn keep(&self, card: &mut Card, ended: Option<&Ended>) {
+    fn keep<H: Holds + ?Sized>(&self, card: &mut H, ended: Option<&Ended>) {
         let (asked, heard) = &self.keeping;
-        if let Some(newest) = card.ran.last_mut() {
+        if let Some(newest) = card.ran_mut().last_mut() {
             *newest = agent_kept::kept(asked, heard, self.plan.as_ref(), ended);
         }
     }
@@ -155,36 +192,49 @@ impl Work {
     }
 
     /// The run at work on `card`, if one is: what *Stop* stops.
-    pub fn working(&self, card: Option<&Card>) -> Option<u64> {
+    pub fn working<H: Holds + ?Sized>(&self, card: Option<&H>) -> Option<u64> {
         let working = card
-            .and_then(|card| card.agent.as_ref())
+            .and_then(|card| card.agent())
             .is_some_and(AtWork::is_working);
         self.run.filter(|_| working)
     }
 
     /// The run held on `card` while its page is the person's, if one is:
     /// what *Let alo continue* carries on (queue item 825).
-    pub fn paused(&self, card: Option<&Card>) -> Option<u64> {
+    pub fn paused<H: Holds + ?Sized>(&self, card: Option<&H>) -> Option<u64> {
         let paused = card
-            .and_then(|card| card.agent.as_ref())
+            .and_then(|card| card.agent())
             .is_some_and(AtWork::is_paused);
         self.run.filter(|_| paused)
     }
 
     /// The run on `card` the window keeps a thread for: at work, or held
     /// while the page is the person's.
-    pub fn at_work(&self, card: Option<&Card>) -> Option<u64> {
+    pub fn at_work<H: Holds + ?Sized>(&self, card: Option<&H>) -> Option<u64> {
         self.working(card).or_else(|| self.paused(card))
     }
 
     /// The person took the page over (queue item 825): the run at work on
     /// `card` is held, its question dropped, its card saying so with *Let
     /// alo continue*. Its number, if one was at work.
-    pub fn pause(&mut self, card: Option<&mut Card>) -> Option<u64> {
+    pub fn pause<H: Holds + ?Sized>(&mut self, card: Option<&mut H>) -> Option<u64> {
+        self.hand_over(card, Now::Paused)
+    }
+
+    /// The page the run reached asks the person to sign in (queue item
+    /// 821): the run is held as when they take the page over, its card
+    /// saying so with *Let alo continue*. Its number, if one was at work.
+    pub fn sign_in<H: Holds + ?Sized>(&mut self, card: Option<&mut H>) -> Option<u64> {
+        self.hand_over(card, Now::SignIn)
+    }
+
+    /// The run at work on `card` held, the page the person's, saying
+    /// `now`: its number, if one was at work.
+    fn hand_over<H: Holds + ?Sized>(&mut self, card: Option<&mut H>, now: Now) -> Option<u64> {
         let card = card?;
-        let run = self.working(Some(card))?;
-        if let Some(work) = card.agent.as_mut() {
-            work.now = Now::Paused;
+        let run = self.working(Some(&*card))?;
+        if let Some(work) = card.agent_mut().as_mut() {
+            work.now = now;
             work.choosing = None;
         }
         self.question = None;
@@ -193,10 +243,10 @@ impl Work {
 
     /// *Let alo continue* for the run numbered `run`: held on `card`, it
     /// acts again. Its number, if it was the one held.
-    pub fn carry_on(&mut self, card: Option<&mut Card>, run: u64) -> Option<u64> {
+    pub fn carry_on<H: Holds + ?Sized>(&mut self, card: Option<&mut H>, run: u64) -> Option<u64> {
         let card = card?;
-        let run = self.paused(Some(card)).filter(|held| *held == run)?;
-        if let Some(work) = card.agent.as_mut() {
+        let run = self.paused(Some(&*card)).filter(|held| *held == run)?;
+        if let Some(work) = card.agent_mut().as_mut() {
             work.now = Now::Acting;
         }
         Some(run)
@@ -204,20 +254,17 @@ impl Work {
 
     /// The question asked of the person now, if one is: what *Allow* and
     /// *Not now* answer.
-    pub fn asking_now(&self, card: Option<&Card>) -> Option<u64> {
+    pub fn asking_now<H: Holds + ?Sized>(&self, card: Option<&H>) -> Option<u64> {
         let asking = card
-            .and_then(|card| card.agent.as_ref())
+            .and_then(|card| card.agent())
             .is_some_and(|work| matches!(work.now, Now::Asking { .. }));
         self.question
             .filter(|_| asking && self.working(card).is_some())
     }
 
     /// The choices a stuck run offers on `card`.
-    pub fn choices(card: Option<&Card>) -> Vec<String> {
-        match card
-            .and_then(|card| card.agent.as_ref())
-            .map(|work| &work.now)
-        {
+    pub fn choices<H: Holds + ?Sized>(card: Option<&H>) -> Vec<String> {
+        match card.and_then(|card| card.agent()).map(|work| &work.now) {
             Some(Now::Stuck { choices, .. }) => choices.clone(),
             _ => Vec::new(),
         }
@@ -225,11 +272,11 @@ impl Work {
 
     /// What the run said, put on `card` when it is the run at work there:
     /// whether the card shows something else.
-    pub fn heard(&mut self, card: Option<&mut Card>, said: AgentSaid) -> bool {
+    pub fn heard<H: Holds + ?Sized>(&mut self, card: Option<&mut H>, said: AgentSaid) -> bool {
         let Some(card) = card else {
             return false;
         };
-        let Some(work) = card.agent.as_mut() else {
+        let Some(work) = card.agent_mut().as_mut() else {
             return false;
         };
         if self.run != Some(said.run) || !(work.is_working() || work.is_paused()) {
@@ -252,6 +299,8 @@ impl Work {
             | Said::Allowed
             | Said::Planned(_)
             | Said::Continued { .. }
+            | Said::Opening { .. }
+            | Said::SignIn
             | Said::Spent(_) => None,
         };
         match said.said {
@@ -303,7 +352,15 @@ impl Work {
                 work.now = Now::Stopped { why };
                 self.ended();
             }
-            Said::Spent(_) | Said::Continued { .. } => return false,
+            // The page it reached asks the person to sign in (queue item
+            // 821): handed over, as when they take it over.
+            Said::SignIn => {
+                work.now = Now::SignIn;
+                work.choosing = None;
+                self.question = None;
+            }
+            // A page it opens is the window's to open (queue item 821).
+            Said::Spent(_) | Said::Continued { .. } | Said::Opening { .. } => return false,
         }
         self.keep(card, ended.as_ref());
         true
@@ -311,15 +368,14 @@ impl Work {
 
     /// Stop the run at work on `card`, said there as `why`: its number, if
     /// one was at work.
-    pub fn stop(&mut self, card: Option<&mut Card>, why: &str) -> Option<u64> {
+    pub fn stop<H: Holds + ?Sized>(&mut self, card: Option<&mut H>, why: &str) -> Option<u64> {
         let run = self.run?;
         if let Some(card) = card
             && card
-                .agent
-                .as_ref()
+                .agent()
                 .is_some_and(|work| work.is_working() || work.is_paused())
         {
-            if let Some(work) = card.agent.as_mut() {
+            if let Some(work) = card.agent_mut().as_mut() {
                 work.now = Now::Stopped {
                     why: why.to_owned(),
                 };
@@ -355,17 +411,43 @@ mod tests {
     }
 
     #[test]
-    fn asking_is_set_up_only_with_a_card_and_the_model() {
+    fn asking_is_set_up_with_the_model_on_a_card_or_with_no_page() {
         let mut work = Work::default();
-        assert_eq!(work.asking(true), SetUp::Not(String::new()));
+        assert_eq!(work.asking(), SetUp::Not(String::new()));
         let mut card = card();
         assert!(!work.start(&mut card, "x"));
         work.set_up(SetUp::Ready);
-        assert_eq!(work.asking(true), SetUp::Ready);
-        assert_eq!(work.asking(false), SetUp::Not(NO_PAGE.to_owned()));
+        assert_eq!(work.asking(), SetUp::Ready);
+        // With no page open (queue item 821): held in a turn of its own.
+        let mut asked = Asked::of("find the museum's hours");
+        assert!(work.start(&mut asked, "find the museum's hours"));
+        assert_eq!(
+            work.take_start(),
+            Some((1, "find the museum's hours".to_owned()))
+        );
+        assert_eq!(work.working(Some(&asked)), Some(1));
+        assert_eq!(asked.ran.len(), 1);
         assert!(work.start(&mut card, "send it"));
-        assert_eq!(work.take_start(), Some((1, "send it".to_owned())));
+        assert_eq!(work.take_start(), Some((2, "send it".to_owned())));
         assert_eq!(work.take_start(), None);
+        assert_eq!(work.working(Some(&card)), Some(2));
+    }
+
+    #[test]
+    fn a_sign_in_page_hands_the_run_over_and_it_carries_on_after() {
+        // Queue item 821.
+        let mut work = Work::default();
+        work.set_up(SetUp::Ready);
+        let mut card = card();
+        assert!(work.start(&mut card, "read my orders"));
+        assert!(work.heard(Some(&mut card), said(1, Said::SignIn)));
+        assert_eq!(
+            card.agent.as_ref().map(|agent| &agent.now),
+            Some(&Now::SignIn)
+        );
+        assert_eq!(work.working(Some(&card)), None, "the page the person's");
+        assert_eq!(work.paused(Some(&card)), Some(1));
+        assert_eq!(work.carry_on(Some(&mut card), 1), Some(1));
         assert_eq!(work.working(Some(&card)), Some(1));
     }
 

@@ -34,6 +34,7 @@
 //!
 //! At [`site`], a site no page can name, minted fresh as the panel's is.
 
+use crate::agent_limits::Limits;
 use crate::card::Card;
 use crate::conversation_scroll::Bar;
 use crate::interface_face::InterfaceFace;
@@ -117,6 +118,9 @@ pub struct Start {
     /// What of *Settings* the keyboard is on, drawn with a ring (queue item
     /// 856): nothing until Tab is pressed there.
     pub settings_keyed: Option<SettingsKeyed>,
+    /// How far alo's agent may go on one task, as *Settings*' section *alo
+    /// at work* shows it (queue item 878).
+    pub limits: Limits,
 }
 
 /// What of *Settings* the keyboard is on (queue item 856,
@@ -128,6 +132,26 @@ pub enum SettingsKeyed {
     /// The radio group *Font*, at the face chosen: the arrows choose
     /// another.
     Font,
+    /// The number of sites a task may open (queue item 878): the arrows
+    /// make it more or fewer.
+    Sites,
+    /// The number of actions a task may take: the arrows make it more or
+    /// fewer.
+    Actions,
+    /// The radio group *Ask before opening*, at the choice made: the
+    /// arrows choose the other.
+    Asks,
+}
+
+impl SettingsKeyed {
+    /// Each, in the order Tab moves the keyboard through them.
+    pub const ALL: [SettingsKeyed; 5] = [
+        SettingsKeyed::Back,
+        SettingsKeyed::Font,
+        SettingsKeyed::Sites,
+        SettingsKeyed::Actions,
+        SettingsKeyed::Asks,
+    ];
 }
 
 /// One site a person keeps on the first screen.
@@ -173,6 +197,7 @@ impl Default for Start {
             face: InterfaceFace::Inter,
             settings: false,
             settings_keyed: None,
+            limits: Limits::default(),
         }
     }
 }

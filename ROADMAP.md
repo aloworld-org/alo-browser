@@ -2510,7 +2510,7 @@ items where being right and being unusable are the same outcome.
       a page inside the conversation (702), the agent at work on a card's
       page — its column, outline, Stop and the person's gate, never a
       password (704, ADR 0096), the split view while it works (819) — a card's field in a payment
-      provider's frame (858), an agent opening its own page (821),
+      provider's frame (858),
       alo's own ring on a card (823), scrolling from the keyboard (754), a sign of more
       above (755), a wheel's lines smoothed (756), chats kept across
       launches (757), a chat named by its words (758), what the agent may
@@ -2551,7 +2551,12 @@ items where being right and being unusable are the same outcome.
       on a new chat, ⌘T among them (875); a ⇧-press growing a field's
       selection and macOS's Ctrl bindings in alo's fields (863, 865);
       *Settings* walked by keys (856); the conversation's bar dragged, or
-      pressed beside its thumb to page (845);
+      pressed beside its thumb to page (845); alo's agent beginning with no
+      page open — searching through the box's own search, opening a result
+      or a site the person named, asking before any other, never their own
+      network, at most 3 sites, a sign-in page handed over — and its limits
+      the person's in *Settings*, *alo at work* — the owner's design of 8
+      November 2026 (821, 878, ADR 0103, ADR 0096 amended);
       the pointer following a card's page, a link's strip on an
       expanded card, alo's own menu and a link opened as the next turn, a
       closed list's normal dropdown and the agent's list in its column, and

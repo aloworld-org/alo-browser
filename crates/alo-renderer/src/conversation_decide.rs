@@ -32,6 +32,7 @@
 //! its own identity for a chat, its own record of a site — never anything
 //! the renderer said but a place or a kind.
 
+use crate::agent_limits::{Asks, Stepped};
 use crate::card_menu::MenuItem;
 use crate::conversation_claim::{Claim, Part};
 use crate::interface_face::InterfaceFace;
@@ -108,6 +109,11 @@ pub struct Shown<C, S> {
     /// The faces *Settings* offers, in order, while it is drawn in place of
     /// the chat on screen (queue item 854); none while it is not.
     pub faces: Vec<InterfaceFace>,
+    /// The stepper's buttons *alo at work* lets a person press, in order,
+    /// while *Settings* is drawn (queue item 878).
+    pub limits: Vec<Stepped>,
+    /// The choices of asking it offers, in order, while it is drawn.
+    pub asks: Vec<Asks>,
 }
 
 impl<C, S> Default for Shown<C, S> {
@@ -137,6 +143,8 @@ impl<C, S> Default for Shown<C, S> {
             shield: None,
             menu: Vec::new(),
             faces: Vec::new(),
+            limits: Vec::new(),
+            asks: Vec::new(),
         }
     }
 }
@@ -228,6 +236,10 @@ pub enum Decided<C, S> {
     MenuItem(MenuItem),
     /// This face, chosen in *Settings* (queue item 854).
     Face(InterfaceFace),
+    /// A stepper's button pressed in *alo at work* (queue item 878).
+    Stepped(Stepped),
+    /// This choice of asking, made in *alo at work*.
+    Asks(Asks),
     /// *Settings*' *Back to the chat*.
     LeaveSettings,
     /// The press was on nothing, and nothing is done.
@@ -269,6 +281,10 @@ pub enum Listed {
     MenuItems,
     /// The faces *Settings* offers (queue item 854).
     Faces,
+    /// The stepper's buttons *alo at work* offers (queue item 878).
+    Limits,
+    /// The choices of asking it offers.
+    Asks,
 }
 
 impl fmt::Display for Listed {
@@ -288,6 +304,8 @@ impl fmt::Display for Listed {
             Listed::Choices => "agent's choice",
             Listed::MenuItems => "line of the page's menu",
             Listed::Faces => "face Settings offers",
+            Listed::Limits => "stepper's button Settings offers",
+            Listed::Asks => "choice of asking Settings offers",
         })
     }
 }
@@ -448,7 +466,9 @@ where
         }
         Claim::MenuItem { at } => held(Listed::MenuItems, at, &painted.menu, &now.menu)
             .map_or_else(Decided::Refused, Decided::MenuItem),
-        Claim::Face { .. } | Claim::LeaveSettings => in_settings(claim, painted, now),
+        Claim::Face { .. } | Claim::LeaveSettings | Claim::Limit { .. } | Claim::Asks { .. } => {
+            in_settings(claim, painted, now)
+        }
         Claim::Expand => Decided::Expand,
         Claim::CloseTheCard => Decided::CloseTheCard,
         Claim::DeleteChat | Claim::CloseChat | Claim::Undo | Claim::Shield => {
@@ -534,6 +554,12 @@ fn in_settings<C, S>(claim: Claim, painted: &Shown<C, S>, now: &Shown<C, S>) -> 
     match claim {
         Claim::Face { at } => held(Listed::Faces, at, &painted.faces, &now.faces)
             .map_or_else(Decided::Refused, Decided::Face),
+        // *alo at work* (queue item 878): the button painted at that place,
+        // still offered — one at its number's end is not.
+        Claim::Limit { at } => held(Listed::Limits, at, &painted.limits, &now.limits)
+            .map_or_else(Decided::Refused, Decided::Stepped),
+        Claim::Asks { at } => held(Listed::Asks, at, &painted.asks, &now.asks)
+            .map_or_else(Decided::Refused, Decided::Asks),
         _ if painted.faces.is_empty() || now.faces.is_empty() => {
             Decided::Refused(Refusal::NotAsked { claim })
         }

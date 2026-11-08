@@ -58,6 +58,8 @@ impl Writer {
                 self.text(why);
             }
             Now::Paused => self.tag(5),
+            // Handed over to sign in (queue item 821).
+            Now::SignIn => self.tag(6),
         }
         // The closed list it chooses in (queue item 810).
         self.bool(work.choosing.is_some());
@@ -257,6 +259,7 @@ impl Reader<'_> {
             3 => Now::Done { said: self.text()? },
             4 => Now::Stopped { why: self.text()? },
             5 => Now::Paused,
+            6 => Now::SignIn,
             other => return Err(unreadable(format!("an agent doing what is tagged {other}"))),
         };
         let choosing = if self.bool()? {

@@ -1217,8 +1217,9 @@ The reason this exists rather than a faster fork of somebody else's engine.
   and of a result and the panel in each face, and the window's own road
   — chosen, applied, relaunched, damaged
   (`alo-renderer/tests/settings_and_the_face_chosen.rs`,
-  `alo-window/tests/a_font_chosen_in_settings_in_the_window.rs`). Not yet:
-  *Settings* by keys (856); the link strip in the face chosen (852).
+  `alo-window/tests/a_font_chosen_in_settings_in_the_window.rs`); a second
+  section, *alo at work* (878, above). Not yet: the link strip in the face
+  chosen (852); *Settings* scrolled in a short window (880).
   **The page menu's search line cut at its edge** (855): *Search for
   “…”*'s words end in `…` at the menu's edge, the quote kept, in each face
   — and right after the `…` (857: the words measured in the line's face
@@ -1420,8 +1421,32 @@ The reason this exists rather than a faster fork of somebody else's engine.
   (`tests/a_payments_question.rs`, `agent-paying.png`); a card's number,
   security code or expiry refused by the card for every agent, kind
   `CardDetails`, whatever the page names the field (through both
-  Chromiums). Cut: a card's field in a payment provider's frame (858); an
-  agent opening its own page (821); its settings (705). **Nothing of Chrome's over a card** (822, ADR 0066 amended): a card's
+  Chromiums). **Beginning with no page** (821, ADR 0103; the owner's design
+  of 8 November 2026): with no card open the box's second line is *Ask alo
+  to do it* — *alo finds the site and works on it*; the run stands in a
+  turn of its own (`agent_asked.rs`) and begins with `search`, through the
+  box's own search, its sites told to the model as words
+  (`agent_found.rs`), and `open`, a result's number or an address, judged
+  by the browser process (`agent_opening.rs`): a result or a site the
+  person named opened with no question, any other asked *alo wants to open
+  …*, this machine and its network — a public name resolving to a private
+  address too — never opened unless the person wrote it, only `http` and
+  `https`, at most 3 sites a run by registrable domain; the page opened by
+  the window as a card, the run moved onto it, read through the relay; a
+  page that shows a password field, or refuses one, handed to the person
+  to sign in, *Let alo continue* carrying on (`agent_signin.rs`). Layout
+  in numbers and four references (`tests/the_agent_beginning_with_no_page.rs`:
+  `agent-beginning.png`, `agent-asks-to-open.png`, `agent-sign-in.png`,
+  `start-ask-to-do-it.png`); through both Chromiums
+  (`alo-window/tests/the_agent_begins_with_no_page_through_chrome.rs`).
+  **Its limits the person's** (878): *Settings*' *alo at work* — sites a
+  task may open 1–10 (3), actions 5–100 in fives (20), ask before any site
+  or only one not found or named — kept in `settings.txt`, read as each
+  run starts (`agent_limits.rs`, `settings_work_document.rs`,
+  `tests/settings_alo_at_work.rs`, `settings-alo-at-work.png`). Cut: a
+  card's field in a payment provider's frame (858); *Settings* scrolled in
+  a short window (880); a navigation the agent started refused a private
+  answer by Chrome itself (881); the rest of what alo may do (705). **Nothing of Chrome's over a card** (822, ADR 0066 amended): a card's
   page is never marked by Chrome's `Overlay.highlightNode` — whose tooltip
   the stream carried into the conversation — a verb takes any mark away,
   a card expanded into Chrome's window is marked as before, and

@@ -74,6 +74,8 @@ impl Writer {
             Claim::MenuItem { at } => (31, Some(at)),
             Claim::Face { at } => (32, Some(at)),
             Claim::LeaveSettings => (33, None),
+            Claim::Limit { at } => (35, Some(at)),
+            Claim::Asks { at } => (36, Some(at)),
             Claim::Continue => (34, None),
         };
         self.tag(tag);
@@ -135,6 +137,8 @@ impl Reader<'_> {
             31 => Claim::MenuItem { at: self.place()? },
             32 => Claim::Face { at: self.place()? },
             33 => Claim::LeaveSettings,
+            35 => Claim::Limit { at: self.place()? },
+            36 => Claim::Asks { at: self.place()? },
             34 => Claim::Continue,
             other => return Err(unreadable(format!("a claim tagged {other}"))),
         };

@@ -82,6 +82,7 @@ use alo_window::conversation_chrome::{ChromeOpener, Went};
 use alo_window::conversation_drawing::{ConversationDrawing, Drawn};
 use alo_window::conversation_place::Side;
 use alo_window::conversation_window::{ConversationWindow, Heard, Measured};
+use alo_window::conversation_work::REPLACED;
 use alo_window::keys::{Key, Press};
 use alo_window::openai_answer::Provider;
 use alo_window::scale::Scale;
@@ -933,20 +934,18 @@ fn not_now_presses_nothing(
     Ok(())
 }
 
-/// 3: a password is refused by the card, by kind, and nothing typed.
+/// 3: a password is refused by the card, by kind, and nothing typed; the
+/// page is handed to the person to sign in (queue item 821, ADR 0103 § 3).
 fn never_types_a_password(driven: &mut Driven, model: &Model, asked: &Asked) -> Result<(), String> {
     let who = driven.who;
+    let before = model.asked();
     model.will(&[Scripted::Put("textbox", "Password", "letmein")]);
     // Not the person's words: what it types is never kept (queue item 820).
     driven.ask("Sign me in")?;
-    driven.until("the run stuck", |driven| {
-        matches!(driven.now(), Some(Now::Stuck { .. }))
+    driven.until("the page handed over to sign in", |driven| {
+        matches!(driven.now(), Some(Now::SignIn))
     })?;
-    assert!(
-        stopped_saying(driven.now()).contains("alo never types one"),
-        "{who}: {:?}",
-        driven.now()
-    );
+    assert_eq!(model.asked(), before + 1, "{who}: asked again while held");
     driven.hear_for(Duration::from_secs(1))?;
     assert_eq!(
         count(asked, "/typed"),
@@ -1258,8 +1257,11 @@ fn second_page_kept(second: &[Ran], who: &str) {
             .is_some_and(|said| said.starts_with("stopped: Not done: you said not now.")),
         "{who}: {ended:?}"
     );
-    assert!(
-        ended.get(1).is_some_and(|said| said.starts_with("stuck: ") && said.contains("alo never types one")),
+    // Handed over to sign in, then replaced by the next request (queue
+    // item 821).
+    assert_eq!(
+        ended.get(1).map(String::as_str),
+        Some(format!("stopped: {REPLACED}").as_str()),
         "{who}: {ended:?}"
     );
     assert_eq!(

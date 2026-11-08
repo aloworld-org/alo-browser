@@ -118,10 +118,11 @@ use crate::conversation_place::Side;
 use crate::conversation_search::{Came, Searched};
 use crate::conversation_settings::Settings;
 use crate::conversation_thread::Thread;
-use crate::conversation_work::Work;
+use crate::conversation_work::{Holds, Work};
 use crate::scale::Scale;
 use crate::typing::Edit;
 use alo_layout::Size;
+use alo_renderer::agent_limits::{Asks, Limits};
 use alo_renderer::card::{Card, Shield};
 use alo_renderer::card_menu::{CardMenu, MenuItem};
 use alo_renderer::conversation_decide::{Decided, Shown};
@@ -243,6 +244,30 @@ pub struct Conversation {
     /// *Settings*: whether it is the page on screen, and the face the
     /// interface is set in (queue item 854).
     settings: Settings,
+    /// The page the run of alo's agent asked to open (queue item 821): the
+    /// run's number, the address, and what its card's bubble says — until
+    /// the card for it opens, and then until its page is up.
+    agent_opening: Option<AgentOpening>,
+}
+
+/// What holds the agent's run in the newest turn of the chat `on` among
+/// `threads`: the live card, or a turn asked with no page (queue item 821).
+fn holder_in(threads: &mut [(ChatId, Thread)], on: Option<ChatId>) -> Option<&mut dyn Holds> {
+    threads
+        .iter_mut()
+        .find(|(id, _)| Some(*id) == on)
+        .and_then(|(_, thread)| thread.holder_mut())
+}
+
+/// A page the run of alo's agent asked to open (queue item 821).
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct AgentOpening {
+    /// The run's number.
+    run: u64,
+    /// Where.
+    url: Url,
+    /// Whether its card has opened, the run moved onto it.
+    carded: bool,
 }
 
 /// A tab opened whose results are to be asked of the provider — Videos or
@@ -292,6 +317,7 @@ impl Default for Conversation {
             switched: None,
             sheet: false,
             settings: Settings::default(),
+            agent_opening: None,
         }
     }
 }
@@ -506,10 +532,10 @@ impl Conversation {
                 .thread()
                 .map(Thread::pictured_pages)
                 .unwrap_or_default(),
-            working: self.work.working(self.card()),
-            paused: self.work.paused(self.card()),
-            asking: self.work.asking_now(self.card()),
-            choices: Work::choices(self.card()),
+            working: self.work.working(self.holder()),
+            paused: self.work.paused(self.holder()),
+            asking: self.work.asking_now(self.holder()),
+            choices: Work::choices(self.holder()),
             hovered: row.filter(|(_, chat)| !chat.open).map(|(id, _)| *id),
             closing: row
                 .filter(|(id, chat)| self.closable(*id, chat))
@@ -528,6 +554,8 @@ impl Conversation {
                 .map(|menu| menu.items.clone())
                 .unwrap_or_default(),
             faces: Vec::new(),
+            limits: Vec::new(),
+            asks: Vec::new(),
         };
         if !self.settings.is_open() {
             return shown;
@@ -541,6 +569,9 @@ impl Conversation {
             closing: shown.closing,
             undo: shown.undo,
             faces: InterfaceFace::ALL.to_vec(),
+            // *alo at work* (queue item 878).
+            limits: self.settings.limits().presses(),
+            asks: Asks::ALL.to_vec(),
             ..Shown::default()
         }
     }
@@ -584,9 +615,12 @@ impl Conversation {
             _ => self.pointer_pressed(matches!(pressed, Pressed::SearchChats)) || changed,
         };
         let changed = match &pressed {
-            Pressed::Chat(_) | Pressed::Settings | Pressed::Face(_) | Pressed::LeaveSettings => {
-                self.in_settings(&pressed) || changed
-            }
+            Pressed::Chat(_)
+            | Pressed::Settings
+            | Pressed::Face(_)
+            | Pressed::LeaveSettings
+            | Pressed::Stepped(_)
+            | Pressed::Asks(_) => self.in_settings(&pressed) || changed,
             Pressed::Found(url) => {
                 self.choose_found(url.clone());
                 changed
@@ -713,6 +747,9 @@ impl Conversation {
                 self.settings.open() || sheet
             }
             Pressed::Face(face) => self.settings.choose(*face),
+            // *alo at work* (queue item 878).
+            Pressed::Stepped(stepped) => self.settings.press(*stepped),
+            Pressed::Asks(asks) => self.settings.choose_asks(*asks),
             Pressed::LeaveSettings => self.settings.close(),
             _ => false,
         }
@@ -816,31 +853,45 @@ impl Conversation {
         self.work.set_up(set_up);
     }
 
-    /// Whether asking alo can be done now: set up, and a card open.
+    /// Whether asking alo can be done now: set up — with a card open or
+    /// none (queue item 821).
     pub fn asking(&self) -> SetUp {
-        self.work.asking(self.card().is_some())
+        self.work.asking()
     }
 
     /// Whether the box offers asking alo before searching: while it can be
     /// done (`docs/design/shell.md`: a request typed while a card is open
     /// is the agent's).
     fn asks_first(&self) -> bool {
-        self.asking() == SetUp::Ready
+        // With no card open, searching stays first and asking alo — which
+        // then finds the site itself — is the second line (queue item 821).
+        self.card().is_some() && self.asking() == SetUp::Ready
     }
 
-    /// Start the agent on the card's page for what was `asked`: whether it
-    /// started.
+    /// Start the agent on the card's page for what was `asked` — or, with
+    /// no card open (queue item 821), in a turn of its own, from which it
+    /// finds the site: whether it started.
     fn ask_alo(&mut self, asked: &str) -> bool {
+        if self.work.asking() != SetUp::Ready {
+            return false;
+        }
         let on = self.on_screen();
-        let card = self
+        let Some(thread) = self
             .threads
             .iter_mut()
             .find(|(id, _)| Some(*id) == on)
-            .and_then(|(_, thread)| thread.card_mut());
-        let started = match card {
-            Some(card) => self.work.start(card, asked),
+            .map(|(_, thread)| thread)
+        else {
+            return false;
+        };
+        if thread.card().is_none() {
+            thread.begin_asked(asked.to_owned());
+        }
+        let started = match thread.holder_mut() {
+            Some(holder) => self.work.start(holder, asked),
             None => false,
         };
+        self.agent_opening = None;
         if started {
             // The panel is the rail for the run (queue item 819): *Search
             // chats* is not drawn, so it lets the keyboard go; what was
@@ -857,26 +908,29 @@ impl Conversation {
         self.work.take_start()
     }
 
-    /// The run of the agent at work on the card, if one is.
+    /// The run of the agent at work on the card — or in a turn asked with
+    /// no page (queue item 821) — if one is.
     pub fn working(&self) -> Option<u64> {
-        self.work.working(self.card())
+        self.work.working(self.holder())
     }
 
     /// The run of the agent the window keeps a thread for: at work on the
     /// card, or held while its page is the person's (queue item 825).
     pub fn agent_run(&self) -> Option<u64> {
-        self.work.at_work(self.card())
+        self.work.at_work(self.holder())
+    }
+
+    /// What holds the agent's run in the chat on screen's newest turn: the
+    /// live card, or a turn asked with no page (queue item 821).
+    fn holder(&self) -> Option<&dyn Holds> {
+        self.thread().and_then(Thread::holder)
     }
 
     /// What a run of the agent said: shown on the card when it is the run
     /// at work there. Whether the first screen shows something else.
     pub fn agent_said(&mut self, said: AgentSaid) -> bool {
         let on = self.on_screen();
-        let card = self
-            .threads
-            .iter_mut()
-            .find(|(id, _)| Some(*id) == on)
-            .and_then(|(_, thread)| thread.card_mut());
+        let card = holder_in(&mut self.threads, on);
         self.work.heard(card, said)
     }
 
@@ -884,12 +938,11 @@ impl Conversation {
     /// work held, its card saying so with *Let alo continue*. Its number,
     /// if one was at work.
     pub fn pause_agent(&mut self) -> Option<u64> {
+        // Only a card's page can be taken over: a turn asked with no page
+        // has none.
+        self.card()?;
         let on = self.on_screen();
-        let card = self
-            .threads
-            .iter_mut()
-            .find(|(id, _)| Some(*id) == on)
-            .and_then(|(_, thread)| thread.card_mut());
+        let card = holder_in(&mut self.threads, on);
         self.work.pause(card)
     }
 
@@ -897,24 +950,52 @@ impl Conversation {
     /// is the one held. Its number, if it was.
     pub fn carry_on_agent(&mut self, run: u64) -> Option<u64> {
         let on = self.on_screen();
-        let card = self
-            .threads
-            .iter_mut()
-            .find(|(id, _)| Some(*id) == on)
-            .and_then(|(_, thread)| thread.card_mut());
+        let card = holder_in(&mut self.threads, on);
         self.work.carry_on(card, run)
     }
 
     /// Stop the run of the agent at work, saying `why` on its card: its
     /// number, if one was.
     pub fn stop_agent(&mut self, why: &str) -> Option<u64> {
+        self.agent_opening = None;
         let on = self.on_screen();
-        let card = self
-            .threads
-            .iter_mut()
-            .find(|(id, _)| Some(*id) == on)
-            .and_then(|(_, thread)| thread.card_mut());
+        let card = holder_in(&mut self.threads, on);
         self.work.stop(card, why)
+    }
+
+    /// The run of alo's agent numbered `run` asks to open `url` (queue item
+    /// 821), its card's bubble `said`: chosen as a site is, to be opened by
+    /// the window as a card the run is moved onto — never stopping the run,
+    /// as another page a person opens does. Whether it is the run at work.
+    pub fn agent_opens(&mut self, run: u64, url: Url, said: String) -> bool {
+        if self.work.working(self.holder()) != Some(run) {
+            return false;
+        }
+        self.agent_opening = Some(AgentOpening {
+            run,
+            url: url.clone(),
+            carded: false,
+        });
+        self.said = said;
+        self.chosen = Some(Offer::Go(url));
+        true
+    }
+
+    /// Whether the page about to be opened is the one the run of alo's
+    /// agent asked for, its card not yet open (queue item 821): the window
+    /// then does not stop the run for it.
+    pub fn opening_for_the_run(&self) -> bool {
+        self.agent_opening
+            .as_ref()
+            .is_some_and(|opening| !opening.carded && self.going() == Some(&opening.url))
+    }
+
+    /// The card the run of alo's agent asked for is up, or could not be
+    /// opened (queue item 821): the run to be told, by its number, once.
+    pub fn take_agent_opened(&mut self) -> Option<u64> {
+        self.agent_opening
+            .take_if(|opening| opening.carded)
+            .map(|opening| opening.run)
     }
 
     /// Whether searching can be done is now `search`, as the searcher says
@@ -1413,6 +1494,7 @@ impl Conversation {
                 face: self.settings.face(),
                 settings: true,
                 settings_keyed: self.settings.keyed(),
+                limits: self.settings.limits(),
                 search: self.search.clone(),
                 ..Start::default()
             }
@@ -1443,6 +1525,7 @@ impl Conversation {
             face: self.settings.face(),
             settings: false,
             settings_keyed: None,
+            limits: self.settings.limits(),
         }
         .at_scale(scale.factor())
     }
@@ -1473,8 +1556,26 @@ impl Conversation {
     pub fn open_card(&mut self, url: Url) {
         let said = self.said.clone();
         let shield = self.shield_for(&url);
+        // The page the run of alo's agent asked for (queue item 821): the
+        // run moved onto its card, as if the person had opened it.
+        let for_the_run = self
+            .agent_opening
+            .as_mut()
+            .filter(|opening| !opening.carded && opening.url == url);
+        let carded = match for_the_run {
+            Some(opening) => {
+                opening.carded = true;
+                let went_on = format!("alo went on to {}.", alo_url::reading::host(&url));
+                self.thread_mut().is_some_and(|thread| {
+                    thread.open_card_for_the_run(said.clone(), url.clone(), &went_on)
+                })
+            }
+            None => false,
+        };
         if let Some(thread) = self.thread_mut() {
-            thread.open_card(said, url);
+            if !carded {
+                thread.open_card(said, url);
+            }
             if let Some(card) = thread.card_mut() {
                 card.shield = Some(shield);
             }
@@ -1850,8 +1951,22 @@ impl Conversation {
     /// kept as the window opens (queue item 854).
     #[must_use]
     pub fn set_in(mut self, face: InterfaceFace) -> Self {
-        self.settings = Settings::set_in(face);
+        self.settings = Settings::set_in(face).with_limits(self.settings.limits());
         self
+    }
+
+    /// The same conversation, alo's agent kept to `limits` — read back from
+    /// where they were kept as the window opens (queue item 878).
+    #[must_use]
+    pub fn limited_to(mut self, limits: Limits) -> Self {
+        self.settings = self.settings.with_limits(limits);
+        self
+    }
+
+    /// Whether a person changed alo's agent's limits in *Settings* since
+    /// this was last asked, once: they are then to be kept.
+    pub fn take_limits_changed(&mut self) -> bool {
+        self.settings.take_limits_changed()
     }
 
     /// Close *Settings* — Escape — back to the chat on screen: whether it
@@ -3748,6 +3863,95 @@ mod tests {
         let kept = Conversation::default().set_in(InterfaceFace::Geist);
         assert_eq!(kept.panel(room, Scale::ONE).face, InterfaceFace::Geist);
         assert_eq!(kept.clone().take_face_chosen(), None);
+    }
+
+    #[test]
+    fn asked_with_no_page_the_run_is_a_turn_of_its_own_then_the_card_it_opens() {
+        // Queue item 821.
+        let mut conversation = Conversation::default();
+        conversation.set_agent(SetUp::Ready);
+        assert_eq!(conversation.asking(), SetUp::Ready, "no page needed");
+        let _ = conversation.act(Pressed::TheBox);
+        type_in(&mut conversation, "find the Uganda Museum's hours");
+        let ask = conversation.showing().offers.last().cloned().unwrap();
+        assert!(matches!(ask, Offer::Ask(_)), "{ask:?}");
+        assert!(conversation.act(Pressed::Offer(ask)));
+        let (run, asked) = conversation.take_run().expect("started");
+        assert_eq!(asked, "find the Uganda Museum's hours");
+        assert_eq!(conversation.working(), Some(run));
+        let room = Size::new(1040.0, 820.0);
+        let start = conversation.start(room, Scale::ONE);
+        assert!(
+            matches!(start.turns.last(), Some(Turn::Asked(asked)) if asked.agent.is_some()),
+            "{:?}",
+            start.turns
+        );
+        assert_eq!(start.card(), None, "no page, no split");
+        // Another run's open is nothing; its own is chosen as an address,
+        // and the card opened for it holds the run.
+        let museum = alo_url::parse("https://ugandamuseum.go.ug/").unwrap();
+        assert!(!conversation.agent_opens(run + 1, museum.clone(), "Uganda Museum".to_owned()));
+        assert!(conversation.agent_opens(run, museum.clone(), "Uganda Museum".to_owned()));
+        assert!(
+            conversation.opening_for_the_run(),
+            "the window does not stop it"
+        );
+        assert_eq!(conversation.going(), Some(&museum));
+        assert_eq!(conversation.take_agent_opened(), None, "not yet carded");
+        conversation.open_card(museum.clone());
+        assert!(!conversation.opening_for_the_run());
+        let card = conversation.card().expect("a card");
+        assert_eq!(card.said, "find the Uganda Museum's hours");
+        assert!(card.agent.is_some());
+        assert_eq!(
+            conversation.working(),
+            Some(run),
+            "still at work, on the card"
+        );
+        assert_eq!(conversation.take_agent_opened(), Some(run));
+        assert_eq!(conversation.take_agent_opened(), None, "told once");
+        assert_eq!(
+            conversation.start(room, Scale::ONE).turns.len(),
+            1,
+            "the turn asked became the card"
+        );
+        // Stop, from the card, stops it.
+        assert_eq!(conversation.stop_agent(STOPPED), Some(run));
+    }
+
+    #[test]
+    fn alo_at_works_presses_move_its_numbers_and_choices_and_are_kept_once() {
+        // Queue item 878.
+        use alo_renderer::agent_limits::{Limit, Stepped};
+        let mut conversation = Conversation::default();
+        assert!(conversation.showing().limits.is_empty(), "not drawn");
+        let _ = conversation.act(Pressed::Settings);
+        let shown = conversation.showing();
+        assert_eq!(shown.limits, Limits::default().presses());
+        assert_eq!(shown.asks, Asks::ALL.to_vec());
+        let more_sites = Stepped {
+            limit: Limit::Sites,
+            more: true,
+        };
+        assert!(conversation.act(Pressed::Stepped(more_sites)));
+        assert!(conversation.act(Pressed::Asks(Asks::Every)));
+        assert!(!conversation.act(Pressed::Asks(Asks::Every)), "the same");
+        let limits = conversation.settings().limits();
+        assert_eq!((limits.sites, limits.asks), (4, Asks::Every));
+        let room = Size::new(1040.0, 820.0);
+        assert_eq!(conversation.start(room, Scale::ONE).limits, limits);
+        assert!(conversation.take_limits_changed());
+        assert!(!conversation.take_limits_changed());
+        // Read back as the window opens, nothing to keep.
+        let mut kept = Conversation::default()
+            .limited_to(limits)
+            .set_in(InterfaceFace::Geist);
+        assert_eq!(
+            kept.settings().limits(),
+            limits,
+            "a face read after keeps them"
+        );
+        assert!(!kept.take_limits_changed());
     }
 
     #[test]

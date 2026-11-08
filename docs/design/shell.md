@@ -759,8 +759,8 @@ password, nor a card's number, security code or expiry: the card refuses
 them, for any agent (826). Nothing of Chrome's is drawn over the card's
 page — no inspector highlight, no tooltip (822); alo's own ring on a card
 is 823. Its plan (824), taking over and carrying on (825) and what a
-payment pays (826) are below. Not built yet: an agent opening its own
-page (821). **Each run is kept** with the page it
+payment pays (826) are below, and so is beginning with no page open
+(821). **Each run is kept** with the page it
 worked on (820): once the page is shown earlier, under its line, what the
 person asked as their bubble, then what alo did on a white box rounded 12,
 14 by 16 inside — its steps in the quiet colour, 6 apart, why under a step
@@ -954,6 +954,84 @@ numbers.* Settled:
   details are yours.* What such a field holds is withheld from the model
   too, as a password's is.
 
+### Beginning with no page (items 821, 878, ADR 0103)
+
+The owner's design of 8 November 2026, approved in full: *with no page,
+the box's second line is* Ask alo to do it *(*alo finds the site and works
+on it*); the run gains two verbs used to begin, a search through the box's
+own search (results read as words) and opening a result or an address it
+proposes, each a step in its column, the page a card as if the person
+opened it; it opens without asking a search result or a site the person
+named, asks (*alo wants to open …*, Allow / Not now) for any other, and
+never opens an address on this machine or its network or a file unless
+the person typed it; at most 3 sites opened a run (links followed inside a
+site not counted) beside the 20 verbs; earlier pages stay as cards; a site
+that needs signing in stops the run and hands the page over, and* Let alo
+continue *carries on. The limits are the person's to set (878).* Settled
+here:
+
+- **The box.** With no card open, Return still searches — searching is
+  first — and the second line is **Ask alo to do it**, *alo finds the site
+  and works on it* under it, in the offer's quiet words; pressed, it asks
+  alo. With a card open the box offers *Ask alo about “…”* first, as
+  before. The line at the window's foot says *alo is at work on “…”*.
+- **Where the run stands before a page.** A turn of its own: what the
+  person asked as their bubble, then, 16 under it, the column a card's run
+  has, on a white box rounded 12 under a line of 1 the column's 880 wide —
+  no page above it, so no rule and no outline — its working line *alo is
+  finding the site to work on* with **Stop** (there is no page to take
+  over yet), what was asked, its plan, one line per step, and a question
+  with **Allow** and **Not now**. Not split: there is no page to put
+  beside the column.
+- **Searching** is a step — *Searching for “Uganda Museum opening
+  hours”* — asked through the box's own search, the same provider, key and
+  request a person's search makes, and its sites told to the model as
+  words: numbered across the run, each its title, address and description,
+  at most eight a search and forty-eight a run. They are not drawn as a
+  search's results: the step says it.
+- **Opening** is a step — *Opening the Uganda Museum's site* — and the page
+  arrives **as a card, as if the person had opened it**: chosen as an
+  address is and opened through the same road (ADR 0075), the turn asked
+  with no page becoming that card, keeping what the person asked as its
+  bubble, the run moved onto it and splitting the window as any run on a
+  card does. A second site puts the first card away as its address, its run
+  so far kept as *alo went on to …*, and opens the next as a new turn whose
+  bubble is the result's title or the site's host. A page that cannot be
+  opened leaves the run in its own turn again, the model told why.
+- **Whether it asks** (the browser process's, never the model's, ADR 0103
+  § 2): a search's result or a site the person named — an address in their
+  words, the same host, or on the public internet the same registrable
+  domain — opens with no question; any other is asked: *alo wants to open
+  wikipedia.org. It is not a site a search found or one you named.* with
+  **Allow** and **Not now**, in the question's box. *Not now* ends the
+  run, nothing opened. Set in *Settings* to ask before any site, every site
+  is asked: *alo wants to open ugandamuseum.go.ug.*
+- **Never this machine or its network** unless the person wrote the
+  address: `localhost`, `….localhost`, `….local`, an address that is not
+  the public internet's, and a public name that resolves only to one —
+  refused, the model told *… is on this machine or its network, and alo
+  opens such an address only when the person wrote it*, and the run goes
+  on. Only `http` and `https` are opened: never `file:` or any other
+  scheme, even typed — the box opens none either.
+- **How many sites**: at most 3 a run unless set otherwise, a site being
+  the registrable domain; a site it has been on — the page it began on, one
+  a link took it to — is never counted again, and a link followed is never
+  counted. Past it, the model is told *alo has opened the 3 sites one task
+  may open (Settings, alo at work)* and goes on with the pages opened, or
+  finishes. Each search, open, press, typing or scroll is one of its 20
+  actions.
+- **Signing in.** A page it reaches — opened, or by a link or a form —
+  that shows a password field on the screen, or that refuses it a
+  password, **hands the page over**, as taking it over does: no outline, no
+  *Stop*, and under the page *This site needs you to sign in: the page is
+  yours. Sign in on it, then let alo continue.* with **Let alo continue**,
+  drawn where *You took over* is. Carried on, the model is told the page
+  asked the person to sign in and what they changed — never a password's
+  value.
+- **To an agent reading the screen**: the turn's column is the region
+  *alo at work* as a card's is; the offer is an option named *Ask alo to
+  do it alo finds the site and works on it*.
+
 ### As designed
 
 - The window splits: the page large on the left, the agent's column on the
@@ -972,7 +1050,11 @@ numbers.* Settled:
   Paying is always asked; sending, deleting and cancelling are asked
   unless a person said otherwise.
 - **It never types a password, nor a card's details.** Signing in and
-  paying details are the person's.
+  paying details are the person's: a page that needs signing in is handed
+  to them (built, item 821).
+- **With no page open it finds the site** — searching, opening a result or
+  a site the person named, asking before any other, never their own
+  network (built, items 821 and 878).
 - **When it is stuck it says so** and offers choices, the closest to what was
   asked first. It never picks something it was not asked for.
 - Done: one line, *Done in 6 steps*, the result in full, and what to do next.
@@ -1000,7 +1082,7 @@ way (ADR 0088). A face with an optical size — Newsreader's 6 to 72,
 Inter's 14 to 32 and DM Sans' 9 to 40 — is set to the CSS pixels its text
 is at, as Chrome sets it (measured in Chrome 157, item 853).
 
-## Settings (items 853, 854)
+## Settings (items 853, 854, 878)
 
 Approved by the owner on 7 November 2026 (*"Yes please"*), in their
 words: *Settings opens as a page in the conversation area, with one
@@ -1088,9 +1170,47 @@ Settled here, as the design left them open:
   face's name: `font Plus Jakarta Sans`. Written as the face is chosen,
   and said on the terminal; one that cannot be written is said in the
   first screen's line, and the interface is set in it until alo closes.
+- **alo at work** (item 878, asked by the owner with 821 on 8 November
+  2026), 24 under the faces: **alo at work**, 15 px 600, and in quiet
+  13.5 px *How far alo goes on one task. It always asks before it pays,
+  sends or deletes.*; 14 under it one white box, a line of 1, rounded 14,
+  16 in either side, of three rows 44 tall ruled off from each other by a
+  line of `#eee8de` — each its name at its left, 13.5 px 600 in the ink:
+  - **Sites a task may open** — 1 to 10, **3** unless set — and **Actions
+    a task may take** — 5 to 100 in fives, **20** unless set — each with a
+    stepper at its right, 28 tall, a line of 1 rounded 8: **−** (*Fewer
+    sites*), the number 40 wide between rules, **+** (*More sites*). A
+    button that would pass its end is quiet and half seen and does
+    nothing. The bounds, and why: one site is the least that lets a run
+    begun with no page do anything; ten is past any task a person follows
+    step by step; five actions searches, opens and still acts; a hundred is
+    five times the default, and the run's token limit (about $0.40) still
+    stops a long run on a large page first; in fives, so the keys reach
+    either end in nineteen presses.
+  - **Ask before opening** — two radios at its right, drawn as the faces'
+    are: **A site not found or named · Default**, and **Any site**.
+  Asking before paying, sending, deleting or sending a form, and never
+  typing a password or a card's details, are not settings. **By keys**:
+  Tab goes on from *Font* to the sites, the actions and *Ask before
+  opening*, then round to *Back to the chat*; on a number ← ↓ make it one
+  step fewer and → ↑ one more, stopping at its ends (a number is not a
+  choice among equals, and 100 going round to 5 would surprise); on the
+  radio group either arrow chooses the other. The keyboard's ring as on
+  *Font* — around the stepper, or the choice made. **Read at each run's
+  start**: a run keeps the limits it started with. **To an agent**: a
+  region named *alo at work*, each number a `spinbutton` named by its row
+  holding the number beside *Fewer …* and *More …* buttons, and a radio
+  group *Ask before opening*. In the design's window the whole page ends
+  at 792, inside 820; in a window shorter than about 830 the section
+  stands below the room, and *Settings* does not scroll yet (item 880).
+- **Kept with the font**: `settings.txt` holds `sites 3`, `actions 20` and
+  `asks unnamed` (or `every`) after the `font` line, written whole as a
+  face is; a file from before 878 holds only the font, and its limits are
+  the default.
 - **A file that does not read** — a face alo does not carry, a line it
-  does not know, no `font` line or two, bytes that are not text, more than
-  4,096 bytes, or a file that cannot be opened — is **Inter, and said**,
+  does not know, no `font` line or two, a limit past its bounds or named
+  twice, bytes that are not text, more than 4,096 bytes, or a file that
+  cannot be opened — is **Inter and the default limits, and said**,
   with the file's path and why, on the terminal and in the first screen's
   line as the window opens; the file is left as it is until a face is next
   chosen, which writes it whole. No file is Inter, said nothing.

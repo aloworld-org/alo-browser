@@ -23038,11 +23038,79 @@ What stage 2's exit gate actually measures: a person using it.
   absent. Mutations: the typed text kept, a run put away left at work,
   the runs not read — each fails.
 
-- [ ] **821. The agent opening its own page (cut from 704).** Asking alo
+- [x] **821. The agent opening its own page (cut from 704).** Asking alo
   works only on the page open as a card; with none it says to open one.
   Decide whether a request with no page opens one (a search, an address
-  the model proposes), and through which gate. *Depends on 704. needs
-  design.*
+  the model proposes), and through which gate. *Depends on 704. Designed
+  and approved by the owner on 8 November 2026: with no page, the box's
+  second line is *Ask alo to do it* (*alo finds the site and works on
+  it*); the run gains two verbs used to begin, a search through the box's
+  own search (results read as words) and opening a result or an address
+  it proposes, each a step in its column, the page a card as if the
+  person opened it; it opens without asking a search result or a site the
+  person named, asks (*alo wants to open …*, Allow / Not now) for any
+  other, and never opens an address on this machine or its network or a
+  file unless the person typed it; at most 3 sites opened a run (links
+  followed inside a site not counted) beside the 20 verbs; earlier pages
+  stay as cards; a site that needs signing in stops the run and hands the
+  page over, and *Let alo continue* carries on. The limits are the
+  person's to set (878).*
+  ***Done (8 November 2026, ADR 0103, ADR 0096 amended).*** With no card
+  the box's second line is *Ask alo to do it* — *alo finds the site and
+  works on it*; searching stays first. The run stands in a turn of its own
+  (`Turn::Asked`, `agent_asked.rs`), its working line *alo is finding the
+  site to work on* with *Stop*, and gains `search` (the box's own Brave
+  search, its sites told as numbered words, `agent_found.rs`) and `open`
+  (a result's number or an address), each a step. Whether a site opens is
+  the browser process's (`agent_opening.rs`): a result or a site the person
+  named — the same host, or the same registrable domain on the public
+  internet — opens with no question; any other asks *alo wants to open …*
+  (*Allow* / *Not now*, *Not now* ending the run); `localhost`,
+  `.localhost`, `.local`, a non-public address and a public name the
+  machine's resolver answers only privately (rebinding rule) are refused
+  unless the person wrote them; only `http`/`https`, never `file:` even
+  typed (stricter than the design: the box opens none); kept to
+  `--agent-site`; at most 3 sites a run by registrable domain, a site been
+  on never counted again, a link never counted. A page it opens is opened
+  by the window through a person's road (`Said::Opening`, `go()`, the card
+  `Went::Opened` → `Run::opened`), the asked turn becoming the card, the run
+  moved onto it; a second site puts the first away as its address, its run
+  kept *alo went on to …*. A page reached that shows a password field, or
+  a password refused by the card, hands the page over (`Now::SignIn`,
+  `agent_signin.rs`) — *This site needs you to sign in…* with *Let alo
+  continue* — where taking over is drawn. Kept in the chat's file as an
+  `"asked"` turn when no page was opened. **Tests:** unit (`agent_opening`
+  6, `agent_found` 2, `agent_signin` 2, `agent_protocol` 1 new,
+  `conversation_agent` 5 new against a local model and a local Brave,
+  `conversation_work`, `conversation_thread`, `conversation`,
+  `conversation_window` — the limits read as the run starts,
+  `chat_record`, the wire's crossing and refusals); layout in numbers and
+  four references, each run once without update mode and looked at
+  (`the_agent_beginning_with_no_page.rs`: the turn's box (80, 98) 880 ×
+  180, the working line (97, 113), the question (97, 315) 846 × 84;
+  `agent-beginning.png`, `agent-asks-to-open.png`, `agent-sign-in.png`,
+  `start-ask-to-do-it.png`); `field-*.png` and `start-typed-into.png`
+  rewritten for the new second line; through both Chromiums
+  (`the_agent_begins_with_no_page_through_chrome.rs`: the turn painted, the
+  named `127.0.0.1` page opened as the run's card, `localhost` refused and
+  never asked of, a sign-in page handed over and the model not asked
+  again; and `the_agent_at_work_on_a_card_through_chrome.rs`, a password
+  now handing the page over). **Mutations**, each failing: a site neither
+  found nor named not asked; a local address not refused; a private
+  answer not refused; the sites' limit off by one; the person's naming
+  ignored; a sign-in page not seen; the no-page offer's words; the asked
+  turn's column not drawn. **By hand** (release and bundle, no keys
+  carried, the keychain's read; Retina at two; `handrun43/`): `821-01`
+  the two lines; `821-02`–`03` asked, searched (*Uganda Museum opening
+  hours*), opened `museums.tourism.go.ug/plan-your-visit/` with no
+  question, the split view, done in 2 steps; `821-04`–`05` *alo wants to
+  open en.wikipedia.org…*, *Not now*, nothing opened; `821-06` an address
+  spelled in words, refused twice as this machine's, the local server
+  never asked (the model, told the rule, would not propose one on its
+  own); `821-07`–`08` `127.0.0.1:8739/signin.html` named, opened, handed
+  over to sign in, *Let alo continue*, done. Spend: 22,034 tokens in, 816
+  out (about $0.03), one Brave query. Cut: *Settings* scrolled (880); a
+  private answer refused by Chrome itself (881).
 
 - [x] **822. A card's ring is Chrome's inspector highlight, tooltip and
   all (found by hand in 704).** The verb's ring on a card's page (624,
@@ -24126,6 +24194,139 @@ What stage 2's exit gate actually measures: a person using it.
   at one and two, edge pixels included, and every reference it moves read.
   Then *Back to the chat*'s keyed ring needs no paper of its own. *Depends
   on nothing.*
+
+- [x] **878. The agent's limits set in Settings (asked by the owner with
+  821, 8 November 2026).** A second section of Settings, *alo at work*:
+  how many sites a run may open (default 3) and how many actions it may
+  take (default 20), each within bounds the design states, saved in
+  settings.txt beside the font and read at each run's start; and whether
+  alo asks before opening any site, or only one that was neither a
+  search result nor named by the person (the default). Asking before
+  paying, sending, deleting or sending a form, and never typing a
+  password or a card's details, are not settings. Walked by keys as the
+  Font section is (856). *Depends on 821, 854.*
+  ***Done (8 November 2026, ADR 0103 § 4).*** *alo at work* under *Font*
+  (`settings_work_document.rs`): **Sites a task may open** 1–10 (3) and
+  **Actions a task may take** 5–100 in fives (20), each a stepper (*Fewer
+  …*, the number as a `spinbutton`, *More …*; a button past its end off);
+  **Ask before opening** — *A site not found or named · Default* or *Any
+  site* — as radios. Bounds and why in `agent_limits.rs` and the design.
+  Kept in `settings.txt` (`sites`, `actions`, `asks` after `font`; a file
+  from before is the default), read by the window as each run starts and
+  fixed for it. By keys: Tab on from *Font* through the three, ← ↓ fewer
+  and → ↑ more stopping at the ends, either arrow the other choice; the
+  ring as *Font*'s. **Tests:** unit (`agent_limits` 4, `settings_file`,
+  `conversation_settings` 2 new, `conversation`), layout in numbers
+  (`settings_alo_at_work.rs`: the section from 600, the box (160, 656) 720
+  × 136, rows of 44 and 45, steppers (761, 665) 102 × 28; the ring moving
+  nothing and never filling what it rings), `settings-alo-at-work.png` new
+  and `settings*.png` rewritten (the page now ends at 792 in 820).
+  **Mutations**, each failing: the limits not read at the run's start (the
+  window's test, five actions though set to a hundred mid-run); the arrows
+  on a number doing nothing; the chosen option's ring filling it. **By
+  hand** (`878-01`–`03`): stepped to 4 sites and 15 actions and *Any site*
+  by keys, `settings.txt` written so and read back on the next launch;
+  the chosen option's ring filled it grey (an outer shadow under a
+  transparent box, 877) — fixed by standing it on the box's white, tested,
+  seen again. Cut: *Settings* does not scroll in a window shorter than
+  about 830 (880).
+
+- [ ] **879. The agent on a page drawn on a canvas, such as Figma (asked
+  by the owner, 8 November 2026).** Measure first, on Chrome as alo
+  carries it: what a canvas application's tree gives an agent (Figma's
+  layers, properties and menus are elements; its canvas is a picture),
+  what the verbs reach without a coordinate (ADR 0002), and what a
+  keyboard verb (shortcuts, named keys) would add. Then propose, for the
+  owner, what alo's agent can do there and what it cannot. *Depends on
+  821.*
+  ***Measured (8 November 2026), on Chrome/156.0.8078.48, the Chromium
+  alo carries, through `alo --chrome` and the agent socket, logged out;
+  nothing built, nothing signed into.*** Figma's own pages are ordinary
+  pages: figma.com reads as 344 nodes (about 16,600 characters as
+  `agent_page::text` writes them), the Community page as 1,154 (about
+  52,900 characters; 1,110 of them offscreen), a community file's page as
+  133 (about 5,500). Their menus, links and buttons are elements and the
+  three verbs reach them — a community file's link followed by `activate`
+  went to its page. **The editor is not reachable logged out**: *Open in
+  Figma* opens a sign-in dialog drawn in an iframe (`button "Figma Auth"`
+  holding `Iframe "Figma Auth"`, whose inside the tree does not cross into
+  — item 132), and `/design/<id>` is Figma's 404 page. So the layers and
+  properties panels were **not measured**. The one canvas view that opens
+  logged out — the community file viewer
+  (`/embed?embed_host=share&url=…/community/file/<id>`, going on to
+  `/file/<id>/hf_embed?community_viewer=true…`), showing twelve frames —
+  reads as **four nodes**: `document "Figma"`, an unnamed `button` (the
+  menu) holding an `image`, and `text` with the file's name. None of the
+  twelve frames, their names or their text is in the tree, and the
+  `<canvas>` itself is not a node there (on Figma's 404 page a `<canvas>`
+  reads as a bare `Canvas`, no name, no children). The verbs reach nothing
+  on that canvas: `scroll` on the document is `DoesNotScroll`, `put_text`
+  and `activate` on the title `NotAField` and `NotOperable`, and
+  `activate` on the menu button is refused `NotCarriedOut` — *the middle of
+  box#73 is under Chrome's node 76* — as were the cookie bar's *Dismiss*
+  and the file page's hover-only *Preview* (queued as 882). **A keyboard
+  verb was judged, not tried** (the socket has none): in the viewer
+  Figma's keys (⇧1, + / −, the arrows) would move the picture and nothing
+  an agent reads would change, so it could not tell what a key did; in the
+  editor, V, R, T, ⌘D, arrows nudging a selection, Tab through layers and
+  Escape act on a selection the agent could check only through the
+  panels — the unmeasured part, which needs a signed-in account.
+  **Proposed, for the owner:** alo's agent can work Figma's ordinary pages
+  (the site, Community, a file's page) and menus and dialogs outside an
+  iframe; it cannot work anything on the canvas, which is a picture with
+  nothing in the tree to read or act on, and ADR 0002 rules out pointing
+  at pixels. A keyboard verb is not worth a design on this evidence — keys
+  on a canvas the agent cannot read back are blind — and earns one only if
+  the signed-in editor's layers and properties panels prove to be elements
+  that show the selection. Next, if pursued: a read-only measurement in
+  the editor signed in by the owner with their own account (the agent
+  never signs in), prototypes' screen-reader content with it. Outputs:
+  the session scratchpad's `m879/` (trees as JSON and text, screenshots),
+  rebuilt by `m879tools/text.py`.
+
+- [ ] **880. *Settings* scrolled in a short window (found by 878).**
+  *Settings* stands in the first screen's place and does not scroll: since
+  *alo at work* was added under *Font* the page is 760 tall from 32, so in
+  a window shorter than about 830 points — the least window, 600 tall,
+  among them — the section stands below the room, reachable by Tab and
+  the arrows but not seen. Scroll it as the conversation scrolls, with the
+  wheel, the paging keys and the bar, and keep what the keyboard is on in
+  view. Layout assertions at the least window, a reference. *Depends on
+  878, 845.*
+
+- [ ] **881. A private answer refused by Chrome itself for a page alo's
+  agent opens (cut from 821, ADR 0103 § 2).** The open gate resolves a
+  public name with the rebinding rule before the agent opens it, and
+  Chrome resolves it again as it loads: a name whose answer changes
+  between the two reaches the person's network. Have the card's Chromium
+  load the page from the address alo resolved, or refuse a private answer
+  for a navigation the agent started, through both Chromiums; a test with
+  a name that answers public, then private. *Needs ADR 0103 amended.*
+  *Depends on 821.*
+
+- [ ] **882. A button pressed whose middle is its own icon (found by
+  879).** Measuring Figma, `activate` was refused `NotCarriedOut` three
+  times — *the middle of box#73 is under Chrome's node 76* — on the cookie
+  bar's *Dismiss*, the viewer's menu button and a hover-only *Preview*:
+  node 76 looked like the button's own icon, an SVG not in the tree, not
+  something over it. Confirm what the node is on a frozen page; if it is
+  the button's own descendant, a press there is the button's and must be
+  carried out. A frozen case, both Chromiums. *Depends on 131.*
+
+- [ ] **883. The agent's result keeps its lines (found by 821's hand
+  run).** *Done in 2 steps* showed the museum's hours as one run of text
+  — "Monday–Saturday: 8:00 am–6:00 pm (last entry 5:00 pm) Sunday:
+  Closed Public holidays: …" — where the model wrote them as lines. Keep
+  the result's line breaks (and a list as a list) on the card and in the
+  kept run, as an answer's are. *Depends on 704.*
+
+- [ ] **884. A site named by its name, not its address (found by 821's
+  hand run).** Asked "go straight to the Wikipedia article on the Uganda
+  Museum", alo asked *alo wants to open en.wikipedia.org. It is not a site
+  … you named* — the person named it, in words. Decide with the owner
+  whether a site's common name in the request counts as naming it (and
+  how a name is matched to a domain without the model deciding), or the
+  question stays. *Depends on 821. needs design.*
 
 ## K. ★ The agent, on somebody else's pages
 

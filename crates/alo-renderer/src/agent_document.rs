@@ -55,7 +55,7 @@
 
 use crate::agent_paying::{NO_AMOUNT, NO_SUMMARY, PAY};
 use crate::agent_plan::{PLAN, Plan};
-use crate::agent_work::{AtWork, Dropdown, Now, PAUSED, Paying, WORKING};
+use crate::agent_work::{AtWork, Dropdown, FINDING, Now, PAUSED, Paying, SIGN_IN, WORKING};
 use crate::start_document::{Unbuilt, append, attribute, element};
 use alo_dom::{Document, NodeId};
 
@@ -91,6 +91,22 @@ pub const SUMMARY: &str = "What you pay for";
 /// [`Unbuilt`] if `alo-dom` refused an operation, which no agent's words
 /// can cause.
 pub fn make(document: &mut Document, work: &AtWork) -> Result<NodeId, Unbuilt> {
+    column(document, work, WORKING)
+}
+
+/// The column for `work` begun with no page open (queue item 821), made
+/// for its turn: the working line says it is finding the site, since there
+/// is no page to take over yet.
+///
+/// # Errors
+///
+/// As [`make`].
+pub fn beginning(document: &mut Document, work: &AtWork) -> Result<NodeId, Unbuilt> {
+    column(document, work, FINDING)
+}
+
+/// The column for `work`, its working line saying `working`.
+fn column(document: &mut Document, work: &AtWork, working: &str) -> Result<NodeId, Unbuilt> {
     let column = element(document, "div")?;
     attribute(document, column, "class", "agent")?;
     attribute(document, column, "role", "region")?;
@@ -98,7 +114,7 @@ pub fn make(document: &mut Document, work: &AtWork) -> Result<NodeId, Unbuilt> {
     if work.is_working() {
         let row = element(document, "div")?;
         attribute(document, row, "class", "working")?;
-        let line = words(document, "p", "said", WORKING)?;
+        let line = words(document, "p", "said", working)?;
         append(document, row, line)?;
         let stop = button(document, "abtn stop", STOP)?;
         append(document, row, stop)?;
@@ -328,10 +344,16 @@ fn now(document: &mut Document, work: &AtWork) -> Result<Option<NodeId>, Unbuilt
         Now::Stopped { why } => words(document, "p", "stopped", why)?,
         // The page the person's (queue item 825): it carries on only when
         // they say so.
-        Now::Paused => {
+        Now::Paused | Now::SignIn => {
             let paused = element(document, "div")?;
             attribute(document, paused, "class", "paused")?;
-            let said = words(document, "p", "pausedsaid", PAUSED)?;
+            // Handed over to sign in (queue item 821), or taken over.
+            let line = if matches!(work.now, Now::SignIn) {
+                SIGN_IN
+            } else {
+                PAUSED
+            };
+            let said = words(document, "p", "pausedsaid", line)?;
             append(document, paused, said)?;
             let carry_on = button(document, "abtn continue", CONTINUE)?;
             append(document, paused, carry_on)?;

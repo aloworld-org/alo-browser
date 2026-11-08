@@ -572,7 +572,10 @@ impl ConversationWindow {
                 self.unmark();
             }
             if let Some((agent, tell)) = &self.agent {
-                match agent.start(number, asked, Arc::clone(tell)) {
+                // The person's limits, read as the run starts and kept for
+                // the whole of it (queue item 878).
+                let limits = self.conversation.settings().limits();
+                match agent.start(number, asked, Arc::clone(tell), limits) {
                     Ok(run) => {
                         self.run = Some(run);
                         self.following = true;
@@ -667,6 +670,28 @@ impl ConversationWindow {
                 spent.input,
                 spent.output
             )),
+            Said::Opening { url, .. } => self.said.push(format!("agent opens {url}")),
+            Said::SignIn => self
+                .said
+                .push("agent: the page asks the person to sign in, and is theirs".to_owned()),
+        }
+        // A page it opens (queue item 821): chosen as a person's address
+        // is, and opened as a card the run is moved onto — the road a
+        // person's address takes, never another.
+        if let Said::Opening { url, said: bubble } = &said.said
+            && self
+                .conversation
+                .agent_opens(said.run, (**url).clone(), bubble.clone())
+        {
+            self.go();
+            self.redraw = true;
+            self.keep();
+            return;
+        }
+        // Handed over to sign in (queue item 821): nothing of Chrome's left
+        // over the page, which is the person's.
+        if matches!(said.said, Said::SignIn) {
+            self.unmark();
         }
         if self.conversation.agent_said(said) {
             self.following = true;
@@ -763,7 +788,9 @@ impl ConversationWindow {
         read: crate::settings_file::Read,
         file: Option<std::path::PathBuf>,
     ) -> Self {
-        self.conversation = std::mem::take(&mut self.conversation).set_in(read.face);
+        self.conversation = std::mem::take(&mut self.conversation)
+            .set_in(read.face)
+            .limited_to(read.limits);
         if let Some(said) = read.said {
             self.tell(said);
         }
@@ -775,19 +802,35 @@ impl ConversationWindow {
     /// item 854): one that cannot be kept is said, and the interface is
     /// set in it all the same until alo closes.
     fn keep_face(&mut self) {
-        let Some(face) = self.conversation.take_face_chosen() else {
+        let face = self.conversation.take_face_chosen();
+        // How far alo's agent may go, kept beside the face (queue item 878).
+        let limited = self.conversation.take_limits_changed();
+        if face.is_none() && !limited {
             return;
-        };
+        }
+        let settings = self.conversation.settings();
         let kept = match &self.settings {
-            Some(file) => crate::settings_file::write(file, face),
+            Some(file) => crate::settings_file::write(file, settings.face(), settings.limits()),
             None => Err("there is nowhere to keep it".to_owned()),
         };
-        match kept {
-            Ok(()) => self.said.push(format!(
+        let limits = settings.limits();
+        match (kept, face) {
+            (Ok(()), Some(face)) => self.said.push(format!(
                 "alo is set in {}, as chosen in Settings",
                 face.name()
             )),
-            Err(why) => self.tell(format!("the font chosen is not kept: {why}")),
+            (Ok(()), None) => self.said.push(format!(
+                "alo at work: at most {} sites and {} actions a task, asking before {} \
+                 (Settings)",
+                limits.sites,
+                limits.actions,
+                match limits.asks {
+                    alo_renderer::agent_limits::Asks::Unnamed => "a site not found or named",
+                    alo_renderer::agent_limits::Asks::Every => "any site",
+                }
+            )),
+            (Err(why), Some(_)) => self.tell(format!("the font chosen is not kept: {why}")),
+            (Err(why), None) => self.tell(format!("alo at work's limits are not kept: {why}")),
         }
     }
 
@@ -1904,11 +1947,14 @@ impl ConversationWindow {
             return;
         };
         // Another page replaces the card, and the agent at work on it stops
-        // before the new page is open to any agent (queue item 704).
-        if self
-            .conversation
-            .stop_agent("alo stopped: you opened another page.")
-            .is_some()
+        // before the new page is open to any agent (queue item 704) — unless
+        // the agent itself asked for it (queue item 821), when it is moved
+        // onto the new card.
+        if !self.conversation.opening_for_the_run()
+            && self
+                .conversation
+                .stop_agent("alo stopped: you opened another page.")
+                .is_some()
         {
             self.follow_runs();
         }
@@ -2038,7 +2084,15 @@ impl ConversationWindow {
             Went::Unopened { .. } => {
                 self.front.owed = false;
                 self.card_changed();
-                self.conversation.card_failed(Some(said))
+                let failed = self.conversation.card_failed(Some(said.clone()));
+                // The run that asked for it is told why, and goes on
+                // (queue item 821).
+                if let Some(number) = self.conversation.take_agent_opened()
+                    && let Some(run) = self.run.as_ref().filter(|run| run.number() == number)
+                {
+                    run.unopened(said);
+                }
+                failed
             }
             Went::Closed(_) => {
                 self.front.owed = false;
@@ -2051,6 +2105,13 @@ impl ConversationWindow {
                 self.conversation.close_card()
             }
             Went::Opened { shown, .. } => {
+                // The page the run asked for is up, and the run reads it
+                // through the relay (queue item 821).
+                if let Some(number) = self.conversation.take_agent_opened()
+                    && let Some(run) = self.run.as_ref().filter(|run| run.number() == number)
+                {
+                    run.opened();
+                }
                 self.tells = if shown.tells {
                     Telling::Tells
                 } else {
@@ -3426,6 +3487,126 @@ mod tests {
             assert_eq!(page(&window), Some(after), "{size:?}");
             window.finish();
         }
+    }
+
+    /// A model on this machine answering every step with a search: its
+    /// port.
+    fn a_model_searching_for_ever() -> u16 {
+        use std::io::{Read as _, Write as _};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        std::thread::spawn(move || {
+            for socket in listener.incoming() {
+                let Ok(mut socket) = socket else { return };
+                let mut read = Vec::new();
+                let mut block = [0u8; 4096];
+                while let Ok(got) = socket.read(&mut block) {
+                    read.extend_from_slice(&block[..got]);
+                    let text = String::from_utf8_lossy(&read).to_string();
+                    let Some(head) = text.find("\r\n\r\n") else {
+                        continue;
+                    };
+                    let length = text[..head]
+                        .lines()
+                        .find_map(|line| {
+                            line.to_ascii_lowercase()
+                                .strip_prefix("content-length:")
+                                .map(|n| n.trim().parse::<usize>().unwrap_or(0))
+                        })
+                        .unwrap_or(0);
+                    if read.len() >= head + 4 + length || got == 0 {
+                        break;
+                    }
+                }
+                let reply = r#"{"object":"response","status":"completed","output":[{"type":"function_call","call_id":"c","name":"search","arguments":"{\"words\":\"museum\",\"step\":\"Searching\",\"why\":\"\",\"plan\":null,\"on\":1}"}],"usage":{"input_tokens":1,"output_tokens":1}}"#;
+                let _ = socket.write_all(
+                    format!(
+                        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{reply}",
+                        reply.len()
+                    )
+                    .as_bytes(),
+                );
+            }
+        });
+        port
+    }
+
+    /// Queue items 821 and 878: asked with no page open, the run starts in
+    /// a turn of its own, kept to the limits the person set, **read as it
+    /// starts**: five actions, though they are set to a hundred while it
+    /// works.
+    #[test]
+    fn a_run_asked_with_no_page_keeps_the_limits_read_as_it_started() {
+        use alo_renderer::agent_limits::{Asks, Limit, Limits, Stepped};
+        use alo_renderer::typed::Offer;
+        let port = a_model_searching_for_ever();
+        let provider = crate::openai_answer::Provider::at(
+            &format!("http://127.0.0.1:{port}/v1/responses"),
+            crate::search_key::Key::of("test-key-not-real").unwrap(),
+        )
+        .unwrap();
+        let (orders, _reaching) =
+            crate::conversation_agents::relay(crate::agent_sites::AgentSites::Every).unwrap();
+        let (tell, heard) = std::sync::mpsc::channel();
+        let tell: TellAgent = Arc::new(move |said| tell.send(said).is_ok());
+        let five = Limits::checked(3, 5, Asks::Unnamed).unwrap();
+        let mut window = window()
+            .with_agent(Ok(Agent::new(provider, orders)), tell)
+            .with_settings(
+                crate::settings_file::Read {
+                    face: InterfaceFace::Inter,
+                    limits: five,
+                    said: None,
+                },
+                None,
+            );
+        window.heard(Heard::Drawn(Drawn::Pressed(Part::Start, Decided::TheBox)));
+        for letter in "find the museum".chars() {
+            let written = letter.to_string();
+            window.key(&Press::character(&written), Some(&written));
+        }
+        window.heard(Heard::Drawn(Drawn::Pressed(
+            Part::Start,
+            Decided::Offer(Offer::Ask("find the museum".to_owned())),
+        )));
+        assert_eq!(window.conversation().working(), Some(1));
+        // Set to a hundred while it works: not this run's.
+        let _ = window.conversation.act(Decided::Settings);
+        for _ in 0..19 {
+            let _ = window.conversation.act(Decided::Stepped(Stepped {
+                limit: Limit::Actions,
+                more: true,
+            }));
+        }
+        assert_eq!(window.conversation().settings().limits().actions, 100);
+        let _ = window.conversation.close_settings();
+        let by = Instant::now() + std::time::Duration::from_secs(30);
+        let mut ended = None;
+        while Instant::now() < by && ended.is_none() {
+            let Ok(said) = heard.recv_timeout(std::time::Duration::from_millis(200)) else {
+                continue;
+            };
+            if let Said::Stopped { why } = &said.said {
+                ended = Some(why.clone());
+            }
+            window.heard(Heard::Agent(said));
+        }
+        assert_eq!(
+            ended.as_deref(),
+            Some(
+                "alo stopped after 5 steps without finishing. Ask again to go on from what the \
+                 page shows now."
+            )
+        );
+        let turns = window
+            .conversation()
+            .start(Size::new(1040.0, 820.0), Scale::ONE)
+            .turns;
+        assert!(
+            matches!(turns.last(), Some(alo_renderer::turn::Turn::Asked(asked)) if asked.agent.as_ref().is_some_and(|work| work.steps.len() == 5)),
+            "{turns:?}"
+        );
+        window.finish();
     }
 
     /// At two the same window asks Chrome for twice the device pixels of the

@@ -18,19 +18,26 @@
 //! choice that needs the keychain to be read back would be lost with it.
 //!
 //! It is [`HEADER`], then one line, `font` and the face's name as a person
-//! reads it (`font Plus Jakarta Sans`). Lines that are empty or begin with
-//! `#` are passed over. Nothing in it leaves the machine.
+//! reads it (`font Plus Jakarta Sans`) — and, since queue item 878, how far
+//! alo's agent may go on one task: `sites` and a number, `actions` and a
+//! number, and `asks` and `unnamed` or `every` (`sites 3`, `actions 20`,
+//! `asks unnamed`), each within its bounds
+//! (`alo_renderer::agent_limits`). A file written before 878 names only the
+//! font, and its limits are the default. Lines that are empty or begin
+//! with `#` are passed over. Nothing in it leaves the machine.
 //!
 //! # Read back, or Inter and said
 //!
 //! No file is Inter, said nothing: alo was never set otherwise. Anything
 //! else that does not read as written here — a face alo does not carry, a
-//! line it does not know, no `font` line or two, bytes that are not UTF-8,
-//! a file larger than any it writes, or one that cannot be read at all —
-//! is **Inter, and said**, with the file's path and why, on the terminal
-//! and in the first screen's line as the window opens. The file is left as
-//! it is until a person next chooses a face, which writes it whole.
+//! line it does not know, no `font` line or two, a limit past its bounds or
+//! named twice, bytes that are not UTF-8, a file larger than any it writes,
+//! or one that cannot be read at all — is **Inter and the default limits,
+//! and said**, with the file's path and why, on the terminal and in the
+//! first screen's line as the window opens. The file is left as it is
+//! until a person next chooses a face or a limit, which writes it whole.
 
+use alo_renderer::agent_limits::{Asks, Limits};
 use alo_renderer::interface_face::InterfaceFace;
 use std::fs::{self, DirBuilder, File, OpenOptions};
 use std::io::{Read as _, Write as _};
@@ -45,6 +52,15 @@ pub const HEADER: &str = "# alo: what a person chose in Settings (docs/design/sh
 
 /// The word a line naming the face begins with.
 const FONT: &str = "font";
+
+/// The word a line giving the sites a run may open begins with.
+const SITES: &str = "sites";
+
+/// The word a line giving the actions a run may take begins with.
+const ACTIONS: &str = "actions";
+
+/// The word a line saying before which sites alo asks begins with.
+const ASKS: &str = "asks";
 
 /// The most bytes a settings file is read to: far past any alo writes.
 pub const LARGEST: u64 = 4096;
@@ -62,6 +78,9 @@ pub fn file_in(directory: &Path) -> PathBuf {
 pub struct Read {
     /// The face the interface is set in: the one kept, or Inter.
     pub face: InterfaceFace,
+    /// How far alo's agent may go: the limits kept, or the default (queue
+    /// item 878).
+    pub limits: Limits,
     /// Why the file did not read, when it did not, in words naming it: the
     /// face is then Inter.
     pub said: Option<String>,
@@ -70,10 +89,15 @@ pub struct Read {
 /// The settings kept in `file`: Inter, said nothing, when there is none;
 /// Inter and why, when it does not read.
 pub fn read(file: &Path) -> Read {
-    match read_face(file) {
-        Ok(face) => Read { face, said: None },
+    match read_kept(file) {
+        Ok((face, limits)) => Read {
+            face,
+            limits,
+            said: None,
+        },
         Err(why) => Read {
             face: InterfaceFace::Inter,
+            limits: Limits::default(),
             said: Some(format!(
                 "the settings in {} do not read ({why}), so alo is set in Inter",
                 file.display()
@@ -82,12 +106,12 @@ pub fn read(file: &Path) -> Read {
     }
 }
 
-/// The face `file` names, or why it does not read.
-fn read_face(file: &Path) -> Result<InterfaceFace, String> {
+/// The face and the limits `file` names, or why it does not read.
+fn read_kept(file: &Path) -> Result<(InterfaceFace, Limits), String> {
     let opened = match File::open(file) {
         Ok(opened) => opened,
         Err(why) if why.kind() == std::io::ErrorKind::NotFound => {
-            return Ok(InterfaceFace::Inter);
+            return Ok((InterfaceFace::Inter, Limits::default()));
         }
         Err(why) => return Err(format!("it could not be opened: {why}")),
     };
@@ -101,22 +125,66 @@ fn read_face(file: &Path) -> Result<InterfaceFace, String> {
     }
     let text = String::from_utf8(bytes).map_err(|_| "it is not text".to_owned())?;
     let mut face = None;
+    let (mut sites, mut actions, mut asks) = (None, None, None);
     for line in text.lines().map(str::trim) {
         if line.is_empty() || line.starts_with('#') {
             continue;
         }
-        let named = line
-            .strip_prefix(FONT)
-            .and_then(|rest| rest.strip_prefix(' '))
-            .map(str::trim)
+        let (word, rest) = line
+            .split_once(' ')
+            .map(|(word, rest)| (word, rest.trim()))
             .ok_or_else(|| format!("it holds a line alo does not read: {:?}", said(line)))?;
-        let found = InterfaceFace::named(named)
-            .ok_or_else(|| format!("it names a font alo does not carry: {:?}", said(named)))?;
-        if face.replace(found).is_some() {
-            return Err("it names a font twice".to_owned());
+        let twice = |what: &str| format!("it names {what} twice");
+        match word {
+            FONT => {
+                let found = InterfaceFace::named(rest).ok_or_else(|| {
+                    format!("it names a font alo does not carry: {:?}", said(rest))
+                })?;
+                if face.replace(found).is_some() {
+                    return Err("it names a font twice".to_owned());
+                }
+            }
+            // How far alo's agent may go (queue item 878).
+            SITES => {
+                let most = rest.parse::<u8>().map_err(|_| unread_limit(line))?;
+                if sites.replace(most).is_some() {
+                    return Err(twice("the sites a task may open"));
+                }
+            }
+            ACTIONS => {
+                let most = rest.parse::<u16>().map_err(|_| unread_limit(line))?;
+                if actions.replace(most).is_some() {
+                    return Err(twice("the actions a task may take"));
+                }
+            }
+            ASKS => {
+                let chosen = Asks::of_word(rest).ok_or_else(|| unread_limit(line))?;
+                if asks.replace(chosen).is_some() {
+                    return Err(twice("when alo asks"));
+                }
+            }
+            _ => {
+                return Err(format!(
+                    "it holds a line alo does not read: {:?}",
+                    said(line)
+                ));
+            }
         }
     }
-    face.ok_or_else(|| "it names no font".to_owned())
+    let face = face.ok_or_else(|| "it names no font".to_owned())?;
+    let default = Limits::default();
+    let limits = Limits::checked(
+        sites.unwrap_or(default.sites),
+        actions.unwrap_or(default.actions),
+        asks.unwrap_or(default.asks),
+    )
+    .ok_or_else(|| "it names a limit for alo at work past its bounds".to_owned())?;
+    Ok((face, limits))
+}
+
+/// Why a line giving a limit does not read.
+fn unread_limit(line: &str) -> String {
+    format!("it holds a limit alo does not read: {:?}", said(line))
 }
 
 /// At most [`SAID_OF_A_LINE`] characters of `line`, to be said back.
@@ -124,18 +192,25 @@ fn said(line: &str) -> String {
     line.chars().take(SAID_OF_A_LINE).collect()
 }
 
-/// What [`write`] puts in the file for `face`.
-pub fn text_of(face: InterfaceFace) -> String {
-    format!("{HEADER}\n{FONT} {}\n", face.name())
+/// What [`write`] puts in the file for `face` and `limits`.
+pub fn text_of(face: InterfaceFace, limits: Limits) -> String {
+    format!(
+        "{HEADER}\n{FONT} {}\n{SITES} {}\n{ACTIONS} {}\n{ASKS} {}\n",
+        face.name(),
+        limits.sites,
+        limits.actions,
+        limits.asks.word()
+    )
 }
 
-/// Keep `face` in `file`, whole or not at all, readable by this user alone;
-/// its directory made, readable by this user alone, if it is not there.
+/// Keep `face` and `limits` in `file`, whole or not at all, readable by
+/// this user alone; its directory made, readable by this user alone, if it
+/// is not there.
 ///
 /// # Errors
 ///
 /// Why it was not written, in words; the file is then as it was.
-pub fn write(file: &Path, face: InterfaceFace) -> Result<(), String> {
+pub fn write(file: &Path, face: InterfaceFace, limits: Limits) -> Result<(), String> {
     let failed = |why: std::io::Error| format!("{} could not be written: {why}", file.display());
     if let Some(directory) = file.parent()
         && !directory.is_dir()
@@ -158,7 +233,8 @@ pub fn write(file: &Path, face: InterfaceFace) -> Result<(), String> {
         .map_err(failed)?;
     out.set_permissions(fs::Permissions::from_mode(0o600))
         .map_err(failed)?;
-    out.write_all(text_of(face).as_bytes()).map_err(failed)?;
+    out.write_all(text_of(face, limits).as_bytes())
+        .map_err(failed)?;
     out.sync_all().map_err(failed)?;
     drop(out);
     fs::rename(&writing, file).map_err(failed)?;
@@ -189,6 +265,7 @@ mod tests {
             read(&file_in(&directory)),
             Read {
                 face: InterfaceFace::Inter,
+                limits: Limits::default(),
                 said: None
             }
         );
@@ -198,15 +275,23 @@ mod tests {
     fn a_face_kept_is_read_back_in_words_only_this_users() {
         let directory = scratch("kept");
         let file = file_in(&directory);
+        let limits = Limits::checked(5, 45, Asks::Every).expect("within");
         for face in InterfaceFace::ALL {
-            write(&file, face).expect("written");
-            assert_eq!(read(&file), Read { face, said: None });
+            write(&file, face, limits).expect("written");
+            assert_eq!(
+                read(&file),
+                Read {
+                    face,
+                    limits,
+                    said: None
+                }
+            );
         }
         assert_eq!(
             fs::read_to_string(&file).ok().as_deref(),
             Some(
                 "# alo: what a person chose in Settings (docs/design/shell.md)\n\
-                 font Instrument Sans\n"
+                 font Instrument Sans\nsites 5\nactions 45\nasks every\n"
             )
         );
         let mode = |path: &Path| fs::metadata(path).map(|m| m.permissions().mode() & 0o777);
@@ -225,7 +310,32 @@ mod tests {
         let directory = scratch("damaged");
         fs::create_dir_all(&directory).expect("made");
         let file = file_in(&directory);
-        let cases: [(&[u8], &str); 8] = [
+        let cases: [(&[u8], &str); 14] = [
+            // How far alo's agent may go (queue item 878).
+            (
+                b"font Geist\nsites 0\n",
+                "it names a limit for alo at work past its bounds",
+            ),
+            (
+                b"font Geist\nactions 101\n",
+                "it names a limit for alo at work past its bounds",
+            ),
+            (
+                b"font Geist\nactions 22\n",
+                "it names a limit for alo at work past its bounds",
+            ),
+            (
+                b"font Geist\nsites many\n",
+                "it holds a limit alo does not read: \"sites many\"",
+            ),
+            (
+                b"font Geist\nasks always\n",
+                "it holds a limit alo does not read: \"asks always\"",
+            ),
+            (
+                b"font Geist\nsites 2\nsites 3\n",
+                "it names the sites a task may open twice",
+            ),
             (
                 b"font Comic Sans\n",
                 "it names a font alo does not carry: \"Comic Sans\"",
@@ -251,6 +361,7 @@ mod tests {
             fs::write(&file, bytes).expect("written");
             let read = read(&file);
             assert_eq!(read.face, InterfaceFace::Inter, "{why}");
+            assert_eq!(read.limits, Limits::default(), "{why}");
             assert_eq!(
                 read.said,
                 Some(format!(
@@ -285,6 +396,19 @@ mod tests {
         // editor might leave them.
         fs::write(&file, "font  DM Sans \r\n").expect("written");
         assert_eq!(read(&file).face, InterfaceFace::DmSans);
+        // A file kept before 878 names only the font: its limits the
+        // default, said nothing.
+        fs::write(&file, "font Geist\n").expect("written");
+        assert_eq!(
+            read(&file),
+            Read {
+                face: InterfaceFace::Geist,
+                limits: Limits::default(),
+                said: None
+            }
+        );
+        fs::write(&file, "font Geist\nactions 60\n").expect("written");
+        assert_eq!(read(&file).limits.actions, 60);
         let _ = fs::remove_dir_all(&directory);
     }
 }

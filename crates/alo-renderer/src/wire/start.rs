@@ -32,6 +32,8 @@
 //! is scrolled, a finite number.
 
 use super::{Reader, Unreadable, Writer, unreadable};
+use crate::agent_asked::Asked;
+use crate::agent_limits::{Asks, Limits};
 use crate::card::Card;
 use crate::card_menu::{CardMenu, MenuItem};
 use crate::conversation_scroll::{Bar, MOST};
@@ -62,7 +64,15 @@ impl Writer {
             (true, None) => 1,
             (true, Some(SettingsKeyed::Back)) => 2,
             (true, Some(SettingsKeyed::Font)) => 3,
+            // *alo at work*'s three (queue item 878).
+            (true, Some(SettingsKeyed::Sites)) => 4,
+            (true, Some(SettingsKeyed::Actions)) => 5,
+            (true, Some(SettingsKeyed::Asks)) => 6,
         });
+        // How far alo's agent may go (queue item 878).
+        self.number(u64::from(start.limits.sites));
+        self.number(u64::from(start.limits.actions));
+        self.bool(start.limits.asks == Asks::Every);
         self.text(&start.greeting);
         self.number(start.sites.len() as u64);
         for site in &start.sites {
@@ -118,6 +128,13 @@ impl Writer {
                     self.tag(3);
                     self.text(said);
                     self.text(why);
+                }
+                // alo asked with no page open (queue item 821).
+                Turn::Asked(asked) => {
+                    self.tag(4);
+                    self.text(&asked.said);
+                    self.agent_work(asked.agent.as_ref());
+                    self.runs(&asked.ran);
                 }
             }
         }
@@ -208,8 +225,12 @@ impl Reader<'_> {
             1 => (true, None),
             2 => (true, Some(SettingsKeyed::Back)),
             3 => (true, Some(SettingsKeyed::Font)),
+            4 => (true, Some(SettingsKeyed::Sites)),
+            5 => (true, Some(SettingsKeyed::Actions)),
+            6 => (true, Some(SettingsKeyed::Asks)),
             other => return Err(unreadable(format!("a Settings tagged {other}"))),
         };
+        let limits = self.limits()?;
         let greeting = self.text()?;
         let mut sites = Vec::new();
         for _ in 0..self.count()? {
@@ -284,6 +305,7 @@ impl Reader<'_> {
             face,
             settings,
             settings_keyed,
+            limits,
         })
     }
 
@@ -314,8 +336,40 @@ impl Reader<'_> {
                     why: self.text()?,
                 }
             }
+            4 => {
+                let said = self.text()?;
+                let agent = self.agent_work()?;
+                if agent.is_some() && !newest {
+                    return Err(unreadable(
+                        "alo at work with no page in a turn that is not the newest",
+                    ));
+                }
+                let ran = self.runs()?;
+                if ran.len() > 1 {
+                    return Err(unreadable(
+                        "a turn asked with no page keeping more than its one run",
+                    ));
+                }
+                Turn::Asked(Asked { said, agent, ran })
+            }
             other => return Err(unreadable(format!("a turn tagged {other}"))),
         })
+    }
+
+    /// How far alo's agent may go (queue item 878), as [`Writer::start`]
+    /// wrote it: each within its bounds, or refused.
+    fn limits(&mut self) -> Result<Limits, Unreadable> {
+        let sites = u8::try_from(self.number()?).ok();
+        let actions = u16::try_from(self.number()?).ok();
+        let asks = if self.bool()? {
+            Asks::Every
+        } else {
+            Asks::Unnamed
+        };
+        sites
+            .zip(actions)
+            .and_then(|(sites, actions)| Limits::checked(sites, actions, asks))
+            .ok_or_else(|| unreadable("an agent's limits past their bounds"))
     }
 
     /// The sign of more above or below (queue item 755), if one was

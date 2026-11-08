@@ -23,6 +23,9 @@
 //!   each of them sixty times a second (ADR 0085 § 2).
 //! - **An honest failure** ([`Turn::Failed`]): a page that could not be
 //!   opened, and why, in this browser's words.
+//! - **alo asked with no page open** ([`Turn::Asked`], queue item 821): the
+//!   agent's column while it finds the site, until it opens one — the turn
+//!   then that page's card — and kept as its run when it opened none.
 //!
 //! **alo's agent at work** on a live card is drawn on the card
 //! ([`Card::agent`], item 704); **each run it made** — what was asked, its
@@ -34,6 +37,7 @@
 //! address, a reason that names one — and enters the document as a text
 //! node ([`crate::conversation_document`]).
 
+use crate::agent_asked::Asked;
 use crate::agent_ran::Ran;
 use crate::card::Card;
 use crate::results::Results;
@@ -63,6 +67,10 @@ pub enum Turn {
         /// keeps it (queue item 820): at most [`crate::agent_ran::MOST_RUNS`].
         ran: Vec<Ran>,
     },
+    /// alo asked with no page open (queue item 821): the agent's column
+    /// while it finds the site, or its run kept once it ended opening none.
+    /// Live only as the newest turn.
+    Asked(Asked),
     /// What the person chose that could not be done, and why.
     Failed {
         /// What the person said.
@@ -79,6 +87,7 @@ impl Turn {
         match self {
             Turn::Searched(results) => &results.said,
             Turn::Page(card) => &card.said,
+            Turn::Asked(asked) => &asked.said,
             Turn::Visited { said, .. } | Turn::Failed { said, .. } => said,
         }
     }
@@ -98,7 +107,7 @@ impl Turn {
                 .chain(results.drawn_stories().iter().map(|story| &story.page))
                 .collect(),
             Turn::Visited { url, .. } => vec![url],
-            Turn::Page(_) | Turn::Failed { .. } => Vec::new(),
+            Turn::Page(_) | Turn::Asked(_) | Turn::Failed { .. } => Vec::new(),
         }
     }
 
@@ -111,7 +120,9 @@ impl Turn {
                 .iter()
                 .map(|image| &image.page)
                 .collect(),
-            Turn::Page(_) | Turn::Visited { .. } | Turn::Failed { .. } => Vec::new(),
+            Turn::Page(_) | Turn::Asked(_) | Turn::Visited { .. } | Turn::Failed { .. } => {
+                Vec::new()
+            }
         }
     }
 

@@ -132,13 +132,16 @@
 
 pub mod agent_changes;
 pub mod agent_dropdown;
+pub mod agent_found;
 pub mod agent_gate;
 pub mod agent_kept;
 pub mod agent_lines;
+pub mod agent_opening;
 pub mod agent_page;
 pub mod agent_paying;
 pub mod agent_protocol;
 pub mod agent_record;
+pub mod agent_signin;
 pub mod agent_sites;
 #[cfg(unix)]
 pub mod agents;

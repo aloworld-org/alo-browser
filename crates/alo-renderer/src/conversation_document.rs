@@ -187,6 +187,26 @@ fn make_turn(
         Turn::Searched(results) => crate::results_document::make(document, results, place)?,
         Turn::Page(card) if newest => crate::card_document::make(document, card)?,
         Turn::Page(Card { url, .. }) | Turn::Visited { url, .. } => make_visited(document, url)?,
+        // alo asked with no page open (queue item 821): its column while it
+        // is live and the newest, its run kept otherwise.
+        Turn::Asked(asked) => match &asked.agent {
+            Some(work) if newest => {
+                let holder = element(document, "div")?;
+                attribute(document, holder, "class", "begun")?;
+                let column = crate::agent_document::beginning(document, work)?;
+                append(document, holder, column)?;
+                holder
+            }
+            // Put away or read back: what it did, under the bubble that
+            // already says what was asked.
+            _ => {
+                for ran in &asked.ran {
+                    let kept = crate::ran_document::kept(document, ran)?;
+                    append(document, made, kept)?;
+                }
+                return Ok(made);
+            }
+        },
         Turn::Failed { why, .. } => {
             let line = element(document, "p")?;
             attribute(document, line, "class", "failed")?;

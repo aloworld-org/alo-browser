@@ -937,6 +937,7 @@ pub fn conversation(
     let read = settings.as_deref().map_or(
         crate::settings_file::Read {
             face: alo_renderer::interface_face::InterfaceFace::Inter,
+            limits: alo_renderer::agent_limits::Limits::default(),
             said: None,
         },
         crate::settings_file::read,

@@ -58,7 +58,9 @@
 //! clipped, and a press there finds nothing to claim.
 //!
 //! *Settings* (queue item 854) is pressed the same way: a face by its place
-//! among the faces it offers, and *Back to the chat* one of a kind.
+//! among the faces it offers, and *Back to the chat* one of a kind; and so
+//! is *alo at work* (queue item 878), a stepper's button and a choice of
+//! asking each by its place.
 //!
 //! The agent at work on a card's page (queue item 704) is pressed the same
 //! way: its *Stop*, *Allow* and *Not now*, each one of the closed list,
@@ -246,6 +248,18 @@ pub enum Claim {
     },
     /// *Settings*' *Back to the chat*.
     LeaveSettings,
+    /// The stepper's button at this place among those *alo at work* lets a
+    /// person press, counting from zero (queue item 878).
+    Limit {
+        /// Its place.
+        at: usize,
+    },
+    /// The choice of asking at this place, counting from zero (queue item
+    /// 878).
+    Asks {
+        /// Its place.
+        at: usize,
+    },
 }
 
 impl Claim {
@@ -286,6 +300,8 @@ impl Claim {
             | Claim::MenuItem { .. }
             | Claim::Face { .. }
             | Claim::LeaveSettings
+            | Claim::Limit { .. }
+            | Claim::Asks { .. }
             | Claim::Shield => Part::Start,
         }
     }
@@ -329,6 +345,8 @@ impl fmt::Display for Claim {
             Claim::Shield => f.write_str("the card's shield"),
             Claim::Face { at } => write!(f, "the face Settings offers at place {at}"),
             Claim::LeaveSettings => f.write_str("Settings' Back to the chat"),
+            Claim::Limit { at } => write!(f, "the stepper's button Settings offers at place {at}"),
+            Claim::Asks { at } => write!(f, "the choice of asking Settings offers at place {at}"),
         }
     }
 }
@@ -425,6 +443,15 @@ fn pressables(part: Part) -> &'static [(&'static [&'static str], Pressable)] {
                 Pressable::Placed(|at| Claim::Face { at }),
             ),
             (&["pback"], Pressable::One(Claim::LeaveSettings)),
+            // *alo at work* (queue item 878): a stepper's button by its
+            // place among those that can be pressed — one past its end is
+            // `lbtn off`, and claims nothing — and a choice of asking by
+            // its place.
+            (&["lbtn"], Pressable::Placed(|at| Claim::Limit { at })),
+            (
+                &["askopt", "askopt on"],
+                Pressable::Placed(|at| Claim::Asks { at }),
+            ),
             // An offer for what was typed, whichever is chosen and whether
             // it is set up (queue item 714).
             (

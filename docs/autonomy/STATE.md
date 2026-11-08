@@ -50070,3 +50070,71 @@ the box lacks the keyboard. Every `alo-window` test then passed
 not edited.
 
 The next unused queue number is **878** and the next ADR is **0103**.
+
+---
+
+## 2026-11-08 — batch 23: the agent beginning with no page (821), its limits in Settings (878), Figma measured (879)
+
+**Contracts read:** `CLAUDE.md`, `LOOP.md`, ADRs 0002, 0052, 0055, 0094,
+0095, 0096, 0099, `docs/design/shell.md` (*The agent at work*,
+*Settings*), the owner's design of 8 November 2026 in item 821, items 878
+and 879.
+
+**821 — built.** Decided in a new **ADR 0103** rather than a fourth
+amendment to 0096: choosing where to go widens the agent from one page to
+the web, with rules 0096 never needed (which addresses are never opened,
+how a name is resolved first, what a site is when counted, who is asked) —
+security decisions worth a record of their own; 0096 is amended where its
+sections change (§ 6: a refused password now hands the page over). The
+site counted is the **registrable domain** (`alo_url::site::of`, the public
+suffix list the codebase carries), the host where there is none; a link
+never counts. A public name is **resolved** with the rebinding rule before
+opening; the gap left (Chrome resolving again) is said in ADR 0103 § 2 and
+queued as 881. `file:` and other schemes are never opened, even typed —
+stricter than the design, because the box opens none. New files:
+`alo-renderer`'s `agent_asked.rs`, `agent_limits.rs`,
+`settings_work_document.rs`; `alo-window`'s `agent_found.rs`,
+`agent_opening.rs`, `agent_signin.rs`. Details, tests, mutations and the
+hand run are in the item's entry.
+
+**878 — built.** Bounds: sites 1–10 (3), actions 5–100 in fives (20);
+why, in `agent_limits.rs`, ADR 0103 § 4 and the design.
+
+**879 — measured, not built, left open** (a fork of this session, on the
+release bundle's `alo --chrome` and `alo-ask`, logged out, no spend):
+findings and the recommendation are in the item; in short, the canvas
+gives the agent nothing, the editor needs a signed-in measurement, and a
+keyboard verb is not worth a design yet. Its odd finding queued as 882.
+
+**Queued:** 880 (*Settings* does not scroll: in a window shorter than
+about 830 *alo at work* stands below the room), 881 (a private answer
+refused by Chrome itself for the agent's navigation), 882 (a button
+whose middle is its own icon refused `NotCarriedOut`).
+
+**Docs:** `docs/design/shell.md` (*Beginning with no page*, *Settings*'
+*alo at work*), ADR 0103, ADR 0096 amended, `docs/features.md`,
+`docs/conformance.md`, `ROADMAP.md` (*Built since* names 821 and 878),
+CHANGELOG, QUEUE (821 and 878 ticked; 879 findings, unticked; 880–882
+added). `.config/nextest.toml`: the new through-Chrome test in the shown
+override, beside its sibling.
+
+**By hand:** release and bundle rebuilt (no keys carried), the Retina at
+two, `--conversation --chats handrun43/chats`, a local server on
+127.0.0.1:8739; screenshots in the session scratchpad's `handrun43/`.
+**Not seen by hand:** a second site opened in one run; the 3-site limit
+reached; a public name resolving privately (unit-tested only); a page that
+could not be opened; scale one. **Spend:** OpenAI 22,034 tokens in, 816
+out (about $0.03); Brave one query.
+
+**Odd:** a refused open is told only to the model — the person sees the
+step's line and then whatever the model says (here *the browser tool
+blocked access*); a line of the browser's own under the step would be
+clearer, not queued.
+
+**Gate: met, first run** (CEF_PATH set, the pointer at 1400, 1000;
+detached through `perl -MPOSIX=setsid` and waited on by its PID;
+`gate-batch23.log`). **Summary [1200.171s] 6750 tests run: 6750 passed (5
+slow, 1 leaky), 0 skipped** — *"The gate is met." (11 of 11 steps)*.
+`scripts/gate.sh` not edited.
+
+The next unused queue number is **885** and the next ADR is **0104**.

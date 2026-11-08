@@ -36,6 +36,7 @@ use alo_renderer::interface_face::InterfaceFace;
 use alo_renderer::panel::{Chat, Doing, Panel};
 use alo_renderer::results::{Found, Results, SetUp, Showing};
 use alo_renderer::settings_document::{BACK, FONT, SAMPLE_DESCRIPTION, SAMPLE_TITLE, TITLE};
+use alo_renderer::settings_work_document::AT_WORK;
 use alo_renderer::start::{SettingsKeyed, Start};
 use alo_renderer::turn::Turn;
 use alo_renderer::{Frame, FromRenderer, Renderer, Snapshot, SnapshotNode, ToRenderer};
@@ -240,15 +241,21 @@ fn settings_is_read_as_a_radio_group_named_font_with_the_face_chosen_checked() {
                 .map(|node| node.name.clone())
                 .collect()
         };
-        assert_eq!(named("region"), vec![Some(TITLE.into()), Some(FONT.into())]);
+        // Since queue item 878, alo at work under Font: its own test reads
+        // it (`settings_alo_at_work.rs`).
+        assert_eq!(
+            named("region"),
+            vec![Some(TITLE.into()), Some(FONT.into()), Some(AT_WORK.into())]
+        );
         assert_eq!(
             named("heading"),
-            vec![Some(TITLE.into()), Some(FONT.into())]
+            vec![Some(TITLE.into()), Some(FONT.into()), Some(AT_WORK.into())]
         );
-        assert_eq!(named("button"), vec![Some(BACK.into())]);
-        assert_eq!(named("radiogroup"), vec![Some(FONT.into())]);
+        assert_eq!(named("button").first(), Some(&Some(BACK.into())));
+        assert_eq!(named("radiogroup").first(), Some(&Some(FONT.into())));
         let radios: Vec<(Option<String>, Option<Checked>, usize)> = read(&drawn.tree, "radio")
             .iter()
+            .take(InterfaceFace::ALL.len())
             .map(|node| (node.name.clone(), node.states.checked, node.children.len()))
             .collect();
         assert_eq!(
@@ -298,8 +305,8 @@ fn settings_is_laid_out_in_the_first_screens_column_two_faces_a_row() {
             .map(|group| group.starts_with("(160, 92)")),
         Some(true)
     );
-    assert_eq!(at("pname"), vec![px(160.0, 92.0, 720.0, 20.0)]);
-    assert_eq!(at("pabout"), vec![px(160.0, 116.0, 720.0, 18.0)]);
+    assert_eq!(at("pname").first(), Some(&px(160.0, 92.0, 720.0, 20.0)));
+    assert_eq!(at("pabout").first(), Some(&px(160.0, 116.0, 720.0, 18.0)));
     // Two a row, 10 apart: (720 - 10) / 2 = 355 each; each 15 + 18 + 10 +
     // 25 + 4 + 46 + 16 and its border, 136 tall; three rows.
     assert_eq!(at("faces"), vec![px(160.0, 148.0, 720.0, 428.0)]);
@@ -606,6 +613,8 @@ fn the_keyboards_ring_moves_nothing_and_is_drawn_as_the_references() {
         let expected = match keyed {
             SettingsKeyed::Back => vec![px(152.0, 32.0, 36.0, 36.0)],
             SettingsKeyed::Font => vec![px(525.0, 148.0, 355.0, 136.0)],
+            // alo at work's (queue item 878) are `settings_alo_at_work.rs`'s.
+            other => panic!("{other:?} is not rung here"),
         };
         assert_eq!(boxes_of(&drawn.renderer, class), expected, "{class}");
         // The ring: 3 outside the edge, the ink at a third over the page.

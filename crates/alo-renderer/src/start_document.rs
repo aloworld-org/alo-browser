@@ -31,7 +31,8 @@
 //! address; *Search for "…"* and where it goes, *Brave Search*, or
 //! [`NOT_SET_UP`] and why ([`searched_with`], queue item 708); *Ask alo
 //! about "…"* and [`ASKED_WITH`] while a card is open and the model can be
-//! asked (queue item 704), [`NOT_SET_UP`] and why otherwise
+//! asked (queue item 704) — with no card open, [`ASK_TO_DO_IT`] and
+//! [`FINDS_THE_SITE`] (queue item 821) — [`NOT_SET_UP`] and why otherwise
 //! ([`asked_with`]) — the first `aria-selected`, being what Return
 //! chooses, and each that is not set up `aria-disabled`.
 //!
@@ -58,6 +59,7 @@
 use crate::results::{PROVIDER, SetUp};
 use crate::split_place::Stands;
 use crate::start::{KeptSite, Start, Waiting};
+use crate::turn::Turn;
 use crate::typed::Offer;
 use alo_dom::{Document, NodeId, parse_document};
 
@@ -119,6 +121,27 @@ pub fn asked_with(asking: &SetUp) -> String {
 
 /// What the offer to ask alo says under its words when it is set up.
 pub const ASKED_WITH: &str = "alo works on this page";
+
+/// The words of the offer to ask alo with no page open (queue item 821,
+/// the owner's design of 8 November 2026): it finds the site itself.
+pub const ASK_TO_DO_IT: &str = "Ask alo to do it";
+
+/// What that offer says under its words when it is set up.
+pub const FINDS_THE_SITE: &str = "alo finds the site and works on it";
+
+/// The words of the offer to ask alo about `said`, and what it says under
+/// them: on the page open as a card, or — with none open — finding the
+/// site itself (queue item 821).
+pub fn ask_offer(said: &str, asking: &SetUp, on_a_page: bool) -> (String, String) {
+    if on_a_page {
+        return (ask_about(said), asked_with(asking));
+    }
+    let under = match asking {
+        SetUp::Ready => FINDS_THE_SITE.to_owned(),
+        not @ SetUp::Not(_) => asked_with(not),
+    };
+    (ASK_TO_DO_IT.to_owned(), under)
+}
 
 /// The id of the template's heading, which holds the greeting.
 const GREETING: &str = "greeting";
@@ -185,6 +208,7 @@ pub fn build(start: &Start) -> Result<Document, Unbuilt> {
             &mut document,
             &start.offers,
             (&start.search, &start.asking),
+            start.turns.last().and_then(Turn::card).is_some(),
         )?)
     };
     if start.conversing() {
@@ -364,6 +388,7 @@ fn make_offers(
     document: &mut Document,
     offers: &[Offer],
     (search, asking): (&SetUp, &SetUp),
+    on_a_page: bool,
 ) -> Result<NodeId, Unbuilt> {
     let list = element(document, "div")?;
     attribute(document, list, "class", "offers")?;
@@ -377,7 +402,7 @@ fn make_offers(
         let (words, leads_to) = match offer {
             Offer::Go(url) => (GO_TO_THE_SITE.to_owned(), url.serialised.clone()),
             Offer::Search(said) => (search_for(said), searched_with(search)),
-            Offer::Ask(said) => (ask_about(said), asked_with(asking)),
+            Offer::Ask(said) => ask_offer(said, asking, on_a_page),
         };
         let option = element(document, "div")?;
         let class = match (chosen, set_up) {
@@ -595,6 +620,34 @@ mod tests {
     }
 
     #[test]
+    fn asking_alo_with_no_page_finds_the_site_and_with_a_card_works_on_its_page() {
+        // Queue item 821, the owner's design of 8 November 2026.
+        let set_up = Start {
+            asking: SetUp::Ready,
+            ..typing("museum hours")
+        };
+        let document = built(&set_up);
+        assert_eq!(
+            of_class(&document, "offer"),
+            vec![format!("{ASK_TO_DO_IT}{FINDS_THE_SITE}")]
+        );
+        let on_a_card = Start {
+            offers: crate::typed::offers_for("museum hours", true),
+            turns: vec![Turn::Page(crate::card::Card::new(
+                "a page",
+                alo_url::parse("https://example.com/")
+                    .unwrap_or_else(|_| alo_url::Url::about_blank()),
+            ))],
+            ..set_up
+        };
+        let document = built(&on_a_card);
+        assert_eq!(
+            of_class(&document, "offer chosen"),
+            vec![format!("{}{ASKED_WITH}", ask_about("museum hours"))]
+        );
+    }
+
+    #[test]
     fn what_is_typed_is_the_fields_value_and_the_offers_stand_under_the_box() {
         let document = built(&typing("example.com"));
         let field = by_id(&document, FIELD).ok();
@@ -615,7 +668,8 @@ mod tests {
             of_class(&document, "offer unset"),
             vec![
                 format!("{}{NOT_SET_UP}", search_for("example.com")),
-                format!("{}{NOT_SET_UP}", ask_about("example.com")),
+                // With no page open, alo finds the site (queue item 821).
+                format!("{ASK_TO_DO_IT}{NOT_SET_UP}"),
             ]
         );
         // Between the box and the groups.
@@ -711,7 +765,9 @@ mod tests {
                         if *data == search_for(said) || *data == ask_about(said))
                 })
                 .count();
-            assert_eq!(texts, 2, "{hostile:?}");
+            // With no page open, asking alo does not repeat the words
+            // (queue item 821): only the search's offer holds them.
+            assert_eq!(texts, 1, "{hostile:?}");
         }
     }
 }

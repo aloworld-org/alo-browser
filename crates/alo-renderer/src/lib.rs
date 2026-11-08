@@ -46,7 +46,9 @@
 //! single-process. The pipeline is *inside* the renderer, and so is the
 //! corpus.
 
+pub mod agent_asked;
 pub mod agent_document;
+pub mod agent_limits;
 pub mod agent_paying;
 pub mod agent_plan;
 pub mod agent_ran;
@@ -134,6 +136,7 @@ pub mod scrolling_area;
 mod sent;
 pub mod serve;
 pub mod settings_document;
+pub mod settings_work_document;
 pub mod sheet;
 pub mod sheet_decide;
 pub mod sheet_make;

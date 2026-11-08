@@ -259,7 +259,13 @@ fn a_font_chosen_applies_at_once_is_kept_across_launches_and_a_damaged_file_is_i
     // Kept at once, beside the chats, this user's alone.
     assert_eq!(
         std::fs::read_to_string(&file).ok().as_deref(),
-        Some(settings_file::text_of(InterfaceFace::Geist).as_str())
+        Some(
+            settings_file::text_of(
+                InterfaceFace::Geist,
+                alo_renderer::agent_limits::Limits::default()
+            )
+            .as_str()
+        )
     );
     let mode = std::fs::metadata(&file).map(|meta| meta.permissions().mode() & 0o777);
     assert_eq!(mode.ok(), Some(0o600));
@@ -352,7 +358,13 @@ fn settings_is_walked_by_keys_a_face_chosen_by_an_arrow_and_back_by_return() -> 
     assert_eq!(face(&driven), InterfaceFace::Geist);
     assert_eq!(
         std::fs::read_to_string(&file).ok().as_deref(),
-        Some(settings_file::text_of(InterfaceFace::Geist).as_str())
+        Some(
+            settings_file::text_of(
+                InterfaceFace::Geist,
+                alo_renderer::agent_limits::Limits::default()
+            )
+            .as_str()
+        )
     );
     // ← ← round to Instrument Sans, the last.
     key(&mut driven, Press::of(Key::Arrow(Arrow::Left)));

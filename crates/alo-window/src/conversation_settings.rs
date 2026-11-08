@@ -23,7 +23,17 @@
 //! the keyboard is is drawn as a ring only once Tab has put it there, and a
 //! press of the pointer puts it away, as a browser's `:focus-visible` does
 //! ([`crate::settings_keys`] reads the keys).
+//!
+//! Its second section, **alo at work** (queue item 878), holds how far
+//! alo's agent may go on one task ([`Limits`]): a press of *Fewer* or
+//! *More* moves a number, stopping at its ends, and a choice of asking is
+//! made by a press on it; by keys, Tab goes on from *Font* to the sites,
+//! the actions and the radio group *Ask before opening*, and back round;
+//! on a number ← ↓ make it fewer and → ↑ more, as a stepper's arrows do,
+//! and on the group the arrows choose the other. Kept beside the face, and
+//! read by the window as each run starts.
 
+use alo_renderer::agent_limits::{Asks, Limit, Limits, Stepped};
 use alo_renderer::interface_face::InterfaceFace;
 use alo_renderer::start::SettingsKeyed;
 
@@ -39,6 +49,11 @@ pub struct Settings {
     /// What of it the keyboard is on, once Tab put it there (queue item
     /// 856).
     keyed: Option<SettingsKeyed>,
+    /// How far alo's agent may go (queue item 878).
+    limits: Limits,
+    /// Whether a person changed the limits since this was last asked, so
+    /// that they are to be kept.
+    limits_changed: bool,
 }
 
 impl Settings {
@@ -48,6 +63,49 @@ impl Settings {
             face,
             ..Self::default()
         }
+    }
+
+    /// The same, the agent kept to `limits`, as read back (queue item 878).
+    #[must_use]
+    pub fn with_limits(mut self, limits: Limits) -> Self {
+        self.limits = limits;
+        self
+    }
+
+    /// How far alo's agent may go, as set now.
+    pub fn limits(self) -> Limits {
+        self.limits
+    }
+
+    /// A press of *Fewer* or *More* (queue item 878): its number moved,
+    /// stopping at its ends. Whether it moved, and so is to be kept.
+    pub fn press(&mut self, stepped: Stepped) -> bool {
+        let moved = self.limits.step(stepped);
+        self.set_limits(moved)
+    }
+
+    /// A choice of asking made: whether it is another, and so is to be
+    /// kept.
+    pub fn choose_asks(&mut self, asks: Asks) -> bool {
+        self.set_limits(Limits {
+            asks,
+            ..self.limits
+        })
+    }
+
+    /// The limits now `limits`: whether they changed.
+    fn set_limits(&mut self, limits: Limits) -> bool {
+        if limits == self.limits {
+            return false;
+        }
+        self.limits = limits;
+        self.limits_changed = true;
+        true
+    }
+
+    /// Whether a person changed the limits since this was last asked, once.
+    pub fn take_limits_changed(&mut self) -> bool {
+        core::mem::replace(&mut self.limits_changed, false)
     }
 
     /// Whether *Settings* is the page on screen.
@@ -82,18 +140,24 @@ impl Settings {
     }
 
     /// Tab, or ⇧Tab when `back`: the keyboard on the next of *Back to the
-    /// chat* and *Font*, or the one before, round from either end — from
-    /// nothing, the first or the last. Whether it is open, and so moved.
+    /// chat*, *Font* and *alo at work*'s three (queue item 878), or the one
+    /// before, round from either end — from nothing, the first or the last.
+    /// Whether it is open, and so moved.
     pub fn tab(&mut self, back: bool) -> bool {
         if !self.open {
             return false;
         }
-        self.keyed = Some(match (self.keyed, back) {
-            (Some(SettingsKeyed::Back), false) | (None | Some(SettingsKeyed::Back), true) => {
-                SettingsKeyed::Font
-            }
-            _ => SettingsKeyed::Back,
-        });
+        let all = SettingsKeyed::ALL;
+        let at = self
+            .keyed
+            .and_then(|keyed| all.iter().position(|each| *each == keyed));
+        let next = match (at, back) {
+            (None, false) => 0,
+            (None, true) => all.len() - 1,
+            (Some(at), false) => (at + 1) % all.len(),
+            (Some(at), true) => (at + all.len() - 1) % all.len(),
+        };
+        self.keyed = all.get(next).copied();
         true
     }
 
@@ -101,8 +165,31 @@ impl Settings {
     /// one before, round from either end, chosen — and kept, as a press on
     /// it is. Whether the keyboard is on *Font*, and so another was chosen.
     pub fn step(&mut self, on: bool) -> bool {
-        if self.keyed() != Some(SettingsKeyed::Font) {
-            return false;
+        match self.keyed() {
+            Some(SettingsKeyed::Font) => {}
+            // A number: more or fewer, as a stepper's arrows (queue item
+            // 878).
+            Some(SettingsKeyed::Sites) => {
+                return self.press(Stepped {
+                    limit: Limit::Sites,
+                    more: on,
+                });
+            }
+            Some(SettingsKeyed::Actions) => {
+                return self.press(Stepped {
+                    limit: Limit::Actions,
+                    more: on,
+                });
+            }
+            // Two choices: either arrow chooses the other.
+            Some(SettingsKeyed::Asks) => {
+                let other = match self.limits.asks {
+                    Asks::Unnamed => Asks::Every,
+                    Asks::Every => Asks::Unnamed,
+                };
+                return self.choose_asks(other);
+            }
+            Some(SettingsKeyed::Back) | None => return false,
         }
         let faces = InterfaceFace::ALL;
         let at = faces
@@ -158,7 +245,7 @@ mod tests {
 
     #[test]
     fn tab_moves_the_keyboard_between_back_and_font_round_from_either_end() {
-        // Queue item 856.
+        // Queue item 856; since 878, through alo at work's three too.
         let mut settings = Settings::default();
         assert!(!settings.tab(false), "closed, nothing to move between");
         assert_eq!(settings.keyed(), None);
@@ -168,17 +255,15 @@ mod tests {
         assert_eq!(settings.keyed(), Some(SettingsKeyed::Back));
         assert!(settings.tab(false));
         assert_eq!(settings.keyed(), Some(SettingsKeyed::Font));
-        assert!(settings.tab(false));
-        assert_eq!(settings.keyed(), Some(SettingsKeyed::Back), "round");
-        assert!(settings.tab(true));
-        assert_eq!(settings.keyed(), Some(SettingsKeyed::Font), "⇧Tab round");
         assert!(settings.tab(true));
         assert_eq!(settings.keyed(), Some(SettingsKeyed::Back));
+        assert!(settings.tab(true));
+        assert_eq!(settings.keyed(), Some(SettingsKeyed::Asks), "⇧Tab round");
         // ⇧Tab from nothing is the last.
         assert!(settings.unkey());
         assert!(!settings.unkey(), "put away already");
         assert!(settings.tab(true));
-        assert_eq!(settings.keyed(), Some(SettingsKeyed::Font));
+        assert_eq!(settings.keyed(), Some(SettingsKeyed::Asks));
         // Closed and opened again, nothing.
         assert!(settings.close());
         assert_eq!(settings.keyed(), None);
@@ -192,7 +277,8 @@ mod tests {
         assert!(settings.open());
         assert!(!settings.step(true), "the keyboard not on Font");
         assert_eq!(settings.face(), InterfaceFace::Inter);
-        assert!(settings.tab(true));
+        assert!(settings.tab(false));
+        assert!(settings.tab(false));
         assert!(settings.step(true));
         assert_eq!(settings.face(), InterfaceFace::Geist);
         assert_eq!(settings.take_chosen(), Some(InterfaceFace::Geist), "kept");
@@ -202,9 +288,74 @@ mod tests {
         assert!(settings.step(true));
         assert_eq!(settings.face(), InterfaceFace::Inter, "round again");
         // On Back, the arrows are nothing.
-        assert!(settings.tab(false));
+        assert!(settings.tab(true));
         assert!(!settings.step(true));
         assert_eq!(settings.face(), InterfaceFace::Inter);
+    }
+
+    #[test]
+    fn tab_goes_on_through_alo_at_work_and_the_arrows_move_its_numbers() {
+        // Queue item 878.
+        let mut settings = Settings::default();
+        assert!(settings.open());
+        let mut went = Vec::new();
+        for _ in 0..6 {
+            assert!(settings.tab(false));
+            went.extend(settings.keyed());
+        }
+        assert_eq!(
+            went,
+            [
+                SettingsKeyed::Back,
+                SettingsKeyed::Font,
+                SettingsKeyed::Sites,
+                SettingsKeyed::Actions,
+                SettingsKeyed::Asks,
+                SettingsKeyed::Back,
+            ]
+        );
+        assert!(settings.tab(true));
+        assert_eq!(settings.keyed(), Some(SettingsKeyed::Asks), "⇧Tab round");
+        assert!(settings.step(true));
+        assert_eq!(settings.limits().asks, Asks::Every);
+        assert!(settings.take_limits_changed());
+        assert!(!settings.take_limits_changed(), "kept once");
+        assert!(settings.step(false));
+        assert_eq!(settings.limits().asks, Asks::Unnamed);
+        assert!(settings.tab(true));
+        assert_eq!(settings.keyed(), Some(SettingsKeyed::Actions));
+        assert!(settings.step(true));
+        assert_eq!(settings.limits().actions, 25);
+        assert!(settings.tab(true));
+        for _ in 0..12 {
+            let _ = settings.step(true);
+        }
+        assert_eq!(settings.limits().sites, 10, "stops at its most");
+        assert!(!settings.step(true), "past it, nothing");
+        assert!(settings.step(false));
+        assert_eq!(settings.limits().sites, 9);
+        // A face is not a limit, nor a limit a face.
+        assert_eq!(settings.face(), InterfaceFace::Inter);
+        assert_eq!(settings.take_chosen(), None);
+    }
+
+    #[test]
+    fn a_press_moves_a_number_or_makes_a_choice_and_read_back_is_not_changed() {
+        let mut settings = Settings::set_in(InterfaceFace::Geist)
+            .with_limits(Limits::checked(1, 5, Asks::Every).unwrap_or_default());
+        assert!(!settings.take_limits_changed(), "read back, not changed");
+        assert!(!settings.press(Stepped {
+            limit: Limit::Sites,
+            more: false
+        }));
+        assert!(settings.press(Stepped {
+            limit: Limit::Actions,
+            more: true
+        }));
+        assert_eq!(settings.limits().actions, 10);
+        assert!(settings.choose_asks(Asks::Unnamed));
+        assert!(!settings.choose_asks(Asks::Unnamed));
+        assert!(settings.take_limits_changed());
     }
 
     #[test]

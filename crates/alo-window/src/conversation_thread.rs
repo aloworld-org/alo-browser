@@ -27,7 +27,9 @@
 //! held, the wheel does nothing.
 
 use crate::conversation_glide::Glide;
+use crate::conversation_work::Holds;
 use alo_layout::Size;
+use alo_renderer::agent_asked::Asked;
 use alo_renderer::agent_ran::Ended;
 use alo_renderer::agent_work::AtWork;
 use alo_renderer::card::Card;
@@ -73,6 +75,11 @@ impl Thread {
                     url: card.url,
                     ran: card.ran,
                 },
+                // Nor is any run at work (queue item 821).
+                Turn::Asked(mut asked) => {
+                    asked.put_away();
+                    Turn::Asked(asked)
+                }
                 other => other,
             })
             .collect();
@@ -104,6 +111,7 @@ impl Thread {
     /// is at the room's top.
     fn append(&mut self, turn: Turn) {
         let _ = self.put_away_card();
+        self.put_away_asked();
         self.turns.push(turn);
         self.down = 0.0;
         self.reach = None;
@@ -383,6 +391,88 @@ impl Thread {
         self.append(Turn::Page(Card::new(said, url)));
     }
 
+    /// alo asked with no page open (queue item 821): a new turn, its run's
+    /// column put in it by the conversation's [`crate::conversation_work`].
+    pub fn begin_asked(&mut self, said: String) {
+        self.append(Turn::Asked(Asked::of(said)));
+    }
+
+    /// The page at `url` opened by the run of alo's agent at work in the
+    /// newest turn (queue item 821), as a card answering `said` — the run
+    /// moved onto it, as if the person had opened it: a turn asked with no
+    /// page becomes the card, keeping what the person asked as its bubble;
+    /// a card the run was on is put away as its address, the run kept with
+    /// it as having gone on, `went_on`, and the card is a new turn. Whether
+    /// a run was there to move.
+    pub fn open_card_for_the_run(&mut self, said: String, url: Url, went_on: &str) -> bool {
+        match self.turns.last_mut() {
+            Some(Turn::Asked(asked)) if asked.agent.is_some() => {
+                let mut card = Card::new(std::mem::take(&mut asked.said), url);
+                card.agent = asked.agent.take();
+                card.ran = std::mem::take(&mut asked.ran);
+                if let Some(turn) = self.turns.last_mut() {
+                    *turn = Turn::Page(card);
+                }
+                self.down = 0.0;
+                self.reach = None;
+                self.glide = None;
+                true
+            }
+            Some(Turn::Page(old)) if old.agent.is_some() => {
+                let agent = old.agent.take();
+                let going_on = old.ran.last().cloned();
+                if let Some(newest) = old.ran.last_mut() {
+                    newest.ended = Ended::Stopped {
+                        why: went_on.to_owned(),
+                    };
+                }
+                let mut card = Card::new(said, url);
+                card.agent = agent;
+                card.ran = going_on.into_iter().collect();
+                self.append(Turn::Page(card));
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// What holds the run of alo's agent in the newest turn, if it can hold
+    /// one: the live card, or a turn asked with no page (queue item 821).
+    pub fn holder(&self) -> Option<&dyn Holds> {
+        match self.turns.last() {
+            Some(Turn::Page(card)) => Some(card),
+            Some(Turn::Asked(asked)) => Some(asked),
+            _ => None,
+        }
+    }
+
+    /// [`Thread::holder`], to change.
+    pub fn holder_mut(&mut self) -> Option<&mut dyn Holds> {
+        match self.turns.last_mut() {
+            Some(Turn::Page(card)) => Some(card),
+            Some(Turn::Asked(asked)) => Some(asked),
+            _ => None,
+        }
+    }
+
+    /// A newest turn asked with no page put away as a newer turn comes: no
+    /// longer live, its run kept — as stopped, if it was still at work.
+    fn put_away_asked(&mut self) {
+        if let Some(Turn::Asked(asked)) = self.turns.last_mut() {
+            if asked
+                .agent
+                .as_ref()
+                .is_some_and(|work| work.is_working() || work.is_paused())
+                && let Some(newest) = asked.ran.last_mut()
+            {
+                newest.ended = Ended::Stopped {
+                    why: PUT_AWAY.to_owned(),
+                };
+            }
+            asked.put_away();
+        }
+    }
+
     /// The live card, if the newest turn is one.
     pub fn card(&self) -> Option<&Card> {
         self.turns.last().and_then(Turn::card)
@@ -432,6 +522,20 @@ impl Thread {
         let Turn::Page(card) = turn else {
             return false;
         };
+        // A card the run of alo's agent opened (queue item 821): the run
+        // goes on with no page, in a turn of its own, and is told why.
+        if card
+            .agent
+            .as_ref()
+            .is_some_and(|work| work.is_working() || work.is_paused())
+        {
+            *turn = Turn::Asked(Asked {
+                said: std::mem::take(&mut card.said),
+                agent: card.agent.take(),
+                ran: std::mem::take(&mut card.ran),
+            });
+            return true;
+        }
         *turn = Turn::Failed {
             said: std::mem::take(&mut card.said),
             why,
@@ -760,6 +864,71 @@ mod tests {
         );
         assert!(!thread.put_away_card(), "no live card");
         assert_eq!(thread.turns().len(), 3);
+    }
+
+    #[test]
+    fn a_run_begun_with_no_page_moves_onto_the_card_it_opens_and_on_to_the_next() {
+        // Queue item 821.
+        use alo_renderer::agent_ran::Ran;
+        let mut thread = Thread::default();
+        thread.begin_asked("find the museum's hours".to_owned());
+        assert!(
+            thread
+                .holder()
+                .is_some_and(|holder| holder.agent().is_none())
+        );
+        if let Some(holder) = thread.holder_mut() {
+            *holder.agent_mut() = Some(AtWork::starting("find the museum's hours"));
+            holder
+                .ran_mut()
+                .push(Ran::starting("find the museum's hours"));
+        }
+        assert!(thread.open_card_for_the_run(
+            "Uganda Museum".to_owned(),
+            url("https://ugandamuseum.go.ug/"),
+            "alo went on to ugandamuseum.go.ug."
+        ));
+        assert_eq!(thread.turns().len(), 1, "the turn asked is the card");
+        let card = thread.card().expect("a card");
+        assert_eq!(card.said, "find the museum's hours");
+        assert!(card.agent.as_ref().is_some_and(AtWork::is_working));
+        assert_eq!(card.ran.len(), 1);
+        // On to a second site: the first put away as its address, its run
+        // kept as gone on; the run on the new card.
+        assert!(thread.open_card_for_the_run(
+            "Visit Uganda".to_owned(),
+            url("https://visit.example/"),
+            "alo went on to visit.example."
+        ));
+        let Some(Turn::Visited { ran, .. }) = thread.turns().first() else {
+            panic!("{:?}", thread.turns());
+        };
+        assert_eq!(
+            ran[0].ended,
+            Ended::Stopped {
+                why: "alo went on to visit.example.".to_owned()
+            }
+        );
+        let card = thread.card().expect("a card");
+        assert_eq!(card.said, "Visit Uganda");
+        assert!(card.agent.is_some());
+        // Its card not opened: back in a turn of its own, still at work.
+        assert!(thread.card_failed("no Chrome".to_owned()));
+        assert!(matches!(thread.turns().last(), Some(Turn::Asked(asked)) if asked.agent.is_some()));
+        // A newer turn puts it away, kept as stopped.
+        thread.search("other".to_owned());
+        let Some(Turn::Asked(asked)) = thread.turns().get(1) else {
+            panic!("{:?}", thread.turns());
+        };
+        assert_eq!(asked.agent, None);
+        assert_eq!(
+            asked.ran[0].ended,
+            Ended::Stopped {
+                why: PUT_AWAY.to_owned()
+            }
+        );
+        // No run, nothing to move.
+        assert!(!thread.open_card_for_the_run("x".to_owned(), url("https://x.example/"), ""));
     }
 
     #[test]
