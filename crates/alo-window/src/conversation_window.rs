@@ -77,7 +77,7 @@ use crate::conversation_bar::{self, BarFade};
 use crate::conversation_box::{self, Typed};
 use crate::conversation_chrome::{ChromeOpener, Placing, Streamed, Went};
 use crate::conversation_compose::{ConversationScene, SheetScene};
-use crate::conversation_drawing::{Asked, ConversationDrawing, Drawn, Part};
+use crate::conversation_drawing::{Asked, ConversationDrawing, Drawn, Part, SettingsDrawn};
 use crate::conversation_fold;
 use crate::conversation_keys;
 use crate::conversation_place::{
@@ -187,7 +187,8 @@ pub struct ConversationWindow {
     /// what a test waits on before typing after a press, which the press's
     /// decision would otherwise land in the middle of (queue item 875).
     undecided: usize,
-    /// A drag of the conversation's bar under way (queue item 845).
+    /// A drag of the conversation's bar under way (queue item 845), or a
+    /// press beside its thumb held (queue item 876).
     bar_drag: Option<bar::BarDrag>,
     /// The live card's page, drawn beneath the first screen (queue item
     /// 869, ADR 0100).
@@ -825,6 +826,7 @@ impl ConversationWindow {
                 limits.sites,
                 limits.actions,
                 match limits.asks {
+                    alo_renderer::agent_limits::Asks::Never => "no site",
                     alo_renderer::agent_limits::Asks::Unnamed => "a site not found or named",
                     alo_renderer::agent_limits::Asks::Every => "any site",
                 }
@@ -1196,6 +1198,17 @@ impl ConversationWindow {
         }
     }
 
+    /// The sign that the page on screen that scrolls — the conversation, or
+    /// *Settings* (queue item 880) — goes on, on a first screen laid out at
+    /// `viewport`, as the window computes it to be drawn.
+    fn scroll_bar(&self, viewport: Size) -> Option<conversation_scroll::Bar> {
+        let scale = self.measured().map_or(1.0, |(_, scale)| scale.factor());
+        let room = self.conversation.room(viewport);
+        self.conversation
+            .scrolled()
+            .and_then(|scrolled| scrolled.bar(room.height, scale))
+    }
+
     /// What the point `at`, in device pixels, is over, from the window's
     /// own composition: the card's page, a part, or nothing.
     fn aimed(&self, at: (f64, f64)) -> Option<card_aim::Aimed> {
@@ -1364,12 +1377,13 @@ impl ConversationWindow {
             (Some(card_aim::Aimed::Part(Part::Start, on)), Some(room))
                 if self.seen_drawn().is_some() =>
             {
-                let top = alo_renderer::card_place::TOP;
+                // The conversation's room, or *Settings*' (queue item 880).
+                let seen = self.conversation.room(room);
                 conversation_bar::near(
                     on.x,
                     on.y,
                     conversation_scroll::bar_left(room),
-                    (top, top + conversation_scroll::room(room)),
+                    (seen.top, seen.top + seen.height),
                 )
             }
             _ => false,
@@ -1405,7 +1419,9 @@ impl ConversationWindow {
         let bar = self.seen_drawn().and_then(|_| self.bar.wake_at(now));
         // The caret's next blink (queue item 861).
         let blink = self.field_wakes_at(now);
-        [self.conversation.undo_until(), slide, bar, blink]
+        // A press held beside the bar's thumb, its next page (876).
+        let paging = self.bar_pages_at();
+        [self.conversation.undo_until(), slide, bar, blink, paging]
             .into_iter()
             .flatten()
             .min()
@@ -1417,6 +1433,7 @@ impl ConversationWindow {
     /// is.
     pub fn tick(&mut self, now: Instant) {
         self.field_tick(now);
+        self.bar_page_on(now);
         if self.conversation.expire(now) {
             self.redraw = true;
             self.ask_drawn();
@@ -1698,9 +1715,11 @@ impl ConversationWindow {
             Some(card_aim::Aimed::Page { x, y }) => {
                 self.to_the_page(CardInput::Wheel { x, y, right, down });
             }
-            // The split view scrolls nothing of its own (queue item 819).
+            // The split view scrolls nothing of its own (queue item 819);
+            // *Settings* scrolls (queue item 880).
             Some(card_aim::Aimed::Part(Part::Start, _))
-                if self.conversation.conversing() && self.drawn_stands != Stands::Split =>
+                if self.conversation.settings().is_open()
+                    || (self.conversation.conversing() && self.drawn_stands != Stands::Split) =>
             {
                 // A person scrolling is followed, not the agent.
                 self.following = false;
@@ -2243,7 +2262,8 @@ impl ConversationWindow {
                 offered,
                 stands,
                 reach,
-            }) => self.reached(turns, (down, offered, stands), reach),
+                settings,
+            }) => self.reached(turns, (down, offered, stands), reach, settings),
             Heard::Drawn(Drawn::Through(number)) => self.drawn_through = number,
             Heard::Drawn(Drawn::Field(part, laid)) => self.field_laid(part, laid),
             Heard::Drawn(Drawn::Beneath(place)) => self.beneath_told(place),
@@ -2263,6 +2283,31 @@ impl ConversationWindow {
             && self.pictured_as_asked()
     }
 
+    /// *Settings* scrolled by the paging keys (queue item 880) — Space too
+    /// while the keyboard is on nothing of it, as over a page: whether
+    /// `press` was one, and so taken.
+    fn settings_paged(&mut self, press: &Press) -> bool {
+        let Some(room) = self.start_room() else {
+            return false;
+        };
+        let Some(scroll) = conversation_keys::scroll(press, self.conversation.room(room).height)
+        else {
+            return false;
+        };
+        let settings = self.conversation.settings();
+        if !settings.is_open()
+            || !self.conversation.keys_scroll()
+            || (press.key == crate::keys::Key::Space && settings.keyed().is_some())
+        {
+            return false;
+        }
+        if self.conversation.scroll_by_key(scroll, room) {
+            self.redraw = true;
+            self.ask_drawn();
+        }
+        true
+    }
+
     /// The first screen is about to be told painted with `turns` turns
     /// scrolled `down`, with `offered` offers over the box and the live card
     /// standing as the third of `painting` says, which reach as `reach` says
@@ -2270,8 +2315,28 @@ impl ConversationWindow {
     /// aimed where it was drawn, in the room it was seen in, once that frame
     /// is had, and the conversation is kept inside its reach — drawn again
     /// if that moved it, or placed the sign of more above or below anew.
-    fn reached(&mut self, turns: usize, painting: (f32, usize, Stands), reach: Reach) {
+    fn reached(
+        &mut self,
+        turns: usize,
+        painting: (f32, usize, Stands),
+        reach: Reach,
+        settings: Option<SettingsDrawn>,
+    ) {
         self.painting_down = Some(painting);
+        // *Settings* drawn (queue item 880): its own reach, and what Tab
+        // moved the keyboard to brought into view.
+        if let Some(drawn) = settings {
+            let Some(room) = self.start_room() else {
+                return;
+            };
+            let before = self.scroll_bar(room);
+            if self.conversation.settings_reached(reach, drawn, room)
+                || self.scroll_bar(room) != before
+            {
+                self.ask_drawn();
+            }
+            return;
+        }
         if painting.2 == Stands::Split {
             // The split view draws no conversation (queue item 819): what
             // it reaches, measured on nothing, is not the conversation's,
@@ -2353,6 +2418,9 @@ impl ConversationWindow {
             self.stream_under_settings();
             self.ask_drawn();
             self.redraw = true;
+            return;
+        }
+        if self.settings_paged(press) {
             return;
         }
         // *Settings* by keys (queue item 856): Tab, the arrows, Space and
@@ -2846,6 +2914,7 @@ mod tests {
             offered: 2,
             stands: Stands::InTheConversation,
             reach,
+            settings: None,
         }));
         assert_eq!(
             window.drawn_down.to_bits(),
@@ -2880,6 +2949,7 @@ mod tests {
                 earlier: 900.0,
                 newest: 1000.0,
             },
+            settings: None,
         }));
         let sized = |width: u32, height: u32| Frame {
             width,
@@ -2974,6 +3044,7 @@ mod tests {
             offered: 0,
             stands: Stands::InTheConversation,
             reach,
+            settings: None,
         }));
         let sized = |width: u32, height: u32| Frame {
             width,
@@ -3043,6 +3114,308 @@ mod tests {
         window.finish();
     }
 
+    /// *Settings*' page in the tests of queue item 880: 1200 tall, so in
+    /// the design's window at one, whose first screen is its room, 820 tall,
+    /// it scrolls 380.
+    const SETTINGS_REACH: Reach = Reach {
+        earlier: 0.0,
+        newest: 1200.0,
+    };
+
+    /// `window` told *Settings* was drawn reaching [`SETTINGS_REACH`], the
+    /// keyboard on `keyed` where it stood.
+    fn settings_reached(
+        window: &mut ConversationWindow,
+        keyed: Option<(
+            alo_renderer::start::SettingsKeyed,
+            alo_renderer::conversation_scroll::Span,
+        )>,
+    ) {
+        window.heard(Heard::Drawn(Drawn::Reached {
+            turns: 0,
+            down: 0.0,
+            offered: 0,
+            stands: Stands::InTheConversation,
+            reach: SETTINGS_REACH,
+            settings: Some(SettingsDrawn { keyed }),
+        }));
+    }
+
+    /// A window holding one page shown, with *Settings* open over it,
+    /// drawn reaching [`SETTINGS_REACH`] and painted, the pointer over it.
+    fn settings_open(with_a_page: bool) -> ConversationWindow {
+        let mut window = window();
+        if with_a_page {
+            let url = alo_url::parse("https://a.example/").unwrap();
+            window.heard(Heard::Chrome(Went::Opening(url)));
+        }
+        window.heard(Heard::Drawn(Drawn::Pressed(Part::Panel, Decided::Settings)));
+        assert!(window.conversation().settings().is_open());
+        settings_reached(&mut window, None);
+        let sized = |width: u32, height: u32| Frame {
+            width,
+            height,
+            pixels: vec![0; usize::try_from(width * height * 4).unwrap()],
+        };
+        window.heard(Heard::Drawn(Drawn::Painted(Part::Panel, sized(240, 820))));
+        window.heard(Heard::Drawn(Drawn::Painted(Part::Start, sized(1040, 820))));
+        window.moved((640.0, 400.0));
+        window
+    }
+
+    fn settings_down(window: &ConversationWindow) -> f32 {
+        window.conversation().settings().scrolled().down().abs()
+    }
+
+    /// Queue item 880: *Settings* in a window too short for it scrolls as
+    /// the conversation does — by the wheel, the paging keys (Space while
+    /// the keyboard is on nothing of it) and the bar, with or without a
+    /// chat under it — and the chat under it is never scrolled.
+    #[test]
+    fn settings_scrolls_by_the_wheel_the_keys_and_the_bar() {
+        use crate::keys::{Key, Press};
+        let mut window = settings_open(true);
+        let chat = |window: &ConversationWindow| {
+            window
+                .conversation()
+                .thread()
+                .map(|thread| thread.down().to_bits())
+        };
+        let under = chat(&window);
+        let down = settings_down;
+        // The wheel's pixels: followed.
+        window.wheeled_at(
+            Turned::Pixels {
+                across: 0.0,
+                down: -100.0,
+            },
+            Instant::now(),
+        );
+        assert_eq!(down(&window).to_bits(), 100.0_f32.to_bits());
+        assert!(window.take_redraw());
+        // The paging keys: a room less a line, 780, kept at the foot, 380;
+        // Home back to the top; Space on, with the keyboard on nothing.
+        window.key(&Press::of(Key::PageDown), None);
+        assert_eq!(down(&window).to_bits(), 380.0_f32.to_bits());
+        window.key(&Press::of(Key::Home), None);
+        assert_eq!(down(&window).to_bits(), 0.0_f32.to_bits());
+        window.key(&Press::of(Key::Space), Some(" "));
+        assert_eq!(down(&window).to_bits(), 380.0_f32.to_bits());
+        window.key(&Press::of(Key::End), None);
+        window.key(&Press::of(Key::PageUp), None);
+        assert_eq!(down(&window).to_bits(), 0.0_f32.to_bits());
+        // The bar it is drawn with: 820 of 1200, 560 long, at its top; a
+        // press below its thumb, in its strip 976 + 240 across, pages on.
+        let viewport = start_viewport((1280, 820), Scale::ONE);
+        let bar = window.conversation().start(viewport, Scale::ONE).bar;
+        assert_eq!(
+            bar.map(|bar| (bar.top.to_bits(), bar.length.to_bits())),
+            Some((0.0_f32.to_bits(), 560.0_f32.to_bits()))
+        );
+        window.moved((1216.0, 700.0));
+        window.main_button_pressed();
+        window.main_button_released();
+        assert_eq!(down(&window).to_bits(), 380.0_f32.to_bits());
+        // And its thumb, now at the foot, dragged back up to the top.
+        window.moved((1216.0, 500.0));
+        window.main_button_pressed();
+        assert!(window.dragging_the_bar());
+        window.moved((1216.0, 0.0));
+        window.main_button_released();
+        assert_eq!(down(&window).to_bits(), 0.0_f32.to_bits());
+        assert_eq!(chat(&window), under, "the chat under it never moved");
+        window.finish();
+        // With no chat under it at all, the wheel is still its.
+        let mut empty = settings_open(false);
+        assert!(!empty.conversation().conversing());
+        empty.wheeled_at(
+            Turned::Pixels {
+                across: 0.0,
+                down: -100.0,
+            },
+            Instant::now(),
+        );
+        assert_eq!(down(&empty).to_bits(), 100.0_f32.to_bits());
+        empty.finish();
+    }
+
+    /// Queue item 880: what Tab moves the keyboard to on *Settings* is
+    /// scrolled into view once it is drawn there — by a drawing of it there,
+    /// never one from before — once, and no further; Space with the
+    /// keyboard on something is not a scroll; and it opens again at its top.
+    #[test]
+    fn settings_scrolls_what_tab_moves_the_keyboard_to_into_view_once() {
+        use crate::keys::{Key, Press};
+        use alo_renderer::conversation_scroll::Span;
+        use alo_renderer::start::SettingsKeyed;
+        let mut window = settings_open(true);
+        let down = settings_down;
+        // Tab to *Back to the chat*, drawn where it is seen: nothing moves.
+        window.key(&Press::of(Key::Tab), Some("\t"));
+        assert_eq!(
+            window.conversation().settings().keyed(),
+            Some(SettingsKeyed::Back)
+        );
+        let back = Span {
+            top: 32.0,
+            foot: 68.0,
+        };
+        settings_reached(&mut window, Some((SettingsKeyed::Back, back)));
+        assert_eq!(down(&window).to_bits(), 0.0_f32.to_bits());
+        // On to *Ask before opening*, below the room: a drawing from before
+        // the keyboard moved scrolls nothing; its own, just far enough that
+        // it stands 16 over the room's foot.
+        for _ in 0..4 {
+            window.key(&Press::of(Key::Tab), Some("\t"));
+        }
+        assert_eq!(
+            window.conversation().settings().keyed(),
+            Some(SettingsKeyed::Asks)
+        );
+        let asks = Span {
+            top: 1100.0,
+            foot: 1145.0,
+        };
+        settings_reached(&mut window, Some((SettingsKeyed::Actions, asks)));
+        assert_eq!(down(&window).to_bits(), 0.0_f32.to_bits(), "not its");
+        settings_reached(&mut window, Some((SettingsKeyed::Asks, asks)));
+        assert_eq!(down(&window).to_bits(), 341.0_f32.to_bits(), "1161 - 820");
+        // Once: a person's wheel afterwards is not pulled back to it.
+        window.wheeled_at(
+            Turned::Pixels {
+                across: 0.0,
+                down: 200.0,
+            },
+            Instant::now(),
+        );
+        settings_reached(&mut window, Some((SettingsKeyed::Asks, asks)));
+        assert_eq!(down(&window).to_bits(), 141.0_f32.to_bits());
+        // Space with the keyboard on something is not a scroll.
+        window.key(&Press::of(Key::Space), Some(" "));
+        assert_eq!(down(&window).to_bits(), 141.0_f32.to_bits());
+        // Open again, it is at its top, its reach to be measured.
+        window.key(&Press::of(Key::Escape), Some("\u{1b}"));
+        assert!(!window.conversation().settings().is_open());
+        window.heard(Heard::Drawn(Drawn::Pressed(Part::Panel, Decided::Settings)));
+        assert_eq!(down(&window).to_bits(), 0.0_f32.to_bits());
+        assert_eq!(window.conversation().settings().scrolled().reach(), None);
+        window.finish();
+    }
+
+    /// Queue item 876: a press held beside the bar's thumb pages on as a
+    /// Mac's scroll bar does — a page at the press, the next 500 ms later,
+    /// then one every 50 ms — until the thumb reaches the pointer, which
+    /// moves with it; and no more once the button comes up.
+    #[test]
+    fn a_press_held_beside_the_thumb_pages_on_until_the_thumb_reaches_the_pointer() {
+        use std::time::Duration;
+        let ms = Duration::from_millis;
+        let t0 = Instant::now();
+        let (mut window, clock) = on_a_clock(t0);
+        let url = |address: &str| alo_url::parse(address).unwrap();
+        window.heard(Heard::Chrome(Went::Opening(url("https://a.example/"))));
+        window.heard(Heard::Chrome(Went::Opening(url("https://b.example/"))));
+        // The design's window at one, its room 40 to 716, 676 tall; turns
+        // reaching 5000 above the newest's top and 1000 below it: it
+        // scrolls from -5000 to 324, and its thumb is 76 long.
+        window.heard(Heard::Drawn(Drawn::Reached {
+            turns: 2,
+            down: 0.0,
+            offered: 0,
+            stands: Stands::InTheConversation,
+            reach: Reach {
+                earlier: 5000.0,
+                newest: 1000.0,
+            },
+            settings: None,
+        }));
+        window.heard(Heard::Drawn(Drawn::Painted(
+            Part::Panel,
+            frame_of(240, 820),
+        )));
+        window.heard(Heard::Drawn(Drawn::Painted(
+            Part::Start,
+            frame_of(1040, 820),
+        )));
+        window.key(&Press::of(crate::keys::Key::End), None);
+        let down = |window: &ConversationWindow| {
+            window
+                .conversation()
+                .thread()
+                .map(crate::conversation_thread::Thread::down)
+                .unwrap()
+        };
+        assert_eq!(down(&window).to_bits(), 324.0_f32.to_bits());
+        // Held 60 down the room, above the thumb at its foot: a page back,
+        // a room less a line, 636, at once.
+        window.moved_at((1216.0, 100.0), t0);
+        window.main_button_pressed_at(t0);
+        assert!(!window.dragging_the_bar(), "beside the thumb, not on it");
+        assert_eq!(down(&window).to_bits(), (324.0_f32 - 636.0).to_bits());
+        assert_eq!(window.wake_at(), Some(t0 + ms(500)));
+        // Nothing more for half a second.
+        clock.set(t0 + ms(499));
+        window.tick(t0 + ms(499));
+        assert_eq!(down(&window).to_bits(), (324.0_f32 - 636.0).to_bits());
+        // Then a page each 50 ms: the thumb's top 600 × (down + 5000) /
+        // 5324 down the room reaches the pointer's 60 at the eighth page,
+        // -4764, and it pages no more while it is held.
+        let mut pages = Vec::new();
+        for at in (500..=1000).step_by(50) {
+            clock.set(t0 + ms(at));
+            window.tick(t0 + ms(at));
+            pages.push(down(&window));
+        }
+        let expected: Vec<f32> = (2..=8)
+            .map(|page: u16| 324.0 - 636.0 * f32::from(page))
+            .chain(std::iter::repeat_n(-4764.0, 4))
+            .collect();
+        assert_eq!(
+            pages.iter().map(|page| page.to_bits()).collect::<Vec<_>>(),
+            expected
+                .iter()
+                .map(|page| page.to_bits())
+                .collect::<Vec<_>>(),
+            "{pages:?}"
+        );
+        // Let go: no more pages, and nothing to wake for.
+        window.main_button_released();
+        clock.set(t0 + ms(1100));
+        window.tick(t0 + ms(1100));
+        assert_eq!(down(&window).to_bits(), (-4764.0_f32).to_bits());
+        assert!(
+            window
+                .wake_at()
+                .is_none_or(|wake| wake > t0 + ms(1100) + ms(50)),
+            "{:?}",
+            window.wake_at()
+        );
+        // Held below the thumb, the pointer dragged on down as it pages:
+        // it pages on until the thumb reaches where the pointer is now.
+        let t1 = t0 + ms(5_000);
+        clock.set(t1);
+        window.moved_at((1216.0, 300.0), t1);
+        window.main_button_pressed_at(t1);
+        let first = down(&window);
+        assert_eq!(first.to_bits(), (-4764.0_f32 + 636.0).to_bits());
+        // Thumb top at 600 × 872 / 5324 + 40 = 138, foot 214: the pointer
+        // at 300 is past it; moved to 150, inside it, the next is none.
+        window.moved_at((1216.0, 150.0), t1 + ms(100));
+        clock.set(t1 + ms(500));
+        window.tick(t1 + ms(500));
+        assert_eq!(down(&window).to_bits(), first.to_bits(), "reached");
+        window.moved_at((1216.0, 700.0), t1 + ms(520));
+        clock.set(t1 + ms(550));
+        window.tick(t1 + ms(550));
+        assert_eq!(
+            down(&window).to_bits(),
+            (first + 636.0).to_bits(),
+            "on again"
+        );
+        window.main_button_released();
+        window.finish();
+    }
+
     #[test]
     fn the_paging_keys_scroll_the_conversation_a_room_less_a_line_and_to_its_ends() {
         use crate::keys::{Modifier, Press};
@@ -3059,6 +3432,7 @@ mod tests {
                 earlier: 900.0,
                 newest: 1000.0,
             },
+            settings: None,
         }));
         let down = |window: &ConversationWindow| {
             window
@@ -3702,6 +4076,7 @@ mod tests {
                 earlier: 0.0,
                 newest: 0.0,
             },
+            settings: None,
         }));
         // Beside the rail, the first screen 1216 × 820.
         let whole = Frame {
@@ -4150,6 +4525,7 @@ mod tests {
                 earlier: 900.0,
                 newest: 1000.0,
             },
+            settings: None,
         }));
         window.heard(Heard::Drawn(Drawn::Painted(
             Part::Panel,

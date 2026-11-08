@@ -1077,14 +1077,25 @@ fn a_conversation_of_turns_and_its_reach_survive_the_crossing() {
     }
     let asked = ToRenderer::ConversationReach;
     assert_eq!(read_to_renderer(&write_to_renderer(&asked)), Ok(asked));
-    let reached = FromRenderer::ConversationReached(alo_renderer::conversation_scroll::Reach {
-        earlier: 1462.0,
-        newest: 626.0,
-    });
-    assert_eq!(
-        read_from_renderer(&write_from_renderer(&reached)),
-        Ok(reached)
-    );
+    for keyed in [
+        None,
+        Some(alo_renderer::conversation_scroll::Span {
+            top: 600.0,
+            foot: 736.0,
+        }),
+    ] {
+        let reached = FromRenderer::ConversationReached(
+            alo_renderer::conversation_scroll::Reach {
+                earlier: 1462.0,
+                newest: 626.0,
+            },
+            keyed,
+        );
+        assert_eq!(
+            read_from_renderer(&write_from_renderer(&reached)),
+            Ok(reached)
+        );
+    }
 }
 
 /// Queue item 861: a field's editing and where its words were laid out
@@ -1338,16 +1349,33 @@ fn a_conversation_the_renderer_should_not_draw_is_refused() {
         .map(|why| why.why)
         .unwrap_or_default();
     assert!(why.contains("a turn tagged 9"), "{why}");
-    // A renderer's lengths, read inside the most.
-    let reached = FromRenderer::ConversationReached(alo_renderer::conversation_scroll::Reach {
-        earlier: 5.0e7,
-        newest: -3.0,
-    });
-    let Ok(FromRenderer::ConversationReached(read)) =
+}
+
+/// A renderer's lengths, read inside the most: a reach, and where the
+/// thing the keyboard is on stands (queue item 880), its foot never above
+/// its top.
+#[test]
+fn a_renderers_reach_is_read_inside_the_most() {
+    let reached = FromRenderer::ConversationReached(
+        alo_renderer::conversation_scroll::Reach {
+            earlier: 5.0e7,
+            newest: -3.0,
+        },
+        Some(alo_renderer::conversation_scroll::Span {
+            top: 40.0,
+            foot: 10.0,
+        }),
+    );
+    let Ok(FromRenderer::ConversationReached(read, keyed)) =
         read_from_renderer(&write_from_renderer(&reached))
     else {
         panic!("a reach crosses");
     };
+    // A foot above its top is read as the top: never above it.
+    assert_eq!(
+        keyed.map(|span| (span.top.to_bits(), span.foot.to_bits())),
+        Some((40.0_f32.to_bits(), 40.0_f32.to_bits()))
+    );
     assert_eq!(
         read.earlier.to_bits(),
         alo_renderer::conversation_scroll::MOST.to_bits()
@@ -3119,6 +3147,29 @@ fn settings_and_where_the_keyboard_is_on_it_cross_and_nothing_else_does() {
         ToRenderer::Start(Box::new(Start {
             settings: true,
             settings_keyed: Some(SettingsKeyed::Asks),
+            ..Start::default()
+        })),
+        // Each of the three choices of asking, crossing as itself (queue
+        // item 884): before, as a yes or no, *Never* came across as *A site
+        // not found or named* — found by hand.
+        ToRenderer::Start(Box::new(Start {
+            settings: true,
+            limits: alo_renderer::agent_limits::Limits::checked(
+                3,
+                20,
+                alo_renderer::agent_limits::Asks::Unnamed,
+            )
+            .unwrap_or_default(),
+            ..Start::default()
+        })),
+        ToRenderer::Start(Box::new(Start {
+            settings: true,
+            limits: alo_renderer::agent_limits::Limits::checked(
+                3,
+                20,
+                alo_renderer::agent_limits::Asks::Never,
+            )
+            .unwrap_or_default(),
             ..Start::default()
         })),
     ];

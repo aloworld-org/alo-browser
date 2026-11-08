@@ -1,6 +1,8 @@
 fill box#2 rgb(255 255 255) at (0, 0) 800×252
 text box#13 "Roasting drum mid-batch" rgb(23 33 43) 17px at (20, 131.29688)
+clip box#15 to (268, -36) 596×324
 shadow box#15 rgb(23 33 43 / 0.12) blur 48 at (352, 64) 428×156
+unclip
 fill box#15 rgb(255 255 255) at (352, 48) 428×156
 text box#18 "The roastery" rgb(23 33 43) 28px at (384, 106)
 text box#21 "A 1962 Probat drum, rebuilt by hand." rgb(23 33 43) 17px at (384, 146.59375)

@@ -139,7 +139,7 @@ pub enum SettingsKeyed {
     /// fewer.
     Actions,
     /// The radio group *Ask before opening*, at the choice made: the
-    /// arrows choose the other.
+    /// arrows choose the next or the one before, round (queue item 884).
     Asks,
 }
 

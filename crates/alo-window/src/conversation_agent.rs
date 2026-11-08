@@ -1979,6 +1979,30 @@ mod tests {
         );
     }
 
+    /// Queue item 884: by default, *Never* — the site neither found nor
+    /// named opens with no question, the person never asked.
+    #[test]
+    fn by_default_a_site_neither_found_nor_named_opens_with_no_question() {
+        let ran = begun(
+            "go straight to the Wikipedia article on the Uganda Museum",
+            vec![calling(
+                "open",
+                r#"{"result":null,"address":"wikipedia.org","step":"Opening Wikipedia","why":"","plan":null,"on":1}"#,
+            )],
+            page(),
+            Limits::default(),
+            Run::not_now,
+        );
+        assert_eq!(ran.opened, vec!["https://wikipedia.org/".to_owned()]);
+        assert!(
+            !ran.said
+                .iter()
+                .any(|said| matches!(said, Said::Asking { .. })),
+            "{:?}",
+            ran.said
+        );
+    }
+
     #[test]
     fn a_site_neither_found_nor_named_is_asked_and_not_now_opens_nothing() {
         let ran = begun(
@@ -1988,7 +2012,7 @@ mod tests {
                 r#"{"result":null,"address":"wikipedia.org","step":"Opening Wikipedia","why":"","plan":null,"on":1}"#,
             )],
             page(),
-            Limits::default(),
+            Limits::checked(3, 20, alo_renderer::agent_limits::Asks::Unnamed).unwrap(),
             Run::not_now,
         );
         assert!(ran.opened.is_empty(), "{:?}", ran.opened);

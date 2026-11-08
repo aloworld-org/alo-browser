@@ -72,7 +72,13 @@ impl Writer {
         // How far alo's agent may go (queue item 878).
         self.number(u64::from(start.limits.sites));
         self.number(u64::from(start.limits.actions));
-        self.bool(start.limits.asks == Asks::Every);
+        // Which of the three choices of asking (queue item 884), by its
+        // place among them.
+        self.tag(match start.limits.asks {
+            Asks::Never => 0,
+            Asks::Unnamed => 1,
+            Asks::Every => 2,
+        });
         self.text(&start.greeting);
         self.number(start.sites.len() as u64);
         for site in &start.sites {
@@ -361,10 +367,11 @@ impl Reader<'_> {
     fn limits(&mut self) -> Result<Limits, Unreadable> {
         let sites = u8::try_from(self.number()?).ok();
         let actions = u16::try_from(self.number()?).ok();
-        let asks = if self.bool()? {
-            Asks::Every
-        } else {
-            Asks::Unnamed
+        let asks = match self.tag()? {
+            0 => Asks::Never,
+            1 => Asks::Unnamed,
+            2 => Asks::Every,
+            other => return Err(unreadable(format!("a choice of asking tagged {other}"))),
         };
         sites
             .zip(actions)

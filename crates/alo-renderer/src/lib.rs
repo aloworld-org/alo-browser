@@ -123,6 +123,8 @@ pub mod rail_initials;
 pub mod ran_document;
 pub mod renderer;
 pub mod resource;
+pub mod result_blocks;
+pub mod result_document;
 pub mod results;
 pub mod results_answer;
 pub mod results_document;

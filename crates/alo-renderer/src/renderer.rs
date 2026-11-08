@@ -1075,7 +1075,10 @@ impl Renderer {
         let (Some(document), Some(drawing)) = (self.document(), easel.drawn()) else {
             return FromRenderer::Failed(Failure::NothingLoaded);
         };
-        FromRenderer::ConversationReached(crate::conversation_scroll::reach_of(drawing, document))
+        FromRenderer::ConversationReached(
+            crate::conversation_scroll::reach_of(drawing, document),
+            crate::conversation_scroll::keyed_of(drawing, document),
+        )
     }
 
     /// The same page at another size, or on a screen of another scale: the

@@ -16,7 +16,9 @@ text box#26 "Windows" rgb(31 43 69) 18.4px at (63, 350.14063)
 text box#29 "Windows 10 & 11 · 64-bit · .msi installer" rgb(100 116 139) 14.4px at (63, 380.65625)
 fill box#31 rgb(199 191 178) at (63, 443) 306×49
 text box#32 "Building — available shortly" rgb(255 255 255) 16px at (90, 471.82813)
+clip box#36 to (355, 252) 458×318
 shadow box#36 rgb(231 111 81 / 0.5) blur 24 at (420, 323) 328×188
+unclip
 fill box#36 rgb(255 255 255) at (408, 305) 352×212
 fill box#36 rgb(231 111 81) at (408, 305) 352×212
 fill box#38 rgb(251 230 223) at (431, 330) 108×24

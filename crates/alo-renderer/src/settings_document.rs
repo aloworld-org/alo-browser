@@ -42,6 +42,7 @@
 //! was is the browser process's to say, from the faces it holds, never
 //! anything the renderer said.
 
+use crate::conversation_scroll::{NEWEST, Room};
 use crate::interface_face::InterfaceFace;
 use crate::start::{SettingsKeyed, Start};
 use crate::start_document::{Unbuilt, append, attribute, by_id, element};
@@ -94,7 +95,30 @@ pub fn put(document: &mut Document, start: &Start) -> Result<(), Unbuilt> {
             })?;
     }
     let page = take_page(document)?;
-    append(document, screen, page)?;
+    // Scrolled as the conversation is (queue item 880): the page in a clip
+    // the screen's height, moved up by how far the browser process
+    // scrolled it — a number of its own — with the sign that it goes on
+    // above or below in the clip's right gutter.
+    let clip = element(document, "div")?;
+    attribute(document, clip, "class", "sclip")?;
+    let scrolled = element(document, "div")?;
+    attribute(document, scrolled, "class", "spage")?;
+    attribute(document, scrolled, "id", NEWEST)?;
+    if start.down != 0.0 && start.down.is_finite() {
+        attribute(
+            document,
+            scrolled,
+            "style",
+            &format!("top: {}px", -start.down),
+        )?;
+    }
+    append(document, scrolled, page)?;
+    append(document, clip, scrolled)?;
+    if let Some(bar) = start.bar {
+        let room = Room::settings(start.viewport).height;
+        crate::conversation_document::append_bar(document, clip, bar, &bar.said_of(TITLE, room))?;
+    }
+    append(document, screen, clip)?;
     // The keyboard on *Back to the chat* (queue item 856): ringed.
     if start.settings_keyed == Some(SettingsKeyed::Back) {
         let back = document

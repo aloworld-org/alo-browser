@@ -208,7 +208,14 @@ pub fn judge(begin: &Begin, against: &Against<'_>, resolve: Resolve<'_>) -> Judg
         ));
     }
     let unnamed = !named && !from_a_search;
-    if unnamed || against.limits.asks == Asks::Every {
+    // Asked before as Settings says (queue item 884): before no site by
+    // default, before one neither found nor named, or before every one.
+    let asks = match against.limits.asks {
+        Asks::Never => false,
+        Asks::Unnamed => unnamed,
+        Asks::Every => true,
+    };
+    if asks {
         let what = if unnamed {
             format!("alo wants to open {shown}. It is not a site a search found or one you named.")
         } else {
@@ -410,16 +417,43 @@ mod tests {
     }
 
     #[test]
+    fn by_default_any_public_site_opens_with_no_question() {
+        // Queue item 884: the owner's decision, *Never* the default — the
+        // site neither found nor named that 821's hand run was asked about
+        // opens, as a result and a site named do.
+        let found = found(&["https://ugandamuseum.go.ug/"]);
+        let visited = Visited::default();
+        assert_eq!(Limits::default().asks, Asks::Never);
+        for (begin, asked) in [
+            (
+                Begin::Address("en.wikipedia.org/wiki/Uganda_Museum".to_owned()),
+                "the Uganda Museum",
+            ),
+            (Begin::Address("gov.co.uk".to_owned()), "read bbc.co.uk"),
+            (Begin::Result(1), "museum hours"),
+        ] {
+            assert!(
+                matches!(
+                    judged(&begin, asked, &found, &visited, Limits::default()),
+                    Judged::Open { .. }
+                ),
+                "{begin:?}"
+            );
+        }
+    }
+
+    #[test]
     fn a_site_neither_found_nor_named_is_asked_and_every_site_when_set_so() {
         let found = found(&["https://ugandamuseum.go.ug/"]);
         let visited = Visited::default();
+        let unnamed = Limits::checked(3, 20, Asks::Unnamed).unwrap();
         assert_eq!(
             judged(
                 &Begin::Address("wikipedia.org".to_owned()),
                 "museum hours",
                 &found,
                 &visited,
-                Limits::default()
+                unnamed
             ),
             Judged::Ask {
                 url: url("https://wikipedia.org/"),
@@ -436,9 +470,14 @@ mod tests {
                 "read bbc.co.uk",
                 &found,
                 &visited,
-                Limits::default()
+                unnamed
             ),
             Judged::Ask { .. }
+        ));
+        // A result is opened with no question.
+        assert!(matches!(
+            judged(&Begin::Result(1), "museum hours", &found, &visited, unnamed),
+            Judged::Open { .. }
         ));
         let every = Limits::checked(3, 20, Asks::Every).unwrap();
         assert_eq!(
@@ -456,7 +495,7 @@ mod tests {
                 "hours",
                 &found,
                 &visited,
-                Limits::default()
+                unnamed
             ),
             Judged::Open { .. }
         ));
@@ -464,6 +503,14 @@ mod tests {
 
     #[test]
     fn this_machine_and_its_network_are_refused_unless_the_person_wrote_them() {
+        // Under every choice of asking, *Never* the default among them
+        // (queue item 884): not a setting.
+        for asks in Asks::ALL {
+            the_network_refused_asking(Limits::checked(3, 20, asks).unwrap());
+        }
+    }
+
+    fn the_network_refused_asking(limits: Limits) {
         let found = found(&["http://192.168.1.20/admin", "https://intranet.example/"]);
         let visited = Visited::default();
         let refused = |judged: Judged| matches!(judged, Judged::Refused(why) if why.contains("on this machine or its network"));
@@ -482,7 +529,7 @@ mod tests {
                     "check the page",
                     &found,
                     &visited,
-                    Limits::default()
+                    limits
                 )),
                 "{address}"
             );
@@ -494,39 +541,35 @@ mod tests {
             "admin",
             &found,
             &visited,
-            Limits::default()
+            limits
         )));
         assert!(refused(judged(
             &Begin::Result(2),
             "intranet",
             &found,
             &visited,
-            Limits::default()
+            limits
         )));
-        // Written by the person, it opens.
-        assert!(matches!(
-            judged(
-                &Begin::Address("http://127.0.0.1:8080/page.html".to_owned()),
-                "read 127.0.0.1:8080/page.html",
-                &found,
-                &visited,
-                Limits::default()
-            ),
-            Judged::Open { .. }
-        ));
+        // Written by the person, it is not refused: opened, or under *Any
+        // site* asked about.
+        let opens = |judged: Judged| matches!(judged, Judged::Open { .. } | Judged::Ask { .. });
+        assert!(opens(judged(
+            &Begin::Address("http://127.0.0.1:8080/page.html".to_owned()),
+            "read 127.0.0.1:8080/page.html",
+            &found,
+            &visited,
+            limits
+        )));
         // Another port on this machine is the same host, named.
+        assert!(opens(judged(
+            &Begin::Address("localhost:9000".to_owned()),
+            "open localhost:8080",
+            &found,
+            &visited,
+            limits
+        )));
         assert!(matches!(
-            judged(
-                &Begin::Address("localhost:9000".to_owned()),
-                "open localhost:8080",
-                &found,
-                &visited,
-                Limits::default()
-            ),
-            Judged::Open { .. }
-        ));
-        assert!(matches!(
-            judged(&Begin::Address("nowhere.example".to_owned()), "x", &found, &visited, Limits::default()),
+            judged(&Begin::Address("nowhere.example".to_owned()), "x", &found, &visited, limits),
             Judged::Refused(why) if why.contains("could not be found")
         ));
     }

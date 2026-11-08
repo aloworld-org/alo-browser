@@ -26,7 +26,7 @@ use alo_renderer::agent_limits::{Asks, Limits};
 use alo_renderer::conversation_claim::Claim;
 use alo_renderer::frame::frame_to_png;
 use alo_renderer::interface_face::InterfaceFace;
-use alo_renderer::settings_work_document::{ACTIONS, ASK, AT_WORK, EVERY, SITES, UNNAMED};
+use alo_renderer::settings_work_document::{ACTIONS, ASK, AT_WORK, EVERY, NEVER, SITES, UNNAMED};
 use alo_renderer::start::{SettingsKeyed, Start};
 use alo_renderer::{Frame, FromRenderer, Renderer, Snapshot, SnapshotNode, ToRenderer};
 use alo_text::{Font, FontDatabase, Slant, Weight};
@@ -251,11 +251,23 @@ fn alo_at_work_stands_under_font_inside_the_designs_room() {
         at("lvalue"),
         vec![px(792.0, 666.0, 40.0, 26.0), px(792.0, 711.0, 40.0, 26.0)]
     );
-    // The two choices at the last row's right, 28 tall, their radios 16
-    // across as the faces' are, in its middle.
+    // The three choices at the last row's right (queue item 884), 28
+    // tall, their radios 16 across as the faces' are, in its middle:
+    // *Never · Default* chosen, then the other two, each reaching 8 past
+    // its words either side, so they meet.
     assert_eq!(at("askopts").len(), 1);
+    assert_eq!(
+        (at("askopt on"), at("askopt")),
+        (
+            vec![px(457.156_25, 755.0, 129.859_38, 28.0)],
+            vec![
+                px(587.015_6, 755.0, 196.843_75, 28.0),
+                px(783.859_4, 755.0, 87.140_625, 28.0)
+            ]
+        )
+    );
     assert!(
-        at("askopts")[0].ends_with("323.20313×28") && at("askopts")[0].contains(", 755)"),
+        at("askopts")[0].ends_with("397.84375×28") && at("askopts")[0].contains(", 755)"),
         "{:?}",
         at("askopts")
     );
@@ -265,7 +277,7 @@ fn alo_at_work_stands_under_font_inside_the_designs_room() {
             .skip(InterfaceFace::ALL.len())
             .filter(|dot| dot.contains(", 761) 16×16"))
             .count(),
-        2
+        3
     );
     // All of it inside the design's room, 820: the page ends at 792.
     assert_eq!(at("prefs"), vec![px(160.0, 32.0, 720.0, 760.0)]);
@@ -419,6 +431,7 @@ fn an_agent_reads_the_numbers_as_spinbuttons_and_the_choice_as_a_radio_group() {
     assert_eq!(
         radios,
         vec![
+            (Some(NEVER.into()), Some(Checked::No)),
             (Some(UNNAMED.into()), Some(Checked::No)),
             (Some(EVERY.into()), Some(Checked::Yes)),
         ]
@@ -444,8 +457,9 @@ fn a_press_on_a_button_or_a_choice_is_claimed_by_its_place() {
         (847.0, 724.0, Some(Claim::Limit { at: 2 })),
         // The number between them is not a button.
         (812.0, 679.0, None),
-        (600.0, 769.0, Some(Claim::Asks { at: 0 })),
-        (830.0, 769.0, Some(Claim::Asks { at: 1 })),
+        (520.0, 769.0, Some(Claim::Asks { at: 0 })),
+        (680.0, 769.0, Some(Claim::Asks { at: 1 })),
+        (830.0, 769.0, Some(Claim::Asks { at: 2 })),
         // The row's name is nothing to press.
         (200.0, 724.0, None),
     ] {

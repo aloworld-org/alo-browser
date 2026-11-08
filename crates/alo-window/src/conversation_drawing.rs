@@ -61,12 +61,12 @@ use crate::conversation_picture::CardPictures;
 use alo_paint::Point;
 use alo_renderer::conversation_claim::Claim;
 use alo_renderer::conversation_decide::{self, decide};
-use alo_renderer::conversation_scroll::Reach;
+use alo_renderer::conversation_scroll::{Reach, Span};
 use alo_renderer::host::{Gone, Renderers};
 use alo_renderer::panel::{self, Panel};
 use alo_renderer::site::Site;
 use alo_renderer::split_place::Stands;
-use alo_renderer::start::{self, Start};
+use alo_renderer::start::{self, SettingsKeyed, Start};
 use alo_renderer::strip_decide::unasked;
 use alo_renderer::{Frame, FromRenderer, ToRenderer};
 use std::sync::mpsc::{Receiver, Sender, channel};
@@ -106,6 +106,9 @@ pub enum Drawn {
         stands: Stands,
         /// How far they reach.
         reach: Reach,
+        /// What was drawn was *Settings*, not the conversation (queue item
+        /// 880): what the reach is of, and where the keyboard was.
+        settings: Option<SettingsDrawn>,
     },
     /// Where the part's field — the one box, or *Search chats* — was laid
     /// out as it was just drawn, or nothing when it drew none (queue item
@@ -133,6 +136,15 @@ pub enum Drawn {
         /// The number of the newest picture asked that it answers.
         number: u64,
     },
+}
+
+/// A drawing of *Settings*, as its renderer measured it (queue item 880):
+/// what the keyboard was on as it was drawn, and where that stood down the
+/// page, if anything was.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SettingsDrawn {
+    /// What the keyboard was on, and where it stood.
+    pub keyed: Option<(SettingsKeyed, Span)>,
 }
 
 /// How the thread tells the window what was drawn: whether anybody heard.
@@ -509,11 +521,14 @@ impl Holding {
                 said.extend(self.field(Part::Start));
                 // Where the card's page goes beneath it (queue item 869).
                 said.extend(self.beneath(&asked.start));
-                if asked.start.conversing() {
+                // *Settings* scrolls as the conversation does (queue item
+                // 880), so its reach is measured too.
+                if asked.start.conversing() || asked.start.settings {
                     said.extend(self.reach(
                         asked.start.turns.len(),
                         (asked.start.down, asked.start.offers.len()),
                         asked.start.stands(),
+                        (asked.start.settings, asked.start.settings_keyed),
                     ));
                 }
                 said.extend(came);
@@ -527,7 +542,8 @@ impl Holding {
 
     /// Ask the first screen's renderer how far the `turns` it just painted,
     /// scrolled `down` with `offered` offers over the box, the live card
-    /// standing as `stands`, reach: what the
+    /// standing as `stands` — or *Settings*, the keyboard on what the last
+    /// says, when the first is so (queue item 880) — reach: what the
     /// window is told — nothing when it answered anything but a reach,
     /// which keeps the wheel where it was, or said, when it went.
     fn reach(
@@ -535,6 +551,7 @@ impl Holding {
         turns: usize,
         (down, offered): (f32, usize),
         stands: Stands,
+        (settings, keyed_as): (bool, Option<SettingsKeyed>),
     ) -> Option<Drawn> {
         if self.start.gone.is_some() {
             return None;
@@ -543,12 +560,15 @@ impl Holding {
             .renderers
             .ask(&self.start.site, &ToRenderer::ConversationReach)
         {
-            Ok(FromRenderer::ConversationReached(reach)) => Some(Drawn::Reached {
+            Ok(FromRenderer::ConversationReached(reach, keyed)) => Some(Drawn::Reached {
                 turns,
                 down,
                 offered,
                 stands,
                 reach: reach.bounded(),
+                settings: settings.then(|| SettingsDrawn {
+                    keyed: keyed_as.zip(keyed.map(Span::bounded)),
+                }),
             }),
             Ok(_) => None,
             Err(gone) => {

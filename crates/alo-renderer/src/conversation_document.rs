@@ -98,7 +98,7 @@ pub fn put(
     }
     append(document, thread, turns)?;
     if let Some(bar) = start.bar {
-        append_bar(document, thread, bar, room(start.viewport))?;
+        append_bar(document, thread, bar, &bar.said(room(start.viewport)))?;
     }
     insert_before(document, screen, thread, before)
 }
@@ -132,15 +132,21 @@ pub(crate) fn take_the_greeting(
     Ok(())
 }
 
-/// The sign that the conversation goes on above or below a room `room`
-/// tall (queue item 755): a bar in the room's right gutter, placed by the
-/// browser process's numbers, and read by an agent as an image named by
-/// which way it goes on and how far down it is scrolled.
-fn append_bar(document: &mut Document, thread: NodeId, bar: Bar, room: f32) -> Result<(), Unbuilt> {
+/// The sign that the conversation — or *Settings* (queue item 880) — goes
+/// on above or below its room (queue item 755): a bar in the room's right
+/// gutter, placed by the browser process's numbers, and read by an agent as
+/// an image named `said`: which way it goes on and how far down it is
+/// scrolled.
+pub(crate) fn append_bar(
+    document: &mut Document,
+    thread: NodeId,
+    bar: Bar,
+    said: &str,
+) -> Result<(), Unbuilt> {
     let sign = element(document, "div")?;
     attribute(document, sign, "class", "goes-on")?;
     attribute(document, sign, "role", "image")?;
-    attribute(document, sign, "aria-label", &bar.said(room))?;
+    attribute(document, sign, "aria-label", said)?;
     // Numbers of the browser process's, never a string of anybody's: where
     // it is, and — faded once the conversation has stopped (queue item
     // 793) — how much of it is seen.

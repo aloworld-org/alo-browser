@@ -89,23 +89,121 @@ pub fn room(viewport: Size) -> f32 {
     (room_bottom(viewport, 0) - TOP).max(0.0)
 }
 
+/// Where a page that scrolls as the conversation does is seen (queue item
+/// 880): the conversation's room, or *Settings*' — the whole first screen,
+/// which has no box under it — each from its top, so long.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Room {
+    /// How far down the first screen its top is, in CSS pixels.
+    pub top: f32,
+    /// How tall it is, in CSS pixels.
+    pub height: f32,
+}
+
+impl Room {
+    /// The conversation's, on a first screen laid out at `viewport`: from
+    /// [`TOP`], [`room`] tall.
+    #[must_use]
+    pub fn conversation(viewport: Size) -> Self {
+        Self {
+            top: TOP,
+            height: room(viewport),
+        }
+    }
+
+    /// *Settings*', on a first screen laid out at `viewport`: the whole of
+    /// it, from its top to its foot.
+    #[must_use]
+    pub fn settings(viewport: Size) -> Self {
+        Self {
+            top: 0.0,
+            height: if viewport.height.is_finite() {
+                viewport.height.clamp(0.0, MOST)
+            } else {
+                0.0
+            },
+        }
+    }
+}
+
+/// Where the thing the keyboard is on stands, down from the top of the page
+/// that scrolls (queue item 880): its top and its foot, so that it can be
+/// scrolled into view as the keyboard moves to it. A renderer's word, so
+/// read as finite lengths inside [`MOST`], a foot never above its top; a
+/// renderer that lies about it can scroll only as far as the reach lets.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct Span {
+    /// How far down the page its top is.
+    pub top: f32,
+    /// How far down the page its foot is.
+    pub foot: f32,
+}
+
+impl Span {
+    /// The same span read as finite lengths from `0` to [`MOST`], its foot
+    /// never above its top.
+    #[must_use]
+    pub fn bounded(self) -> Self {
+        let side = |length: f32| {
+            if length.is_finite() {
+                length.clamp(0.0, MOST)
+            } else {
+                0.0
+            }
+        };
+        let top = side(self.top);
+        Self {
+            top,
+            foot: side(self.foot).max(top),
+        }
+    }
+}
+
 /// How far the conversation may be scrolled on a first screen laid out at
 /// `viewport` whose turns reach as `reach` says: back up until the first
 /// turn's top stands at the room's top, and on down until the newest turn's
 /// foot stands at the room's foot — or not at all, when it fits.
 pub fn bounds(reach: Reach, viewport: Size) -> (f32, f32) {
+    bounds_in(reach, room(viewport))
+}
+
+/// [`bounds`] in a room `room` tall (queue item 880).
+pub fn bounds_in(reach: Reach, room: f32) -> (f32, f32) {
     let reach = reach.bounded();
-    (-reach.earlier, (reach.newest - room(viewport)).max(0.0))
+    (-reach.earlier, (reach.newest - room).max(0.0))
 }
 
 /// `down`, kept inside [`bounds`].
 pub fn clamped(down: f32, reach: Reach, viewport: Size) -> f32 {
-    let (least, most) = bounds(reach, viewport);
+    clamped_in(down, reach, room(viewport))
+}
+
+/// `down`, kept inside [`bounds_in`] a room `room` tall.
+pub fn clamped_in(down: f32, reach: Reach, room: f32) -> f32 {
+    let (least, most) = bounds_in(reach, room);
     if down.is_finite() {
         down.clamp(least, most)
     } else {
         0.0
     }
+}
+
+/// How far a page in a room `room` tall, scrolled `down` and reaching as
+/// `reach` says, is to be scrolled for `span` to be seen whole with
+/// `margin` about it: as little as that takes — not at all when it is seen
+/// already — and, for a span taller than the room, its top at the room's
+/// top. Kept inside [`bounds_in`].
+pub fn into_view(down: f32, span: Span, margin: f32, reach: Reach, room: f32) -> f32 {
+    let span = span.bounded();
+    let (top, foot) = (span.top - margin, span.foot + margin);
+    let wanted = if top < down || foot - top > room {
+        top
+    } else if foot > down + room {
+        foot - room
+    } else {
+        down
+    };
+    clamped_in(wanted, reach, room)
 }
 
 /// The narrowest a sign of how far the conversation is scrolled is drawn
@@ -176,6 +274,12 @@ impl Bar {
     /// What an agent reads of it: which way the conversation goes on, and
     /// how far down it is scrolled.
     pub fn said(self, room: f32) -> String {
+        self.said_of("The conversation", room)
+    }
+
+    /// What an agent reads of it on `what` — the conversation, or *Settings*
+    /// (queue item 880) — in a room `room` tall.
+    pub fn said_of(self, what: &str, room: f32) -> String {
         let goes = match (self.above, self.below) {
             (true, true) => "above and below",
             (true, false) => "above",
@@ -183,7 +287,7 @@ impl Bar {
             (false, false) => "nowhere else",
         };
         format!(
-            "The conversation goes on {goes}; scrolled {}% of the way down",
+            "{what} goes on {goes}; scrolled {}% of the way down",
             self.percent(room)
         )
     }
@@ -195,15 +299,20 @@ impl Bar {
 /// thumb — or none when the turns fit the room, and there is nowhere else
 /// to go.
 pub fn bar(down: f32, reach: Reach, viewport: Size, scale: f32) -> Option<Bar> {
+    bar_in(down, reach, room(viewport), scale)
+}
+
+/// [`bar`] in a room `room` tall (queue item 880), its top down from the
+/// room's top.
+pub fn bar_in(down: f32, reach: Reach, room: f32, scale: f32) -> Option<Bar> {
     let scale = alo_value::device_scale(scale);
     let on_a_pixel = |length: f32| (length * scale).round() / scale;
-    let room = room(viewport);
-    let (least, most) = bounds(reach, viewport);
+    let (least, most) = bounds_in(reach, room);
     let travel = most - least;
     if room <= 0.0 || travel < 1.0 || !travel.is_finite() {
         return None;
     }
-    let down = clamped(down, reach, viewport);
+    let down = clamped_in(down, reach, room);
     let length = (room * room / (room + travel)).clamp(BAR_LEAST.min(room), room);
     let along = (down - least) / travel;
     Some(Bar {
@@ -223,18 +332,53 @@ pub fn reach_of(drawing: &Drawing, document: &Document) -> Reach {
         let node = document
             .descendants(document.root())
             .find(|&node| document.attribute_by_name(node, "id") == Some(id))?;
-        let boxes = &drawing.boxes;
-        boxes
-            .ids()
-            .filter(|&made| boxes.get(made).and_then(|held| held.kind.node()) == Some(node))
-            .find_map(|made| drawing.layout.get(made))
-            .map(|geometry| geometry.border_box.size.height)
+        laid_out(drawing, node).map(|(_, height)| height)
     };
     Reach {
         earlier: height(EARLIER).map_or(0.0, |earlier| earlier + BETWEEN_TURNS),
         newest: height(NEWEST).unwrap_or(0.0),
     }
     .bounded()
+}
+
+/// The class a thing the keyboard is on carries, ringed (queue item 856).
+pub const KEYED: &str = "keyed";
+
+/// Where the thing the keyboard is on — the element of the class [`KEYED`]
+/// — stands in `document`, drawn as `drawing`, down from the top of the
+/// page that scrolls, the element [`NEWEST`] (queue item 880): none when
+/// nothing is keyed.
+pub fn keyed_of(drawing: &Drawing, document: &Document) -> Option<Span> {
+    let of = |wanted: &dyn Fn(alo_dom::NodeId) -> bool| {
+        document
+            .descendants(document.root())
+            .find(|&node| wanted(node))
+            .and_then(|node| laid_out(drawing, node))
+    };
+    let page = of(&|node| document.attribute_by_name(node, "id") == Some(NEWEST))?;
+    let keyed = of(&|node| {
+        document
+            .attribute_by_name(node, "class")
+            .is_some_and(|class| class.split_ascii_whitespace().any(|each| each == KEYED))
+    })?;
+    Some(
+        Span {
+            top: keyed.0 - page.0,
+            foot: keyed.0 + keyed.1 - page.0,
+        }
+        .bounded(),
+    )
+}
+
+/// The top and the height of the first box `node` made, as `drawing` laid
+/// it out.
+fn laid_out(drawing: &Drawing, node: alo_dom::NodeId) -> Option<(f32, f32)> {
+    let boxes = &drawing.boxes;
+    boxes
+        .ids()
+        .filter(|&made| boxes.get(made).and_then(|held| held.kind.node()) == Some(node))
+        .find_map(|made| drawing.layout.get(made))
+        .map(|geometry| (geometry.border_box.top(), geometry.border_box.size.height))
 }
 
 #[cfg(test)]
@@ -354,6 +498,42 @@ mod tests {
             bar(0.0, reach, Size::new(1040.0, 100.0), 1.0),
             None,
             "no room"
+        );
+    }
+
+    #[test]
+    fn settings_room_is_the_whole_screen_and_the_conversations_from_40_to_the_box() {
+        let viewport = Size::new(536.0, 600.0);
+        assert_eq!(
+            Room::settings(viewport),
+            Room {
+                top: 0.0,
+                height: 600.0
+            }
+        );
+        assert_eq!(
+            Room::conversation(Size::new(1040.0, 820.0)),
+            Room {
+                top: 40.0,
+                height: 676.0
+            }
+        );
+        assert_eq!(
+            Room::settings(Size::new(536.0, f32::INFINITY))
+                .height
+                .to_bits(),
+            0.0_f32.to_bits()
+        );
+        // A page 838 tall in it scrolls 238; a bar says where on Settings.
+        let reach = Reach {
+            earlier: 0.0,
+            newest: 838.0,
+        };
+        assert_eq!(bits(bounds_in(reach, 600.0)), bits((-0.0, 238.0)));
+        let bar = bar_in(238.0, reach, 600.0, 1.0).expect("a bar");
+        assert_eq!(
+            bar.said_of("Settings", 600.0),
+            "Settings goes on above; scrolled 100% of the way down"
         );
     }
 

@@ -178,7 +178,7 @@ fn draw(start: Start) -> Drawn {
         _ => Snapshot::default(),
     };
     let reach = match renderer.handle(ToRenderer::ConversationReach) {
-        FromRenderer::ConversationReached(reach) => Some(reach),
+        FromRenderer::ConversationReached(reach, _) => Some(reach),
         _ => None,
     };
     Drawn {

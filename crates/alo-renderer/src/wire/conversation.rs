@@ -21,14 +21,20 @@
 
 use super::{Reader, Unreadable, Writer, unreadable};
 use crate::conversation_claim::Claim;
-use crate::conversation_scroll::Reach;
+use crate::conversation_scroll::{Reach, Span};
 
 impl Writer {
-    /// How far the conversation reaches, as its tag and two lengths.
-    pub(super) fn conversation_reached(&mut self, reach: Reach) {
+    /// How far the conversation reaches, as its tag and two lengths; then
+    /// whether anything is keyed, and if so its top and its foot.
+    pub(super) fn reached(&mut self, reach: Reach, keyed: Option<Span>) {
         self.tag(12);
         self.float(reach.earlier);
         self.float(reach.newest);
+        self.bool(keyed.is_some());
+        if let Some(keyed) = keyed {
+            self.float(keyed.top);
+            self.float(keyed.foot);
+        }
     }
 
     /// A press's claim: whether it was on anything, then what, then the
@@ -87,13 +93,25 @@ impl Writer {
 
 impl Reader<'_> {
     /// How far the conversation reaches, as
-    /// [`Writer::conversation_reached`] wrote it after its tag.
-    pub(super) fn conversation_reached(&mut self) -> Result<Reach, Unreadable> {
-        Ok(Reach {
+    /// [`Writer::reached`] wrote it after its tag.
+    pub(super) fn reached(&mut self) -> Result<(Reach, Option<Span>), Unreadable> {
+        let reach = Reach {
             earlier: self.float()?,
             newest: self.float()?,
         }
-        .bounded())
+        .bounded();
+        let keyed = if self.bool()? {
+            Some(
+                Span {
+                    top: self.float()?,
+                    foot: self.float()?,
+                }
+                .bounded(),
+            )
+        } else {
+            None
+        };
+        Ok((reach, keyed))
     }
 
     /// A press's claim, as [`Writer::conversation_claim`] wrote it: a tag

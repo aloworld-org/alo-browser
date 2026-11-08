@@ -888,16 +888,42 @@ impl Builder<'_> {
             Corners::of(style, Self::extent_of(area))
         });
         let shadows = self.shadows_of(id);
-        for shadow in shadows.iter().rev().filter(|shadow| !shadow.inset) {
-            out.push(DisplayItem::Shadow {
+        let face = self.face_of(id);
+        // An outer shadow is kept outside the box's border box, as
+        // Backgrounds 3 says (queue item 877): never seen through a
+        // background that lets it through, and never under a transparent
+        // border. A clip of everything about the box but the box itself —
+        // under an opaque background colour, the box a CSS pixel in from
+        // its edge, its corners a pixel less round, as Chrome 157 clips
+        // it, so the shadow reaches under the box's soft edge and no seam
+        // of the page shows between the two.
+        let outer: Vec<&DrawnShadow> = shadows
+            .iter()
+            .rev()
+            .filter(|shadow| !shadow.inset)
+            .collect();
+        if !outer.is_empty() {
+            let opaque = face.is_none() && self.opaque(id, backdrop);
+            let (kept, rounded) = if opaque {
+                (grown_rect(area, -1.0), corners.spread(-1.0))
+            } else {
+                (area, corners)
+            };
+            out.push(DisplayItem::PushClip {
                 box_id: id,
-                path: cast(area, corners, *shadow),
-                blur: shadow.blur,
-                color: shadow.color,
+                path: outside(kept, rounded, &outer),
             });
+            for shadow in outer {
+                out.push(DisplayItem::Shadow {
+                    box_id: id,
+                    path: cast(area, corners, *shadow),
+                    blur: shadow.blur,
+                    color: shadow.color,
+                });
+            }
+            out.push(DisplayItem::PopClip);
         }
         let border = self.border_of(id);
-        let face = self.face_of(id);
         if let Some(layers) = &face {
             for layer in layers {
                 out.push(DisplayItem::Fill {
@@ -955,6 +981,24 @@ impl Builder<'_> {
         if face.is_none() {
             self.draw_borders(id, area, first, last, out);
         }
+    }
+
+    /// Whether `backdrop`, `id`'s background, is known to cover its border
+    /// box whole (queue item 877): an opaque colour, or a gradient whose
+    /// every colour is opaque — what Chrome 157 clips an outer shadow a
+    /// pixel inside of.
+    fn opaque(&self, id: BoxId, backdrop: &Backdrop) -> bool {
+        let current = self
+            .style_of(id)
+            .map_or(Rgba::TRANSPARENT, alo_style::ComputedStyle::current_color);
+        backdrop.color.is_some_and(|color| color.alpha >= 1.0)
+            || backdrop.gradients.iter().any(|gradient| {
+                !gradient.stops().is_empty()
+                    && gradient
+                        .stops()
+                        .iter()
+                        .all(|stop| stop.color.resolve(current).alpha >= 1.0)
+            })
     }
 
     /// A button's, a text field's or a text area's own picture, in place of
@@ -1879,6 +1923,33 @@ fn cast(border_box: Rect, corners: Corners, shadow: DrawnShadow) -> Path {
         grown_rect(border_box, shadow.spread)
             .translated(alo_layout::Point::new(shadow.offset.0, shadow.offset.1)),
         corners.fitted_to(border_box.size).spread(shadow.spread),
+    )
+}
+
+/// Everything about a box's border box, `area` rounded by `corners`, that
+/// its outer `shadows` reach, but the box itself: what they are kept inside
+/// (queue item 877). Bounded by a rectangle past the furthest any of them
+/// reaches, as [`hole`] is.
+fn outside(area: Rect, corners: Corners, shadows: &[&DrawnShadow]) -> Path {
+    let reach = shadows
+        .iter()
+        .map(|shadow| {
+            crate::blur::reach(shadow.blur)
+                + shadow.spread.abs()
+                + shadow.offset.0.abs()
+                + shadow.offset.1.abs()
+                + 2.0
+        })
+        .fold(0.0_f32, f32::max);
+    let outer = grown_rect(area, reach);
+    between(
+        &Path::rectangle(
+            outer.left(),
+            outer.top(),
+            outer.size.width,
+            outer.size.height,
+        ),
+        &rounded_rectangle(area, corners),
     )
 }
 

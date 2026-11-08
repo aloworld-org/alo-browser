@@ -30,15 +30,24 @@
 //! made by a press on it; by keys, Tab goes on from *Font* to the sites,
 //! the actions and the radio group *Ask before opening*, and back round;
 //! on a number ← ↓ make it fewer and → ↑ more, as a stepper's arrows do,
-//! and on the group the arrows choose the other. Kept beside the face, and
+//! and on the group → ↑ choose the next and ← ↓ the one before, round. Kept beside the face, and
 //! read by the window as each run starts.
+//!
+//! **Scrolled** (queue item 880) as the conversation is ([`Scrolled`]): in
+//! a window too short for the whole page, by the wheel, the paging keys
+//! and the bar, from its top each time it opens; and as Tab moves the
+//! keyboard, what it moved to is scrolled into view, [`REVEALED`] clear of
+//! the room's edges, once its renderer says where it stands.
 
+use crate::conversation_drawing::SettingsDrawn;
+use crate::scrolled::Scrolled;
 use alo_renderer::agent_limits::{Asks, Limit, Limits, Stepped};
+use alo_renderer::conversation_scroll::Reach;
 use alo_renderer::interface_face::InterfaceFace;
 use alo_renderer::start::SettingsKeyed;
 
 /// *Settings*: open or not, and the face chosen.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Settings {
     /// Whether it is the page on screen.
     open: bool,
@@ -54,7 +63,16 @@ pub struct Settings {
     /// Whether a person changed the limits since this was last asked, so
     /// that they are to be kept.
     limits_changed: bool,
+    /// How far it is scrolled (queue item 880).
+    scrolled: Scrolled,
+    /// What Tab moved the keyboard to, to be scrolled into view once its
+    /// renderer says where it was drawn.
+    reveal: Option<SettingsKeyed>,
 }
+
+/// How far clear of the room's top or foot what the keyboard moves to is
+/// scrolled, in CSS pixels: past its ring of 3, with the room's own gap.
+pub const REVEALED: f32 = 16.0;
 
 impl Settings {
     /// Set in `face`, as read back from where it was kept, and closed.
@@ -124,6 +142,9 @@ impl Settings {
         let opened = !core::mem::replace(&mut self.open, true);
         if opened {
             self.keyed = None;
+            // From its top, its reach measured again (queue item 880).
+            self.scrolled.reset();
+            self.reveal = None;
         }
         opened
     }
@@ -158,7 +179,36 @@ impl Settings {
             (Some(at), true) => (at + all.len() - 1) % all.len(),
         };
         self.keyed = all.get(next).copied();
+        self.reveal = self.keyed;
         true
+    }
+
+    /// How far it is scrolled (queue item 880).
+    pub fn scrolled(self) -> Scrolled {
+        self.scrolled
+    }
+
+    /// How far it is scrolled, to be moved — while it is open.
+    pub fn scrolled_mut(&mut self) -> Option<&mut Scrolled> {
+        self.open.then_some(&mut self.scrolled)
+    }
+
+    /// Its renderer measured it, drawn as `drawn`, to reach as `reach`
+    /// says in a room `room` tall: how far it is scrolled kept inside that,
+    /// and what Tab moved the keyboard to scrolled into view once it is
+    /// drawn there. Whether that moved it.
+    pub fn reached(&mut self, reach: Reach, drawn: SettingsDrawn, room: f32) -> bool {
+        if !self.open {
+            return false;
+        }
+        let mut moved = self.scrolled.reached(reach, room);
+        if let Some((keyed, span)) = drawn.keyed
+            && self.reveal == Some(keyed)
+        {
+            self.reveal = None;
+            moved |= self.scrolled.into_view(span, REVEALED, room);
+        }
+        moved
     }
 
     /// An arrow on *Font*: the face after the one chosen when `on`, or the
@@ -181,12 +231,9 @@ impl Settings {
                     more: on,
                 });
             }
-            // Two choices: either arrow chooses the other.
+            // Three choices: → ↑ the next, ← ↓ the one before, round (884).
             Some(SettingsKeyed::Asks) => {
-                let other = match self.limits.asks {
-                    Asks::Unnamed => Asks::Every,
-                    Asks::Every => Asks::Unnamed,
-                };
+                let other = self.limits.asks.stepped(on);
                 return self.choose_asks(other);
             }
             Some(SettingsKeyed::Back) | None => return false,
@@ -316,10 +363,17 @@ mod tests {
         );
         assert!(settings.tab(true));
         assert_eq!(settings.keyed(), Some(SettingsKeyed::Asks), "⇧Tab round");
+        // Three choices (queue item 884), from *Never*: on, on, round.
         assert!(settings.step(true));
-        assert_eq!(settings.limits().asks, Asks::Every);
+        assert_eq!(settings.limits().asks, Asks::Unnamed);
         assert!(settings.take_limits_changed());
         assert!(!settings.take_limits_changed(), "kept once");
+        assert!(settings.step(true));
+        assert_eq!(settings.limits().asks, Asks::Every);
+        assert!(settings.step(true));
+        assert_eq!(settings.limits().asks, Asks::Never, "round");
+        assert!(settings.step(false));
+        assert_eq!(settings.limits().asks, Asks::Every, "back round");
         assert!(settings.step(false));
         assert_eq!(settings.limits().asks, Asks::Unnamed);
         assert!(settings.tab(true));

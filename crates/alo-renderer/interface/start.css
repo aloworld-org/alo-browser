@@ -970,6 +970,28 @@ a {
   color: var(--done);
 }
 
+/* A result as it was written (queue item 883): each paragraph keeping its
+   lines, a list as a list — bullets 18 in, a numbered list's own numbers
+   as written with no marker of ours — 8 between blocks, 2 between items.
+   On the live card and in a kept run alike. */
+.result + .result {
+  margin-top: 8px;
+}
+
+ul.result,
+ol.result {
+  padding-left: 18px;
+}
+
+ol.result {
+  padding-left: 0;
+  list-style-type: none;
+}
+
+.result li + li {
+  margin-top: 2px;
+}
+
 .stopped {
   color: var(--quiet);
 }
@@ -1730,13 +1752,50 @@ a {
 
 /* Settings (queue item 854, docs/design/shell.md, *Settings*), in place of
    the chat on screen: in the first screen's column, 720 wide — or as wide
-   as the room less 32 either side — 32 from the top. */
+   as the room less 32 either side — 32 from the top. It scrolls as the
+   conversation does (queue item 880): a clip the screen's height and as
+   wide as the conversation's, 32 of gutter either side, holding the page
+   moved up by a `top` of the browser process's — 32 above it and 24 below
+   it in what scrolls — and the bar in its right gutter, as the
+   conversation's is. */
 .start.set {
-  padding-top: 32px;
+  height: 100%;
+  padding-top: 0;
+}
+
+.sclip {
+  position: relative;
+  z-index: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 944px;
+  height: 100%;
+  padding: 0 32px;
+  overflow: hidden;
+}
+
+.spage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  width: 100%;
+  padding: 32px 0 24px;
+}
+
+.sclip > .goes-on {
+  position: absolute;
+  right: 13px;
+  width: 6px;
+  border-radius: 3px;
+  background: var(--bar);
 }
 
 .prefs {
-  width: calc(100% - 64px);
+  width: 100%;
   max-width: 720px;
 }
 
@@ -1763,11 +1822,9 @@ a {
    outside the edge, following its rounding — on *Back to the chat*, or on
    the face chosen while the keyboard is on the radio group. Drawn only
    once Tab has put the keyboard there, as a browser draws
-   `:focus-visible`. The button keyed is on the paper it stands on, so the
-   ring is seen only outside it: this engine does not yet keep an outer
-   shadow outside its box, as CSS does (queue item 877). */
+   `:focus-visible`. An outer shadow is kept outside its box (queue item
+   877), so the transparent button needs no paper of its own under it. */
 .pback.keyed {
-  background: var(--paper);
   box-shadow: 0 0 0 3px rgba(27, 36, 51, 0.33);
 }
 
@@ -1972,10 +2029,9 @@ a {
   color: var(--ink);
 }
 
-/* On the white box it stands on, so the ring is seen only outside it:
-   this engine draws an outer shadow under a transparent box (877). */
+/* The keyboard's ring on the choice made, outside it: an outer shadow is
+   kept outside its box (queue item 877), so it needs no white of its own. */
 .askopt.on.keyed {
-  background: var(--surface);
   box-shadow: 0 0 0 3px rgba(27, 36, 51, 0.33);
 }
 

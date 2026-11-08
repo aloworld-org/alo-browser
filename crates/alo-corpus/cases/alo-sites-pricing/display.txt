@@ -2,7 +2,9 @@ fill box#2 rgb(255 255 255) at (0, 0) 800×538
 text box#12 "Subscriptions" rgb(23 33 43) 28px at (20, 74)
 text box#15 "Pause or cancel any time." rgb(76 88 102) 17px at (20, 114.59375)
 transform box#19 by matrix(1, 0, 0, 1, 0, -12)
+clip box#19 to (-72, 48) 944×534
 shadow box#19 rgb(23 33 43 / 0.12) blur 48 at (20, 164) 760×350
+unclip
 fill box#19 rgb(242 245 248) at (20, 140) 760×350
 fill box#19 rgb(29 78 216) at (20, 140) 760×350
 text box#22 "Weekly" rgb(23 33 43) 18px at (46, 182.78125)

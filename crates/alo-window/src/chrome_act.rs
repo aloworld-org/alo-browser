@@ -24,7 +24,9 @@
 //!   click Chrome is asked what a person pressing that point would press. If
 //!   it is not the node or something inside it — an overlay over it, a box
 //!   moved over it — nothing is pressed and the answer is
-//!   [`Unacted::Covered`].
+//!   [`Unacted::Covered`]. Inside it is read from Chrome's tree, and, for
+//!   what that tree leaves out — a button's own icon, an SVG's shapes —
+//!   from the node's DOM (queue item 882).
 //! - **`put_text`** gives the field the keyboard (`DOM.focus`), selects what
 //!   it holds with the key a person would use, and replaces it as typing
 //!   does (`Input.insertText`), which the page hears as `beforeinput` and
@@ -556,10 +558,26 @@ impl Tab<'_> {
             Err(Failed::Declined(_)) => None,
             Err(why) => return Err(why.into()),
         };
-        if !hit.is_some_and(|hit| within(nodes, dom).contains(&hit)) {
+        let inside = match hit {
+            Some(hit) if within(nodes, dom).contains(&hit) => true,
+            // Something Chrome's tree of what the page is leaves out — a
+            // button's own icon, drawn as an SVG's shapes — is the node's
+            // when it is in its DOM (queue item 882), whatever the tree says.
+            Some(hit) => self.under(dom, hit)?,
+            None => false,
+        };
+        if !inside {
             return Err(Unacted::Covered { node, by: hit });
         }
         Ok((pixels(x), pixels(y)))
+    }
+
+    /// Whether `hit` is the DOM node `dom` or under it, by Chrome's own
+    /// description of what is under it ([`Command::DescribeUnder`]); a
+    /// reply that cannot be read says it is not, and nothing is pressed.
+    fn under(&mut self, dom: u64, hit: u64) -> Result<bool, Unacted> {
+        let described = self.ask(&Command::DescribeUnder { node: dom })?;
+        Ok(chrome_protocol::is_under(&described, hit).unwrap_or(false))
     }
 
     /// A press of the left button at `x`, `y` — with the platform's toggle

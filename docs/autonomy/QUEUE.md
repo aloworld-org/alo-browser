@@ -24179,13 +24179,34 @@ What stage 2's exit gate actually measures: a person using it.
   press reached the box with its caret; *Search chats* then ⌘T then typing
   reached the new chat's box; after a card loaded, typing reached the box.
 
-- [ ] **876. A press held on the conversation's bar pages on (cut from
+- [x] **876. A press held on the conversation's bar pages on (cut from
   845).** A press above or below the thumb pages once; a Mac's scroll bar
   pages again and again while the button is held, until the thumb reaches
   the pointer. Measure its first delay and its rate on this Mac before
   building. *Depends on 845.*
+  ***Done (8 November 2026).*** **Measured first** on this Mac (macOS
+  26.5.2, an `NSScroller` in a window of a probe's own — the session
+  scratchpad's `m876tools/held.swift` — with *Jump to the next page* set
+  for that app alone, a press held by `cliclick`): a page at the press,
+  the next at 501.8–501.9 ms, then one every 50.0 ms, and none once the
+  thumb reached the pointer (`m876/run1.txt`, `run2.txt`). **Built**
+  (`conversation_bar_press::{FIRST_REPEAT, REPEAT, still_beyond}`, the
+  window's `bar.rs`): a press beside the thumb pages at once and is held
+  as `BarDrag::Paging`, the window woken for its next page; each page
+  only while the pointer — which may move — is still beyond the thumb the
+  way the press was; the button up ends it. **Tests:** units
+  (`still_beyond` either way, at the thumb's edge, never for the thumb;
+  the measured times) and the window's on a clock of its own (a press 60
+  down above the thumb at the foot: a page at once, none at 499 ms, then
+  one each 50 ms to −4764 where the thumb reaches the pointer and no
+  more; let go, none; held below, the pointer moved into the thumb then
+  past it, stopping and going on). **Mutations**, each failing: no repeat;
+  the pointer ignored (always beyond); the first wait 50 ms; the pointer's
+  move not followed. **By hand** at two (`handrun44/876-*`): three turns
+  at the foot, a press held above the thumb paged back until the thumb
+  stood under the pointer.
 
-- [ ] **877. An outer box-shadow kept outside its box (found by 856).**
+- [x] **877. An outer box-shadow kept outside its box (found by 856).**
   CSS (Backgrounds 3) clips an outer shadow inside the border box, so a
   shadow never shows through a box's own transparent background; this
   engine draws it whole under the box (`alo-paint`'s `draw_one_area`), so
@@ -24194,6 +24215,55 @@ What stage 2's exit gate actually measures: a person using it.
   at one and two, edge pixels included, and every reference it moves read.
   Then *Back to the chat*'s keyed ring needs no paper of its own. *Depends
   on nothing.*
+  ***Done (8 November 2026).*** **Measured** in Chrome 157.0.8103.38,
+  headless, its default raster path, at one, two and eight: seven boxes
+  on whole pixels (a transparent box ringed `0 0 0 3px` in the ink at a
+  third as *Back to the chat*'s ring; a transparent box with a blurred
+  offset shadow; a translucent background over a hard spread; a
+  transparent border under a black ring; the card's white box and two
+  shadows; an offset shadow shrunk by its spread; a glow and a ring of 1
+  on a box rounded 20) — the one and two frozen as
+  `alo-renderer/tests/references/chrome-outer-shadows.png` and `-at-2.png`
+  (RGBA). Chrome keeps every outer shadow outside the border box, and —
+  found when the clip first moved `spread-shadow-corners` 89 of 255 off
+  Chrome at an opaque box's soft corner — **under an opaque background it
+  clips a CSS pixel inside the box, its radii a pixel less**, so the
+  shadow reaches under the box's soft edge and no seam shows. **Built**
+  (`alo-paint`'s `build::draw_one_area`): the outer shadows drawn inside a
+  clip of everything about the box but the box (`outside`), the box a
+  pixel in under an opaque colour or a gradient of opaque colours
+  (`opaque`). **Before**: up to 255 off inside the boxes. **After**:
+  inside every box Chrome's to a level; every pixel within 13 at one and
+  20 at two (64 and 74 pixels more than 8 off), the most at a rounded
+  corner where the clip's edge and the shadow's meet — at eight the
+  transparent ring is within 6 everywhere, and of the black ring's pixels
+  more than 6 off 38 of 379 are at the box's edge, the rest the spread's
+  own corner (573's shape) — so at one and two they are Chrome's coarse
+  edge coverage. **Tests:** `an_outer_shadow_kept_outside_its_box.rs` (each
+  outer shadow inside a clip holding it, in numbers; inside each box
+  Chrome's; every pixel within the bounds above). **Mutations**, each
+  failing: no clip; the padding box clipped rather than the border box.
+  **References moved, each read** (all backed up first, the session
+  scratchpad's `m877/refs-before/`): `display.txt` of
+  `alo-agenda-calendars`, `alo-downloads`, `alo-sites-full-page`,
+  `alo-sites-pricing`, `alo-sites-text-image`,
+  `backgrounds-on-device-pixels`, `shadowed-card`, `spread-shadow-corners`
+  and `the-applications-icon` — each gains the clip around its shadows,
+  their `render.png` unchanged but two; `spread-shadow-corners/render.png`
+  (8 pixels, 1 level, at the 50 % box's edge) and
+  `the-applications-icon/render.png` and its `icon-32`, `-256`, `-512`,
+  `-1024` (1 to 25 pixels, 1 level, at the gradient box's soft edge);
+  `panel-rail.png`, `panel-rail-named.png` and the window's
+  `the-conversation-panel-hidden.png`, `the-panel-folded-at-759.png` and
+  `the-rail-naming-a-chat-at-759.png` (1 or 2 pixels each, 1 level, the
+  current chat's white circle's edge; the window's found by the gate's
+  first two runs) — each the clip's inner edge under
+  the box's soft edge. **The two stopgaps removed**: *Back to the chat*'s
+  paper under its ring and the keyed choice's white — `settings-keyed-back.png`
+  (18 pixels, 1 level) and `settings-scrolled-short.png` (22 pixels, at
+  most 3) moved at the ring's inner edge, looked at. **By hand** at two
+  (`handrun44/880-07`, `884-07`): the keyed choice's ring outside it, no
+  white of its own.
 
 - [x] **878. The agent's limits set in Settings (asked by the owner with
   821, 8 November 2026).** A second section of Settings, *alo at work*:
@@ -24284,7 +24354,7 @@ What stage 2's exit gate actually measures: a person using it.
   the session scratchpad's `m879/` (trees as JSON and text, screenshots),
   rebuilt by `m879tools/text.py`.
 
-- [ ] **880. *Settings* scrolled in a short window (found by 878).**
+- [x] **880. *Settings* scrolled in a short window (found by 878).**
   *Settings* stands in the first screen's place and does not scroll: since
   *alo at work* was added under *Font* the page is 760 tall from 32, so in
   a window shorter than about 830 points — the least window, 600 tall,
@@ -24293,6 +24363,36 @@ What stage 2's exit gate actually measures: a person using it.
   wheel, the paging keys and the bar, and keep what the keyboard is on in
   view. Layout assertions at the least window, a reference. *Depends on
   878, 845.*
+  ***Done (8 November 2026).*** **Built**: the scroll a chat's turns had
+  (down, reach, glide) is `alo-window`'s `Scrolled`, held by the thread
+  and now by *Settings* too, from its top each time it opens; its room is
+  the whole first screen (`conversation_scroll::Room::settings`, no box
+  under it); the renderer draws the page in a clip the screen's height,
+  moved up by the browser process's number, with the bar in the 880
+  column's gutter (`.sclip`, `.spage`), and answers its reach and **where
+  the keyed thing stands** (`keyed_of`, a `Span` beside the reach on the
+  wire, read inside the most, a foot never above its top); the wheel (a
+  wheel's lines glided), Page Up/Down, Home/End, Space with nothing keyed
+  and the bar — pressed, dragged, held (876) — scroll it; as Tab moves
+  the keyboard, what it moved to is scrolled into view 16 clear, once a
+  drawing of it there says where — never a drawing from before — and a
+  wheel afterwards is not pulled back. **Tests:** layout at the least
+  window (`settings_scrolled.rs`: reach 838 there, the clip 536 × 600, the
+  page moved up by 238 with *alo at work*'s box 24 over the foot, the bar
+  at the top and the foot; the keyed span down the page at any scroll),
+  reference `settings-scrolled-short.png` (new, run once without update
+  mode first, looked at), units (`Scrolled`, `Room`, `into_view`, the
+  wire's hostile span), the window's (wheel, keys, Space, the bar pressed
+  and dragged, with and without a chat under it; Tab's reveal, a stale
+  drawing not, once; the chat under it never moved; reopened at its top).
+  **Mutations**, each failing: no reveal; a reveal on any keyed drawing;
+  the wheel not given to *Settings* (survived first — the test had a chat
+  under it, which passed the old guard — caught once a window with none
+  was added); Space scrolling while keyed; the wheel not routed; the page
+  not moved; the keyed span not measured from the page. **By hand** at two
+  in a window 632 points tall (`handrun44/880-05`–`09`): End and Home,
+  the bar, Tab to *Ask before opening* scrolled it into view, a press
+  held on the bar paged to the foot.
 
 - [ ] **881. A private answer refused by Chrome itself for a page alo's
   agent opens (cut from 821, ADR 0103 § 2).** The open gate resolves a
@@ -24304,7 +24404,7 @@ What stage 2's exit gate actually measures: a person using it.
   a name that answers public, then private. *Needs ADR 0103 amended.*
   *Depends on 821.*
 
-- [ ] **882. A button pressed whose middle is its own icon (found by
+- [x] **882. A button pressed whose middle is its own icon (found by
   879).** Measuring Figma, `activate` was refused `NotCarriedOut` three
   times — *the middle of box#73 is under Chrome's node 76* — on the cookie
   bar's *Dismiss*, the viewer's menu button and a hover-only *Preview*:
@@ -24312,21 +24412,96 @@ What stage 2's exit gate actually measures: a person using it.
   something over it. Confirm what the node is on a frozen page; if it is
   the button's own descendant, a press there is the button's and must be
   carried out. A frozen case, both Chromiums. *Depends on 131.*
+  ***Done (8 November 2026).*** **Confirmed** on a frozen page with Chrome
+  157.0.8103.38 over CDP (the session scratchpad's `m882/probe-157.txt`):
+  at a button's middle `DOM.getNodeForLocation` names the icon's SVG
+  `path` or `rect` — inside the button's DOM, and never in Chrome's tree
+  of what the page is (an SVG's shapes are not in it, an `aria-hidden`
+  one not at all) — so the check read from that tree alone said
+  *covered*. **Built**: what the tree leaves out is read from the node's
+  DOM (`DOM.describeNode` six levels down, shadow trees and frames'
+  documents too, `Command::DescribeUnder`, `chrome_protocol::is_under`); a
+  reply that cannot be read is *not under*, and nothing is pressed.
+  **Tests:** `a_button_pressed_on_its_own_icon_through_chrome.rs`, through
+  the machine's Chrome and the CEF host: a labelled button holding an
+  SVG, one holding an `aria-hidden` SVG named for screen readers, a
+  `role=button` holding one — each pressed on its icon, the page hearing a
+  trusted click — and one whose icon the page's own lid covers still
+  refused `Covered` and unheard; units for the reader (under, in a shadow
+  tree and a frame's document; elsewhere not; no node refused).
+  **Mutations**, each failing: the DOM not read (both Chromiums); anything
+  read as under (the lid pressed). **Not by hand** on Figma (879's pages):
+  the frozen page reproduces the refusal and its fix.
 
-- [ ] **883. The agent's result keeps its lines (found by 821's hand
+- [x] **883. The agent's result keeps its lines (found by 821's hand
   run).** *Done in 2 steps* showed the museum's hours as one run of text
   — "Monday–Saturday: 8:00 am–6:00 pm (last entry 5:00 pm) Sunday:
   Closed Public holidays: …" — where the model wrote them as lines. Keep
   the result's line breaks (and a list as a list) on the card and in the
   kept run, as an answer's are. *Depends on 704.*
+  ***Done (8 November 2026).*** **Cause:** the window cut the model's
+  result with `kept`, which turns every control character — a line's end
+  among them — into a space; the renderer then drew it as one paragraph.
+  **Built:** `agent_protocol::kept_lines` keeps lines (`\r\n` and `\r` a
+  line's end, lines trimmed at their end, empty lines between paragraphs
+  one); `alo-renderer`'s `result_blocks` reads only plain text's structure
+  — paragraphs, a line beginning `- `, `* `, `•` or `–` a bullet, `1.` or
+  `1)` a numbered item keeping its number, nothing else — and
+  `result_document` builds each block as a `p` with `br`s or a `ul`/`ol`,
+  on the live card and in a kept run; the model told to put several
+  things on lines and a list's items after `- `. **Tests:** units (blocks,
+  what only begins like an item, the builder, the wire's `done` keeping
+  lines), layout in numbers (`the_agents_result_keeps_its_lines.rs`: the
+  hours' three lines 60 tall under *Done in 1 step*, 8, *Tickets:*, 8,
+  the list's items 18 in and 2 apart, on the card and in a kept run,
+  whose box grows to 220), references `agent-done-in-lines.png` and
+  `agent-ran-in-lines.png` (new, run once without update mode, looked
+  at), an agent reading a paragraph and a list of two. **Mutations**, each
+  failing: no line breaks; no lists; the result cut to one line. **By
+  hand** at two (`handrun44/884-04-run-8.png`): *list three facts*,
+  drawn as a bulleted list of three and the source on its own line.
 
-- [ ] **884. A site named by its name, not its address (found by 821's
-  hand run).** Asked "go straight to the Wikipedia article on the Uganda
-  Museum", alo asked *alo wants to open en.wikipedia.org. It is not a site
-  … you named* — the person named it, in words. Decide with the owner
-  whether a site's common name in the request counts as naming it (and
-  how a name is matched to a domain without the model deciding), or the
-  question stays. *Depends on 821. needs design.*
+- [x] **884. alo's agent opens any site without asking, by default (found
+  by 821's hand run; decided by the owner, 8 November 2026).** Asked "go
+  straight to the Wikipedia article on the Uganda Museum", alo asked *alo
+  wants to open en.wikipedia.org. It is not a site … you named* — the
+  person named it, in words. **The owner's decision:** less strict, as
+  other AI browsers' agents are (Atlas, Comet): *Ask before opening* in
+  *Settings*' *alo at work* gets three choices — **Never** (the new
+  default), **A site not found or named**, **Any site** — saved in
+  `settings.txt`; an older file's old default, which it wrote whether
+  chosen or not, read as *Never* and said so in the design. With *Never*
+  any public `http`/`https` site opens with no question. Unchanged, and
+  not settings: never this machine or its network or another scheme
+  unless the person typed it; asking before paying, sending, deleting or
+  sending a form; never typing a password or card details; the limits.
+  *Closes when:* each setting's behaviour tested, Settings' references
+  rewritten and looked at, the keyed walk wrapping across three, ADR 0103
+  amended, by hand on the old 821-04 case. *Depends on 821, 878.*
+  ***Done (8 November 2026, ADR 0103 § 6).*** `Asks::{Never, Unnamed,
+  Every}`, *Never* the default, kept as `never`, `not-found-or-named`,
+  `every`; `unnamed`, the old word, read as *Never*; crossing to the
+  renderer as a tag of three (it was a yes or no, which drew *Never* as *A
+  site not found or named* — **found by hand** and fixed, a test for each
+  choice crossing added); the opening gate asks before none, an unnamed
+  one, or every; the arrows on the group step round the three. **Tests:**
+  units (the gate under each choice — by default the site neither found
+  nor named opens; *A site not found or named* asks it and opens a result;
+  *Any site* asks every one; this machine and its network refused under
+  all three), a run by default opening `wikipedia.org` with no question,
+  the settings file (each choice kept and read back; a file from before
+  read as *Never*, its other limits kept), the keys stepping round both
+  ways, the renderer's three radios, layout in numbers (the three choices
+  at the row's right, *Never · Default* checked) and `settings.png`,
+  `settings-alo-at-work.png`, `settings-keyed-back.png`,
+  `settings-keyed-font.png` rewritten (the ask row the one change, looked
+  at). **Mutations**, each failing: *Never* still asking an unnamed site;
+  *Never* opening a private address; the old word unread; *Never*
+  crossing the wire as the old default. **By hand** at two
+  (`handrun44/884-*`): the task typed with no page, *Ask alo to do it*
+  pressed, `en.wikipedia.org/wiki/Uganda_Museum` opened with no question
+  and no search, done in one step; in *Settings*, Tab to the group and
+  the arrows round the three, `settings.txt` written each time.
 
 ## K. ★ The agent, on somebody else's pages
 

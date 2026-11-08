@@ -305,6 +305,14 @@ pub enum Command {
         /// The DOM domain's id.
         node: u64,
     },
+    /// `DOM.describeNode` of a node by Chrome's `backendNodeId`, with what
+    /// is [`UNDER`] it, its shadow trees too: what a press on it may
+    /// land on — its own icon among them, which Chrome's tree of what the
+    /// page is leaves out (queue item 882). Read with [`is_under`].
+    DescribeUnder {
+        /// The node, by Chrome's `backendNodeId`.
+        node: u64,
+    },
     /// `Input.dispatchMouseEvent`, a wheel turned over a point of the page:
     /// a person's, over a card's page, and never an agent's (queue item
     /// 718, ADR 0002).
@@ -511,9 +519,10 @@ impl Command {
             Self::ReadTree => "Accessibility.getFullAXTree",
             Self::WhereDrawn { .. } => "DOM.getContentQuads",
             Self::Window => "Page.getLayoutMetrics",
-            Self::Describe { .. } | Self::DescribeValue { .. } | Self::DescribeAll { .. } => {
-                "DOM.describeNode"
-            }
+            Self::Describe { .. }
+            | Self::DescribeValue { .. }
+            | Self::DescribeAll { .. }
+            | Self::DescribeUnder { .. } => "DOM.describeNode",
             Self::ReadNode { .. } => "Accessibility.getPartialAXTree",
             Self::ScrollIntoView { .. } => "DOM.scrollIntoViewIfNeeded",
             Self::NodeAt { .. } => "DOM.getNodeForLocation",
@@ -712,6 +721,11 @@ impl Command {
             Self::DescribeAll { node } => vec![
                 ("nodeId", Value::from(*node)),
                 ("depth", Value::from(-1)),
+                ("pierce", Value::Bool(true)),
+            ],
+            Self::DescribeUnder { node } => vec![
+                ("backendNodeId", Value::from(*node)),
+                ("depth", Value::from(UNDER)),
                 ("pierce", Value::Bool(true)),
             ],
             _ => Vec::new(),
@@ -1822,6 +1836,47 @@ pub fn last_inside(result: &[u8]) -> Result<Option<Inside>, Malformed> {
     Ok(words
         .map(|node| Inside { node, words: true })
         .or_else(|| element.map(|node| Inside { node, words: false })))
+}
+
+/// How many levels under a node [`Command::DescribeUnder`] asks for: an
+/// icon in a button is one or two down, and six levels nest in a reply
+/// inside [`MOST_NESTING`], so the reply is read rather than refused.
+pub const UNDER: i64 = 6;
+
+/// A reply's `result` to `DOM.describeNode` with what is under it
+/// ([`Command::DescribeUnder`]): whether `hit`, by its `backendNodeId`, is
+/// the node described or anything under it, through its shadow trees and
+/// its frames' documents (queue item 882). A tree past [`MOST_NODES`] is
+/// walked no further, and what is past that is not under it.
+///
+/// # Errors
+///
+/// [`Malformed`], for a result with no `node`.
+pub fn is_under(result: &[u8], hit: u64) -> Result<bool, Malformed> {
+    let parsed = object(result)?;
+    let root = parsed
+        .get("node")
+        .ok_or(Malformed::BadField { field: "node" })?;
+    let mut waiting = vec![root];
+    let mut walked = 0usize;
+    while let Some(node) = waiting.pop() {
+        walked += 1;
+        if walked > MOST_NODES {
+            return Ok(false);
+        }
+        if node.get("backendNodeId").and_then(Value::as_u64) == Some(hit) {
+            return Ok(true);
+        }
+        for key in ["shadowRoots", "children"] {
+            if let Some(Value::Array(each)) = node.get(key) {
+                waiting.extend(each.iter());
+            }
+        }
+        if let Some(document) = node.get("contentDocument") {
+            waiting.push(document);
+        }
+    }
+    Ok(false)
 }
 
 /// Whether the described element `node` is a field's placeholder in its
@@ -4501,6 +4556,25 @@ mod tests {
         assert!(
             persons_at(&Command::DescribeAll { node: 7 })
                 .contains(r#""params":{"depth":-1,"nodeId":7,"pierce":true}"#)
+        );
+        assert!(
+            persons_at(&Command::DescribeUnder { node: 10 })
+                .contains(r#""params":{"backendNodeId":10,"depth":6,"pierce":true}"#)
+        );
+        // A button holding an SVG's shape, in its shadow tree and a frame's
+        // document too: each is under it; a node elsewhere is not; a reply
+        // with no node is refused (queue item 882).
+        let button = br#"{"node":{"nodeType":1,"backendNodeId":10,"children":[
+            {"nodeType":1,"backendNodeId":11,"nodeName":"svg","children":[{"nodeType":1,"backendNodeId":12,"nodeName":"path"}]},
+            {"nodeType":1,"backendNodeId":13,"contentDocument":{"nodeType":9,"backendNodeId":14}}],
+            "shadowRoots":[{"nodeType":11,"backendNodeId":15}]}}"#;
+        for under in [10, 11, 12, 14, 15] {
+            assert_eq!(is_under(button, under), Ok(true), "{under}");
+        }
+        assert_eq!(is_under(button, 99), Ok(false));
+        assert_eq!(
+            is_under(br#"{"nodes":[]}"#, 10),
+            Err(Malformed::BadField { field: "node" })
         );
         assert_eq!(document_root(br#"{"root":{"nodeId":1}}"#), Ok(1));
         assert_eq!(selected(br#"{"nodeId":0}"#), Ok(None));

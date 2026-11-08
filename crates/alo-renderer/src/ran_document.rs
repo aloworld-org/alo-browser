@@ -22,7 +22,8 @@
 //!
 //! ADR 0002: the person's words as a paragraph, then a `region` named
 //! [`RAN`] holding a list named [`STEPS`] of each step and the outcome as
-//! paragraphs.
+//! paragraphs — a result as its paragraphs and lists, as on the live card
+//! ([`crate::result_document`], queue item 883).
 
 use crate::agent_document::{STEPS, words};
 use crate::agent_ran::{Ended, Ran};
@@ -90,8 +91,7 @@ pub fn kept(document: &mut Document, ran: &Ran) -> Result<NodeId, Unbuilt> {
             attribute(document, done, "class", "finished")?;
             let line = words(document, "p", "done", &ran.done_in())?;
             append(document, done, line)?;
-            let result = words(document, "p", "result", said)?;
-            append(document, done, result)?;
+            crate::result_document::append_result(document, done, said)?;
             done
         }
         Ended::Stuck { why } | Ended::Stopped { why } => words(document, "p", "stopped", why)?,

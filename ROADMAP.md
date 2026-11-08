@@ -2556,7 +2556,13 @@ items where being right and being unusable are the same outcome.
       or a site the person named, asking before any other, never their own
       network, at most 3 sites, a sign-in page handed over — and its limits
       the person's in *Settings*, *alo at work* — the owner's design of 8
-      November 2026 (821, 878, ADR 0103, ADR 0096 amended);
+      November 2026 (821, 878, ADR 0103, ADR 0096 amended) — and, by the
+      owner's decision the same day, asking before no site by default, the
+      network rule kept (884, ADR 0103 amended); the agent's result in its
+      lines and lists (883); *Settings* scrolled as the conversation is
+      (880); a press held on the bar paging on, as measured on a Mac (876);
+      an outer shadow kept outside its box, Chrome's at one and two (877);
+      a button pressed on its own icon through both Chromiums (882);
       the pointer following a card's page, a link's strip on an
       expanded card, alo's own menu and a link opened as the next turn, a
       closed list's normal dropdown and the agent's list in its column, and

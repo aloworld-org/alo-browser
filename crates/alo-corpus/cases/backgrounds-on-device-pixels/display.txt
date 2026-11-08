@@ -8,9 +8,13 @@ fill box#11 rgb(255 255 255) at (141, 11) 20×20
 clip box#11 to (141, 11) 20×20
 shadow box#11 rgb(23 33 43) blur 0 at (136, 6) 30×30
 unclip
+clip box#13 to (176, 6) 29×29
 shadow box#13 rgb(192 57 43) blur 0 at (177, 7) 27×27
+unclip
 fill box#13 rgb(29 78 216) at (180, 10) 21×21
+clip box#15 to (212.1, 3.1000004) 35.800003×35.800003
 shadow box#15 rgb(23 33 43) blur 0 at (224.3, 13.6) 20×19.999998
+unclip
 fill box#15 rgb(29 78 216) at (220, 11) 20×20
 fill box#17 rgb(23 33 43) at (261, 10) 20×21
 transform box#19 by matrix(1, 0, 0, 1, 0.5, 0.25)

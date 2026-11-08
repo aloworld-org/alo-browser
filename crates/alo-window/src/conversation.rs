@@ -126,7 +126,7 @@ use alo_renderer::agent_limits::{Asks, Limits};
 use alo_renderer::card::{Card, Shield};
 use alo_renderer::card_menu::{CardMenu, MenuItem};
 use alo_renderer::conversation_decide::{Decided, Shown};
-use alo_renderer::conversation_scroll::Reach;
+use alo_renderer::conversation_scroll::{Reach, Room};
 use alo_renderer::interface_face::InterfaceFace;
 use alo_renderer::panel::{Chat, Closing, Panel, RAIL_CHATS, drawn_order, matching};
 use alo_renderer::results::{self, Results, SetUp};
@@ -1488,9 +1488,13 @@ impl Conversation {
     pub fn start(&self, viewport: Size, scale: Scale) -> Start {
         if self.settings.is_open() {
             // *Settings*, and nothing of the chat under it (queue item 854).
+            // Scrolled as the conversation is (queue item 880).
+            let scrolled = self.settings.scrolled();
             return Start {
                 greeting: self.greeting.clone(),
                 viewport,
+                down: scrolled.down(),
+                bar: scrolled.bar(Room::settings(viewport).height, scale.factor()),
                 face: self.settings.face(),
                 settings: true,
                 settings_keyed: self.settings.keyed(),
@@ -1881,12 +1885,34 @@ impl Conversation {
     /// A person's wheel turned `by` CSS pixels down over the conversation,
     /// laid out at `viewport` (queue item 703): whether it scrolled.
     pub fn scroll(&mut self, by: f32, viewport: Size) -> bool {
-        // Nothing of the conversation is drawn under *Settings* (854).
-        if self.settings.is_open() {
-            return false;
+        // Nothing of the conversation is drawn under *Settings* (854), which
+        // scrolls itself (queue item 880).
+        if let Some(scrolled) = self.settings.scrolled_mut() {
+            return scrolled.by(by, Room::settings(viewport).height);
         }
         self.thread_mut()
             .is_some_and(|thread| thread.scroll(by, viewport))
+    }
+
+    /// Where the page on screen that scrolls is seen, on a first screen
+    /// laid out at `viewport`: *Settings*' room while it is open (queue
+    /// item 880), the conversation's otherwise.
+    pub fn room(&self, viewport: Size) -> Room {
+        if self.settings.is_open() {
+            Room::settings(viewport)
+        } else {
+            Room::conversation(viewport)
+        }
+    }
+
+    /// How far the page on screen that scrolls is scrolled and how far it
+    /// reaches, if it scrolls: *Settings* while it is open, the chat on
+    /// screen's conversation otherwise.
+    pub fn scrolled(&self) -> Option<crate::scrolled::Scrolled> {
+        if self.settings.is_open() {
+            return Some(self.settings.scrolled());
+        }
+        self.thread().map(Thread::scrolled)
     }
 
     /// Whether a person's paging keys scroll the conversation now (queue
@@ -1894,8 +1920,12 @@ impl Conversation {
     /// holding the keyboard would take them — neither the card's page,
     /// nor *Search chats*, nor the box while it holds what was typed.
     pub fn keys_scroll(&self) -> bool {
-        !self.settings.is_open()
-            && self.conversing()
+        // *Settings* scrolls by them too (queue item 880), unless *Search
+        // chats* has the keyboard.
+        if self.settings.is_open() {
+            return !self.find.focused();
+        }
+        self.conversing()
             && !self.keys_to_the_card()
             && !self.find.focused()
             && (!self.the_box.focused() || self.the_box.typed().is_empty())
@@ -1904,6 +1934,14 @@ impl Conversation {
     /// Scroll as a person's key asked, laid out at `viewport` (queue item
     /// 754): whether it scrolled.
     pub fn scroll_by_key(&mut self, scroll: Scroll, viewport: Size) -> bool {
+        if let Some(scrolled) = self.settings.scrolled_mut() {
+            let room = Room::settings(viewport).height;
+            return match scroll {
+                Scroll::By(by) => scrolled.by(by, room),
+                Scroll::ToFirst => scrolled.to_end(true, room),
+                Scroll::ToNewest => scrolled.to_end(false, room),
+            };
+        }
         self.thread_mut().is_some_and(|thread| match scroll {
             Scroll::By(by) => thread.scroll(by, viewport),
             Scroll::ToFirst => thread.scroll_to_end(true, viewport),
@@ -1915,8 +1953,8 @@ impl Conversation {
     /// `now`, laid out at `viewport` on a screen of `scale` (queue item
     /// 756): whether a glide is under way for them.
     pub fn glide_lines(&mut self, by: f32, viewport: Size, now: Instant, scale: f32) -> bool {
-        if self.settings.is_open() {
-            return false;
+        if let Some(scrolled) = self.settings.scrolled_mut() {
+            return scrolled.glide_lines(by, Room::settings(viewport).height, now, scale);
         }
         self.thread_mut()
             .is_some_and(|thread| thread.glide_lines(by, viewport, now, scale))
@@ -1924,11 +1962,18 @@ impl Conversation {
 
     /// Whether the chat on screen's conversation is gliding.
     pub fn gliding(&self) -> bool {
+        if self.settings.is_open() {
+            return self.settings.scrolled().gliding();
+        }
         self.thread().is_some_and(Thread::gliding)
     }
 
-    /// The chat on screen's glide moved on to `now`: whether it scrolled.
+    /// The chat on screen's glide — or *Settings*' (queue item 880) — moved
+    /// on to `now`: whether it scrolled.
     pub fn glide(&mut self, now: Instant, viewport: Size, scale: f32) -> bool {
+        if let Some(scrolled) = self.settings.scrolled_mut() {
+            return scrolled.glide(now, Room::settings(viewport).height, scale);
+        }
         self.thread_mut()
             .is_some_and(|thread| thread.glide(now, viewport, scale))
     }
@@ -1939,6 +1984,20 @@ impl Conversation {
     pub fn reached(&mut self, reach: Reach, drawn: usize, viewport: Size) -> bool {
         self.thread_mut()
             .is_some_and(|thread| thread.reached(reach, drawn, viewport))
+    }
+
+    /// The first screen's renderer measured *Settings*, drawn as `drawn`, to
+    /// reach as `reach` says, laid out at `viewport` (queue item 880):
+    /// whether that scrolled it — kept inside it, or what Tab moved the
+    /// keyboard to brought into view. Nothing while it is closed.
+    pub fn settings_reached(
+        &mut self,
+        reach: Reach,
+        drawn: crate::conversation_drawing::SettingsDrawn,
+        viewport: Size,
+    ) -> bool {
+        self.settings
+            .reached(reach, drawn, Room::settings(viewport).height)
     }
 
     /// *Settings* as it is now: whether it is on screen, and the face the
@@ -3791,9 +3850,13 @@ mod tests {
             1,
             "the panel's chats are still pressed"
         );
-        // Nothing of the conversation scrolls or takes the paging keys.
-        assert!(!conversation.keys_scroll());
+        // Nothing of the conversation scrolls: the paging keys and the
+        // wheel are *Settings*' (queue item 880), which scrolls nowhere
+        // until its reach is measured.
+        let down = conversation.thread().map(Thread::down);
+        assert!(conversation.keys_scroll());
         assert!(!conversation.scroll(120.0, room));
+        assert_eq!(conversation.thread().map(Thread::down), down);
         // Back to the chat: as it was, what was typed kept.
         assert!(conversation.act(Pressed::LeaveSettings));
         assert!(!conversation.settings().is_open());

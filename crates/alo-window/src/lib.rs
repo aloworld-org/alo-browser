@@ -271,6 +271,7 @@ pub mod place;
 pub mod present;
 pub mod protocol;
 pub mod scale;
+pub mod scrolled;
 pub mod search_key;
 pub mod search_marks;
 pub mod search_protocol;

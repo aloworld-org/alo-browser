@@ -41,7 +41,7 @@
 //! # What a press is on
 //!
 //! A stepper's button by its place among the buttons that can be pressed
-//! (`lbtn`), and a choice by its place among the two (`askopt`), claimed
+//! (`lbtn`), and a choice by its place among the three (`askopt`), claimed
 //! by the renderer ([`crate::conversation_claim`]) and decided by the
 //! browser process against what it painted ([`Limits::presses`],
 //! [`Asks::ALL`]).
@@ -67,8 +67,12 @@ pub const ACTIONS: &str = "Actions a task may take";
 /// What the radio group, and its row, are named.
 pub const ASK: &str = "Ask before opening";
 
-/// The words of the default choice: asking only before a site neither
-/// found by searching nor named by the person.
+/// The words of the default choice: asking before no site (queue item
+/// 884).
+pub const NEVER: &str = "Never";
+
+/// The words of asking only before a site neither found by searching nor
+/// named by the person.
 pub const UNNAMED: &str = "A site not found or named";
 
 /// The words of the other: asking before every site.
@@ -90,6 +94,7 @@ pub fn named(stepped: Stepped) -> &'static str {
 /// What a choice of asking says.
 pub fn said(asks: Asks) -> &'static str {
     match asks {
+        Asks::Never => NEVER,
         Asks::Unnamed => UNNAMED,
         Asks::Every => EVERY,
     }
@@ -340,7 +345,11 @@ mod tests {
             .collect();
         assert_eq!(
             radios,
-            vec![(Some(UNNAMED.into()), true), (Some(EVERY.into()), false)]
+            vec![
+                (Some(NEVER.into()), true),
+                (Some(UNNAMED.into()), false),
+                (Some(EVERY.into()), false)
+            ]
         );
     }
 

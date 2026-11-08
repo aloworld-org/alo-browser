@@ -20,7 +20,9 @@ text box#73 "Your batch goes in the drum after you order." rgb(23 33 43) 17px at
 untransform
 ungroup
 text box#82 "Roasting drum mid-batch" rgb(23 33 43) 17px at (20, 1000.7969)
+clip box#84 to (268, 834) 596×323
 shadow box#84 rgb(23 33 43 / 0.12) blur 48 at (352, 934) 428×155
+unclip
 fill box#84 rgb(255 255 255) at (352, 918) 428×155
 text box#87 "The roastery" rgb(23 33 43) 28px at (384, 975.5)
 text box#90 "A 1962 Probat drum, rebuilt by hand." rgb(23 33 43) 17px at (384, 1016.09375)
@@ -36,7 +38,9 @@ text box#133 "Head barista, Kaffebaren" rgb(76 88 102) 17px at (217.34375, 1891.
 text box#142 "Subscriptions" rgb(23 33 43) 28px at (20, 2070.8438)
 text box#145 "Pause or cancel any time." rgb(76 88 102) 17px at (20, 2111.4375)
 transform box#149 by matrix(1, 0, 0, 1, 0, -12)
+clip box#149 to (-72, 2045) 944×534
 shadow box#149 rgb(23 33 43 / 0.12) blur 48 at (20, 2161) 760×350
+unclip
 fill box#149 rgb(242 245 248) at (20, 2137) 760×350
 fill box#149 rgb(29 78 216) at (20, 2137) 760×350
 text box#152 "Weekly" rgb(23 33 43) 18px at (46, 2179.625)
@@ -130,7 +134,9 @@ text box#385 "Six seats around the roaster, once a month." rgb(76 88 102) 17px a
 fill box#388 rgb(29 78 216) at (41, 5602) 247×48
 fill box#388 rgb(29 78 216) at (41, 5602) 247×48
 text box#389 "See tickets and dates" rgb(255 255 255) 17px at (61.1875, 5631.547)
+clip box#392 to (-92, 5616) 984×423
 shadow box#392 rgb(23 33 43 / 0.1) blur 48 at (0, 5732) 800×239
+unclip
 fill box#392 rgb(242 245 248) at (0, 5708) 800×239
 fill box#392 rgb(221 227 233) at (0, 5708) 800×239
 text box#395 "The roastery shop" rgb(23 33 43) 28px at (41, 5775.328)

@@ -1,6 +1,7 @@
 # ADR 0103 — alo's agent opens a site only as the person would, and never on their own network
 
-**Status:** accepted — built by queue items 821 and 878 (8 November 2026)
+**Status:** accepted — built by queue items 821 and 878 (8 November 2026);
+amended by the owner's decision of 8 November 2026 (queue item 884, § 6)
 **Date:** 2026-11-08
 **Context:** ADR 0096 (alo's own agent runs in the browser process through
 the same road as any agent; § 8 left *an agent that opens its own page* to
@@ -100,8 +101,9 @@ turn becomes that page's card.
    to, one it opened — and **a link followed is never counted**: it is the
    page's own navigation, as a person's press on it would be, and the
    person's gate already judges every press.
-6. **Asked, or not**: a site neither found by the run's search nor named
-   by the person is asked first, in the existing question box — *alo wants
+6. **Asked, or not** — *since § 6 below, by default not at all*: a site
+   neither found by the run's search nor named by the person is asked
+   first, when the person chose so in *Settings*, in the existing question box — *alo wants
    to open wikipedia.org. It is not a site a search found or one you
    named.*, **Allow** / **Not now** — and, when the person chose so in
    *Settings*, every site is. *Not now* ends the run, as it does for a
@@ -142,8 +144,9 @@ known to be one until the agent is refused a password there.
 
 How many sites a run may open (1 to 10, default 3), how many actions it
 may take (5 to 100 in fives, default 20 — each search, open, press,
-typing or scroll one), and whether alo asks before **any** site or only
-one neither found nor named (the default) are set in *Settings*, *alo at
+typing or scroll one), and whether alo asks before **no** site (the
+default since § 6), only one neither found nor named, or **any** site are
+set in *Settings*, *alo at
 work*, kept in `settings.txt` beside the font, and **read by the window as
 each run starts**, then fixed for the run. The bounds: one site is the
 least that lets a run begun with no page do anything; ten is past any
@@ -163,6 +166,45 @@ turn of its own (`"asked"`, its one run) and drawn, read back, as a
 page's kept runs are. A run that moves to a second site leaves the first
 page kept as its address, its run so far ended *alo went on to …*; the run
 goes on on the new card.
+
+## 6. Amended: by default alo asks before no site (item 884)
+
+**The owner's decision, 8 November 2026:** alo's agent is to be less
+strict, as other AI browsers' are (Atlas, Comet), and open any site
+without asking by default. 821's hand run had shown why: asked to go
+straight to the Wikipedia article on the Uganda Museum, alo asked *alo
+wants to open en.wikipedia.org. It is not a site … you named* — the
+person had named it, in words, and the rule of § 2.6 could not know it
+without the model deciding what a name means.
+
+**So § 2.6 is now a setting of three**, *Ask before opening* in *Settings*'
+*alo at work*: **Never** (the default) — any public `http` or `https`
+site opens with no question; **A site not found or named** — § 2.6 as it
+was; **Any site** — every site is asked. Kept in `settings.txt` as
+`asks never`, `asks not-found-or-named` or `asks every`. A file written
+before this says `asks unnamed`, the old default, and every such file
+wrote it whether the person chose it or not — so it cannot tell a choice
+from the default, and it is read as the new default, *Never*, saying
+nothing; a person who wants to be asked chooses so again.
+
+**What stays, and is not a setting:**
+
+- **Never this machine or its network** (§ 2.3) — `localhost` and its
+  names, `.local`, loopback, the private ranges, and a public name that
+  resolves only to one — nor any scheme but `http` and `https` (§ 2.1),
+  unless the person wrote the address. **Why this one stays when the
+  question goes:** what the agent opens is steered by what it reads — a
+  page, a search's result, a stranger's words — and a page that tells it
+  to open `192.168.1.1` would otherwise point it at the person's router,
+  their printer or a service on their own machine, places a stranger on
+  the web cannot otherwise reach and where a press does real harm. Asking
+  before a public site guards the person's attention; refusing their
+  network guards their network, and only the second is a security
+  boundary. The rebinding gap of § 2 (queue item 881) is unchanged by
+  this.
+- Asking before paying, sending, deleting or sending a form; never typing
+  a password or a card's details (ADR 0096 §§ 5–6, ADR 0099).
+- The limits on sites and actions (§ 4), and `--agent-site`.
 
 ## What is not here
 

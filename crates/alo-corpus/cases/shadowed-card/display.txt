@@ -1,5 +1,7 @@
 fill box#1 rgb(250 250 250) at (12, 12) 146×87
+clip box#2 to (-6, -6) 176×85
 shadow box#2 rgb(0 0 0 / 0.35) blur 10 at (12, 16) 140×49
+unclip
 fill box#2 rgb(255 255 255) at (12, 12) 140×49
 clip box#2 to (12, 12) 140×49
 fill box#4 linear-gradient(90deg, rgb(24 24 27), rgb(113 113 122)) at (12, 12) 140×22

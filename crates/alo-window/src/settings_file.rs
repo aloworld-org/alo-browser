@@ -305,6 +305,40 @@ mod tests {
         let _ = fs::remove_dir_all(&directory);
     }
 
+    /// Queue item 884: each of the three choices kept and read back by its
+    /// word; a file from before, which wrote its old default `asks
+    /// unnamed` whether it was chosen or not, read as the new default,
+    /// *Never*, and nothing said.
+    #[test]
+    fn each_choice_of_asking_is_kept_and_an_older_files_old_default_is_never() {
+        let directory = scratch("asks");
+        let file = file_in(&directory);
+        for asks in Asks::ALL {
+            let limits = Limits::checked(3, 20, asks).expect("within");
+            write(&file, InterfaceFace::Inter, limits).expect("written");
+            assert_eq!(read(&file).limits.asks, asks);
+            let text = fs::read_to_string(&file).unwrap_or_default();
+            assert!(text.ends_with(&format!("asks {}\n", asks.word())), "{text}");
+        }
+        fs::write(
+            &file,
+            "# alo: what a person chose in Settings (docs/design/shell.md)\n\
+             font Inter\nsites 4\nactions 15\nasks unnamed\n",
+        )
+        .expect("written");
+        let older = read(&file);
+        assert_eq!(
+            (
+                older.limits.sites,
+                older.limits.actions,
+                older.limits.asks,
+                older.said
+            ),
+            (4, 15, Asks::Never, None)
+        );
+        let _ = fs::remove_dir_all(&directory);
+    }
+
     #[test]
     fn a_damaged_or_unknown_setting_is_inter_and_said_with_why_and_left_as_it_is() {
         let directory = scratch("damaged");

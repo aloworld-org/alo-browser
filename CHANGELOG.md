@@ -6,6 +6,28 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **alo's agent opens any site without asking, by default.** *Settings*'
+  *Ask before opening* now has three choices — **Never** (the default), *A
+  site not found or named*, and *Any site* — and a settings file from
+  before reads as *Never*. alo still never opens an address on your own
+  machine or network unless you typed it, and still asks before paying,
+  sending, deleting or sending a form.
+- **The agent's result keeps its lines.** What alo found is drawn as it
+  was written — each line on its own, paragraphs apart, a list as a list —
+  on the card and in a run kept with the chat.
+- ***Settings* scrolls** in a short window, as the conversation does: the
+  wheel, Page Up and Down, Home and End, Space, and its bar; and Tab
+  brings what it moves to into view.
+- **A press held on the conversation's bar pages on**, as a Mac's scroll
+  bar does — half a second after the first page, then twenty a second —
+  until the bar reaches the pointer.
+- **An outer `box-shadow` stays outside its box**, as CSS and Chrome draw
+  it: it no longer shows through a transparent or translucent background,
+  so the keyboard's ring in *Settings* needs no backing of its own.
+- **A button whose middle is its own icon is pressed** by an agent through
+  Chrome, where it was refused as covered — an SVG icon inside the button
+  was read as something over it.
+
 - **alo can start a task with no page open.** Type what you want and choose
   *Ask alo to do it* — the second line under the box — and alo finds the
   site itself: it searches, opens a result or a site you named, and works

@@ -50,29 +50,62 @@ pub const ACTIONS_STEP: u16 = 5;
 /// Before which sites alo asks the person.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Hash)]
 pub enum Asks {
-    /// Only one it neither found by searching nor was named by the person
-    /// — the default, the owner's design.
+    /// Before none: any public site is opened without a question — the
+    /// default since the owner's decision of 8 November 2026 (queue item
+    /// 884, ADR 0103 as amended), as other browsers' agents do. What is on
+    /// this machine or its network is still never opened unless the person
+    /// wrote it, and that is not a setting.
     #[default]
+    Never,
+    /// Only one it neither found by searching nor was named by the person
+    /// — the default before 884.
     Unnamed,
     /// Every site it opens.
     Every,
 }
 
 impl Asks {
-    /// Both, in the order *Settings* offers them.
-    pub const ALL: [Asks; 2] = [Asks::Unnamed, Asks::Every];
+    /// Each, in the order *Settings* offers them.
+    pub const ALL: [Asks; 3] = [Asks::Never, Asks::Unnamed, Asks::Every];
+
+    /// The word a file before queue item 884 kept the old default by. Every
+    /// such file wrote it, chosen or not, so it cannot say the person chose
+    /// it: it is read as the new default, [`Asks::Never`].
+    pub const BEFORE: &str = "unnamed";
 
     /// The word `settings.txt` keeps it by.
     pub fn word(self) -> &'static str {
         match self {
-            Asks::Unnamed => "unnamed",
+            Asks::Never => "never",
+            Asks::Unnamed => "not-found-or-named",
             Asks::Every => "every",
         }
     }
 
-    /// The choice `word` keeps, if it is one.
+    /// The choice `word` keeps, if it is one — [`Asks::BEFORE`] read as
+    /// [`Asks::Never`].
     pub fn of_word(word: &str) -> Option<Self> {
+        if word == Self::BEFORE {
+            return Some(Asks::Never);
+        }
         Self::ALL.into_iter().find(|asks| asks.word() == word)
+    }
+
+    /// The choice after this one, or, not `on`, before it, round from
+    /// either end: an arrow on the radio group (queue items 878, 884).
+    #[must_use]
+    pub fn stepped(self, on: bool) -> Self {
+        let all = Self::ALL;
+        let at = all
+            .iter()
+            .position(|each| *each == self)
+            .unwrap_or_default();
+        let next = if on {
+            (at + 1) % all.len()
+        } else {
+            (at + all.len() - 1) % all.len()
+        };
+        all.get(next).copied().unwrap_or_default()
     }
 }
 
@@ -113,7 +146,7 @@ impl Default for Limits {
         Self {
             sites: DEFAULT_SITES,
             actions: DEFAULT_ACTIONS,
-            asks: Asks::Unnamed,
+            asks: Asks::Never,
         }
     }
 }
@@ -180,7 +213,7 @@ mod tests {
     fn the_default_is_the_owners_design_and_within_its_bounds() {
         let limits = Limits::default();
         assert_eq!((limits.sites, limits.actions), (3, 20));
-        assert_eq!(limits.asks, Asks::Unnamed);
+        assert_eq!(limits.asks, Asks::Never);
         assert_eq!(
             Limits::checked(limits.sites, limits.actions, limits.asks),
             Some(limits)
@@ -248,5 +281,14 @@ mod tests {
             assert_eq!(Asks::of_word(asks.word()), Some(asks));
         }
         assert_eq!(Asks::of_word("always"), None);
+        // A file from before queue item 884: its old default, which it
+        // always wrote, read as the new one (queue item 884).
+        assert_eq!(Asks::of_word("unnamed"), Some(Asks::Never));
+        assert_eq!(Asks::default(), Asks::Never);
+        // The arrows, round from either end.
+        assert_eq!(Asks::Never.stepped(true), Asks::Unnamed);
+        assert_eq!(Asks::Every.stepped(true), Asks::Never);
+        assert_eq!(Asks::Never.stepped(false), Asks::Every);
+        assert_eq!(Asks::Unnamed.stepped(false), Asks::Never);
     }
 }

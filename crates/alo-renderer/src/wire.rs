@@ -560,7 +560,7 @@ pub fn write_from_renderer(message: &FromRenderer) -> Vec<u8> {
             writer.tag(11);
             writer.conversation_claim(claim.as_ref());
         }
-        FromRenderer::ConversationReached(reach) => writer.conversation_reached(*reach),
+        FromRenderer::ConversationReached(reach, keyed) => writer.reached(*reach, *keyed),
         FromRenderer::FieldLaidOut(laid) => writer.field_laid_out(laid.as_ref()),
         FromRenderer::PictureBeneath(place) => writer.picture_beneath(*place),
     }
@@ -1511,7 +1511,10 @@ impl Reader<'_> {
     fn of_a_part(&mut self, tag: u8) -> Result<FromRenderer, Unreadable> {
         Ok(match tag {
             11 => FromRenderer::ConversationClaimed(self.conversation_claim()?),
-            12 => FromRenderer::ConversationReached(self.conversation_reached()?),
+            12 => {
+                let (reach, keyed) = self.reached()?;
+                FromRenderer::ConversationReached(reach, keyed)
+            }
             13 => FromRenderer::FieldLaidOut(self.field_laid_out()?),
             14 => FromRenderer::PictureBeneath(self.picture_beneath()?),
             other => return Err(unreadable(format!("a message tagged {other}"))),

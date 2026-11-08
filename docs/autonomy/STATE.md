@@ -50138,3 +50138,72 @@ slow, 1 leaky), 0 skipped** — *"The gate is met." (11 of 11 steps)*.
 `scripts/gate.sh` not edited.
 
 The next unused queue number is **885** and the next ADR is **0104**.
+
+---
+
+## 2026-11-08 — batch 24: items 883, 880, 882, 877, 876 and 884
+
+**Contracts read:** `CLAUDE.md`, this loop, ADRs 0002, 0096, 0103,
+`docs/design/shell.md` (*The conversation*, *The agent at work*,
+*Beginning with no page*, *Settings*), the items' own text; 884 added to
+the batch by the owner's decision of 8 November 2026 and rewritten to it.
+
+**883 — the result in its lines.** The window's `kept` turned a line's end
+into a space; `kept_lines` keeps them, and the renderer's `result_blocks`
+and `result_document` draw paragraphs and lists, on the card and in a kept
+run.
+
+**880 — *Settings* scrolled.** The scroll the thread held is `Scrolled`,
+held by *Settings* too; its room the whole screen; the renderer answers
+where the keyed thing stands beside the reach (`Span`, on the wire) so Tab
+scrolls it into view once.
+
+**882 — a button's own icon.** Confirmed on a frozen page over CDP: the
+node at the middle is the SVG's shape, inside the button and absent from
+Chrome's tree; read from the DOM now (`DescribeUnder`), both Chromiums.
+
+**877 — an outer shadow outside its box.** Measured in Chrome 157 at 1, 2
+and 8; clipped outside the border box, a pixel inside under an opaque
+background (found when the first cut moved `spread-shadow-corners`).
+References moved and why are in the item's entry; the two stopgaps
+removed.
+
+**876 — a held press pages on.** Measured on this Mac with an `NSScroller`
+probe: 500 ms, then 50 ms, until the thumb reaches the pointer.
+
+**884 — asking before no site by default.** Three choices, *Never* the
+default; the network rule kept (ADR 0103 § 6 says why). **Found by hand:**
+the choice crossed to the renderer as a yes or no, so *Never* was drawn as
+*A site not found or named*; fixed, tested for each choice.
+
+**Not built: 881** (left: it did not fit after 884 joined the batch).
+Nothing cut and queued.
+
+Tests, mutations and hand runs are in each item's entry. **By hand**
+(screen unlocked; release, CEF host and bundle rebuilt, no keys carried,
+the keychain's read; the Retina at two — the window first opened on an
+external display at one and was reopened on the Retina; `--conversation
+--chats handrun44/chats` and `chats2`, `0700`; screenshots in the session
+scratchpad's `handrun44/`): `884-*`, `880-*`, `876-*` (`880-01`–`04` and
+`884-05`–`06` show the wire's bug before its fix). **Not seen by hand:**
+scale one; a wheel on *Settings* (keys and the bar were); 882 on Figma;
+877 beyond *Settings*' rings. **Spend:** OpenAI about 17,100 tokens in and
+670 out (under $0.03); Brave four queries (one a slip: Down and Return
+searched where *Ask alo to do it* was meant, then pressed by pointer).
+
+CHANGELOG, conformance, ROADMAP (the agent's line), QUEUE (876, 877, 880,
+882, 883, 884 ticked, 884 rewritten), `docs/design/shell.md`, ADR 0103
+amended (§ 6).
+
+**Gate: met, third run** (CEF_PATH set, the pointer at 1400, 1000;
+detached through `perl -MPOSIX=setsid` and waited on by its PID;
+`gate-batch24.log`). **Summary [1240.142s] 6779 tests run: 6779 passed (5
+slow, 1 leaky), 0 skipped** — *"The gate is met." (11 of 11 steps)*. The
+first two runs (`gate-batch24-first.log`, `-second.log`) each failed one
+window reference that composes the rail — `the-conversation-panel-hidden.png`,
+then `the-panel-folded-at-759.png` and `the-rail-naming-a-chat-at-759.png`
+— moved by 877 at the current chat's circle's edge (1 or 2 pixels, 1
+level), rewritten and read. `scripts/gate.sh` not edited. The release
+bundle rebuilt after it.
+
+The next unused queue number is **885** and the next ADR is **0104**.

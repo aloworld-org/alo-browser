@@ -409,8 +409,13 @@ pub enum FromRenderer {
     /// **A claim about lengths, and nothing more**: the browser process
     /// keeps a person's wheel inside it, read as finite lengths
     /// ([`crate::conversation_scroll::Reach::bounded`]), and never takes
-    /// from it where a live card's page is.
-    ConversationReached(crate::conversation_scroll::Reach),
+    /// from it where a live card's page is. With it, where the thing the
+    /// keyboard is on stands, if anything is — *Settings*' ring (queue item
+    /// 880) — to be scrolled into view, inside that reach.
+    ConversationReached(
+        crate::conversation_scroll::Reach,
+        Option<crate::conversation_scroll::Span>,
+    ),
     /// Where the field of the part it holds was laid out, in answer to
     /// [`ToRenderer::FieldLaidOut`] alone (queue item 861), or nothing when
     /// the part as drawn has no field.
@@ -697,7 +702,7 @@ mod tests {
             // A place or a kind in the part it was sent, and nothing else.
             FromRenderer::ConversationClaimed(_) => "what in the part a press was on",
             // Two lengths of the part it was sent, and nothing else.
-            FromRenderer::ConversationReached(_) => "how far the conversation reaches",
+            FromRenderer::ConversationReached(..) => "how far the conversation reaches",
             // Lengths of its own part's field, and nothing else.
             FromRenderer::FieldLaidOut(_) => "where the part's field was laid out",
             // A place in its own frame, and nothing else.

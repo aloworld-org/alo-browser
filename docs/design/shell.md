@@ -562,10 +562,14 @@ Nothing is replaced. Within a turn the bubble and what follows are 16 apart
   reach, until the button comes up, the bar whole all the while. Above or
   below the thumb, a page back or on — the room less a line, as Page Up
   and Page Down — as a Mac's scroll bar does with *Jump to the next page*,
-  its default; once a press (a press held repeating is 876). A press on
-  the bar is the window's own: never handed to the first screen's renderer
-  to claim, and the keyboard stays where it was. Not under *Settings*, in
-  the split view, or while the turns fit.
+  its default. **Held, it pages on** (item 876), as a Mac's does —
+  measured on this Mac (macOS 26.5.2, an `NSScroller` of a probe's own, a
+  press held by `cliclick`): a page at the press, the next **500 ms**
+  later, then one every **50 ms**, until the thumb reaches the pointer
+  (which may move as it is held), or the button comes up. A press on the
+  bar is the window's own: never handed to the first screen's renderer to
+  claim, and the keyboard stays where it was. Not in the split view, or
+  while the turns fit; on *Settings* as here (item 880).
 - The agent's own words and its steps are drawn on its live card (704);
   kept as turns of the chat is 820.
 
@@ -753,7 +757,12 @@ it chose (12.5 on 18), the step under way in terracotta. Asking before
 pressing what pays, sends, deletes or sends a form: a box rounded 12, 12
 by 14 inside, the question (600), then **Allow** in the ink and **Not
 now**, 28 tall, 8 apart. Stuck: why, then each choice as a button. Done:
-*Done in N steps* in the done colour and the result in full. A press on
+*Done in N steps* in the done colour and the result in full, **as it was
+written** (item 883): its lines kept, an empty line between paragraphs 8
+apart, and lines beginning `- `, `* `, `•` or `–` a bulleted list (its
+bullets 18 in), lines beginning `1.` or `1)` a numbered list keeping its
+numbers, items 2 apart — nothing else read as structure; to an agent
+paragraphs and lists. A press on
 the page stops it and gives the person the page. It never types a
 password, nor a card's number, security code or expiry: the card refuses
 them, for any agent (826). Nothing of Chrome's is drawn over the card's
@@ -765,7 +774,8 @@ worked on (820): once the page is shown earlier, under its line, what the
 person asked as their bubble, then what alo did on a white box rounded 12,
 14 by 16 inside — its steps in the quiet colour, 6 apart, why under a step
 — and 10 under them *Done in N steps* in the done colour and the result,
-or why it was stuck or stopped; nothing on it pressable. A text typed that
+in its lines and lists as on the card (883), or why it was stuck or
+stopped; nothing on it pressable. A text typed that
 the person did not say is never kept: that step reads *Typed into a
 field*.
 
@@ -999,15 +1009,19 @@ here:
   bubble is the result's title or the site's host. A page that cannot be
   opened leaves the run in its own turn again, the model told why.
 - **Whether it asks** (the browser process's, never the model's, ADR 0103
-  § 2): a search's result or a site the person named — an address in their
-  words, the same host, or on the public internet the same registrable
-  domain — opens with no question; any other is asked: *alo wants to open
-  wikipedia.org. It is not a site a search found or one you named.* with
-  **Allow** and **Not now**, in the question's box. *Not now* ends the
-  run, nothing opened. Set in *Settings* to ask before any site, every site
-  is asked: *alo wants to open ugandamuseum.go.ug.*
+  § 2 as amended): **by default it asks before no site** — the owner's
+  decision of 8 November 2026 (item 884), less strict, as other browsers'
+  agents are — and any public `http` or `https` site opens with no
+  question. Set in *Settings* to *A site not found or named* (the default
+  before 884): a search's result or a site the person named — an address
+  in their words, the same host, or on the public internet the same
+  registrable domain — opens with no question; any other is asked: *alo
+  wants to open wikipedia.org. It is not a site a search found or one you
+  named.* with **Allow** and **Not now**, in the question's box. *Not now*
+  ends the run, nothing opened. Set to *Any site*, every site is asked:
+  *alo wants to open ugandamuseum.go.ug.*
 - **Never this machine or its network** unless the person wrote the
-  address: `localhost`, `….localhost`, `….local`, an address that is not
+  address — whatever *Ask before opening* says, for this is not a setting: `localhost`, `….localhost`, `….local`, an address that is not
   the public internet's, and a public name that resolves only to one —
   refused, the model told *… is on this machine or its network, and alo
   opens such an address only when the person wrote it*, and the run goes
@@ -1187,26 +1201,44 @@ Settled here, as the design left them open:
     five times the default, and the run's token limit (about $0.40) still
     stops a long run on a large page first; in fives, so the keys reach
     either end in nineteen presses.
-  - **Ask before opening** — two radios at its right, drawn as the faces'
-    are: **A site not found or named · Default**, and **Any site**.
+  - **Ask before opening** — three radios at its right, drawn as the
+    faces' are: **Never · Default**, **A site not found or named**, and
+    **Any site** (item 884; two before it, *A site not found or named* the
+    default).
   Asking before paying, sending, deleting or sending a form, and never
   typing a password or a card's details, are not settings. **By keys**:
   Tab goes on from *Font* to the sites, the actions and *Ask before
   opening*, then round to *Back to the chat*; on a number ← ↓ make it one
   step fewer and → ↑ one more, stopping at its ends (a number is not a
   choice among equals, and 100 going round to 5 would surprise); on the
-  radio group either arrow chooses the other. The keyboard's ring as on
+  radio group → ↑ choose the next and ← ↓ the one before, round from either
+  end, as a Mac's radio buttons do. The keyboard's ring as on
   *Font* — around the stepper, or the choice made. **Read at each run's
   start**: a run keeps the limits it started with. **To an agent**: a
   region named *alo at work*, each number a `spinbutton` named by its row
   holding the number beside *Fewer …* and *More …* buttons, and a radio
   group *Ask before opening*. In the design's window the whole page ends
-  at 792, inside 820; in a window shorter than about 830 the section
-  stands below the room, and *Settings* does not scroll yet (item 880).
+  at 792, inside 820.
+- **Scrolled** (item 880) as the conversation is: in a window too short
+  for it — the least window, 600 tall, among them — the page, from 32
+  above it to 24 below it, scrolls in the whole first screen's height (it
+  has no box under it) by the wheel (a wheel's lines glided), the paging
+  keys — Page Up and Down, Home and End, and Space and ⇧Space while the
+  keyboard is on nothing of it — and the bar, drawn where the
+  conversation's is, in the 880 column's right gutter, faded as it is,
+  pressed, dragged and held as it is. As Tab moves the keyboard, what it
+  moves to is scrolled into view, 16 clear of the top or the foot, once it
+  is drawn there, and no further; a person's wheel afterwards is not
+  pulled back to it. It opens at its top each time. To an agent the bar
+  is an image *Settings goes on below; scrolled 0% of the way down*.
 - **Kept with the font**: `settings.txt` holds `sites 3`, `actions 20` and
-  `asks unnamed` (or `every`) after the `font` line, written whole as a
-  face is; a file from before 878 holds only the font, and its limits are
-  the default.
+  `asks never` (or `not-found-or-named`, or `every`) after the `font`
+  line, written whole as a face is; a file from before 878 holds only the
+  font, and its limits are the default. **A file from before 884** says
+  `asks unnamed`, its old default — but every such file wrote it whether
+  the person chose it or not, so it cannot tell a choice from the default:
+  it is read as the new default, *Never*, and nothing is said. A person
+  who wants to be asked chooses so again.
 - **A file that does not read** — a face alo does not carry, a line it
   does not know, no `font` line or two, a limit past its bounds or named
   twice, bytes that are not text, more than 4,096 bytes, or a file that

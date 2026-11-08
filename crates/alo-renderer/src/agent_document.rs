@@ -40,7 +40,8 @@
 //! summary as a list named [`SUMMARY`], and *Pay* and *Not now*; held, the
 //! line saying so and [`CONTINUE`] as a button; a stuck
 //! agent's why as a paragraph and each choice as a button named by its
-//! words; *Done in N steps* and the result as paragraphs. The outline over
+//! words; *Done in N steps* as a paragraph and the result as its paragraphs
+//! and lists ([`crate::result_document`], queue item 883). The outline over
 //! the page is decoration, `aria-hidden`.
 //!
 //! # What a press is on
@@ -337,8 +338,7 @@ fn now(document: &mut Document, work: &AtWork) -> Result<Option<NodeId>, Unbuilt
             attribute(document, done, "class", "finished")?;
             let line = words(document, "p", "done", &work.done_in())?;
             append(document, done, line)?;
-            let result = words(document, "p", "result", said)?;
-            append(document, done, result)?;
+            crate::result_document::append_result(document, done, said)?;
             done
         }
         Now::Stopped { why } => words(document, "p", "stopped", why)?,

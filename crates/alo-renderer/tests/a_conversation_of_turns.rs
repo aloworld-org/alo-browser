@@ -191,7 +191,7 @@ fn draw(start: Start) -> Drawn {
         _ => Snapshot::default(),
     };
     let reach = match renderer.handle(ToRenderer::ConversationReach) {
-        FromRenderer::ConversationReached(reach) => Some(reach),
+        FromRenderer::ConversationReached(reach, _) => Some(reach),
         _ => None,
     };
     Drawn {
@@ -708,7 +708,8 @@ fn the_conversation_is_drawn_and_reached_the_same_by_a_confined_renderer() -> Re
     let reached = renderers.ask(&site, &ToRenderer::ConversationReach);
     assert_eq!(
         reached.ok(),
-        here.reach.map(FromRenderer::ConversationReached)
+        here.reach
+            .map(|reach| FromRenderer::ConversationReached(reach, None))
     );
     // A renderer holding the panel holds no conversation to measure.
     let panel = alo_renderer::panel::site();
