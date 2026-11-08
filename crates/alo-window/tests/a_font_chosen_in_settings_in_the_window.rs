@@ -18,18 +18,19 @@
 //! Each asserted:
 //!
 //! 1. A first launch: the panel's *Settings* row pressed opens *Settings*
-//!    in the conversation's place; *Geist* pressed sets both parts in it at
-//!    once — both renderers paint again, neither started anew — and writes
-//!    `settings.txt` beside the chats, `0600`; Escape closes it, still in
-//!    Geist; *Back to the chat* closes it too.
+//!    over the conversation (queue item 886); *Geist* pressed sets both
+//!    parts in it at once — both renderers paint again, neither started
+//!    anew — and writes `settings.txt` beside the chats, `0600`; Escape
+//!    closes it, still in Geist; its × closes it too; ⌘, opens it, and a
+//!    press on the veil beside its panel closes it.
 //! 2. A second launch on the same directory: set in Geist from its first
 //!    frame, pixel for pixel the panel the first launch painted in it.
 //! 3. A damaged file: Inter, said with why, the panel pixel for pixel the
 //!    first launch's in Inter, and the file left as it was.
 //!
-//! And queue item 856, *Settings* by keys: Tab to *Back to the chat* and
-//! on to *Font*, each drawn with its ring; → choosing the next face, kept
-//! as a press keeps it; ⇧Tab back; Return pressing *Back to the chat*.
+//! And queue item 856, *Settings* by keys: Tab to its × and on to *Font*,
+//! each drawn with its ring; → choosing the next face, kept as a press
+//! keeps it; ⇧Tab back; Return pressing its ×.
 
 #![cfg(target_os = "macos")]
 
@@ -60,12 +61,15 @@ const WINDOW: (u32, u32) = (1280, 820);
 /// foot.
 const SETTINGS_ROW: (f64, f64) = (120.0, 789.0);
 
-/// *Geist*, the second face, at one: its middle 702, 216 into the first
-/// screen, which stands 240 in.
-const GEIST: (f64, f64) = (942.0, 216.0);
+/// *Geist*, the second face, at one: its middle 688, 244 into the first
+/// screen, which stands 240 in (queue item 886).
+const GEIST: (f64, f64) = (928.0, 244.0);
 
-/// *Back to the chat*, at one: 152, 32 into the first screen, 36 square.
-const BACK: (f64, f64) = (410.0, 50.0);
+/// *Settings*' ×, at one: 824, 52 into the first screen, 36 square.
+const CLOSE: (f64, f64) = (1082.0, 70.0);
+
+/// The veil beside its panel, at one: 80, 400 into the first screen.
+const VEIL: (f64, f64) = (320.0, 400.0);
 
 fn renderer() -> Result<PathBuf, String> {
     let path = renderer_beside(Path::new(env!("CARGO_BIN_EXE_alo")));
@@ -278,11 +282,17 @@ fn a_font_chosen_applies_at_once_is_kept_across_launches_and_a_damaged_file_is_i
     })?;
     let geist_panel = first.panel().ok_or("no panel")?;
     assert_ne!(geist_panel, inter_panel, "the panel painted again in Geist");
-    // *Back to the chat* closes it too.
+    // Its × closes it too.
     first.click(SETTINGS_ROW);
     first.until("Settings open again", open)?;
-    first.click(BACK);
-    first.until("Settings closed by Back", |driven| !open(driven))?;
+    first.click(CLOSE);
+    first.until("Settings closed by its ×", |driven| !open(driven))?;
+    // ⌘, opens it; a press on the veil closes it (queue item 886).
+    let comma = Press::character(",").with(Modifier::Command);
+    first.window.key(&comma, Some(","));
+    first.until("Settings opened by ⌘,", open)?;
+    first.click(VEIL);
+    first.until("Settings closed by the veil", |driven| !open(driven))?;
     first.close()?;
 
     // 2. The second launch: in Geist from its first frame.
@@ -339,13 +349,13 @@ fn settings_is_walked_by_keys_a_face_chosen_by_an_arrow_and_back_by_return() -> 
     driven.until("Settings open", open)?;
     let plain = driven.start().ok_or("no first screen")?;
     assert_eq!(keyed(&driven), None, "no ring until Tab");
-    // Tab: *Back to the chat*, ringed — the first screen painted again.
+    // Tab: its ×, ringed — the first screen painted again.
     key(&mut driven, Press::of(Key::Tab));
     assert_eq!(
         keyed(&driven),
-        Some(alo_renderer::start::SettingsKeyed::Back)
+        Some(alo_renderer::start::SettingsKeyed::Close)
     );
-    driven.until("Back ringed", |driven| {
+    driven.until("Close ringed", |driven| {
         driven.start().as_ref().is_some_and(|frame| *frame != plain)
     })?;
     // Tab: *Font*; → the face after Inter, Geist, set and kept at once.
@@ -376,14 +386,14 @@ fn settings_is_walked_by_keys_a_face_chosen_by_an_arrow_and_back_by_return() -> 
         keyed(&driven),
         Some(alo_renderer::start::SettingsKeyed::Font)
     );
-    // ⇧Tab back to *Back to the chat*; Return presses it: the chat again.
+    // ⇧Tab back to its ×; Return presses it: the chat again.
     key(&mut driven, Press::of(Key::Tab).with(Modifier::Shift));
     assert_eq!(
         keyed(&driven),
-        Some(alo_renderer::start::SettingsKeyed::Back)
+        Some(alo_renderer::start::SettingsKeyed::Close)
     );
     driven.window.key(&Press::of(Key::Return), Some("\r"));
-    assert!(!open(&driven), "Return pressed Back to the chat");
+    assert!(!open(&driven), "Return pressed its ×");
     // Opened again by the pointer: no ring; a press puts a ring away.
     driven.click(SETTINGS_ROW);
     driven.until("Settings open again", open)?;

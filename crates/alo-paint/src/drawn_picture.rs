@@ -130,8 +130,21 @@ fn upright(
     // page has its first columns or rows off it, and they are passed over
     // rather than the picture slid back onto the page.
     let filtered = uploads.filtered(picture, across, down);
-    for y in off_y..down {
-        for x in off_x..across {
+    // Only the columns and rows a confined canvas keeps (queue item 886):
+    // each pixel's mix is its own, and the others would be refused by the
+    // canvas all the same.
+    let (mut columns, mut rows) = (off_x..across, off_y..down);
+    if let Some(region) = target.confinement() {
+        let within = |range: core::ops::Range<u32>, at: u32, off: u32, (from, to): (u32, u32)| {
+            let start = range.start.max((from + off).saturating_sub(at));
+            let end = range.end.min((to + off).saturating_sub(at));
+            start..end.max(start)
+        };
+        columns = within(columns, at_x, off_x, (region.left, region.right));
+        rows = within(rows, at_y, off_y, (region.top, region.bottom));
+    }
+    for y in rows {
+        for x in columns.clone() {
             let Some(mix) = filtered.mix(x, y) else {
                 continue;
             };

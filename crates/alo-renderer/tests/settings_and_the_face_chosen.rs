@@ -3,26 +3,29 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 //! Queue item 854 (`docs/design/shell.md`, *Settings*; approved by the
-//! owner 2026-11-07): *Settings* drawn in the conversation's place, with one
-//! section, **Font** — the five faces the interface's words may be set in,
-//! each a sample of a result set in that face — and both parts of the
-//! interface drawn in the face chosen.
+//! owner 2026-11-07): *Settings*, with its section **Font** — the five
+//! faces the interface's words may be set in, each a sample of a result set
+//! in that face — and both parts of the interface drawn in the face chosen;
+//! since queue item 886 (approved 2026-11-08) a dialog over the chat on
+//! screen, which is blurred and dimmed under a veil around it.
 //!
 //! What closes its engine half, each a test below: what an agent reads — a
-//! radio group named *Font*, a radio named by each face, the one chosen
-//! checked, *Back to the chat*, and the panel's *Settings* current; a
-//! layout assertion in numbers at the design's room and the least window's,
-//! and every face's sample whole at the design's; a press on each face and
-//! on *Back to the chat* claimed as itself; a reference render of the page,
+//! dialog named *Settings*, its *Close*, a radio group named *Font*, a
+//! radio named by each face, the one chosen checked, nothing of the chat
+//! under it, and the panel's *Settings* current; a layout assertion in
+//! numbers at the design's room and the least window's, and every face's
+//! sample whole at the design's; a press on each face and on its × claimed
+//! as itself, one on the veil as its × and never as what is under it, and
+//! one on the dialog's own room as nothing; a reference render of it,
 //! `references/settings.png` and `settings-in-the-least-window.png`; and
 //! for each face a small reference of a search's result and of the panel
 //! set in it, `references/face-<face>-result.png` and
 //! `face-<face>-panel.png`, so a face that breaks a line says so.
 //!
-//! Queue item 856: the keyboard on *Back to the chat* or on the radio group
-//! is drawn as a ring outside the edge of the button or of the face chosen,
-//! moving nothing (a layout assertion), and as the references
-//! `settings-keyed-back.png` and `settings-keyed-font.png`.
+//! Queue item 856: the keyboard on its × or on the radio group is drawn as
+//! a ring outside the edge of the button or of the face chosen, moving
+//! nothing (a layout assertion), and as the references
+//! `settings-keyed-close.png` and `settings-keyed-font.png`.
 //!
 //! `ALO_UPDATE_REFERENCES=1 cargo test -p alo-renderer --test settings_and_the_face_chosen`
 //! rewrites the references. A rewritten reference is a diff somebody reads.
@@ -35,7 +38,7 @@ use alo_renderer::frame::frame_to_png;
 use alo_renderer::interface_face::InterfaceFace;
 use alo_renderer::panel::{Chat, Doing, Panel};
 use alo_renderer::results::{Found, Results, SetUp, Showing};
-use alo_renderer::settings_document::{BACK, FONT, SAMPLE_DESCRIPTION, SAMPLE_TITLE, TITLE};
+use alo_renderer::settings_document::{CLOSE, FONT, SAMPLE_DESCRIPTION, SAMPLE_TITLE, TITLE};
 use alo_renderer::settings_work_document::AT_WORK;
 use alo_renderer::start::{SettingsKeyed, Start};
 use alo_renderer::turn::Turn;
@@ -243,15 +246,17 @@ fn settings_is_read_as_a_radio_group_named_font_with_the_face_chosen_checked() {
         };
         // Since queue item 878, alo at work under Font: its own test reads
         // it (`settings_alo_at_work.rs`).
+        // A dialog named Settings over the chat (queue item 886).
+        assert_eq!(named("dialog"), vec![Some(TITLE.into())]);
         assert_eq!(
             named("region"),
-            vec![Some(TITLE.into()), Some(FONT.into()), Some(AT_WORK.into())]
+            vec![Some(FONT.into()), Some(AT_WORK.into())]
         );
         assert_eq!(
             named("heading"),
             vec![Some(TITLE.into()), Some(FONT.into()), Some(AT_WORK.into())]
         );
-        assert_eq!(named("button").first(), Some(&Some(BACK.into())));
+        assert_eq!(named("button").first(), Some(&Some(CLOSE.into())));
         assert_eq!(named("radiogroup").first(), Some(&Some(FONT.into())));
         let radios: Vec<(Option<String>, Option<Checked>, usize)> = read(&drawn.tree, "radio")
             .iter()
@@ -273,91 +278,97 @@ fn settings_is_read_as_a_radio_group_named_font_with_the_face_chosen_checked() {
                 .collect::<Vec<_>>(),
             "each named by its face alone, the sample hidden"
         );
-        // Nothing of the chat: no box, no conversation.
+        // Nothing of the chat under it: no box, no conversation, no
+        // greeting.
         assert!(read(&drawn.tree, "textbox").is_empty() && read(&drawn.tree, "search").is_empty());
+        assert!(
+            !drawn
+                .tree
+                .nodes()
+                .iter()
+                .any(|node| node.name.as_deref() == Some("Hello."))
+        );
     }
 }
 
 #[test]
-fn settings_is_laid_out_in_the_first_screens_column_two_faces_a_row() {
+fn settings_is_laid_out_in_a_panel_over_the_screen_two_faces_a_row() {
     let drawn = draw(ToRenderer::Start(Box::new(settings(
         InterfaceFace::Inter,
         DESIGN,
     ))));
     let at = |class: &str| boxes_of(&drawn.renderer, class);
-    // The column 720 wide, centred in 1040: from 160; 32 down.
-    assert_eq!(at("prefs").len(), 1);
-    assert!(
-        at("prefs")
-            .first()
-            .is_some_and(|prefs| prefs.starts_with("(160, 32) 720×")),
-        "{:?}",
-        at("prefs")
-    );
-    // *Back to the chat* 36 square, 8 into the column's gutter, and the
-    // page's name 8 after it, in a row of 36.
-    assert_eq!(at("phead"), vec![px(160.0, 32.0, 720.0, 36.0)]);
-    assert_eq!(at("pback"), vec![px(152.0, 32.0, 36.0, 36.0)]);
-    // Font 24 under the row, its line 4 under it, the faces 14 under that.
+    // The veil the whole screen; the panel 720 wide, centred in 1040, as
+    // tall as the room less 32 above and below: 756 (queue item 886).
+    assert_eq!(at("veil"), vec![px(0.0, 0.0, 1040.0, 820.0)]);
+    assert_eq!(at("sdialog"), vec![px(160.0, 32.0, 720.0, 756.0)]);
+    // *Settings* and its × in a row of 36, 20 down, 28 in and 20 from the
+    // right; what scrolls from 96 down to the panel's foot, the room the
+    // browser process scrolls it in.
+    assert_eq!(at("phead"), vec![px(188.0, 52.0, 672.0, 36.0)]);
+    assert_eq!(at("pclose"), vec![px(824.0, 52.0, 36.0, 36.0)]);
+    let room = alo_renderer::conversation_scroll::Room::settings(DESIGN);
     assert_eq!(
-        at("pgroup")
-            .first()
-            .map(|group| group.starts_with("(160, 92)")),
-        Some(true)
+        at("sclip"),
+        vec![px(160.0, room.top, 720.0, room.height)],
+        "{room:?}"
     );
-    assert_eq!(at("pname").first(), Some(&px(160.0, 92.0, 720.0, 20.0)));
-    assert_eq!(at("pabout").first(), Some(&px(160.0, 116.0, 720.0, 18.0)));
-    // Two a row, 10 apart: (720 - 10) / 2 = 355 each; each 15 + 18 + 10 +
+    assert_eq!(at("spage"), vec![px(160.0, 96.0, 720.0, 752.0)]);
+    // Font 24 down it, its line 4 under it, the faces 14 under that.
+    assert_eq!(at("pname").first(), Some(&px(188.0, 120.0, 664.0, 20.0)));
+    assert_eq!(at("pabout").first(), Some(&px(188.0, 144.0, 664.0, 18.0)));
+    // Two a row, 10 apart: (664 - 10) / 2 = 327 each; each 15 + 18 + 10 +
     // 25 + 4 + 46 + 16 and its border, 136 tall; three rows.
-    assert_eq!(at("faces"), vec![px(160.0, 148.0, 720.0, 428.0)]);
+    assert_eq!(at("faces"), vec![px(188.0, 176.0, 664.0, 428.0)]);
     let faces: Vec<String> = at("face on").into_iter().chain(at("face")).collect();
     assert_eq!(
         faces,
         vec![
-            px(160.0, 148.0, 355.0, 136.0),
-            px(525.0, 148.0, 355.0, 136.0),
-            px(160.0, 294.0, 355.0, 136.0),
-            px(525.0, 294.0, 355.0, 136.0),
-            px(160.0, 440.0, 355.0, 136.0),
+            px(188.0, 176.0, 327.0, 136.0),
+            px(525.0, 176.0, 327.0, 136.0),
+            px(188.0, 322.0, 327.0, 136.0),
+            px(525.0, 322.0, 327.0, 136.0),
+            px(188.0, 468.0, 327.0, 136.0),
         ]
     );
     // Inside each, 1 of border and 15 down, 16 in: the name's row of 18,
     // its circle 16 centred in it; the title's 25 and the description's two
     // lines of 23.
-    assert_eq!(at("dot").first(), Some(&px(177.0, 165.0, 16.0, 16.0)));
-    assert_eq!(at("sample-t").first(), Some(&px(177.0, 192.0, 321.0, 25.0)));
-    assert_eq!(at("sample-d").first(), Some(&px(177.0, 221.0, 321.0, 46.0)));
-    // The page ends 576 down, inside 820.
-    assert!(
-        rects_of(&drawn.renderer, "faces")
-            .iter()
-            .all(|faces| faces.bottom() <= DESIGN.height)
-    );
+    assert_eq!(at("dot").first(), Some(&px(205.0, 193.0, 16.0, 16.0)));
+    assert_eq!(at("sample-t").first(), Some(&px(205.0, 220.0, 293.0, 25.0)));
+    assert_eq!(at("sample-d").first(), Some(&px(205.0, 249.0, 293.0, 46.0)));
 }
 
 #[test]
-fn in_the_least_window_every_face_stands_inside_the_room() {
+fn in_the_least_window_every_face_stands_inside_the_panel() {
     let drawn = draw(ToRenderer::Start(Box::new(settings(
         InterfaceFace::Inter,
         LEAST,
     ))));
     let at = |class: &str| boxes_of(&drawn.renderer, class);
-    // The room less 32 either side: 472, two faces of 231 a row.
-    assert_eq!(at("phead"), vec![px(32.0, 32.0, 472.0, 36.0)]);
+    // The room less 32 either side and above and below: 472 by 536; two
+    // faces of 203 a row; what scrolls 472 tall, as the browser process
+    // scrolls it.
+    assert_eq!(at("sdialog"), vec![px(32.0, 32.0, 472.0, 536.0)]);
+    assert_eq!(at("phead"), vec![px(60.0, 52.0, 424.0, 36.0)]);
+    assert_eq!(at("sclip"), vec![px(32.0, 96.0, 472.0, 472.0)]);
+    assert_eq!(
+        alo_renderer::conversation_scroll::Room::settings(LEAST)
+            .height
+            .to_bits(),
+        472.0_f32.to_bits()
+    );
     let faces: Vec<Rect> = rects_of(&drawn.renderer, "face on")
         .into_iter()
         .chain(rects_of(&drawn.renderer, "face"))
         .collect();
     assert_eq!(faces.len(), 5);
     for face in &faces {
-        assert!(
-            face.left() >= 32.0 && face.right() <= 504.0 && face.bottom() <= LEAST.height,
-            "{face:?}"
-        );
+        assert!(face.left() >= 60.0 && face.right() <= 476.0, "{face:?}");
     }
     assert_eq!(
         faces.last().map(|face| units(*face)),
-        Some(px(32.0, 440.0, 231.0, 136.0))
+        Some(px(60.0, 486.0, 203.0, 136.0))
     );
 }
 
@@ -401,7 +412,7 @@ fn at_the_designs_room_each_faces_sample_is_whole_in_that_face() {
 }
 
 #[test]
-fn a_press_on_a_face_claims_its_place_and_back_claims_itself() {
+fn a_press_on_a_face_claims_its_place_and_the_veil_and_the_cross_close_it() {
     let mut renderer = Renderer::new(fonts());
     let _ = renderer.handle(ToRenderer::Start(Box::new(settings(
         InterfaceFace::Geist,
@@ -415,28 +426,39 @@ fn a_press_on_a_face_claims_its_place_and_back_claims_itself() {
         };
     // Each face's middle, its circle and its sample, whichever is chosen.
     let middles = [
-        (337.0, 216.0),
-        (702.0, 216.0),
-        (337.0, 362.0),
-        (702.0, 362.0),
-        (337.0, 508.0),
+        (351.0, 244.0),
+        (688.0, 244.0),
+        (351.0, 390.0),
+        (688.0, 390.0),
+        (351.0, 536.0),
     ];
     for (at, (x, y)) in middles.into_iter().enumerate() {
         assert_eq!(press(x, y), Some(Claim::Face { at }), "{at}");
     }
     assert_eq!(
-        press(185.0, 172.0),
+        press(213.0, 201.0),
         Some(Claim::Face { at: 0 }),
         "the circle"
     );
-    assert_eq!(press(170.0, 50.0), Some(Claim::LeaveSettings));
-    // The heading, the section's words, the gap between faces and the room
-    // below them claim nothing.
+    // Its ×, and the veil around the panel — over the greeting, the box
+    // and the room beside them, none of which is pressed (queue item 886).
+    assert_eq!(press(842.0, 70.0), Some(Claim::LeaveSettings));
     for (x, y) in [
-        (300.0, 50.0),
-        (300.0, 125.0),
-        (520.0, 216.0),
-        (500.0, 700.0),
+        (80.0, 400.0),
+        (520.0, 10.0),
+        (520.0, 805.0),
+        (1000.0, 100.0),
+    ] {
+        assert_eq!(press(x, y), Some(Claim::LeaveSettings), "({x}, {y})");
+    }
+    // The heading, the section's words, the gap between faces and the room
+    // below them, inside the panel, claim nothing.
+    for (x, y) in [
+        (230.0, 70.0),
+        (300.0, 153.0),
+        (520.0, 244.0),
+        (700.0, 615.0),
+        (170.0, 400.0),
     ] {
         assert_eq!(press(x, y), None, "({x}, {y})");
     }
@@ -563,8 +585,8 @@ fn each_face_draws_a_result_and_the_panel_as_its_references() {
     }
 }
 
-/// Queue item 856: the keyboard's ring on *Back to the chat*, and on the
-/// face chosen while it is on the radio group, outside each one's edge:
+/// Queue item 856: the keyboard's ring on its ×, and on the face chosen
+/// while it is on the radio group, outside each one's edge:
 /// every box where it was without it, and the ring only around the one.
 #[test]
 fn the_keyboards_ring_moves_nothing_and_is_drawn_as_the_references() {
@@ -574,9 +596,9 @@ fn the_keyboards_ring_moves_nothing_and_is_drawn_as_the_references() {
     ))));
     for (keyed, class, name) in [
         (
-            SettingsKeyed::Back,
-            "pback keyed",
-            "settings-keyed-back.png",
+            SettingsKeyed::Close,
+            "pclose keyed",
+            "settings-keyed-close.png",
         ),
         (
             SettingsKeyed::Font,
@@ -608,11 +630,11 @@ fn the_keyboards_ring_moves_nothing_and_is_drawn_as_the_references() {
         keyed_faces.sort();
         faces_before.sort();
         assert_eq!(keyed_faces, faces_before, "every face where it was");
-        // *Back to the chat* 36 square at 152 less 8, 32 down; Geist's
-        // face the second of the first row, 365 wide at 525.
+        // Its × 36 square at 824, 52 down; Geist's face the second of the
+        // first row, 327 wide at 525.
         let expected = match keyed {
-            SettingsKeyed::Back => vec![px(152.0, 32.0, 36.0, 36.0)],
-            SettingsKeyed::Font => vec![px(525.0, 148.0, 355.0, 136.0)],
+            SettingsKeyed::Close => vec![px(824.0, 52.0, 36.0, 36.0)],
+            SettingsKeyed::Font => vec![px(525.0, 176.0, 327.0, 136.0)],
             // alo at work's (queue item 878) are `settings_alo_at_work.rs`'s.
             other => panic!("{other:?} is not rung here"),
         };

@@ -101,12 +101,22 @@ fn touched(target: &Canvas, rect: Rect, transform: Matrix) -> Option<Touched> {
     let top = fold(f32::min, |corner| corner.1)?;
     let bottom = fold(f32::max, |corner| corner.1)?;
     let edge = |value: f32, limit: u32| pixel_at((value).clamp(0.0, 1.0e6), limit);
-    let touched = Touched {
+    let mut touched = Touched {
         left: edge(left.floor() - 1.0, target.width()),
         top: edge(top.floor() - 1.0, target.height()),
         right: edge(right.ceil() + 1.0, target.width()),
         bottom: edge(bottom.ceil() + 1.0, target.height()),
     };
+    // Only what a confined canvas keeps (queue item 886): every other pixel
+    // is refused by it all the same.
+    if let Some(region) = target.confinement() {
+        touched = Touched {
+            left: touched.left.max(region.left),
+            top: touched.top.max(region.top),
+            right: touched.right.min(region.right),
+            bottom: touched.bottom.min(region.bottom),
+        };
+    }
     (touched.left < touched.right && touched.top < touched.bottom).then_some(touched)
 }
 

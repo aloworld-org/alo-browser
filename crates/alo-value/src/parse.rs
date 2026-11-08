@@ -17,6 +17,7 @@
 use crate::background::{Background, Image};
 use crate::calc::{CalcNode, Kind};
 use crate::color::{Color, Rgba, from_hsl};
+use crate::filter::BackdropFilter;
 use crate::gradient::{Angle, Extent, Gradient, Offset, Position, Shape, Stop};
 use crate::length::{Length, LengthPercentage};
 use crate::shadow::Shadow;
@@ -688,6 +689,80 @@ pub fn parse_transform(text: &str) -> Option<Transform> {
         }
         Some(Transform { functions })
     })
+}
+
+/// Read a whole `backdrop-filter` (queue item 885, [`crate::filter`]):
+/// `none`, one `blur()` — its length never negative nor a percentage, and
+/// none at all a blur of nothing — or a list of the filter functions CSS
+/// names, read as [`BackdropFilter::Unbuilt`] unless it is that one blur.
+/// [`None`] for anything else, which is not CSS.
+pub fn parse_backdrop_filter(text: &str) -> Option<BackdropFilter> {
+    if is_keyword(text, "none") {
+        return Some(BackdropFilter::None);
+    }
+    let functions = entirely(text, |input| {
+        let mut functions = Vec::new();
+        while !input.is_exhausted() {
+            functions.push(one_filter_function(input)?);
+        }
+        Some(functions)
+    })?;
+    match functions.as_slice() {
+        [] => None,
+        [Filtered::Blur(blur)] => Some(BackdropFilter::Blur(*blur)),
+        _ => Some(BackdropFilter::Unbuilt(text.trim().to_owned())),
+    }
+}
+
+/// One filter function, as read.
+enum Filtered {
+    /// A `blur()` of this length.
+    Blur(Length),
+    /// Any other CSS names ([`crate::filter::FUNCTIONS`]), or a `blur()` of
+    /// a `calc()`: refused by name.
+    Other,
+}
+
+/// One filter function, or [`None`] for what is not one.
+fn one_filter_function(input: &mut CssParser<'_, '_>) -> Option<Filtered> {
+    let before = input.state();
+    if matches!(input.next(), Ok(Token::UnquotedUrl(_))) {
+        return Some(Filtered::Other);
+    }
+    input.reset(&before);
+    let name = input
+        .try_parse(|input| input.expect_function().cloned())
+        .ok()?
+        .to_ascii_lowercase();
+    if !crate::filter::FUNCTIONS.contains(&name.as_str()) {
+        return None;
+    }
+    input
+        .parse_nested_block(
+            |arguments| -> Result<Option<Filtered>, cssparser::ParseError<'_, ()>> {
+                if name != "blur" {
+                    // Read past, whatever it holds: it is refused by name.
+                    while arguments.next().is_ok() {}
+                    return Ok(Some(Filtered::Other));
+                }
+                if arguments.is_exhausted() {
+                    return Ok(Some(Filtered::Blur(Length::ZERO)));
+                }
+                let blur = match one_length_percentage(arguments) {
+                    Some(LengthPercentage::Length(length)) if length.value >= 0.0 => {
+                        Filtered::Blur(length)
+                    }
+                    // A `calc()` length is CSS, and not read here yet: it
+                    // is refused by name, as another function is.
+                    Some(LengthPercentage::Calc(node)) if node.kind() == Some(Kind::Length) => {
+                        Filtered::Other
+                    }
+                    _ => return Ok(None),
+                };
+                Ok(arguments.is_exhausted().then_some(blur))
+            },
+        )
+        .ok()?
 }
 
 /// One `translate(…)`, `scale(…)`, `rotate(…)`, `skew(…)` or `matrix(…)`.
@@ -2097,5 +2172,52 @@ mod tests {
         let deep = format!("{}{}", "f(".repeat(10_000), ")".repeat(10_000));
         assert_eq!(components(&deep).len(), 1);
         assert_eq!(components("\"unclosed string"), ["\"unclosed string"]);
+    }
+
+    #[test]
+    fn a_backdrop_filter_is_none_one_blur_or_refused_by_name() {
+        // Queue item 885.
+        let metrics = FontMetrics::estimated(20.0, 16.0);
+        let blur = |text: &str| match parse_backdrop_filter(text) {
+            Some(BackdropFilter::Blur(length)) => Some(length.to_px(metrics)),
+            _ => None,
+        };
+        assert_eq!(parse_backdrop_filter("none"), Some(BackdropFilter::None));
+        assert_eq!(parse_backdrop_filter(" NONE "), Some(BackdropFilter::None));
+        assert!(close(blur("blur(8px)").expect("8px"), 8.0));
+        assert!(close(blur("BLUR( 0.5em )").expect("em"), 10.0));
+        assert!(close(blur("blur()").expect("nothing"), 0.0));
+        assert!(close(blur("blur(0)").expect("a bare zero"), 0.0));
+        // Other functions, a url, and more than one, are CSS and refused by
+        // name.
+        for unbuilt in [
+            "brightness(0.9)",
+            "grayscale()",
+            "drop-shadow(0 0 4px red)",
+            "url(#f)",
+            "blur(4px) saturate(1.8)",
+            "blur(2px) blur(3px)",
+            "blur(calc(2px + 1px))",
+        ] {
+            assert_eq!(
+                parse_backdrop_filter(unbuilt),
+                Some(BackdropFilter::Unbuilt(unbuilt.to_owned())),
+                "{unbuilt}"
+            );
+        }
+        // Not CSS at all.
+        for wrong in [
+            "",
+            "blur",
+            "blur(-1px)",
+            "blur(10%)",
+            "blur(4)",
+            "blur(4px 2px)",
+            "sharpen(2px)",
+            "blur(4px),",
+            "none blur(2px)",
+        ] {
+            assert_eq!(parse_backdrop_filter(wrong), None, "{wrong:?}");
+        }
     }
 }

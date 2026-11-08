@@ -24503,6 +24503,102 @@ What stage 2's exit gate actually measures: a person using it.
   and no search, done in one step; in *Settings*, Tab to the group and
   the arrows round the three, `settings.txt` written each time.
 
+- [x] **885. `backdrop-filter: blur()` (asked for by 886).** What is drawn
+  under a box, blurred and then drawn under the box's own background, as
+  Filter Effects 2 says: the backdrop root, the edge mode, the clip to
+  the border box with its radii. Measured against Chrome at one and two,
+  edges included, with a layout of numbers and references; the blur
+  reuses the shadows' kept blur (`Kept`) where it can. Other filter
+  functions in `backdrop-filter` are refused by name until a page needs
+  them. *Depends on nothing.*
+  ***Done (batch 25, 8 November 2026; ADR 0104).*** Measured in Google
+  Chrome 157.0.8103.38, headless on its GPU path, at one, two and eight
+  (the session scratchpad's `m885/`): σ is the length written (not half);
+  a Gaussian to ⌈3σ⌉ up to σ 4, halved first past it and grown back
+  bilinearly; only the border box's crop read, mirrored at its edge
+  (`abc|cba`); the crop's edges rounded as 128 of 128 boxes say; the blur
+  drawn where the border box with its radii covers, the background over
+  it. Built in `alo_value::filter`, `alo_paint::backdrop`,
+  `DisplayItem::Backdrop`, a stacking context and a containing block; other
+  functions, lists and `calc()` refused by name. **Against Chrome** in
+  `cases/backdrops-blurred` (Chrome's screenshots frozen at 1, 2, 8):
+  outside exact; inside at most 1, 2, 2 levels (≈0.6 mean); rim at most
+  15, 10, 19 (corners' antialiasing). **Painting over** (ADR 0101 § 3
+  amended): a change drawn before a backdrop under its crop damages the
+  crop whole; otherwise its blur is kept (`Kept::backdrop`) and taken.
+  Tests: units in `backdrop`, `extent`, `repaint`; `alo-paint`'s
+  `a_blurred_backdrop.rs`; the corpus case and
+  `a_backdrop_blurred_as_chrome_blurs_it.rs`; layout's containing block.
+  **Mutations**, each caught: the change-under check off; old-side changes
+  ignored; the kept blur taken whatever stood; a clamped edge; σ halved; no
+  halvings; the backdrop after the background; its reach nothing; a
+  picture's confined rows a row short. **Cut and queued:** 887.
+
+- [x] **886. Settings as a popup over the blurred conversation (approved
+  by the owner, 8 November 2026).** A centred white panel, about 720
+  wide, rounded 16, with a soft shadow, that scrolls inside; behind it the
+  conversation blurred (885) and dimmed as the narrow window's sheet dims
+  (776). *Settings* titles it with × at the top right; its sections are
+  inside (a list on its left once there are more than two). It opens from
+  the *Settings* button and from ⌘, and closes with Escape, the ×, or a
+  press on the blurred area, which presses nothing under it. A choice
+  applies at once. Keys walk it as they walk Settings now (856); the
+  keyboard comes back to where it was on closing. An agent reads it as a
+  dialog named *Settings*. *Depends on 885, 854, 880.*
+  ***Done (batch 25, 8 November 2026).*** The first screen is built as
+  with *Settings* closed, hidden from an agent (`aria-hidden`), and a veil
+  over it — `backdrop-filter: blur(8px)`, the ink at 0.32 — holding a modal
+  dialog *Settings*: 720 wide or the room less 32, at most the room less
+  32 above and below, rounded 16, its heading and × in a row of 36, what
+  it holds scrolling under them (`Room::settings`, with its bar's edge).
+  ⌘, opens it by the character `,` with exactly ⌘ (`keys::opens_settings`),
+  again nothing; Escape, its × and the veil close it, the veil pressing
+  nothing under it; the keyboard given back to the box, *Search chats* or
+  the card (`conversation_settings::Keyboard`). A live card's last frame is
+  drawn **in** the first screen while it is open (not streamed), so it is
+  blurred; decoded pictures are kept between drawings by their bytes, and
+  pictures drawn only inside a confinement, so a Tab paints only the rings
+  (60–105 ms at two in the renderer, nothing blurred again; opening ≈350
+  ms). Typing with it closed unchanged: 15.4 ms median a letter at two,
+  HEAD and now alike. Tests: `settings_over_the_conversation.rs` (blurred
+  page, Tab, change under the veil every pixel as drawn whole at 1 and 2,
+  the veil over the box claims *Close*), the Settings tests rewritten to
+  the panel's numbers, the window's units (⌘,, Escape, ×, veil, keyboard
+  back, ⌘, again, the frame in the card under it), the window's road.
+  References rewritten, each looked at: `settings.png`,
+  `settings-in-the-least-window.png`, `settings-keyed-font.png`,
+  `settings-alo-at-work.png`, `settings-scrolled-short.png`;
+  `settings-keyed-back.png` replaced by `settings-keyed-close.png`; new
+  `settings-over-a-card.png`. **Mutations**, each caught: `;` for `,`; the
+  keyboard not given back; ⌘, again acting; the veil claiming nothing;
+  the dialog not stopping a press; the card beneath under *Settings*; no
+  decoded picture kept. **By hand** at two (`handrun45/886-*`).
+
+- [ ] **887. Backdrops: their own roots, a turning transform, the carried
+  Chromium (cut from 885).** A box with `backdrop-filter` is a backdrop
+  root for what is inside it (Filter Effects 2); here only a faded group
+  is. A backdrop under a transform that turns uses its bounding box, not
+  measured. The Chromium alo carries (CEF 156) not measured. And a page's
+  backdrop over a card picture drawn beneath (ADR 0100) blurs its clear
+  place — only alo's own *Settings* asks for one, and draws the frame in.
+  *Depends on 885.*
+
+- [ ] **888. Text passed over on a confined canvas (found by 886).** Every
+  run of text is outlined and drawn on each repaint, whatever the region:
+  about 28 ms of a 60 ms Tab in *Settings* at two. Pass a run over when a
+  cheap bound of its ink misses the region, proved never too small.
+  *Depends on nothing.*
+
+
+- [ ] **889. A letter lost on a card under the gate's load (found by 886's
+  first gate run).** `a_persons_keys_on_a_card_through_chrome` read
+  `typed?ne` where `new` was typed: one key never reached the page. That
+  path was not changed by 885/886; the test passed 3 of 3 alone and in the
+  next gate. Reproduce under load (yes ×96, as the memory on gate-only
+  flakes says), find where the key is lost — alo's queue, the host's
+  pipe, or Chrome's input — and fix the cause; a person typing on a busy
+  Mac must not lose letters either. *Depends on nothing.*
+
 ## K. ★ The agent, on somebody else's pages
 
 The reason this exists rather than a faster fork. ADR 0002 holds here or it does

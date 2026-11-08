@@ -240,7 +240,8 @@ pub enum Decided<C, S> {
     Stepped(Stepped),
     /// This choice of asking, made in *alo at work*.
     Asks(Asks),
-    /// *Settings*' *Back to the chat*.
+    /// *Settings*' × — or a press on the veil around it (queue item 886),
+    /// which presses nothing under it.
     LeaveSettings,
     /// The press was on nothing, and nothing is done.
     Nothing,
@@ -548,8 +549,8 @@ fn drawn_as_hidden(claim: Claim, painted: bool, now: bool) -> Option<Refusal> {
 }
 
 /// What a press on *Settings* comes to (queue item 854): a face it offered
-/// as painted and still does; *Back to the chat* only while it was drawn and
-/// still is.
+/// as painted and still does; its × — or the veil around it — only while
+/// it was drawn and still is.
 fn in_settings<C, S>(claim: Claim, painted: &Shown<C, S>, now: &Shown<C, S>) -> Decided<C, S> {
     match claim {
         Claim::Face { at } => held(Listed::Faces, at, &painted.faces, &now.faces)
@@ -1386,8 +1387,7 @@ mod tests {
 
     /// Queue item 854: a face *Settings* offered as painted, and still
     /// offers, is decided as itself; one past them, or once *Settings* has
-    /// closed, is refused; *Back to the chat* only while it was drawn and
-    /// still is.
+    /// closed, is refused; its × only while it was drawn and still is.
     #[test]
     fn a_face_settings_offered_is_decided_and_back_only_while_it_stands() {
         let open = Shown {

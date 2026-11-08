@@ -58,9 +58,12 @@
 //! clipped, and a press there finds nothing to claim.
 //!
 //! *Settings* (queue item 854) is pressed the same way: a face by its place
-//! among the faces it offers, and *Back to the chat* one of a kind; and so
-//! is *alo at work* (queue item 878), a stepper's button and a choice of
-//! asking each by its place.
+//! among the faces it offers, and its × one of a kind; and so is *alo at
+//! work* (queue item 878), a stepper's button and a choice of asking each
+//! by its place. Since it stands over the conversation (queue item 886), a
+//! press on the veil around it is its × too, and never anything under it;
+//! a press on the dialog's own room, between what it offers, claims
+//! nothing, and is not passed on to the veil around it.
 //!
 //! The agent at work on a card's page (queue item 704) is pressed the same
 //! way: its *Stop*, *Allow* and *Not now*, each one of the closed list,
@@ -246,7 +249,7 @@ pub enum Claim {
         /// Its place.
         at: usize,
     },
-    /// *Settings*' *Back to the chat*.
+    /// *Settings*' ×, or a press on the veil around it (queue item 886).
     LeaveSettings,
     /// The stepper's button at this place among those *alo at work* lets a
     /// person press, counting from zero (queue item 878).
@@ -344,7 +347,7 @@ impl fmt::Display for Claim {
             Claim::Undo => f.write_str("the panel's Undo"),
             Claim::Shield => f.write_str("the card's shield"),
             Claim::Face { at } => write!(f, "the face Settings offers at place {at}"),
-            Claim::LeaveSettings => f.write_str("Settings' Back to the chat"),
+            Claim::LeaveSettings => f.write_str("Settings' Close"),
             Claim::Limit { at } => write!(f, "the stepper's button Settings offers at place {at}"),
             Claim::Asks { at } => write!(f, "the choice of asking Settings offers at place {at}"),
         }
@@ -358,6 +361,10 @@ enum Pressable {
     One(Claim),
     /// One of several of this class, claimed by its place among them.
     Placed(fn(usize) -> Claim),
+    /// What holds pressable things and is itself nothing: a press on it
+    /// claims nothing, and is not passed on to what holds it (queue item
+    /// 886).
+    Nothing,
 }
 
 /// What each part draws that a press can be on, by its class: each the
@@ -436,13 +443,19 @@ fn pressables(part: Part) -> &'static [(&'static [&'static str], Pressable)] {
             // one that does nothing is `mitem off`, and claims nothing.
             (&["mitem"], Pressable::Placed(|at| Claim::MenuItem { at })),
             // *Settings* (queue item 854): a face by its place among those
-            // offered, the one chosen among them; *Back to the chat* one of
-            // a kind.
+            // offered, the one chosen among them; its × one of a kind.
             (
                 &["face", "face on"],
                 Pressable::Placed(|at| Claim::Face { at }),
             ),
-            (&["pback"], Pressable::One(Claim::LeaveSettings)),
+            (
+                &["pclose", "pclose keyed"],
+                Pressable::One(Claim::LeaveSettings),
+            ),
+            // The veil around the dialog closes it, pressing nothing under
+            // it; the dialog's own room is nothing (queue item 886).
+            (&["veil"], Pressable::One(Claim::LeaveSettings)),
+            (&["sdialog"], Pressable::Nothing),
             // *alo at work* (queue item 878): a stepper's button by its
             // place among those that can be pressed — one past its end is
             // `lbtn off`, and claims nothing — and a choice of asking by
@@ -478,6 +491,7 @@ pub fn claimed(drawing: &Drawing, document: &Document, part: Part, at: Point) ->
             return match pressable {
                 Pressable::One(claim) => Some(*claim),
                 Pressable::Placed(claim) => place_of(document, node, classes).map(claim),
+                Pressable::Nothing => None,
             };
         }
         next = document.parent(node);

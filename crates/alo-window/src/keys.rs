@@ -24,6 +24,7 @@
 //! | Close this one | ⌘W | Ctrl+W |
 //! | The next tab | ⌃Tab | Ctrl+Tab |
 //! | The previous tab | ⌃⇧Tab | Ctrl+Shift+Tab |
+//! | *Settings* (the conversation's window, queue item 886) | ⌘, | Ctrl+, |
 //!
 //! Chrome's, so a person's hands already know them. The modifiers must be
 //! exactly these: ⌘⇧T and ⌘⇧W are other things in other browsers (a closed
@@ -283,6 +284,20 @@ pub fn meaning(press: &Press, platform: Platform) -> Option<TabOrder> {
     }
 }
 
+/// Whether a press opens *Settings* on `platform` (queue item 886): ⌘, on
+/// macOS, as every Mac application's *Settings…* is, and Ctrl+, elsewhere —
+/// exactly that modifier, and never a repeat. The key is the one that
+/// writes `,` with nothing held, wherever the person's layout puts it — on
+/// an AZERTY keyboard, beside N — as macOS matches a menu's key by its
+/// character.
+pub fn opens_settings(press: &Press, platform: Platform) -> bool {
+    let held = match platform {
+        Platform::Mac => Modifier::Command,
+        Platform::Elsewhere => Modifier::Control,
+    };
+    !press.repeat && press.held == Held::exactly(&[held]) && press.is_letter(',')
+}
+
 /// The order a press gives the conductor on this platform, if it gives one:
 /// what the window's event loop sends for each key a person presses.
 pub fn order(press: &Press) -> Option<Order> {
@@ -441,5 +456,43 @@ mod tests {
         };
         assert!(matches!(order(&press), Some(Order::Tabs(TabOrder::New))));
         assert!(order(&Press::character("t")).is_none());
+    }
+
+    #[test]
+    fn command_comma_opens_settings_by_the_character_it_writes() {
+        // Queue item 886: the key that writes `,`, wherever a layout puts
+        // it, with exactly ⌘ held on a Mac and Ctrl elsewhere.
+        let comma = Press::character(",");
+        assert!(opens_settings(
+            &comma.clone().with(Modifier::Command),
+            Platform::Mac
+        ));
+        assert!(opens_settings(
+            &comma.clone().with(Modifier::Control),
+            Platform::Elsewhere
+        ));
+        assert!(
+            !opens_settings(&comma.clone(), Platform::Mac),
+            "a comma typed"
+        );
+        assert!(!opens_settings(
+            &comma.clone().with(Modifier::Command).with(Modifier::Shift),
+            Platform::Mac
+        ));
+        assert!(!opens_settings(
+            &comma.clone().with(Modifier::Control),
+            Platform::Mac
+        ));
+        assert!(!opens_settings(
+            &comma.clone().with(Modifier::Command).repeating(),
+            Platform::Mac
+        ));
+        // The key that sits where QWERTY's comma does, writing `;` on
+        // AZERTY, is not it; nor is a tab order.
+        assert!(!opens_settings(
+            &Press::character(";").with(Modifier::Command),
+            Platform::Mac
+        ));
+        assert_eq!(meaning(&comma.with(Modifier::Command), Platform::Mac), None);
     }
 }

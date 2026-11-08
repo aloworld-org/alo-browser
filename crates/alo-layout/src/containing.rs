@@ -19,13 +19,16 @@
 //! it shares with its first child, as the footer section's is (queue item
 //! 355).
 //!
+//! A `backdrop-filter` other than `none` makes one too (Filter Effects 2
+//! § 3, queue item 885), now that paint draws it.
+//!
 //! # What does not make a containing block here
 //!
-//! `filter`, `backdrop-filter`, `perspective`, `will-change` naming one of
-//! those, `contain` and `container-type` each make one too. None of them is
-//! read by this engine at all yet, and reading one only to make a containing
-//! block of it would tell a page's script the property is supported
-//! (`alo-css`' `properties.rs`). They wait for the properties themselves.
+//! `filter`, `perspective`, `will-change` naming one of those, `contain`
+//! and `container-type` each make one too. None of them is read by this
+//! engine at all yet, and reading one only to make a containing block of it
+//! would tell a page's script the property is supported (`alo-css`'
+//! `properties.rs`). They wait for the properties themselves.
 
 use crate::keyword::Positioning;
 use crate::style;
@@ -99,9 +102,24 @@ pub(crate) fn is_absolute(boxes: &BoxTree, styles: &StyleTree, id: BoxId) -> boo
 }
 
 /// Whether a box is the containing block of the absolutely positioned boxes
-/// under it: it is positioned, or it is transformed.
+/// under it: it is positioned, transformed, or filters its backdrop.
 fn contains_absolutes(boxes: &BoxTree, styles: &StyleTree, id: BoxId) -> bool {
-    position_of(boxes, styles, id) != Positioning::Static || is_transformed(boxes, styles, id)
+    position_of(boxes, styles, id) != Positioning::Static
+        || is_transformed(boxes, styles, id)
+        || filters_its_backdrop(boxes, styles, id)
+}
+
+/// Whether a box has a `backdrop-filter` other than `none`, read as paint
+/// reads it (queue item 885): a value that is not CSS is `none`; one paint
+/// refuses by name — `sepia()`, say — still asks for one, and contains.
+fn filters_its_backdrop(boxes: &BoxTree, styles: &StyleTree, id: BoxId) -> bool {
+    boxes
+        .get(id)
+        .and_then(|node| node.kind.node())
+        .and_then(|source| styles.get(source))
+        .and_then(|computed| computed.get("backdrop-filter"))
+        .and_then(alo_value::parse_backdrop_filter)
+        .is_some_and(|filter| filter.is_some())
 }
 
 /// A box's `position`; `static` for a box nobody wrote, which has no style
@@ -249,6 +267,28 @@ mod tests {
                 Containing::Initial
             };
             assert_eq!(answer, expected, "transform: {transform}");
+        }
+    }
+
+    #[test]
+    fn an_ancestor_filtering_its_backdrop_contains_and_none_or_nonsense_does_not() {
+        // Queue item 885.
+        let html = "<div id=a><section><span id=t>x</span></section></div>";
+        for (filter, contains) in [
+            ("blur(8px)", true),
+            ("blur(0)", true),
+            ("sepia(1)", true),
+            ("none", false),
+            ("blur(-2px)", false),
+        ] {
+            let css = format!("#a {{ backdrop-filter: {filter} }} #t {{ position: absolute }}");
+            let (answer, boxes, document) = containing(html, &css, "t").expect("laid out");
+            let expected = if contains {
+                Containing::Ancestor(box_of(&boxes, &document, "a").expect("a box"))
+            } else {
+                Containing::Initial
+            };
+            assert_eq!(answer, expected, "backdrop-filter: {filter}");
         }
     }
 

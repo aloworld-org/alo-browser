@@ -86,10 +86,12 @@
 //! window tells it how wide it is ([`Conversation::fit`]).
 //!
 //! Queue item 854 adds *Settings* ([`crate::conversation_settings`]): its
-//! row in the panel opens it in place of the chat on screen, which is left
-//! as it was — its turns, its scroll and a live card kept — until *Back to
-//! the chat*, Escape, a chat chosen or *New chat*; and a face chosen in it
-//! sets every word of both parts at once ([`Conversation::face`]).
+//! row in the panel, or ⌘, (886), opens it over the chat on screen, which is
+//! drawn under it as it was — its turns, its scroll and a live card kept —
+//! until its ×, Escape, a press on the veil around it, a chat chosen or
+//! *New chat*, the first three giving the keyboard back to where it was;
+//! and a face chosen in it sets every word of both parts at once
+//! ([`Conversation::face`]).
 //!
 //! Every other — a kept site, *Add a site*, a waiting chat — is decided
 //! and kept as [`Conversation::last_pressed`], and **changes nothing yet**:
@@ -116,7 +118,7 @@ use crate::conversation_fold::Fold;
 use crate::conversation_keys::Scroll;
 use crate::conversation_place::Side;
 use crate::conversation_search::{Came, Searched};
-use crate::conversation_settings::Settings;
+use crate::conversation_settings::{Keyboard, Settings};
 use crate::conversation_thread::Thread;
 use crate::conversation_work::{Holds, Work};
 use crate::scale::Scale;
@@ -244,6 +246,9 @@ pub struct Conversation {
     /// *Settings*: whether it is the page on screen, and the face the
     /// interface is set in (queue item 854).
     settings: Settings,
+    /// Where the keyboard was as *Settings* opened, given back as it
+    /// closes (queue item 886).
+    keyboard_before_settings: Keyboard,
     /// The page the run of alo's agent asked to open (queue item 821): the
     /// run's number, the address, and what its card's bubble says — until
     /// the card for it opens, and then until its page is up.
@@ -317,6 +322,7 @@ impl Default for Conversation {
             switched: None,
             sheet: false,
             settings: Settings::default(),
+            keyboard_before_settings: Keyboard::Nowhere,
             agent_opening: None,
         }
     }
@@ -560,7 +566,7 @@ impl Conversation {
         if !self.settings.is_open() {
             return shown;
         }
-        // *Settings* in place of the chat on screen (queue item 854): the
+        // *Settings* over the chat on screen (queue items 854, 886): the
         // first screen shows its faces and nothing of the chat.
         Shown {
             chats: shown.chats,
@@ -593,6 +599,9 @@ impl Conversation {
     /// decision refused unless it went between being decided and being
     /// acted on, nor a press refused or unanswered.
     pub fn act(&mut self, pressed: Pressed) -> bool {
+        // Where the keyboard was before the press took it, for *Settings*
+        // to give back (queue item 886).
+        let keyboard = self.keyboard();
         let changed = match &pressed {
             // A new chat's box has the keyboard, as the window's first does
             // (queue item 875).
@@ -620,7 +629,7 @@ impl Conversation {
             | Pressed::Face(_)
             | Pressed::LeaveSettings
             | Pressed::Stepped(_)
-            | Pressed::Asks(_) => self.in_settings(&pressed) || changed,
+            | Pressed::Asks(_) => self.in_settings(&pressed, keyboard) || changed,
             Pressed::Found(url) => {
                 self.choose_found(url.clone());
                 changed
@@ -731,11 +740,11 @@ impl Conversation {
 
     /// A chat chosen in the panel, or *Settings* pressed (queue item 854):
     /// a chat chosen is on screen, closing the sheet it was chosen in (776)
-    /// and *Settings*; *Settings* opens in place of the chat on screen,
-    /// closing the sheet as a chat chosen does; a face chosen sets
-    /// everything in it; *Back to the chat* closes it. Whether anything
-    /// changed.
-    fn in_settings(&mut self, pressed: &Pressed) -> bool {
+    /// and *Settings*; *Settings* opens over the chat on screen, closing
+    /// the sheet as a chat chosen does, and keeps where the `keyboard` was
+    /// to give it back (886); a face chosen sets everything in it; its ×, or
+    /// a press on the veil around it, closes it. Whether anything changed.
+    fn in_settings(&mut self, pressed: &Pressed, keyboard: Keyboard) -> bool {
         match pressed {
             Pressed::Chat(id) => {
                 let sheet = core::mem::replace(&mut self.sheet, false);
@@ -744,13 +753,17 @@ impl Conversation {
             }
             Pressed::Settings => {
                 let sheet = core::mem::replace(&mut self.sheet, false);
-                self.settings.open() || sheet
+                let opened = self.settings.open();
+                if opened {
+                    self.keyboard_before_settings = keyboard;
+                }
+                opened || sheet
             }
             Pressed::Face(face) => self.settings.choose(*face),
             // *alo at work* (queue item 878).
             Pressed::Stepped(stepped) => self.settings.press(*stepped),
             Pressed::Asks(asks) => self.settings.choose_asks(*asks),
-            Pressed::LeaveSettings => self.settings.close(),
+            Pressed::LeaveSettings => self.close_settings(),
             _ => false,
         }
     }
@@ -1486,25 +1499,7 @@ impl Conversation {
     /// The first screen as it is now, laid out at `viewport` on a screen of
     /// `scale`.
     pub fn start(&self, viewport: Size, scale: Scale) -> Start {
-        if self.settings.is_open() {
-            // *Settings*, and nothing of the chat under it (queue item 854).
-            // Scrolled as the conversation is (queue item 880).
-            let scrolled = self.settings.scrolled();
-            return Start {
-                greeting: self.greeting.clone(),
-                viewport,
-                down: scrolled.down(),
-                bar: scrolled.bar(Room::settings(viewport).height, scale.factor()),
-                face: self.settings.face(),
-                settings: true,
-                settings_keyed: self.settings.keyed(),
-                limits: self.settings.limits(),
-                search: self.search.clone(),
-                ..Start::default()
-            }
-            .at_scale(scale.factor());
-        }
-        Start {
+        let start = Start {
             greeting: self.greeting.clone(),
             sites: Vec::new(),
             waiting: Vec::new(),
@@ -1530,13 +1525,28 @@ impl Conversation {
             settings: false,
             settings_keyed: None,
             limits: self.settings.limits(),
+            settings_down: 0.0,
+            settings_bar: None,
         }
-        .at_scale(scale.factor())
+        .at_scale(scale.factor());
+        if !self.settings.is_open() {
+            return start;
+        }
+        // *Settings* over the chat on screen, which is drawn under it as it
+        // was (queue item 886), scrolled in its own panel (queue item 880).
+        let scrolled = self.settings.scrolled();
+        Start {
+            settings: true,
+            settings_keyed: self.settings.keyed(),
+            settings_down: scrolled.down(),
+            settings_bar: scrolled.bar(Room::settings(viewport).height, scale.factor()),
+            ..start
+        }
     }
 
     /// A key on *Settings* while it is open (queue item 856,
     /// [`crate::settings_keys`]): the keyboard moved, a face chosen by an
-    /// arrow, or *Back to the chat* pressed, closing it. Whether anything
+    /// arrow, or its × pressed, closing it. Whether anything
     /// changed, to be drawn again.
     pub fn settings_key(&mut self, key: crate::settings_keys::SettingsKey) -> bool {
         use crate::settings_keys::SettingsKey;
@@ -1548,7 +1558,7 @@ impl Conversation {
             SettingsKey::Tab { back } => self.settings.tab(back),
             SettingsKey::Step { on } => self.settings.step(on),
             SettingsKey::Press => {
-                self.settings.keyed() == Some(SettingsKeyed::Back) && self.settings.close()
+                self.settings.keyed() == Some(SettingsKeyed::Close) && self.close_settings()
             }
         }
     }
@@ -2028,10 +2038,38 @@ impl Conversation {
         self.settings.take_limits_changed()
     }
 
-    /// Close *Settings* — Escape — back to the chat on screen: whether it
-    /// was open.
+    /// Close *Settings* — Escape, its ×, a press on the veil around it —
+    /// back to the chat on screen, the keyboard given back to where it was
+    /// as it opened (queue item 886): whether it was open.
     pub fn close_settings(&mut self) -> bool {
-        self.settings.close()
+        if !self.settings.close() {
+            return false;
+        }
+        match core::mem::take(&mut self.keyboard_before_settings) {
+            Keyboard::TheBox => {
+                let _ = self.the_box.focus();
+            }
+            Keyboard::SearchChats => {
+                let _ = self.find.focus();
+            }
+            Keyboard::TheCard => self.card_keys = self.card().is_some(),
+            Keyboard::Nowhere => {}
+        }
+        true
+    }
+
+    /// Where the keyboard is now: what *Settings* gives it back to as it
+    /// closes (queue item 886).
+    fn keyboard(&self) -> Keyboard {
+        if self.find.focused() {
+            Keyboard::SearchChats
+        } else if self.the_box.focused() {
+            Keyboard::TheBox
+        } else if self.keys_to_the_card() {
+            Keyboard::TheCard
+        } else {
+            Keyboard::Nowhere
+        }
     }
 
     /// The face a person chose in *Settings* since this was last asked, to
@@ -3168,8 +3206,7 @@ mod tests {
     fn a_press_on_the_box_gives_it_the_keyboard_and_typing_reaches_only_the_first_screen() {
         let mut conversation = Conversation::default();
         // Given the keyboard as the window opens (875), and pressed away.
-        let _ = conversation.act(Pressed::Settings);
-        let _ = conversation.act(Pressed::LeaveSettings);
+        let _ = conversation.act(Pressed::HideThePanel);
         let panel = conversation.panel(Size::new(240.0, 820.0), Scale::ONE);
         type_in(&mut conversation, "ignored");
         assert_eq!(
@@ -3821,10 +3858,11 @@ mod tests {
         assert_eq!(conversation.side(), Side::Panel);
     }
 
-    /// Queue item 854: *Settings* opens in place of the chat on screen,
-    /// which is left as it was, and closes back to it.
+    /// Queue items 854, 886: *Settings* opens over the chat on screen,
+    /// which is drawn under it as it was and left so, and closes back to
+    /// it, the keyboard given back to the box.
     #[test]
-    fn settings_stands_in_place_of_the_chat_on_screen_and_leaves_it_as_it_was() {
+    fn settings_stands_over_the_chat_on_screen_and_leaves_it_as_it_was() {
         let mut conversation = Conversation::default();
         let _ = conversation.act(Pressed::TheBox);
         type_in(&mut conversation, "example.com");
@@ -3835,7 +3873,8 @@ mod tests {
         assert!(!conversation.act(Pressed::Settings), "open already");
         let start = conversation.start(room, Scale::ONE);
         assert!(start.settings);
-        assert!(start.turns.is_empty() && start.offers.is_empty() && start.typed.is_empty());
+        assert_eq!(start.typed, before.typed, "drawn under it as it was");
+        assert_eq!(start.turns, before.turns);
         assert!(!start.focused, "the box let the keyboard go");
         // The panel: no chat current, Settings is.
         let panel = conversation.panel(Size::new(240.0, 820.0), Scale::ONE);
@@ -3857,12 +3896,14 @@ mod tests {
         assert!(conversation.keys_scroll());
         assert!(!conversation.scroll(120.0, room));
         assert_eq!(conversation.thread().map(Thread::down), down);
-        // Back to the chat: as it was, what was typed kept.
+        // Its × or the veil: as it was, what was typed kept, and the
+        // keyboard back in the box.
         assert!(conversation.act(Pressed::LeaveSettings));
         assert!(!conversation.settings().is_open());
         let after = conversation.start(room, Scale::ONE);
         assert_eq!(after.typed, before.typed);
         assert!(!after.settings);
+        assert!(after.focused, "the keyboard given back");
         assert!(conversation.showing().faces.is_empty());
     }
 

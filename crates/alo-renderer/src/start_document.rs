@@ -183,29 +183,35 @@ pub fn build(start: &Start) -> Result<Document, Unbuilt> {
         .face
         .set_on(&mut document)
         .map_err(|why| Unbuilt { why })?;
+    put_screen(&mut document, start)?;
     if start.settings {
-        // *Settings*, in place of the chat on screen (queue item 854).
+        // *Settings*, over the chat on screen (queue items 854, 886).
         crate::settings_document::put(&mut document, start)?;
-        return Ok(document);
     }
-    let greeting = by_id(&document, GREETING)?;
+    Ok(document)
+}
+
+/// The screen itself into `document`: the greeting, the box and the
+/// groups, or the conversation, or the split view.
+fn put_screen(document: &mut Document, start: &Start) -> Result<(), Unbuilt> {
+    let greeting = by_id(document, GREETING)?;
     let words = document.create_text_node(&start.greeting);
-    append(&mut document, greeting, words)?;
-    let field = by_id(&document, FIELD)?;
+    append(document, greeting, words)?;
+    let field = by_id(document, FIELD)?;
     if !start.typed.is_empty() {
         // A stranger's string, entering as an attribute's value.
-        attribute(&mut document, field, "value", &start.typed)?;
+        attribute(document, field, "value", &start.typed)?;
     }
-    let screen = by_id(&document, SCREEN)?;
+    let screen = by_id(document, SCREEN)?;
     if start.focused {
-        attribute(&mut document, screen, "class", "start focused")?;
+        attribute(document, screen, "class", "start focused")?;
     }
-    let blocks = by_id(&document, BLOCKS)?;
+    let blocks = by_id(document, BLOCKS)?;
     let offers = if start.offers.is_empty() {
         None
     } else {
         Some(make_offers(
-            &mut document,
+            document,
             &start.offers,
             (&start.search, &start.asking),
             start.turns.last().and_then(Turn::card).is_some(),
@@ -222,32 +228,32 @@ pub fn build(start: &Start) -> Result<Document, Unbuilt> {
             (false, true) => "start conversing focused",
             (false, false) => "start conversing",
         };
-        attribute(&mut document, screen, "class", class)?;
-        let the_box = by_id(&document, BOX)?;
+        attribute(document, screen, "class", class)?;
+        let the_box = by_id(document, BOX)?;
         if split {
             // The agent at work in the split view (queue item 819): the
             // page beside its column, the offers and the box at the
             // column's foot.
-            crate::split_document::put(&mut document, start, screen, (the_box, blocks), offers)?;
-            return Ok(document);
+            crate::split_document::put(document, start, screen, (the_box, blocks), offers)?;
+            return Ok(());
         }
-        crate::conversation_document::put(&mut document, start, screen, the_box, blocks)?;
+        crate::conversation_document::put(document, start, screen, the_box, blocks)?;
         if let Some(offers) = offers {
-            insert_before(&mut document, screen, offers, the_box)?;
+            insert_before(document, screen, offers, the_box)?;
         }
-        return Ok(document);
+        return Ok(());
     }
     if let Some(offers) = offers {
-        insert_before(&mut document, screen, offers, blocks)?;
+        insert_before(document, screen, offers, blocks)?;
     }
-    let icon = take_icon(&document, ADD_ICON)?;
-    let sites = make_sites(&mut document, &start.sites, icon)?;
-    append(&mut document, blocks, sites)?;
+    let icon = take_icon(document, ADD_ICON)?;
+    let sites = make_sites(document, &start.sites, icon)?;
+    append(document, blocks, sites)?;
     if !start.waiting.is_empty() {
-        let waiting = make_waiting(&mut document, &start.waiting)?;
-        append(&mut document, blocks, waiting)?;
+        let waiting = make_waiting(document, &start.waiting)?;
+        append(document, blocks, waiting)?;
     }
-    Ok(document)
+    Ok(())
 }
 
 /// The template's element with `id`.

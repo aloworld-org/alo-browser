@@ -69,6 +69,11 @@ pub fn reach_of(item: &DisplayItem, current: Matrix, scale: f32, size: (u32, u32
             0.0,
         ),
         DisplayItem::Shadow { path, blur, .. } => shape(path, reach(blur * current.scale_factor())),
+        // A backdrop is drawn inside its crop and nowhere else, however far
+        // its blur reads (queue item 885): it reads no pixel past it.
+        DisplayItem::Backdrop { rect, .. } => {
+            crop_under(*rect, current, size).map_or(Reach::Nothing, Reach::Within)
+        }
         DisplayItem::LettersShadow { glyphs, blur, .. } => {
             let grown = reach(blur * current.scale_factor());
             joined(glyphs.iter().map(|glyph| shape(glyph, grown)))
@@ -111,6 +116,21 @@ pub fn reach_of(item: &DisplayItem, current: Matrix, scale: f32, size: (u32, u32
         | DisplayItem::GlyphShadow { .. }
         | DisplayItem::PopGroup => Reach::Unknown,
     }
+}
+
+/// The crop a backdrop of the border box `rect` reads and draws in, under
+/// `current`, on a canvas of `size` ([`crate::backdrop::crop_of`]): the
+/// rectangle's corners where the transform puts them, bounded.
+pub(crate) fn crop_under(
+    rect: alo_layout::Rect,
+    current: Matrix,
+    size: (u32, u32),
+) -> Option<Region> {
+    let moved = moved(
+        &Path::rectangle(rect.left(), rect.top(), rect.size.width, rect.size.height),
+        current,
+    );
+    crate::backdrop::crop_of(moved.bounds()?, size)
 }
 
 /// The pixels a shape already under its transform can change, grown by
@@ -221,5 +241,30 @@ mod tests {
             Reach::Unknown
         );
         assert_eq!(Reach::Unknown.region((8, 8)), Region::whole(8, 8));
+    }
+
+    #[test]
+    fn a_backdrop_reaches_its_crop_at_its_scale_and_no_further() {
+        // Queue item 885: however wide its blur, it reads and draws only
+        // inside the crop.
+        let item = DisplayItem::Backdrop {
+            box_id: BoxId::from_index_for_tests(0),
+            rect: alo_layout::Rect::new(10.25, 4.0, 20.5, 8.0),
+            path: Path::rectangle(10.0, 4.0, 21.0, 8.0),
+            blur: 40.0,
+        };
+        assert_eq!(
+            reach_of(&item, Matrix::IDENTITY, 1.0, (100, 100)),
+            Reach::Within(Region::new(10, 4, 31, 12).expect("a region"))
+        );
+        assert_eq!(
+            reach_of(&item, Matrix::scaling(2.0), 2.0, (100, 100)),
+            Reach::Within(Region::new(21, 8, 62, 24).expect("a region"))
+        );
+        assert_eq!(
+            reach_of(&item, Matrix::IDENTITY, 1.0, (8, 8)),
+            Reach::Nothing,
+            "off the canvas"
+        );
     }
 }

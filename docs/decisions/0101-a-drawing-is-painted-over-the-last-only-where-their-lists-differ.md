@@ -1,6 +1,6 @@
 # ADR 0101 — A drawing is painted over the last only where their lists differ
 
-**Status:** accepted — built by queue item 870 (7 November 2026); § 2 extended and what was left answered by ADR 0102 (queue items 871, 872)
+**Status:** accepted — built by queue item 870 (7 November 2026); § 2 extended and what was left answered by ADR 0102 (queue items 871, 872); § 3 amended by ADR 0104 (queue item 885, a backdrop reads pixels of its own crop)
 **Date:** 2026-11-07
 **Context:** ADR 0100 (a card's page drawn beneath the first screen by a
 renderer of its own, which left an edit's own paint at 137–143 ms with a
@@ -218,3 +218,14 @@ answer this ADR's rejection of filling inside the region asked for: what was
 filled is kept, not filled again from another origin. The first letter
 beside a card is answered in 37–47 ms on this Mac, from 145–169. The
 window's redraw and the frame carried whole are 0102's §§ 3–4.
+
+## Amended (8 November 2026, queue item 885)
+
+§ 3's *nothing `render` draws reads one pixel to write another* is no
+longer whole: a box's backdrop (`backdrop-filter: blur()`, ADR 0104)
+reads the pixels of its own crop, and writes only inside it. § 2 now asks
+of each backdrop matched in both lists whether a change drawn before it
+reaches its crop: if one does, its whole crop is damaged, so a repaint
+draws every pixel it reads afresh first; if none does, its blur is the
+last drawing's, kept (`Kept::backdrop`) and taken as kept. ADR 0104 § 2
+says why that is right.

@@ -213,9 +213,7 @@ fn every_message_to_a_renderer_survives_the_crossing() {
             search: SetUp::Not("no key\0<b>".to_owned()),
             asking: SetUp::Not("no page\0<b>".to_owned()),
             face: InterfaceFace::PlusJakartaSans,
-            settings: false,
-            settings_keyed: None,
-            limits: alo_renderer::agent_limits::Limits::default(),
+            ..Start::default()
         })),
         ToRenderer::Start(Box::default()),
         // A person's press on a part of the conversation, anywhere in it.
@@ -1327,8 +1325,9 @@ fn a_conversation_the_renderer_should_not_draw_is_refused() {
         refused(&far)
     );
     // A turn tagged as nothing this engine draws: the tag after the turns'
-    // count, rewritten — back past the bar's flag (none), the offset, the
-    // failure's two empty strings and the tag itself.
+    // count, rewritten — back past *Settings*' bar's flag and its offset
+    // (queue item 886), the bar's flag (none), the offset, the failure's
+    // two empty strings and the tag itself.
     let mut bytes = write_to_renderer(&start(
         vec![Turn::Failed {
             said: String::new(),
@@ -1338,7 +1337,7 @@ fn a_conversation_the_renderer_should_not_draw_is_refused() {
     ));
     let tag = bytes
         .len()
-        .checked_sub(1 + 4 + 2 * 8 + 1)
+        .checked_sub(1 + 4 + 1 + 4 + 2 * 8 + 1)
         .unwrap_or_else(|| panic!("a turn was written"));
     let _ = bytes.get(tag).map(|written| assert_eq!(*written, 3));
     if let Some(written) = bytes.get_mut(tag) {
@@ -1432,7 +1431,7 @@ fn every_claim_on_the_conversation_survives_the_crossing() {
         FromRenderer::ConversationClaimed(Some(ConversationClaim::CloseChat)),
         // Queue item 798: a line of alo's menu over the card's page.
         FromRenderer::ConversationClaimed(Some(ConversationClaim::MenuItem { at: 3 })),
-        // Queue item 854: a face Settings offers, and its Back to the chat.
+        // Queue item 854: a face Settings offers, and its × (886).
         FromRenderer::ConversationClaimed(Some(ConversationClaim::Face { at: 0 })),
         FromRenderer::ConversationClaimed(Some(ConversationClaim::Face { at: usize::MAX })),
         FromRenderer::ConversationClaimed(Some(ConversationClaim::LeaveSettings)),
@@ -3118,7 +3117,7 @@ fn settings_and_where_the_keyboard_is_on_it_cross_and_nothing_else_does() {
         })),
         ToRenderer::Start(Box::new(Start {
             settings: true,
-            settings_keyed: Some(SettingsKeyed::Back),
+            settings_keyed: Some(SettingsKeyed::Close),
             ..Start::default()
         })),
         ToRenderer::Start(Box::new(Start {
@@ -3186,7 +3185,7 @@ fn settings_and_where_the_keyboard_is_on_it_cross_and_nothing_else_does() {
             ..Start::default()
         })))
     };
-    let back = keyed(Some(SettingsKeyed::Back));
+    let back = keyed(Some(SettingsKeyed::Close));
     let font = keyed(Some(SettingsKeyed::Font));
     assert_eq!(back.len(), font.len(), "one byte either way");
     let differing: Vec<usize> = (0..back.len())
@@ -3207,5 +3206,49 @@ fn settings_and_where_the_keyboard_is_on_it_cross_and_nothing_else_does() {
                 .contains(&format!("a Settings tagged {hostile}")),
             "{refused}"
         );
+    }
+}
+
+/// Queue item 886: over a conversation scrolled its own way, *Settings*
+/// scrolled in its panel with its own bar crosses as sent.
+#[test]
+fn settings_scrolled_in_its_panel_crosses_as_sent() {
+    let original = ToRenderer::Start(Box::new(Start {
+        settings: true,
+        down: -120.5,
+        settings_down: 238.25,
+        settings_bar: Some(alo_renderer::conversation_scroll::Bar {
+            top: 158.0,
+            length: 312.0,
+            above: true,
+            below: false,
+            seen: 0.5,
+        }),
+        ..Start::default()
+    }));
+    let back = read_to_renderer(&write_to_renderer(&original)).expect("read back");
+    assert_eq!(back, original);
+}
+
+/// Queue item 886: *Settings* scrolled further than any page reaches is
+/// refused by name, as the conversation is.
+#[test]
+fn settings_scrolled_past_any_reach_is_refused() {
+    let refused = |down: f32| {
+        let bytes = write_to_renderer(&ToRenderer::Start(Box::new(Start {
+            settings: true,
+            settings_down: down,
+            ..Start::default()
+        })));
+        read_to_renderer(&bytes).expect_err("refused").to_string()
+    };
+    for down in [2.0e6_f32, -2.0e6] {
+        assert!(
+            refused(down).contains("Settings scrolled further"),
+            "{down}"
+        );
+    }
+    for down in [f32::INFINITY, f32::NAN] {
+        assert!(refused(down).contains("not a number"), "{down}");
     }
 }

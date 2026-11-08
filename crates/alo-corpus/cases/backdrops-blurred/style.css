@@ -1,0 +1,12 @@
+html, body { margin: 0; background: #ffffff; width: 240px; height: 100px; overflow: hidden }
+.g { display: grid; width: 240px; height: 100px; grid-template-columns: repeat(60, 4px); grid-auto-rows: 4px }
+.g i { display: block }
+.c0 { background: #f0c828 }
+.c1 { background: #141414 }
+.c2 { background: #e62828 }
+.c3 { background: #1e3cc8 }
+.c4 { background: #ffffff }
+.b { position: absolute; box-sizing: border-box; top: 8px; width: 64px; height: 56px }
+.plain { left: 8px; backdrop-filter: blur(4px) }
+.frosted { left: 88px; backdrop-filter: blur(4px); background: rgba(255, 255, 255, 0.7); border-radius: 16px }
+.dimmed { left: 168px; backdrop-filter: blur(8px); background: rgba(27, 36, 51, 0.32) }

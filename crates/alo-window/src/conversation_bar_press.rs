@@ -30,7 +30,6 @@
 //! - A press on the bar is the bar's alone: never the renderer's to claim,
 //!   and the keyboard stays where it was, as a Mac's scroll bar leaves it.
 
-use alo_layout::Size;
 use alo_renderer::conversation_scroll::{self, BAR_WIDTH, Bar, Reach, Room};
 use std::time::Duration;
 
@@ -57,12 +56,12 @@ pub enum OnTheBar {
     Below,
 }
 
-/// What part of `bar` a press at `x`, `y` on a first screen laid out at
-/// `viewport`, in its CSS pixels, landed on, if any: inside the strip
-/// [`TARGET`] wide about the bar, and between the top and the foot of
-/// `room` — the conversation's, or *Settings*' (queue item 880).
-pub fn pressed(x: f32, y: f32, viewport: Size, room: Room, bar: &Bar) -> Option<OnTheBar> {
-    let middle = conversation_scroll::bar_left(viewport) + BAR_WIDTH / 2.0;
+/// What part of `bar` a press at `x`, `y` on the first screen, in its CSS
+/// pixels, landed on, if any: inside the strip [`TARGET`] wide about the
+/// bar, where `room` stands it, and between the top and the foot of `room`
+/// — the conversation's, or *Settings*' (queue items 880, 886).
+pub fn pressed(x: f32, y: f32, room: Room, bar: &Bar) -> Option<OnTheBar> {
+    let middle = room.bar_left + BAR_WIDTH / 2.0;
     let half = TARGET / 2.0;
     let across = (middle - half..=middle + half).contains(&x);
     let down = (room.top..=room.top + room.height).contains(&y);
@@ -118,8 +117,8 @@ mod tests {
 
     /// The design's first screen at one, 1040 by 820: its room 40 to 716,
     /// 676 tall; the bar from 973 to 979.
-    fn design() -> Size {
-        Size::new(1040.0, 820.0)
+    fn design() -> alo_layout::Size {
+        alo_layout::Size::new(1040.0, 820.0)
     }
 
     /// Three rooms of turns, scrolled to the first turn's top.
@@ -140,7 +139,7 @@ mod tests {
         // foot 716 with it.
         for x in [968.0, 976.0, 984.0] {
             assert_eq!(
-                pressed(x, 100.0, design(), Room::conversation(design()), &bar),
+                pressed(x, 100.0, Room::conversation(design()), &bar),
                 Some(OnTheBar::Thumb)
             );
         }
@@ -151,35 +150,35 @@ mod tests {
             (976.0, 717.0),
         ] {
             assert_eq!(
-                pressed(x, y, design(), Room::conversation(design()), &bar),
+                pressed(x, y, Room::conversation(design()), &bar),
                 None,
                 "({x}, {y})"
             );
         }
         assert_eq!(
-            pressed(976.0, 40.0, design(), Room::conversation(design()), &bar),
+            pressed(976.0, 40.0, Room::conversation(design()), &bar),
             Some(OnTheBar::Thumb)
         );
         assert_eq!(
-            pressed(976.0, 265.0, design(), Room::conversation(design()), &bar),
+            pressed(976.0, 265.0, Room::conversation(design()), &bar),
             Some(OnTheBar::Thumb)
         );
         assert_eq!(
-            pressed(976.0, 266.0, design(), Room::conversation(design()), &bar),
+            pressed(976.0, 266.0, Room::conversation(design()), &bar),
             Some(OnTheBar::Below)
         );
         assert_eq!(
-            pressed(976.0, 716.0, design(), Room::conversation(design()), &bar),
+            pressed(976.0, 716.0, Room::conversation(design()), &bar),
             Some(OnTheBar::Below)
         );
         // Scrolled to the newest turn's foot, the thumb at the room's foot.
         let foot = conversation_scroll::bar(0.0, reach(), design(), 1.0).unwrap();
         assert_eq!(
-            pressed(976.0, 490.0, design(), Room::conversation(design()), &foot),
+            pressed(976.0, 490.0, Room::conversation(design()), &foot),
             Some(OnTheBar::Above)
         );
         assert_eq!(
-            pressed(976.0, 491.0, design(), Room::conversation(design()), &foot),
+            pressed(976.0, 491.0, Room::conversation(design()), &foot),
             Some(OnTheBar::Thumb)
         );
     }

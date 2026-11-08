@@ -90,15 +90,31 @@ pub fn room(viewport: Size) -> f32 {
 }
 
 /// Where a page that scrolls as the conversation does is seen (queue item
-/// 880): the conversation's room, or *Settings*' — the whole first screen,
-/// which has no box under it — each from its top, so long.
+/// 880): the conversation's room, or *Settings*' — the room in its panel
+/// under its heading (queue item 886) — each from its top, so long, with
+/// its bar's left edge.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Room {
     /// How far down the first screen its top is, in CSS pixels.
     pub top: f32,
     /// How tall it is, in CSS pixels.
     pub height: f32,
+    /// Where the bar's left edge stands, in CSS pixels from the first
+    /// screen's left: [`BAR_INSET`] and [`BAR_WIDTH`] in from the right of
+    /// the clip it scrolls in.
+    pub bar_left: f32,
 }
+
+/// How far the panel *Settings* stands in stands clear of the first
+/// screen's edges, at least, in CSS pixels (queue item 886).
+pub const SETTINGS_MARGIN: f32 = 32.0;
+
+/// The widest the panel is, in CSS pixels.
+pub const SETTINGS_WIDTH: f32 = 720.0;
+
+/// How far down the panel what scrolls in it begins: 20 to its heading's
+/// row of 36, and 8 under that.
+pub const SETTINGS_HEAD: f32 = 64.0;
 
 impl Room {
     /// The conversation's, on a first screen laid out at `viewport`: from
@@ -108,20 +124,31 @@ impl Room {
         Self {
             top: TOP,
             height: room(viewport),
+            bar_left: bar_left(viewport),
         }
     }
 
-    /// *Settings*', on a first screen laid out at `viewport`: the whole of
-    /// it, from its top to its foot.
+    /// *Settings*', on a first screen laid out at `viewport` (queue item
+    /// 886): the room in its panel under its heading, as the panel stands
+    /// once what it holds is taller than it can be — [`SETTINGS_MARGIN`]
+    /// from the screen's top and foot — which is the only time anything
+    /// scrolls in it; and the bar in the panel's right gutter.
     #[must_use]
     pub fn settings(viewport: Size) -> Self {
-        Self {
-            top: 0.0,
-            height: if viewport.height.is_finite() {
-                viewport.height.clamp(0.0, MOST)
+        let finite = |length: f32| {
+            if length.is_finite() {
+                length.clamp(0.0, MOST)
             } else {
                 0.0
-            },
+            }
+        };
+        let (width, height) = (finite(viewport.width), finite(viewport.height));
+        let panel = (width - 2.0 * SETTINGS_MARGIN).clamp(0.0, SETTINGS_WIDTH);
+        let right = f32::midpoint(width, panel);
+        Self {
+            top: SETTINGS_MARGIN + SETTINGS_HEAD,
+            height: (height - 2.0 * SETTINGS_MARGIN - SETTINGS_HEAD).max(0.0),
+            bar_left: right - BAR_INSET - BAR_WIDTH,
         }
     }
 }
@@ -328,6 +355,17 @@ pub fn bar_in(down: f32, reach: Reach, room: f32, scale: f32) -> Option<Bar> {
 /// earlier turns' box, with the gap under it, and the newest turn's —
 /// nothing for a first screen with no turns.
 pub fn reach_of(drawing: &Drawing, document: &Document) -> Reach {
+    // *Settings* over the conversation (queue item 886) is what scrolls
+    // while it is open: its page alone.
+    if let Some((_, page)) =
+        by_id(document, crate::settings_document::PAGE).and_then(|node| laid_out(drawing, node))
+    {
+        return Reach {
+            earlier: 0.0,
+            newest: page,
+        }
+        .bounded();
+    }
     let height = |id: &str| {
         let node = document
             .descendants(document.root())
@@ -355,7 +393,11 @@ pub fn keyed_of(drawing: &Drawing, document: &Document) -> Option<Span> {
             .find(|&node| wanted(node))
             .and_then(|node| laid_out(drawing, node))
     };
-    let page = of(&|node| document.attribute_by_name(node, "id") == Some(NEWEST))?;
+    // *Settings*' page while it is open (queue item 886), the newest
+    // turn's otherwise.
+    let page =
+        of(&|node| document.attribute_by_name(node, "id") == Some(crate::settings_document::PAGE))
+            .or_else(|| of(&|node| document.attribute_by_name(node, "id") == Some(NEWEST)))?;
     let keyed = of(&|node| {
         document
             .attribute_by_name(node, "class")
@@ -368,6 +410,13 @@ pub fn keyed_of(drawing: &Drawing, document: &Document) -> Option<Span> {
         }
         .bounded(),
     )
+}
+
+/// The element of `document` with `id`, if there is one.
+fn by_id(document: &Document, id: &str) -> Option<alo_dom::NodeId> {
+    document
+        .descendants(document.root())
+        .find(|&node| document.attribute_by_name(node, "id") == Some(id))
 }
 
 /// The top and the height of the first box `node` made, as `drawing` laid
@@ -502,20 +551,34 @@ mod tests {
     }
 
     #[test]
-    fn settings_room_is_the_whole_screen_and_the_conversations_from_40_to_the_box() {
+    fn settings_room_is_its_panels_under_its_heading_and_the_conversations_from_40_to_the_box() {
+        // Queue item 886: in the least window, the panel 472 wide from 32
+        // to 504, 536 tall from 32; its room from 96 to 568; its bar 19 in
+        // from its right.
         let viewport = Size::new(536.0, 600.0);
         assert_eq!(
             Room::settings(viewport),
             Room {
-                top: 0.0,
-                height: 600.0
+                top: 96.0,
+                height: 472.0,
+                bar_left: 485.0,
+            }
+        );
+        // The design's: the panel 720 wide from 160 to 880.
+        assert_eq!(
+            Room::settings(Size::new(1040.0, 820.0)),
+            Room {
+                top: 96.0,
+                height: 692.0,
+                bar_left: 861.0,
             }
         );
         assert_eq!(
             Room::conversation(Size::new(1040.0, 820.0)),
             Room {
                 top: 40.0,
-                height: 676.0
+                height: 676.0,
+                bar_left: 973.0,
             }
         );
         assert_eq!(
@@ -524,15 +587,15 @@ mod tests {
                 .to_bits(),
             0.0_f32.to_bits()
         );
-        // A page 838 tall in it scrolls 238; a bar says where on Settings.
+        // A page 710 tall in it scrolls 238; a bar says where on Settings.
         let reach = Reach {
             earlier: 0.0,
-            newest: 838.0,
+            newest: 710.0,
         };
-        assert_eq!(bits(bounds_in(reach, 600.0)), bits((-0.0, 238.0)));
-        let bar = bar_in(238.0, reach, 600.0, 1.0).expect("a bar");
+        assert_eq!(bits(bounds_in(reach, 472.0)), bits((-0.0, 238.0)));
+        let bar = bar_in(238.0, reach, 472.0, 1.0).expect("a bar");
         assert_eq!(
-            bar.said_of("Settings", 600.0),
+            bar.said_of("Settings", 472.0),
             "Settings goes on above; scrolled 100% of the way down"
         );
     }

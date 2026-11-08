@@ -19,7 +19,7 @@
 //! clip that cannot.
 
 use crate::canvas::Canvas;
-use crate::damage::{Damage, damage};
+use crate::damage::{Damage, damage_standing};
 use crate::display::DisplayList;
 use crate::kept::Kept;
 use crate::region::Region;
@@ -79,11 +79,16 @@ pub fn repaint(
 ) -> Repainted {
     let size = (canvas.width(), canvas.height());
     kept.begin();
-    let repainted = match damage(before, after, size, kept) {
+    let (damage, standing) = damage_standing(before, after, size, kept);
+    let repainted = match damage {
         // Nothing drawn, and what is kept is kept as it was: the two lists
         // draw alike, so it is all still this list's.
         Damage::None => return Repainted::Nothing,
         Damage::Within(region) => {
+            // A backdrop whose crop nothing under it changed is drawn from
+            // the blur the last drawing kept (queue item 885): the region
+            // need not hold all of the crop it reads.
+            kept.stand(standing);
             canvas.reset(region, ground);
             canvas.confine(Some(region));
             draw(after, canvas, Some(kept));
@@ -273,5 +278,132 @@ mod tests {
                 "the shadow is taken as it was blurred"
             );
         }
+    }
+
+    /// A page of stripes, a box blurring what is behind it under a
+    /// translucent white, and a mark drawn over the box: queue item 885.
+    fn frosted(stripe: f32, mark: f32, beside: f32) -> DisplayList {
+        let mut items = vec![fill(
+            0.0,
+            0.0,
+            160.0,
+            100.0,
+            Rgba::from_rgba8(240, 238, 230, 255),
+        )];
+        for at in [10.0, 30.0, 50.0, 70.0] {
+            items.push(fill(
+                at,
+                0.0,
+                8.0,
+                100.0,
+                Rgba::from_rgba8(30, 60, 160, 255),
+            ));
+        }
+        items.push(fill(
+            stripe,
+            40.0,
+            6.0,
+            30.0,
+            Rgba::from_rgba8(200, 30, 30, 255),
+        ));
+        // Outside the box, as near it as its blur reaches: never read.
+        items.push(fill(beside, 50.0, 4.0, 10.0, Rgba::BLACK));
+        let rect = alo_layout::Rect::new(20.0, 20.0, 100.0, 60.0);
+        let shape = crate::corner::rounded_rectangle(rect, crate::corner::Corners::all(16.0));
+        items.push(DisplayItem::Backdrop {
+            box_id: BoxId::from_index_for_tests(1),
+            rect,
+            path: shape.clone(),
+            blur: 6.0,
+        });
+        items.push(DisplayItem::Fill {
+            box_id: BoxId::from_index_for_tests(1),
+            path: shape,
+            paint: Paint::Solid(Rgba::from_rgba8(255, 255, 255, 178)),
+            rule: FillRule::NonZero,
+        });
+        items.push(fill(mark, 60.0, 10.0, 6.0, Rgba::BLACK));
+        list(items)
+    }
+
+    #[test]
+    fn a_change_under_a_blurred_box_paints_its_whole_crop_again() {
+        // Queue item 885: the red stripe moved under the box changes what the
+        // blur reads, and so every pixel the box's backdrop draws — and so
+        // does one only the list before had, taken away.
+        let moved = frosted(48.0, 60.0, 124.0);
+        let gone = list(
+            frosted(40.0, 60.0, 124.0)
+                .items()
+                .iter()
+                .filter(|item| {
+                    !matches!(item, DisplayItem::Fill { paint: Paint::Solid(color), .. }
+                        if *color == Rgba::from_rgba8(200, 30, 30, 255))
+                })
+                .cloned()
+                .collect(),
+        );
+        for after in [moved, gone] {
+            let before = frosted(40.0, 60.0, 124.0);
+            let mut kept = Kept::new();
+            let mut canvas = Canvas::new(160, 100, Rgba::WHITE);
+            crate::render::render_keeping(&before, &mut canvas, &mut kept);
+            let repainted = repaint(&before, &after, &mut canvas, Rgba::WHITE, &mut kept);
+            assert_eq!(
+                canvas,
+                drawn(&after, (160, 100)),
+                "every pixel as drawn whole"
+            );
+            let Repainted::Within(region) = repainted else {
+                panic!("painted {repainted:?}");
+            };
+            assert!(
+                region.left <= 20 && region.top <= 20 && region.right >= 120 && region.bottom >= 80,
+                "the whole crop: {region:?}"
+            );
+            assert_eq!(kept.made().backdrops, 1, "blurred again");
+        }
+    }
+
+    #[test]
+    fn a_change_over_a_blurred_box_or_past_its_crop_takes_the_blur_kept() {
+        // Queue item 885: what is drawn over the box, or beside it however
+        // near, changes nothing the blur reads — it is taken as the last
+        // drawing kept it, and only the change is painted again.
+        let mut kept = Kept::new();
+        let mut canvas = Canvas::new(160, 100, Rgba::WHITE);
+        let first = frosted(40.0, 60.0, 124.0);
+        crate::render::render_keeping(&first, &mut canvas, &mut kept);
+        assert_eq!(kept.made().backdrops, 1);
+        let over = frosted(40.0, 64.0, 124.0);
+        let beside = frosted(40.0, 64.0, 128.0);
+        for (before, after) in [(&first, &over), (&over, &beside), (&beside, &first)] {
+            let repainted = repaint(before, after, &mut canvas, Rgba::WHITE, &mut kept);
+            assert_eq!(
+                canvas,
+                drawn(after, (160, 100)),
+                "every pixel as drawn whole"
+            );
+            let Repainted::Within(region) = repainted else {
+                panic!("painted {repainted:?}");
+            };
+            assert!(region.area() < 2000, "only the changes: {region:?}");
+            assert_eq!(kept.made().backdrops, 0, "the blur taken as kept");
+        }
+    }
+
+    #[test]
+    fn a_blur_not_kept_is_blurred_from_a_crop_painted_whole() {
+        // With nothing kept, a change over the box paints the whole crop
+        // again, for its blur reads all of it.
+        let (before, after) = (frosted(40.0, 60.0, 124.0), frosted(40.0, 64.0, 124.0));
+        let mut canvas = drawn(&before, (160, 100));
+        let mut kept = Kept::new();
+        let repainted = repaint(&before, &after, &mut canvas, Rgba::WHITE, &mut kept);
+        assert_eq!(canvas, drawn(&after, (160, 100)));
+        let Repainted::Within(region) = repainted else {
+            panic!("painted {repainted:?}");
+        };
+        assert!(region.left <= 20 && region.right >= 120, "{region:?}");
     }
 }

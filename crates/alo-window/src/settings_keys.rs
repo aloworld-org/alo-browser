@@ -10,9 +10,9 @@
 //!
 //! | | |
 //! |---|---|
-//! | Tab, ⇧Tab | the keyboard on *Back to the chat*, then *Font*, round |
+//! | Tab, ⇧Tab | the keyboard on its ×, then *Font*, then *alo at work*'s three, round |
 //! | ← ↑, → ↓ | on *Font*: the face before, or after, chosen, round |
-//! | Space, Return | on *Back to the chat*: pressed |
+//! | Space, Return | on its ×: pressed, closing it (886) |
 //!
 //! Escape closes *Settings* wherever the keyboard is, as before (854). A key
 //! held with ⌘, ⌃ or ⌥ is none of these; held down, Tab and the arrows go

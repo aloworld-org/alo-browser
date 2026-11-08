@@ -42,6 +42,16 @@ use alo_paint::{Canvas, Drawing};
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
+/// The raster pictures a drawing decoded, by `src`, each with the bytes it
+/// was decoded from: handed to the next drawing of the same renderer, which
+/// takes a picture of the same `src` and the very same bytes as it was
+/// decoded rather than decoding it again (queue item 886). The same bytes
+/// decode to the same pixels, so nothing drawn differs; and the picture
+/// being the very same picture lets a list painted over the last match it
+/// ([`alo_paint::damage`]), so a first screen holding a card's frame is not
+/// painted whole for every change beside it.
+pub type Decoded = BTreeMap<String, (Vec<u8>, Arc<Canvas>)>;
+
 /// Every picture a page's `<img>` elements show, read and sized.
 #[derive(Debug, Default)]
 pub struct Pictures {
@@ -57,6 +67,8 @@ pub struct Pictures {
     beneath: BTreeSet<NodeId>,
     /// What could not be shown, one line each.
     pub issues: Vec<String>,
+    /// The raster pictures it decoded or took, for the next drawing.
+    pub decoded: Decoded,
 }
 
 /// The pictures of one drawing, by the box each is drawn in.
@@ -73,12 +85,14 @@ pub struct Boxed<'p> {
 }
 
 impl Pictures {
-    /// Read every picture the page's `<img>` elements name.
+    /// Read every picture the page's `<img>` elements name — taking from
+    /// `before`, what the last drawing decoded, a picture of the same `src`
+    /// and the very same bytes.
     ///
     /// Every `<img>` in the document, in document order, including one that
     /// ends up with no box: a hidden picture is still the page's, and what
     /// could not be read about it is still said.
-    pub fn read(document: &Document, resources: &[Resource]) -> Self {
+    pub fn read(document: &Document, resources: &[Resource], before: &Decoded) -> Self {
         let mut pictures = Self::default();
         // One decoded picture per file, shared by every `<img>` that names
         // it, as Chrome's decode cache holds it: what a picture is drawn
@@ -125,8 +139,12 @@ impl Pictures {
                 }
                 continue;
             }
-            let read = match decoded.get(&src) {
-                Some(canvas) => Ok(Arc::clone(canvas)),
+            let kept = before
+                .get(&src)
+                .filter(|(bytes, _)| *bytes == resource.bytes)
+                .map(|(_, canvas)| Arc::clone(canvas));
+            let read = match decoded.get(&src).map(Arc::clone).or(kept) {
+                Some(canvas) => Ok(canvas),
                 None => alo_paint::picture::read(&resource.bytes).map(Arc::new),
             };
             match read {
@@ -139,6 +157,9 @@ impl Pictures {
                             f32::from(u16::try_from(height).unwrap_or(u16::MAX)),
                         ),
                     );
+                    pictures
+                        .decoded
+                        .insert(src.clone(), (resource.bytes.clone(), Arc::clone(&canvas)));
                     decoded.insert(src, Arc::clone(&canvas));
                     pictures.rasters.insert(id, canvas);
                 }

@@ -13,7 +13,7 @@
 //! and `-at-2.png`, frozen as RGBA) and at eight (the session scratchpad's
 //! `m877/`, not committed): seven boxes on whole pixels, white page —
 //! (a) a transparent box rounded 8 ringed `0 0 0 3px` in the ink at a
-//! third, as *Back to the chat*'s keyed ring is; (b) a transparent box
+//! third, as *Settings*' keyed rings are; (b) a transparent box
 //! rounded 14 casting a blurred, offset shadow; (c) a translucent
 //! background over a hard spread; (d) a transparent border of 4 under a
 //! black ring; (e) the card's own white box and two shadows, which the clip

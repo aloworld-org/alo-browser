@@ -232,6 +232,25 @@ pub enum DisplayItem {
         /// Where the picture stands, in page coordinates.
         rect: Rect,
     },
+    /// What the page drew behind a box before it, blurred, and drawn where
+    /// the box's background goes (`backdrop-filter: blur()`, queue item
+    /// 885, ADR 0104): read from `rect`'s crop under the transform in force
+    /// ([`crate::backdrop::crop_of`]) and nowhere else, blurred by a
+    /// standard deviation of `blur` CSS pixels grown with that transform
+    /// ([`crate::backdrop`]), and drawn where `path` covers inside the clip
+    /// in force. Before the box's own shadows and background, which are
+    /// drawn over it.
+    Backdrop {
+        /// The box whose backdrop it is.
+        box_id: BoxId,
+        /// Its border box, as laid out, in page coordinates: what is read.
+        rect: Rect,
+        /// Its border box with its radii, as its background is filled: where
+        /// it is drawn.
+        path: Path,
+        /// The blur's standard deviation, in CSS pixels.
+        blur: f32,
+    },
     /// A glyph drawn in layers of colour (`COLR` version 0, queue item 766):
     /// its layers put over each other on a surface of their own, as
     /// Chrome's rasteriser makes a glyph's picture, and that drawn at the
@@ -285,6 +304,7 @@ impl DisplayItem {
             | DisplayItem::GlyphShadow { box_id, .. }
             | DisplayItem::Picture { box_id, .. }
             | DisplayItem::Beneath { box_id, .. }
+            | DisplayItem::Backdrop { box_id, .. }
             | DisplayItem::LayeredGlyph { box_id, .. }
             | DisplayItem::PaintedGlyph { box_id, .. }
             | DisplayItem::Text { box_id, .. }
@@ -388,6 +408,16 @@ impl DisplayList {
                 DisplayItem::Beneath { box_id, rect } => writeln!(
                     out,
                     "beneath {box_id} at ({}, {}) {}×{}",
+                    rect.left(),
+                    rect.top(),
+                    rect.right() - rect.left(),
+                    rect.bottom() - rect.top(),
+                ),
+                DisplayItem::Backdrop {
+                    box_id, rect, blur, ..
+                } => writeln!(
+                    out,
+                    "backdrop {box_id} blur {blur} at ({}, {}) {}×{}",
                     rect.left(),
                     rect.top(),
                     rect.right() - rect.left(),

@@ -20,6 +20,7 @@
 //! [`MOST_BYTES`]: a coverage past that is made and not kept, which costs
 //! time and never a pixel.
 
+use crate::backdrop::Blurred;
 use crate::clip::Clip;
 use crate::coverage::Coverage;
 use crate::path::{Path, Segment};
@@ -47,6 +48,10 @@ pub(crate) enum Made {
     Mask,
     /// The clips open around an item, combined ([`Clip::intersected`]).
     Within,
+    /// A box's backdrop blurred ([`crate::backdrop`], queue item 885): kept
+    /// as it was blurred, and taken only while what it was blurred from
+    /// cannot have changed ([`Kept::stand`]).
+    Backdrop,
 }
 
 impl Key {
@@ -103,6 +108,11 @@ impl Key {
 pub struct Kept {
     coverages: HashMap<Key, Arc<Coverage>>,
     clips: HashMap<Key, Arc<Clip>>,
+    backdrops: HashMap<Key, Arc<Blurred>>,
+    /// The backdrops whose crops nothing drawn before them changed since
+    /// the last drawing, so that the blur it kept is this one's
+    /// ([`crate::damage`]): only for the drawing they were said for.
+    standing: HashSet<Key>,
     /// What this drawing drew or compared: what is kept past it.
     used: HashSet<Key>,
     bytes: usize,
@@ -121,6 +131,8 @@ pub struct Making {
     pub masks: u32,
     /// Clips combined.
     pub combined: u32,
+    /// Backdrops blurred (queue item 885).
+    pub backdrops: u32,
 }
 
 impl core::fmt::Debug for Kept {
@@ -128,6 +140,8 @@ impl core::fmt::Debug for Kept {
         out.debug_struct("Kept")
             .field("coverages", &self.coverages.len())
             .field("clips", &self.clips.len())
+            .field("backdrops", &self.backdrops.len())
+            .field("standing", &self.standing.len())
             .field("used", &self.used.len())
             .field("bytes", &self.bytes)
             .field("made", &self.made)
@@ -154,7 +168,41 @@ impl Kept {
     /// A drawing begun: nothing is yet used by it, or made for it.
     pub(crate) fn begin(&mut self) {
         self.used.clear();
+        self.standing.clear();
         self.made = Making::default();
+    }
+
+    /// The backdrops of this drawing whose blur the last drawing's is, by
+    /// their keys: said by [`crate::damage`] for a repaint, and only for
+    /// this drawing.
+    pub(crate) fn stand(&mut self, standing: HashSet<Key>) {
+        self.standing = standing;
+    }
+
+    /// Whether a backdrop's blur is kept under `key`.
+    pub(crate) fn holds_backdrop(&self, key: &Key) -> bool {
+        self.backdrops.contains_key(key)
+    }
+
+    /// The backdrop blurred under `key`: as kept, while it stands, or
+    /// blurred by `make` and kept while there is room.
+    pub(crate) fn backdrop(&mut self, key: &Key, make: impl FnOnce() -> Blurred) -> Arc<Blurred> {
+        self.used.insert(key.clone());
+        if self.standing.contains(key)
+            && let Some(kept) = self.backdrops.get(key)
+        {
+            return Arc::clone(kept);
+        }
+        self.count(Made::Backdrop);
+        let fresh = Arc::new(make());
+        if let Some(was) = self.backdrops.remove(key) {
+            self.bytes = self.bytes.saturating_sub(was.bytes());
+        }
+        if self.bytes + fresh.bytes() <= MOST_BYTES {
+            self.bytes += fresh.bytes();
+            self.backdrops.insert(key.clone(), Arc::clone(&fresh));
+        }
+        fresh
     }
 
     /// A drawing ended: only what it used is kept.
@@ -162,19 +210,25 @@ impl Kept {
         let used = std::mem::take(&mut self.used);
         self.coverages.retain(|key, _| used.contains(key));
         self.clips.retain(|key, _| used.contains(key));
+        self.backdrops.retain(|key, _| used.contains(key));
         self.bytes = self
             .coverages
             .values()
             .map(|coverage| coverage.data().len())
             .chain(self.clips.values().map(|clip| clip.bytes()))
+            .chain(self.backdrops.values().map(|blurred| blurred.bytes()))
             .sum();
         self.used = used;
+        self.standing.clear();
     }
 
     /// What `key` names is used by this drawing, though not drawn by it: a
     /// shape passed over on a confined canvas is kept for the next.
     pub(crate) fn touch(&mut self, key: &Key) {
-        if self.coverages.contains_key(key) || self.clips.contains_key(key) {
+        if self.coverages.contains_key(key)
+            || self.clips.contains_key(key)
+            || self.backdrops.contains_key(key)
+        {
             self.used.insert(key.clone());
         }
     }
@@ -222,6 +276,7 @@ impl Kept {
             Made::Blurred => &mut self.made.blurred,
             Made::Mask => &mut self.made.masks,
             Made::Within => &mut self.made.combined,
+            Made::Backdrop => &mut self.made.backdrops,
         };
         *count = count.saturating_add(1);
     }

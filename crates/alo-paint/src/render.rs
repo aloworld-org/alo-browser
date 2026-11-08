@@ -154,24 +154,14 @@ pub(crate) fn draw(list: &DisplayList, canvas: &mut Canvas, mut kept: Option<&mu
                 clips.pop();
                 seen.pop();
             }
-            DisplayItem::Fill {
-                path, paint, rule, ..
-            } => {
+            DisplayItem::Fill { .. } | DisplayItem::Backdrop { .. } => {
                 let target = groups.last_mut().map_or(&mut *canvas, |(_, group)| group);
-                // Only what lands on the page is made, so a shape a stranger
-                // wrote a million pixels wide costs a page of mask, not more.
-                draw_coverage(
-                    target,
-                    &filled(
-                        kept.as_deref_mut(),
-                        &moved(path, current),
-                        *rule,
-                        (width, height),
-                    ),
-                    paint,
-                    current,
-                    innermost(&clips),
-                );
+                let (clip, kept) = (innermost(&clips), kept.as_deref_mut());
+                if matches!(item, DisplayItem::Backdrop { .. }) {
+                    draw_backdrop(target, item, current, clip, kept);
+                } else {
+                    draw_fill(target, item, current, clip, kept);
+                }
             }
             DisplayItem::Shadow { .. }
             | DisplayItem::LettersShadow { .. }
@@ -305,6 +295,65 @@ fn draw_colour_glyph(
     }
 }
 
+/// A shape filled, under the transform in force, inside the clip in force.
+/// Only what lands on the page is made, so a shape a stranger wrote a
+/// million pixels wide costs a page of mask, not more. Anything else draws
+/// nothing.
+fn draw_fill(
+    target: &mut Canvas,
+    item: &DisplayItem,
+    current: Matrix,
+    clip: Option<&Clip>,
+    kept: Option<&mut Kept>,
+) {
+    let DisplayItem::Fill {
+        path, paint, rule, ..
+    } = item
+    else {
+        return;
+    };
+    let page = (target.width(), target.height());
+    let covered = filled(kept, &moved(path, current), *rule, page);
+    draw_coverage(target, &covered, paint, current, clip);
+}
+
+/// A box's backdrop (queue item 885, ADR 0104): its crop read from
+/// `target` — the canvas, or the group drawn into — blurred by its
+/// standard deviation grown with the transform in force, or taken as the
+/// last drawing kept it while nothing under it changed, and drawn where its
+/// shape covers inside the clip in force. Anything else draws nothing.
+fn draw_backdrop(
+    target: &mut Canvas,
+    item: &DisplayItem,
+    current: Matrix,
+    clip: Option<&Clip>,
+    mut kept: Option<&mut Kept>,
+) {
+    let DisplayItem::Backdrop {
+        rect, path, blur, ..
+    } = item
+    else {
+        return;
+    };
+    let size = (target.width(), target.height());
+    let Some(crop) = crate::extent::crop_under(*rect, current, size) else {
+        return;
+    };
+    let covered = filled(
+        kept.as_deref_mut(),
+        &moved(path, current),
+        FillRule::NonZero,
+        size,
+    );
+    let sigma = blur * current.scale_factor();
+    let make = || crate::backdrop::blurred(target, crop, sigma);
+    let blurred = match kept {
+        Some(kept) => kept.backdrop(&crate::backdrop::key(crop, sigma), make),
+        None => Arc::new(make()),
+    };
+    crate::backdrop::draw(target, crop, &blurred, &covered, clip);
+}
+
 /// A rectangle as a shape.
 fn rectangle(rect: alo_layout::Rect) -> Path {
     Path::rectangle(rect.left(), rect.top(), rect.size.width, rect.size.height)
@@ -336,6 +385,15 @@ fn keys_of(item: &DisplayItem, current: Matrix, page: (u32, u32)) -> Vec<Key> {
             FillRule::NonZero,
             page,
         )],
+        DisplayItem::Backdrop {
+            rect, path, blur, ..
+        } => {
+            let mut keys = vec![filled_key(&moved(path, current), FillRule::NonZero, page)];
+            if let Some(crop) = crate::extent::crop_under(*rect, current, page) {
+                keys.push(crate::backdrop::key(crop, blur * current.scale_factor()));
+            }
+            keys
+        }
         _ => Vec::new(),
     }
 }
@@ -393,6 +451,7 @@ impl Seen {
                 | DisplayItem::Shadow { .. }
                 | DisplayItem::LettersShadow { .. }
                 | DisplayItem::Beneath { .. }
+                | DisplayItem::Backdrop { .. }
         ) {
             return false;
         }

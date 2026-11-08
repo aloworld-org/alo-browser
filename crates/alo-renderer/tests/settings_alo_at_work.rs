@@ -8,8 +8,9 @@
 //! take, each a stepper, and whether alo asks before opening any site or
 //! only one neither found nor named.
 //!
-//! Each a test below: its layout in numbers under *Font*, inside the
-//! design's room; its reference (`references/settings-alo-at-work.png`,
+//! Each a test below: its layout in numbers under *Font*, in the panel's
+//! room at the design's size, scrolled to its foot (queue item 886); its
+//! reference (`references/settings-alo-at-work.png`,
 //! the section with the keyboard on the sites); a stepper's button at its
 //! end drawn off and claiming nothing; the keyboard's ring on each of the
 //! three moving nothing; an agent reading the numbers as spinbuttons and
@@ -193,37 +194,43 @@ fn holds(name: &str, frame: Option<&Frame>) -> Result<(), String> {
     }
 }
 
-/// *Settings* at the design's room, alo's agent kept to `limits`, the
-/// keyboard on `keyed`.
+/// How far *Settings* scrolls in its panel at the design's room (queue
+/// item 886): a page of 752 in a room of 692.
+const AT_ITS_FOOT: f32 = 60.0;
+
+/// *Settings* at the design's room, scrolled to its foot, alo's agent kept
+/// to `limits`, the keyboard on `keyed`.
 fn at_work(limits: Limits, keyed: Option<SettingsKeyed>) -> Start {
     Start {
         settings_keyed: keyed,
         limits,
+        settings_down: AT_ITS_FOOT,
         ..settings(InterfaceFace::Inter, DESIGN)
     }
 }
 
 #[test]
-fn alo_at_work_stands_under_font_inside_the_designs_room() {
+fn alo_at_work_stands_under_font_in_the_panels_room() {
     let drawn = draw(ToRenderer::Start(Box::new(at_work(
         Limits::default(),
         None,
     ))));
     let at = |class: &str| boxes_of(&drawn.renderer, class);
-    // 24 under the faces' foot, 576: its heading 20, its line 4 under it,
-    // one line of 18; 14 under it the box, 720 wide, a line of 1 round it.
-    assert_eq!(at("pgroup").get(1), Some(&px(160.0, 600.0, 720.0, 192.0)));
-    assert_eq!(at("pname").get(1), Some(&px(160.0, 600.0, 720.0, 20.0)));
-    assert_eq!(at("pabout").get(1), Some(&px(160.0, 624.0, 720.0, 18.0)));
-    assert_eq!(at("limits"), vec![px(160.0, 656.0, 720.0, 136.0)]);
-    // Three rows 16 in from either side, 686 wide: 44, then 45 and 45, each
+    // 24 under the faces' foot, 544 scrolled up 60: its heading 20, its
+    // line 4 under it, one line of 18; 14 under it the box, 664 wide, a
+    // line of 1 round it.
+    assert_eq!(at("pgroup").get(1), Some(&px(188.0, 568.0, 664.0, 192.0)));
+    assert_eq!(at("pname").get(1), Some(&px(188.0, 568.0, 664.0, 20.0)));
+    assert_eq!(at("pabout").get(1), Some(&px(188.0, 592.0, 664.0, 18.0)));
+    assert_eq!(at("limits"), vec![px(188.0, 624.0, 664.0, 136.0)]);
+    // Three rows 16 in from either side, 630 wide: 44, then 45 and 45, each
     // of those a rule of 1 over its 44.
     assert_eq!(
         at("lrow"),
         vec![
-            px(177.0, 657.0, 686.0, 44.0),
-            px(177.0, 701.0, 686.0, 45.0),
-            px(177.0, 746.0, 686.0, 45.0),
+            px(205.0, 625.0, 630.0, 44.0),
+            px(205.0, 669.0, 630.0, 45.0),
+            px(205.0, 714.0, 630.0, 45.0),
         ]
     );
     // Each name on 20 in the middle of its row, on a whole pixel.
@@ -231,25 +238,25 @@ fn alo_at_work_stands_under_font_inside_the_designs_room() {
         .iter()
         .map(|name| name.split(')').next().unwrap_or_default().to_owned())
         .collect();
-    assert_eq!(names, ["(177, 669", "(177, 714", "(177, 759"]);
+    assert_eq!(names, ["(205, 637", "(205, 682", "(205, 727"]);
     // The steppers at the rows' right: 102 wide, 28 tall — Fewer 30, the
     // number 40 between rules of 1, More 30 — in the middle of their rows.
     assert_eq!(
         at("stepper"),
-        vec![px(761.0, 665.0, 102.0, 28.0), px(761.0, 710.0, 102.0, 28.0)]
+        vec![px(733.0, 633.0, 102.0, 28.0), px(733.0, 678.0, 102.0, 28.0)]
     );
     assert_eq!(
         at("lbtn"),
         vec![
-            px(762.0, 666.0, 30.0, 26.0),
-            px(832.0, 666.0, 30.0, 26.0),
-            px(762.0, 711.0, 30.0, 26.0),
-            px(832.0, 711.0, 30.0, 26.0),
+            px(734.0, 634.0, 30.0, 26.0),
+            px(804.0, 634.0, 30.0, 26.0),
+            px(734.0, 679.0, 30.0, 26.0),
+            px(804.0, 679.0, 30.0, 26.0),
         ]
     );
     assert_eq!(
         at("lvalue"),
-        vec![px(792.0, 666.0, 40.0, 26.0), px(792.0, 711.0, 40.0, 26.0)]
+        vec![px(764.0, 634.0, 40.0, 26.0), px(764.0, 679.0, 40.0, 26.0)]
     );
     // The three choices at the last row's right (queue item 884), 28
     // tall, their radios 16 across as the faces' are, in its middle:
@@ -259,15 +266,15 @@ fn alo_at_work_stands_under_font_inside_the_designs_room() {
     assert_eq!(
         (at("askopt on"), at("askopt")),
         (
-            vec![px(457.156_25, 755.0, 129.859_38, 28.0)],
+            vec![px(429.156_25, 723.0, 129.859_38, 28.0)],
             vec![
-                px(587.015_6, 755.0, 196.843_75, 28.0),
-                px(783.859_4, 755.0, 87.140_625, 28.0)
+                px(559.015_6, 723.0, 196.843_75, 28.0),
+                px(755.859_4, 723.0, 87.140_625, 28.0)
             ]
         )
     );
     assert!(
-        at("askopts")[0].ends_with("397.84375×28") && at("askopts")[0].contains(", 755)"),
+        at("askopts")[0].ends_with("397.84375×28") && at("askopts")[0].contains(", 723)"),
         "{:?}",
         at("askopts")
     );
@@ -275,16 +282,17 @@ fn alo_at_work_stands_under_font_inside_the_designs_room() {
         at("dot")
             .iter()
             .skip(InterfaceFace::ALL.len())
-            .filter(|dot| dot.contains(", 761) 16×16"))
+            .filter(|dot| dot.contains(", 729) 16×16"))
             .count(),
         3
     );
-    // All of it inside the design's room, 820: the page ends at 792.
-    assert_eq!(at("prefs"), vec![px(160.0, 32.0, 720.0, 760.0)]);
+    // The page, 752 tall, scrolled to its foot at the room's, 788, 28
+    // under the box.
+    assert_eq!(at("spage"), vec![px(160.0, 36.0, 720.0, 752.0)]);
     assert!(
         rects_of(&drawn.renderer, "limits")
             .iter()
-            .all(|limits| limits.bottom() <= DESIGN.height)
+            .all(|limits| limits.bottom() <= 788.0)
     );
 }
 
@@ -296,11 +304,11 @@ fn a_stepper_at_its_end_is_off_and_the_rest_as_the_reference() {
     // Off where it would be on: nothing moves for it.
     assert_eq!(
         at("lbtn off"),
-        vec![px(762.0, 666.0, 30.0, 26.0), px(832.0, 711.0, 30.0, 26.0)]
+        vec![px(734.0, 634.0, 30.0, 26.0), px(804.0, 679.0, 30.0, 26.0)]
     );
     assert_eq!(
         at("lbtn"),
-        vec![px(832.0, 666.0, 30.0, 26.0), px(762.0, 711.0, 30.0, 26.0)]
+        vec![px(804.0, 634.0, 30.0, 26.0), px(734.0, 679.0, 30.0, 26.0)]
     );
     let names: Vec<(Option<String>, Option<bool>)> = read(&drawn.tree, "button")
         .iter()
@@ -356,7 +364,7 @@ fn the_keyboards_ring_on_each_of_the_three_moves_nothing() {
             "stepper keyed",
             "askopt on keyed",
             "face on keyed",
-            "pback keyed",
+            "pclose keyed",
         ]
         .into_iter()
         .map(|each| boxes_of(&drawn.renderer, each).len())
@@ -451,17 +459,17 @@ fn a_press_on_a_button_or_a_choice_is_claimed_by_its_place() {
     for (x, y, claim) in [
         // Fewer sites is off at one, and claims nothing; More sites is the
         // first that can be pressed.
-        (777.0, 679.0, None),
-        (847.0, 679.0, Some(Claim::Limit { at: 0 })),
-        (777.0, 724.0, Some(Claim::Limit { at: 1 })),
-        (847.0, 724.0, Some(Claim::Limit { at: 2 })),
+        (749.0, 647.0, None),
+        (819.0, 647.0, Some(Claim::Limit { at: 0 })),
+        (749.0, 692.0, Some(Claim::Limit { at: 1 })),
+        (819.0, 692.0, Some(Claim::Limit { at: 2 })),
         // The number between them is not a button.
-        (812.0, 679.0, None),
-        (520.0, 769.0, Some(Claim::Asks { at: 0 })),
-        (680.0, 769.0, Some(Claim::Asks { at: 1 })),
-        (830.0, 769.0, Some(Claim::Asks { at: 2 })),
+        (784.0, 647.0, None),
+        (492.0, 737.0, Some(Claim::Asks { at: 0 })),
+        (652.0, 737.0, Some(Claim::Asks { at: 1 })),
+        (802.0, 737.0, Some(Claim::Asks { at: 2 })),
         // The row's name is nothing to press.
-        (200.0, 724.0, None),
+        (228.0, 692.0, None),
     ] {
         assert_eq!(
             renderer.handle(ToRenderer::ConversationPress(Point::new(x, y))),

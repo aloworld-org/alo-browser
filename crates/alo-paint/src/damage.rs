@@ -66,7 +66,7 @@ use crate::glyph_shadow::Cast;
 use crate::kept::{Kept, Key, Made};
 use crate::region::Region;
 use alo_value::Matrix;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 /// The most pairs of items the middle of two lists is lined up over: two
@@ -98,20 +98,36 @@ pub fn damage(
     size: (u32, u32),
     kept: &mut Kept,
 ) -> Damage {
+    damage_standing(before, after, size, kept).0
+}
+
+/// [`damage`], and the backdrops of `after` that stand (queue item 885):
+/// each matched to one of `before`, nothing drawn before either changed
+/// any pixel of its crop, and its blur kept in `kept` — so the blur kept is
+/// this drawing's, every bit, and a repaint takes it rather than reading a
+/// crop it does not paint whole. Every other backdrop's crop is damaged
+/// whole, since its blur reads all of it.
+pub(crate) fn damage_standing(
+    before: &DisplayList,
+    after: &DisplayList,
+    size: (u32, u32),
+    kept: &mut Kept,
+) -> (Damage, HashSet<Key>) {
+    let damage = |found: Damage| (found, HashSet::new());
     if before.scale().to_bits() != after.scale().to_bits() {
-        return Damage::Whole;
+        return damage(Damage::Whole);
     }
     let (Some(old), Some(new)) = (Walked::of(before), Walked::of(after)) else {
-        return Damage::Whole;
+        return damage(Damage::Whole);
     };
     let Some(lined) = aligned(&old, &new) else {
-        return Damage::Whole;
+        return damage(Damage::Whole);
     };
     let (old_matched, new_matched) = (&lined.old, &lined.new);
     let mut found = Found::new(size);
-    for (walked, matched, scale) in [
-        (&old, old_matched, before.scale()),
-        (&new, new_matched, after.scale()),
+    for (walked, matched, scale, was) in [
+        (&old, old_matched, before.scale(), true),
+        (&new, new_matched, after.scale(), false),
     ] {
         for (index, item) in walked.items.iter().enumerate() {
             if matched.get(index).copied().unwrap_or(false) {
@@ -120,15 +136,15 @@ pub fn damage(
             match item {
                 DisplayItem::PushGroup { .. }
                 | DisplayItem::PopGroup
-                | DisplayItem::Picture { .. } => return Damage::Whole,
+                | DisplayItem::Picture { .. } => return damage(Damage::Whole),
                 DisplayItem::PushClip { .. }
                 | DisplayItem::PopClip
                 | DisplayItem::PushTransform { .. }
                 | DisplayItem::PopTransform => {}
-                _ => found.add(item, walked.at.get(index).copied(), scale),
+                _ => found.add((was, index), item, walked.at.get(index).copied(), scale),
             }
             if found.whole {
-                return Damage::Whole;
+                return damage(Damage::Whole);
             }
         }
     }
@@ -148,17 +164,17 @@ pub fn damage(
             new.inside.get(j).copied().flatten(),
         );
         if !inside_alike(&old, &new, context, lined.first, &mut clips) {
-            return Damage::Whole;
+            return damage(Damage::Whole);
         }
         if clips.is_empty() {
             continue;
         }
         let Some(&item) = new.items.get(j) else {
-            return Damage::Whole;
+            return damage(Damage::Whole);
         };
         match item {
             DisplayItem::PushGroup { .. } | DisplayItem::PopGroup | DisplayItem::Picture { .. } => {
-                return Damage::Whole;
+                return damage(Damage::Whole);
             }
             DisplayItem::PushClip { .. }
             | DisplayItem::PopClip
@@ -173,13 +189,84 @@ pub fn damage(
             }
         }
         if let Some(within) = within {
-            found.add_within(item, new.at.get(j).copied(), after.scale(), Some(within));
+            found.add_within(
+                (false, j),
+                item,
+                new.at.get(j).copied(),
+                after.scale(),
+                Some(within),
+            );
             if found.whole {
-                return Damage::Whole;
+                return damage(Damage::Whole);
             }
         }
     }
-    found.damage()
+    let standing = stood(&old, &new, &lined, &mut found, kept);
+    if found.whole {
+        return damage(Damage::Whole);
+    }
+    (found.damage(), standing)
+}
+
+/// Which backdrops of `new` stand, and every crop of one that does not
+/// added to what `found` holds (queue item 885), taken in the order they are
+/// drawn: a backdrop whose blur changes changes its whole crop, which is a
+/// change drawn before every backdrop after it.
+fn stood(
+    old: &Walked,
+    new: &Walked,
+    lined: &Lined,
+    found: &mut Found,
+    kept: &Kept,
+) -> HashSet<Key> {
+    let mut pairs: Vec<(usize, usize)> = (0..lined.first)
+        .map(|index| (index, index))
+        .chain(lined.pairs.iter().copied())
+        .filter(|&(_, j)| matches!(new.items.get(j), Some(DisplayItem::Backdrop { .. })))
+        .collect();
+    pairs.sort_by_key(|&(_, j)| j);
+    let keys_of = |walked: &Walked| -> Vec<Key> {
+        walked
+            .items
+            .iter()
+            .zip(&walked.at)
+            .filter_map(|(item, at)| backdrop_key(item, *at, found.size).map(|(_, key)| key))
+            .collect()
+    };
+    let (old_keys, new_keys) = (keys_of(old), keys_of(new));
+    let twice = |keys: &[Key], key: &Key| keys.iter().filter(|each| *each == key).count() > 1;
+    let mut standing = HashSet::new();
+    for (i, j) in pairs {
+        let (Some(item), Some(at)) = (new.items.get(j), new.at.get(j)) else {
+            continue;
+        };
+        let Some((crop, key)) = backdrop_key(item, *at, found.size) else {
+            continue;
+        };
+        let changed = found.log.iter().any(|&((before, index), region)| {
+            (if before { index < i } else { index < j }) && region.meeting(crop).is_some()
+        });
+        // A key held by two backdrops of a list stands for neither: what is
+        // kept under it is one crop's blur.
+        if changed || !kept.holds_backdrop(&key) || twice(&old_keys, &key) || twice(&new_keys, &key)
+        {
+            found.add_region((false, j), crop);
+        } else {
+            standing.insert(key);
+        }
+    }
+    standing
+}
+
+/// A backdrop's crop and the key its blur is kept under, drawn under `at`
+/// on a canvas of `size`; [`None`] for any other item, or one off the
+/// canvas.
+fn backdrop_key(item: &DisplayItem, at: Matrix, size: (u32, u32)) -> Option<(Region, Key)> {
+    let DisplayItem::Backdrop { rect, blur, .. } = item else {
+        return None;
+    };
+    let crop = crate::extent::crop_under(*rect, at, size)?;
+    Some((crop, crate::backdrop::key(crop, blur * at.scale_factor())))
 }
 
 /// Where pairs of clips, one of each list, let different amounts through:
@@ -455,6 +542,10 @@ struct Found {
     size: (u32, u32),
     region: Option<Region>,
     whole: bool,
+    /// Each region added, and the item it was added for: whether of the
+    /// list before, and its place there — so that a backdrop can be asked
+    /// whether anything drawn before it changed under it (queue item 885).
+    log: Vec<((bool, usize), Region)>,
 }
 
 impl Found {
@@ -463,18 +554,27 @@ impl Found {
             size,
             region: None,
             whole: false,
+            log: Vec::new(),
         }
     }
 
-    /// What `item` can reach, drawn under `current`, added; a reach that
-    /// cannot be said, or a damage of half the canvas or more, is the whole.
-    fn add(&mut self, item: &DisplayItem, current: Option<Matrix>, scale: f32) {
-        self.add_within(item, current, scale, None);
+    /// What `item`, at `place` — of the list before or not, and where in
+    /// it — can reach, drawn under `current`, added; a reach that cannot be
+    /// said, or a damage of half the canvas or more, is the whole.
+    fn add(
+        &mut self,
+        place: (bool, usize),
+        item: &DisplayItem,
+        current: Option<Matrix>,
+        scale: f32,
+    ) {
+        self.add_within(place, item, current, scale, None);
     }
 
     /// The same, of only what is inside `limit` when there is one.
     fn add_within(
         &mut self,
+        place: (bool, usize),
         item: &DisplayItem,
         current: Option<Matrix>,
         scale: f32,
@@ -494,14 +594,18 @@ impl Found {
         match reach {
             Reach::Nothing => {}
             Reach::Unknown => self.whole = true,
-            Reach::Within(region) => {
-                let joined = self.region.map_or(region, |was| was.joined(region));
-                self.region = Some(joined);
-                let canvas = u64::from(self.size.0) * u64::from(self.size.1);
-                if joined.area().saturating_mul(2) >= canvas {
-                    self.whole = true;
-                }
-            }
+            Reach::Within(region) => self.add_region(place, region),
+        }
+    }
+
+    /// `region` added, for the item at `place`.
+    fn add_region(&mut self, place: (bool, usize), region: Region) {
+        self.log.push((place, region));
+        let joined = self.region.map_or(region, |was| was.joined(region));
+        self.region = Some(joined);
+        let canvas = u64::from(self.size.0) * u64::from(self.size.1);
+        if joined.area().saturating_mul(2) >= canvas {
+            self.whole = true;
         }
     }
 
@@ -605,6 +709,7 @@ fn same(was: &DisplayItem, is: &DisplayItem) -> bool {
             },
         ) => rect == r && Arc::ptr_eq(picture, p) && fade == f,
         (D::Beneath { rect, .. }, D::Beneath { rect: r, .. }) => rect == r,
+        (D::Backdrop { .. }, D::Backdrop { .. }) => same_backdrop(was, is),
         (D::Text { .. }, D::Text { .. }) => same_text(was, is),
         (D::PushClip { path, .. }, D::PushClip { path: p, .. }) => path == p,
         (D::PushTransform { matrix, .. }, D::PushTransform { matrix: m, .. }) => matrix == m,
@@ -612,6 +717,25 @@ fn same(was: &DisplayItem, is: &DisplayItem) -> bool {
         (D::PopClip, D::PopClip)
         | (D::PopTransform, D::PopTransform)
         | (D::PopGroup, D::PopGroup) => true,
+        _ => false,
+    }
+}
+
+/// Whether two backdrops draw alike (queue item 885): the same crop, shape
+/// and blur — and so, where nothing under them changed, the same pixels.
+fn same_backdrop(was: &DisplayItem, is: &DisplayItem) -> bool {
+    match (was, is) {
+        (
+            DisplayItem::Backdrop {
+                rect, path, blur, ..
+            },
+            DisplayItem::Backdrop {
+                rect: r,
+                path: p,
+                blur: b,
+                ..
+            },
+        ) => rect == r && path == p && exactly(*blur, *b),
         _ => false,
     }
 }

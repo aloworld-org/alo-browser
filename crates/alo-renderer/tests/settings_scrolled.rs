@@ -3,10 +3,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 //! Queue item 880 (`docs/design/shell.md`, *Settings*): *Settings* scrolls
-//! as the conversation does. In the least window, 600 tall, its page runs
-//! past the room, so it reaches further than the room and is drawn moved up
-//! by how far the browser process scrolled it, clipped to the screen, with
-//! the sign that it goes on in the clip's right gutter; and where the thing
+//! as the conversation does — since queue item 886 inside its panel, under
+//! its heading. In the least window, 600 tall, its page runs past the
+//! panel's room, so it reaches further than the room and is drawn moved up
+//! by how far the browser process scrolled it, clipped to the room, with
+//! the sign that it goes on in the room's right gutter; and where the thing
 //! the keyboard is on stands is answered with its reach, so it can be
 //! scrolled into view.
 //!
@@ -193,14 +194,18 @@ fn holds(name: &str, frame: Option<&Frame>) -> Result<(), String> {
 
 /// How far *Settings* reaches in the least window: what its renderer
 /// answered, read here once and checked against the layout above.
-const REACH: f32 = 838.0;
+const REACH: f32 = 820.0;
+
+/// The room it scrolls in, in its panel in the least window (queue item
+/// 886): 600 less 32 above and below and its heading's 64.
+const ROOM: f32 = 472.0;
 
 /// *Settings* in the least window, scrolled `down`, the keyboard on
 /// `keyed`, with the bar the browser process would send for `reach`.
 fn scrolled(down: f32, keyed: Option<SettingsKeyed>, reach: Option<Reach>) -> Start {
     Start {
-        down,
-        bar: reach.and_then(|reach| conversation_scroll::bar_in(down, reach, LEAST.height, 1.0)),
+        settings_down: down,
+        settings_bar: reach.and_then(|reach| conversation_scroll::bar_in(down, reach, ROOM, 1.0)),
         settings_keyed: keyed,
         ..settings(InterfaceFace::Inter, LEAST)
     }
@@ -224,49 +229,56 @@ fn least_reach() -> Option<Reach> {
 #[test]
 fn in_the_least_window_it_reaches_past_the_room_and_is_drawn_scrolled() {
     let reach = least_reach().expect("a reach");
-    // The page from the screen's top: 32 above it, then its heading of 36,
-    // *Font* and its faces, two a row in the column of 472, and *alo at
-    // work*, and 24 under it: 838 — the 816 it is in the design's room, and
-    // 22 more where the column is narrow (its line about it on two lines,
-    // *Ask before opening*'s choices under its name).
+    // The page from the room's top: 24 above *Font*, its faces two a row
+    // in the panel's 416, *alo at work*, and 28 under it: 820 — the 752 it
+    // is at the design's size, and 68 more where the panel is narrow (both
+    // lines about them on two lines, *Ask before opening*'s choices under
+    // its name).
+    assert_eq!(
+        conversation_scroll::Room::settings(LEAST).height.to_bits(),
+        ROOM.to_bits()
+    );
     assert_eq!(reach.earlier.to_bits(), 0.0_f32.to_bits());
     assert_eq!(reach.newest.to_bits(), REACH.to_bits(), "{reach:?}");
-    let (least, most) = conversation_scroll::bounds_in(reach, LEAST.height);
+    let (least, most) = conversation_scroll::bounds_in(reach, ROOM);
     assert_eq!(
         (least.abs().to_bits(), most.to_bits()),
-        (0, (REACH - 600.0).to_bits())
+        (0, (REACH - ROOM).to_bits())
     );
-    // At its top: the page where it always was, and a bar 600 × 600 /
-    // REACH long at the top of the gutter.
+    // At its top: the page from the room's top, 96, and a bar ROOM × ROOM
+    // / REACH long at the top of the gutter, 19 in from the panel's right.
     let top = draw(ToRenderer::Start(Box::new(scrolled(
         0.0,
         None,
         Some(reach),
     ))));
     let at = |drawn: &Drawn, class: &str| boxes_of(&drawn.renderer, class);
-    assert_eq!(at(&top, "sclip"), vec![px(0.0, 0.0, 536.0, 600.0)]);
-    assert_eq!(at(&top, "spage"), vec![px(32.0, 0.0, 472.0, REACH)]);
-    assert_eq!(at(&top, "prefs"), vec![px(32.0, 32.0, 472.0, REACH - 56.0)]);
-    let bar = conversation_scroll::bar_in(0.0, reach, 600.0, 1.0).expect("a bar");
-    assert_eq!(at(&top, "goes-on"), vec![px(517.0, 0.0, 6.0, bar.length)]);
+    assert_eq!(at(&top, "sclip"), vec![px(32.0, 96.0, 472.0, ROOM)]);
+    assert_eq!(at(&top, "spage"), vec![px(32.0, 96.0, 472.0, REACH)]);
+    let bar = conversation_scroll::bar_in(0.0, reach, ROOM, 1.0).expect("a bar");
+    assert_eq!(at(&top, "goes-on"), vec![px(485.0, 96.0, 6.0, bar.length)]);
     // Scrolled to its foot: everything up by as much, the box of *alo at
-    // work* whole, 24 above the screen's foot, and the bar at the foot.
+    // work* whole, 28 above the room's foot at 568, and the bar at the
+    // foot.
     let foot = draw(ToRenderer::Start(Box::new(scrolled(
         most,
         None,
         Some(reach),
     ))));
-    assert_eq!(at(&foot, "spage"), vec![px(32.0, -most, 472.0, REACH)]);
+    assert_eq!(
+        at(&foot, "spage"),
+        vec![px(32.0, 96.0 - most, 472.0, REACH)]
+    );
     let limits = rects_of(&foot.renderer, "limits");
     let the_box = limits.first().expect("alo at work's box");
     assert_eq!(
         (the_box.top() + the_box.size.height).to_bits(),
-        576.0_f32.to_bits()
+        540.0_f32.to_bits()
     );
-    let at_foot = conversation_scroll::bar_in(most, reach, 600.0, 1.0).expect("a bar");
+    let at_foot = conversation_scroll::bar_in(most, reach, ROOM, 1.0).expect("a bar");
     assert_eq!(
         at(&foot, "goes-on"),
-        vec![px(517.0, 600.0 - at_foot.length, 6.0, at_foot.length)]
+        vec![px(485.0, 96.0 + ROOM - at_foot.length, 6.0, at_foot.length)]
     );
 }
 
@@ -283,16 +295,16 @@ fn where_the_keyboard_is_stands_down_the_page_however_far_it_is_scrolled() {
         let chosen = rects_of(&drawn.renderer, "askopt on keyed");
         let chosen = chosen.first().expect("the chosen option, keyed");
         // Measured from the page's top, which stands `down` above the
-        // screen's: where it is on the page, wherever that is scrolled.
+        // room's at 96: where it is on the page, wherever that is scrolled.
         let span = keyed.expect("the keyed thing");
         assert_eq!(
             span.top.to_bits(),
-            (chosen.top() + down).to_bits(),
+            (chosen.top() - 96.0 + down).to_bits(),
             "{down}"
         );
         assert_eq!(
             span.foot.to_bits(),
-            (chosen.top() + chosen.size.height + down).to_bits()
+            (chosen.top() + chosen.size.height - 96.0 + down).to_bits()
         );
     }
     // Nothing keyed, nothing said.
@@ -312,14 +324,14 @@ fn where_the_keyboard_is_stands_down_the_page_however_far_it_is_scrolled() {
     let span = reached(&mut drawn)
         .and_then(|(_, keyed)| keyed)
         .expect("keyed");
-    let down = conversation_scroll::into_view(0.0, span, 16.0, reach, 600.0);
-    assert_eq!(down.to_bits(), (span.foot + 16.0 - 600.0).to_bits());
+    let down = conversation_scroll::into_view(0.0, span, 16.0, reach, ROOM);
+    assert_eq!(down.to_bits(), (span.foot + 16.0 - ROOM).to_bits());
 }
 
 #[test]
 fn scrolled_to_its_foot_it_is_drawn_as_the_reference_and_its_bar_read() {
     let reach = least_reach().expect("a reach");
-    let (_, most) = conversation_scroll::bounds_in(reach, LEAST.height);
+    let (_, most) = conversation_scroll::bounds_in(reach, ROOM);
     let drawn = draw(ToRenderer::Start(Box::new(scrolled(
         most,
         Some(SettingsKeyed::Asks),

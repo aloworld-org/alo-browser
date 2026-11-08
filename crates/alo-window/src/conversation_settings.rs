@@ -4,22 +4,22 @@
 
 //! *Settings*, as the browser process holds it (queue item 854,
 //! `docs/design/shell.md`, *Settings*; approved by the owner 2026-11-07):
-//! whether it is the page on screen, and the face the interface's words
-//! are set in.
+//! whether it is open, and the face the interface's words are set in.
 //!
-//! *Settings* opens as a page in the conversation's place — the panel's
-//! *Settings* row pressed — and stands there until *Back to the chat* or
-//! Escape is pressed, a chat is chosen in the panel or *New chat* is: the
-//! chat on screen is left as it was underneath, its turns, its scroll and
-//! a live card kept. Its one section is the font: choosing a face sets the
+//! *Settings* opens over the conversation (queue item 886) — the panel's
+//! *Settings* row pressed, or ⌘, — and stands there until its × or Escape
+//! is pressed, the veil around it is, a chat is chosen in the panel or
+//! *New chat* is: the chat on screen is drawn under it as it was, its
+//! turns, its scroll and a live card kept, and the keyboard is given back
+//! to where it was ([`Keyboard`]). Its first section is the font: choosing a face sets the
 //! whole interface in it at once, with no restart, and is kept beside the
 //! chats ([`crate::settings_file`]) so the next launch is set in it too.
 //!
 //! **By keys** (queue item 856): Tab and ⇧Tab move the keyboard between
-//! *Back to the chat* and the radio group *Font*, round from either end;
-//! on the group the arrows choose the face before or after the one chosen,
-//! round from either end, as the ARIA radio group pattern and a Mac's radio
-//! buttons have it; Space or Return on *Back to the chat* presses it. Where
+//! its × and the radio group *Font*, round from either end; on the group
+//! the arrows choose the face before or after the one chosen, round from
+//! either end, as the ARIA radio group pattern and a Mac's radio buttons
+//! have it; Space or Return on its × presses it. Where
 //! the keyboard is is drawn as a ring only once Tab has put it there, and a
 //! press of the pointer puts it away, as a browser's `:focus-visible` does
 //! ([`crate::settings_keys`] reads the keys).
@@ -68,6 +68,23 @@ pub struct Settings {
     /// What Tab moved the keyboard to, to be scrolled into view once its
     /// renderer says where it was drawn.
     reveal: Option<SettingsKeyed>,
+}
+
+/// Where the keyboard was as *Settings* opened: what it is given back to as
+/// *Settings* closes by Escape, its × or a press on the veil around it
+/// (queue item 886). A chat chosen, or *New chat*, puts it where they put
+/// it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Keyboard {
+    /// Nothing had it.
+    #[default]
+    Nowhere,
+    /// The one box.
+    TheBox,
+    /// The panel's *Search chats*.
+    SearchChats,
+    /// The live card's page.
+    TheCard,
 }
 
 /// How far clear of the room's top or foot what the keyboard moves to is
@@ -236,7 +253,7 @@ impl Settings {
                 let other = self.limits.asks.stepped(on);
                 return self.choose_asks(other);
             }
-            Some(SettingsKeyed::Back) | None => return false,
+            Some(SettingsKeyed::Close) | None => return false,
         }
         let faces = InterfaceFace::ALL;
         let at = faces
@@ -299,11 +316,11 @@ mod tests {
         assert!(settings.open());
         assert_eq!(settings.keyed(), None, "nothing until Tab");
         assert!(settings.tab(false));
-        assert_eq!(settings.keyed(), Some(SettingsKeyed::Back));
+        assert_eq!(settings.keyed(), Some(SettingsKeyed::Close));
         assert!(settings.tab(false));
         assert_eq!(settings.keyed(), Some(SettingsKeyed::Font));
         assert!(settings.tab(true));
-        assert_eq!(settings.keyed(), Some(SettingsKeyed::Back));
+        assert_eq!(settings.keyed(), Some(SettingsKeyed::Close));
         assert!(settings.tab(true));
         assert_eq!(settings.keyed(), Some(SettingsKeyed::Asks), "⇧Tab round");
         // ⇧Tab from nothing is the last.
@@ -353,12 +370,12 @@ mod tests {
         assert_eq!(
             went,
             [
-                SettingsKeyed::Back,
+                SettingsKeyed::Close,
                 SettingsKeyed::Font,
                 SettingsKeyed::Sites,
                 SettingsKeyed::Actions,
                 SettingsKeyed::Asks,
-                SettingsKeyed::Back,
+                SettingsKeyed::Close,
             ]
         );
         assert!(settings.tab(true));

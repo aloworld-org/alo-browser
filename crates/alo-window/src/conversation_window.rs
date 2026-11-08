@@ -1000,6 +1000,19 @@ impl ConversationWindow {
         std::mem::take(&mut self.said)
     }
 
+    /// The first screen as it is asked to be drawn, laid out at `viewport`
+    /// on a screen of `scale`: the card's page beneath it, not in it (queue
+    /// item 869) — but in it while *Settings* stands over it, so that it is
+    /// blurred with the rest of the conversation (queue item 886); its page
+    /// is not streamed then, so its last frame is drawn once.
+    fn start_asked(&self, viewport: Size, scale: Scale) -> alo_renderer::start::Start {
+        let mut start = self.conversation.start(viewport, scale);
+        if !self.conversation.settings().is_open() {
+            beneath::pictured_beneath(&mut start);
+        }
+        start
+    }
+
     /// Have both parts drawn at the window's size and scale — which the
     /// drawing thread does only for a part that differs from the last.
     pub fn ask_drawn(&mut self) {
@@ -1014,11 +1027,7 @@ impl ConversationWindow {
             panel_viewport_of(window, scale, self.conversation.panel_width()),
             scale,
         );
-        let mut start = self
-            .conversation
-            .start(start_viewport_as(window, scale, side), scale);
-        // The card's page drawn beneath it, not in it (queue item 869).
-        beneath::pictured_beneath(&mut start);
+        let mut start = self.start_asked(start_viewport_as(window, scale, side), scale);
         let mut panel = panel;
         // The fields' carets as they stand now, and their words' scroll
         // (queue item 861).
@@ -1382,7 +1391,7 @@ impl ConversationWindow {
                 conversation_bar::near(
                     on.x,
                     on.y,
-                    conversation_scroll::bar_left(room),
+                    seen.bar_left,
                     (seen.top, seen.top + seen.height),
                 )
             }
@@ -2384,6 +2393,14 @@ impl ConversationWindow {
             self.act_on(Part::Panel, Decided::NewChat);
             return;
         }
+        // ⌘, opens *Settings*, as the panel's row does, wherever the
+        // keyboard is; again while it is open it is nothing (queue item 886).
+        if crate::keys::opens_settings(press, crate::keys::Platform::HERE) {
+            if !self.conversation.settings().is_open() {
+                self.act_on(Part::Panel, Decided::Settings);
+            }
+            return;
+        }
         // The sheet out (queue item 776): Escape closes it, whatever has
         // the keyboard; *Search chats* in it still takes what is typed, and
         // nothing under it takes a key.
@@ -3115,8 +3132,8 @@ mod tests {
     }
 
     /// *Settings*' page in the tests of queue item 880: 1200 tall, so in
-    /// the design's window at one, whose first screen is its room, 820 tall,
-    /// it scrolls 380.
+    /// the design's window at one, whose first screen is 820 tall and its
+    /// panel's room 692 (queue item 886), it scrolls 508.
     const SETTINGS_REACH: Reach = Reach {
         earlier: 0.0,
         newest: 1200.0,
@@ -3193,34 +3210,39 @@ mod tests {
         );
         assert_eq!(down(&window).to_bits(), 100.0_f32.to_bits());
         assert!(window.take_redraw());
-        // The paging keys: a room less a line, 780, kept at the foot, 380;
+        // The paging keys: a room less a line, 652, kept at the foot, 508;
         // Home back to the top; Space on, with the keyboard on nothing.
         window.key(&Press::of(Key::PageDown), None);
-        assert_eq!(down(&window).to_bits(), 380.0_f32.to_bits());
+        assert_eq!(down(&window).to_bits(), 508.0_f32.to_bits());
         window.key(&Press::of(Key::Home), None);
         assert_eq!(down(&window).to_bits(), 0.0_f32.to_bits());
         window.key(&Press::of(Key::Space), Some(" "));
-        assert_eq!(down(&window).to_bits(), 380.0_f32.to_bits());
+        assert_eq!(down(&window).to_bits(), 508.0_f32.to_bits());
         window.key(&Press::of(Key::End), None);
         window.key(&Press::of(Key::PageUp), None);
         assert_eq!(down(&window).to_bits(), 0.0_f32.to_bits());
-        // The bar it is drawn with: 820 of 1200, 560 long, at its top; a
-        // press below its thumb, in its strip 976 + 240 across, pages on.
+        // The bar it is drawn with: 692 of 1200, 399 long, at its top, in
+        // the panel's gutter (queue item 886); a press below its thumb, in
+        // its strip 864 + 240 across and under the panel's heading at 96,
+        // pages on.
         let viewport = start_viewport((1280, 820), Scale::ONE);
-        let bar = window.conversation().start(viewport, Scale::ONE).bar;
+        let start = window.conversation().start(viewport, Scale::ONE);
         assert_eq!(
-            bar.map(|bar| (bar.top.to_bits(), bar.length.to_bits())),
-            Some((0.0_f32.to_bits(), 560.0_f32.to_bits()))
+            start
+                .settings_bar
+                .map(|bar| (bar.top.to_bits(), bar.length.to_bits())),
+            Some((0.0_f32.to_bits(), 399.0_f32.to_bits()))
         );
-        window.moved((1216.0, 700.0));
+        assert_eq!(start.bar, None, "the conversation's own is not drawn");
+        window.moved((1104.0, 700.0));
         window.main_button_pressed();
         window.main_button_released();
-        assert_eq!(down(&window).to_bits(), 380.0_f32.to_bits());
+        assert_eq!(down(&window).to_bits(), 508.0_f32.to_bits());
         // And its thumb, now at the foot, dragged back up to the top.
-        window.moved((1216.0, 500.0));
+        window.moved((1104.0, 500.0));
         window.main_button_pressed();
         assert!(window.dragging_the_bar());
-        window.moved((1216.0, 0.0));
+        window.moved((1104.0, 0.0));
         window.main_button_released();
         assert_eq!(down(&window).to_bits(), 0.0_f32.to_bits());
         assert_eq!(chat(&window), under, "the chat under it never moved");
@@ -3239,6 +3261,125 @@ mod tests {
         empty.finish();
     }
 
+    /// ⌘, on a Mac, Ctrl+, elsewhere (queue item 886).
+    fn command_comma() -> crate::keys::Press {
+        use crate::keys::{Modifier, Platform, Press};
+        let held = match Platform::HERE {
+            Platform::Mac => Modifier::Command,
+            Platform::Elsewhere => Modifier::Control,
+        };
+        Press::character(",").with(held)
+    }
+
+    /// Queue item 886: ⌘, opens *Settings* wherever the keyboard is, and
+    /// again while it is open is nothing — not even the keyboard's ring put
+    /// away; Escape, its × and a press on the veil each close it, and the
+    /// keyboard goes back to where it was: the box, *Search chats*, or the
+    /// card's page.
+    #[test]
+    fn command_comma_opens_settings_and_closing_it_gives_the_keyboard_back() {
+        use crate::conversation::Field;
+        use crate::keys::{Key, Press};
+        use alo_renderer::start::SettingsKeyed;
+        let mut window = window();
+        assert_eq!(window.conversation().field_focused(), Some(Field::TheBox));
+        window.key(&command_comma(), Some(","));
+        assert!(window.conversation().settings().is_open());
+        assert_eq!(window.conversation().field_focused(), None, "taken");
+        window.key(&Press::of(Key::Tab), Some("\t"));
+        assert_eq!(
+            window.conversation().settings().keyed(),
+            Some(SettingsKeyed::Close)
+        );
+        window.key(&command_comma(), Some(","));
+        assert!(window.conversation().settings().is_open(), "nothing");
+        assert_eq!(
+            window.conversation().settings().keyed(),
+            Some(SettingsKeyed::Close),
+            "the ring where it was"
+        );
+        // Escape: back in the box.
+        window.key(&Press::of(Key::Escape), Some("\u{1b}"));
+        assert!(!window.conversation().settings().is_open());
+        assert_eq!(window.conversation().field_focused(), Some(Field::TheBox));
+        // From *Search chats*, by the panel's row, closed by the veil.
+        window.heard(Heard::Drawn(Drawn::Pressed(
+            Part::Panel,
+            Decided::SearchChats,
+        )));
+        assert_eq!(
+            window.conversation().field_focused(),
+            Some(Field::SearchChats)
+        );
+        window.heard(Heard::Drawn(Drawn::Pressed(Part::Panel, Decided::Settings)));
+        assert!(window.conversation().settings().is_open());
+        assert_eq!(window.conversation().field_focused(), None);
+        window.heard(Heard::Drawn(Drawn::Pressed(
+            Part::Start,
+            Decided::LeaveSettings,
+        )));
+        assert!(!window.conversation().settings().is_open());
+        assert_eq!(
+            window.conversation().field_focused(),
+            Some(Field::SearchChats)
+        );
+        // From nothing, closed by its × pressed by Space: nothing again.
+        window.heard(Heard::Drawn(Drawn::Pressed(
+            Part::Panel,
+            Decided::HideThePanel,
+        )));
+        assert_eq!(window.conversation().field_focused(), None);
+        window.key(&command_comma(), Some(","));
+        window.key(&Press::of(Key::Tab), Some("\t"));
+        window.key(&Press::of(Key::Space), Some(" "));
+        assert!(!window.conversation().settings().is_open());
+        assert_eq!(window.conversation().field_focused(), None);
+        // From the card's page: its keys again once closed.
+        let url = alo_url::parse("https://a.example/").unwrap();
+        window.heard(Heard::Chrome(Went::Opening(url)));
+        let _ = window.conversation.press_the_page();
+        assert!(window.conversation().keys_to_the_card());
+        window.key(&command_comma(), Some(","));
+        assert!(window.conversation().settings().is_open());
+        assert!(!window.conversation().keys_to_the_card(), "taken");
+        window.key(&Press::of(Key::Escape), Some("\u{1b}"));
+        assert!(window.conversation().keys_to_the_card(), "given back");
+        window.finish();
+    }
+
+    /// Queue item 886: while *Settings* stands over a card, the first
+    /// screen is asked for with the card's last frame in it — so it is
+    /// blurred with the rest — and with it beneath once it closes.
+    #[test]
+    fn under_settings_the_cards_page_is_drawn_in_the_first_screen() {
+        let mut window = window();
+        let url = alo_url::parse("https://a.example/").unwrap();
+        window.heard(Heard::Chrome(Went::Opening(url)));
+        window.heard(Heard::Chrome(Went::Framed(vec![1, 2, 3])));
+        let card = |window: &mut ConversationWindow| {
+            let viewport = start_viewport((1280, 820), Scale::ONE);
+            let start = window.start_asked(viewport, Scale::ONE);
+            start
+                .card()
+                .map(|card| (card.picture_at, card.frame.is_some()))
+        };
+        assert_eq!(
+            card(&mut window),
+            Some((alo_renderer::card::PictureAt::Beneath, false))
+        );
+        window.key(&command_comma(), Some(","));
+        assert_eq!(
+            card(&mut window),
+            Some((alo_renderer::card::PictureAt::InTheCard, true))
+        );
+        window.key(&crate::keys::Press::of(crate::keys::Key::Escape), None);
+        assert_eq!(
+            card(&mut window),
+            Some((alo_renderer::card::PictureAt::Beneath, false))
+        );
+        window.finish();
+    }
+
     /// Queue item 880: what Tab moves the keyboard to on *Settings* is
     /// scrolled into view once it is drawn there — by a drawing of it there,
     /// never one from before — once, and no further; Space with the
@@ -3250,17 +3391,17 @@ mod tests {
         use alo_renderer::start::SettingsKeyed;
         let mut window = settings_open(true);
         let down = settings_down;
-        // Tab to *Back to the chat*, drawn where it is seen: nothing moves.
+        // Tab to its ×, drawn where it is seen: nothing moves.
         window.key(&Press::of(Key::Tab), Some("\t"));
         assert_eq!(
             window.conversation().settings().keyed(),
-            Some(SettingsKeyed::Back)
+            Some(SettingsKeyed::Close)
         );
         let back = Span {
             top: 32.0,
             foot: 68.0,
         };
-        settings_reached(&mut window, Some((SettingsKeyed::Back, back)));
+        settings_reached(&mut window, Some((SettingsKeyed::Close, back)));
         assert_eq!(down(&window).to_bits(), 0.0_f32.to_bits());
         // On to *Ask before opening*, below the room: a drawing from before
         // the keyboard moved scrolls nothing; its own, just far enough that
@@ -3279,7 +3420,7 @@ mod tests {
         settings_reached(&mut window, Some((SettingsKeyed::Actions, asks)));
         assert_eq!(down(&window).to_bits(), 0.0_f32.to_bits(), "not its");
         settings_reached(&mut window, Some((SettingsKeyed::Asks, asks)));
-        assert_eq!(down(&window).to_bits(), 341.0_f32.to_bits(), "1161 - 820");
+        assert_eq!(down(&window).to_bits(), 469.0_f32.to_bits(), "1161 - 692");
         // Once: a person's wheel afterwards is not pulled back to it.
         window.wheeled_at(
             Turned::Pixels {
@@ -3289,10 +3430,10 @@ mod tests {
             Instant::now(),
         );
         settings_reached(&mut window, Some((SettingsKeyed::Asks, asks)));
-        assert_eq!(down(&window).to_bits(), 141.0_f32.to_bits());
+        assert_eq!(down(&window).to_bits(), 269.0_f32.to_bits());
         // Space with the keyboard on something is not a scroll.
         window.key(&Press::of(Key::Space), Some(" "));
-        assert_eq!(down(&window).to_bits(), 141.0_f32.to_bits());
+        assert_eq!(down(&window).to_bits(), 269.0_f32.to_bits());
         // Open again, it is at its top, its reach to be measured.
         window.key(&Press::of(Key::Escape), Some("\u{1b}"));
         assert!(!window.conversation().settings().is_open());
@@ -3622,10 +3763,10 @@ mod tests {
         window.finish();
     }
 
-    /// Queue item 854: *Settings* stands in the live card's place, so its
+    /// Queue items 854, 886: *Settings* stands over the live card, so its
     /// page is not streamed while it is open — nor when the window is seen
-    /// again under it — and is again once Escape or *Back to the chat*
-    /// brings the card back; Escape closes it only when *Search chats* does
+    /// again under it — and is again once Escape or its × brings the card
+    /// back; Escape closes it only when *Search chats* does
     /// not have the keyboard; a face chosen with nowhere to keep it is said.
     #[test]
     fn settings_over_a_live_card_stops_its_stream_and_escape_brings_it_back() {
@@ -3652,7 +3793,7 @@ mod tests {
         window.key(&Press::of(crate::keys::Key::Escape), Some("\u{1b}"));
         assert!(!window.conversation().settings().is_open());
         assert_eq!(window.streaming, streamed, "the card back on the screen");
-        // Back to the chat, likewise.
+        // Its × or the veil, likewise.
         window.heard(Heard::Drawn(Drawn::Pressed(Part::Panel, Decided::Settings)));
         assert_eq!(window.streaming, None);
         window.heard(Heard::Drawn(Drawn::Pressed(

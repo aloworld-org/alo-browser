@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- ***Settings* opens as a panel over the conversation**, which is blurred
+  and dimmed behind it — a live card's page with it. ⌘, opens it, as in
+  any Mac application; Escape, its × or a click beside the panel closes
+  it, and the click presses nothing under it. The keyboard goes back to
+  where it was — the box, *Search chats* or the card's page. An agent
+  reads it as a dialog named *Settings*.
+- **`backdrop-filter: blur()`** is drawn, as Chrome 157 draws it: what is
+  behind a box blurred within the box, its edge mirrored, under its own
+  background — inside a level or two of Chrome's pixels. Other filter
+  functions are said not drawn, by name. A change beside a blurred box
+  paints only the change; a change under it, the whole blur again.
 - **alo's agent opens any site without asking, by default.** *Settings*'
   *Ask before opening* now has three choices — **Never** (the default), *A
   site not found or named*, and *Any site* — and a settings file from

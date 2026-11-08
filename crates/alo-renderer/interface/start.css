@@ -1750,29 +1750,49 @@ ol.result {
   flex-shrink: 0;
 }
 
-/* Settings (queue item 854, docs/design/shell.md, *Settings*), in place of
-   the chat on screen: in the first screen's column, 720 wide — or as wide
-   as the room less 32 either side — 32 from the top. It scrolls as the
-   conversation does (queue item 880): a clip the screen's height and as
-   wide as the conversation's, 32 of gutter either side, holding the page
-   moved up by a `top` of the browser process's — 32 above it and 24 below
-   it in what scrolls — and the bar in its right gutter, as the
-   conversation's is. */
-.start.set {
+/* Settings (queue items 854, 886, docs/design/shell.md, *Settings*): a
+   white panel over the chat on screen, centred, 720 wide — or as wide as
+   the room less 32 either side — and as tall as what it holds, at most the
+   room less 32 above and below, rounded 16, with a soft shadow. Around it
+   the veil: the whole first screen, what is under it blurred by 8 and
+   dimmed as the narrow window's sheet dims (776), the conversation's ink
+   at 0.32. *Settings* and its × stand at its top; under them what it
+   holds scrolls (queue item 880): a clip down to its foot, holding the
+   page moved up by a `top` of the browser process's, and the bar in the
+   clip's right gutter, as the conversation's is. */
+.veil {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
   height: 100%;
-  padding-top: 0;
+  background: rgba(27, 36, 51, 0.32);
+  backdrop-filter: blur(8px);
+}
+
+.sdialog {
+  display: flex;
+  flex-direction: column;
+  width: calc(100% - 64px);
+  max-width: 720px;
+  max-height: calc(100% - 64px);
+  overflow: hidden;
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow:
+    0 24px 64px rgba(27, 36, 51, 0.22),
+    0 2px 8px rgba(27, 36, 51, 0.08);
 }
 
 .sclip {
   position: relative;
-  z-index: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 100%;
-  max-width: 944px;
-  height: 100%;
-  padding: 0 32px;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-top: 8px;
   overflow: hidden;
 }
 
@@ -1780,10 +1800,7 @@ ol.result {
   position: relative;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  flex-shrink: 0;
-  width: 100%;
-  padding: 32px 0 24px;
+  padding: 0 28px 28px;
 }
 
 .sclip > .goes-on {
@@ -1794,24 +1811,21 @@ ol.result {
   background: var(--bar);
 }
 
-.prefs {
-  width: 100%;
-  max-width: 720px;
-}
-
-/* *Back to the chat*, 36 square, and the page's name beside it. */
+/* *Settings*, 22 px 600, and its × at the right, 36 square, in a row of
+   36, 20 from the panel's top and right and 28 from its left. */
 .phead {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
-  column-gap: 8px;
+  justify-content: space-between;
   height: 36px;
+  margin: 20px 20px 0 28px;
 }
 
-.pback {
+.pclose {
   flex-shrink: 0;
   width: 36px;
   height: 36px;
-  margin-left: -8px;
   border: 0;
   border-radius: 8px;
   background: transparent;
@@ -1819,16 +1833,16 @@ ol.result {
 }
 
 /* The keyboard's ring (queue item 856): 3 px of the ink at a third,
-   outside the edge, following its rounding — on *Back to the chat*, or on
-   the face chosen while the keyboard is on the radio group. Drawn only
-   once Tab has put the keyboard there, as a browser draws
-   `:focus-visible`. An outer shadow is kept outside its box (queue item
-   877), so the transparent button needs no paper of its own under it. */
-.pback.keyed {
+   outside the edge, following its rounding — on the ×, or on the face
+   chosen while the keyboard is on the radio group. Drawn only once Tab has
+   put the keyboard there, as a browser draws `:focus-visible`. An outer
+   shadow is kept outside its box (queue item 877), so the transparent
+   button needs no paper of its own under it. */
+.pclose.keyed {
   box-shadow: 0 0 0 3px rgba(27, 36, 51, 0.33);
 }
 
-.pback .icon {
+.pclose .icon {
   display: block;
   margin: 0 auto;
 }

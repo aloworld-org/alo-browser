@@ -592,7 +592,10 @@ impl Builder<'_> {
         if self.boxes.get(id).is_none_or(|node| node.parent.is_none()) {
             return true;
         }
-        if self.group_opacity_of(id).is_some() || self.transform_of(id).is_some() {
+        if self.group_opacity_of(id).is_some()
+            || self.transform_of(id).is_some()
+            || self.has_backdrop_filter(id)
+        {
             return true;
         }
         let Some(style) = self.style_of(id) else {
@@ -789,7 +792,9 @@ impl Builder<'_> {
         };
         // Read once, not once per piece: a box broken across three lines has
         // one background, and one refusal if it has any.
-        let backdrop = self.style_of(id).map(background::read).unwrap_or_default();
+        let mut backdrop = self.style_of(id).map(background::read).unwrap_or_default();
+        // What is behind it blurred (queue item 885), or refused by name.
+        let blur = self.backdrop_blur_of(id, &mut backdrop.refused);
 
         // **One area per piece.** A box that sits on a line and wrapped has a
         // rectangle per line it is on, and drawing its background from the
@@ -813,7 +818,13 @@ impl Builder<'_> {
             // piece and its end edge only on its last, which is what CSS says
             // and what stops a wrapped `<em>` growing a border down the middle
             // of a paragraph.
-            self.draw_one_area(id, *area, (index == 0, index == last), &backdrop, out);
+            self.draw_one_area(
+                id,
+                *area,
+                (index == 0, index == last),
+                (&backdrop, blur),
+                out,
+            );
         }
 
         // After the background and border, before the text: a picture is
@@ -874,13 +885,13 @@ impl Builder<'_> {
     fn draw_one_area(
         &self,
         id: BoxId,
-        area: Rect,
+        laid_out: Rect,
         ends: (bool, bool),
-        backdrop: &Backdrop,
+        (backdrop, blur): (&Backdrop, Option<f32>),
         out: &mut Vec<DisplayItem>,
     ) {
         let (first, last) = ends;
-        let area = snap::to_device_pixels(area, self.styles.scale());
+        let area = snap::to_device_pixels(laid_out, self.styles.scale());
         // CSS's own order for one box: the shadows it casts outwards, then
         // its background colour, then its background image over that, then
         // the shadows cast inwards, then the border, then what is inside it.
@@ -889,6 +900,18 @@ impl Builder<'_> {
         });
         let shadows = self.shadows_of(id);
         let face = self.face_of(id);
+        // What the page drew behind the box, blurred, first of all it draws
+        // (queue item 885, ADR 0104): its own shadows are not behind it.
+        // Read from the border box as laid out, which the crop rounds as
+        // Chrome does; drawn where its background is.
+        if let Some(blur) = blur {
+            out.push(DisplayItem::Backdrop {
+                box_id: id,
+                rect: laid_out,
+                path: rounded_rectangle(area, corners),
+                blur,
+            });
+        }
         // An outer shadow is kept outside the box's border box, as
         // Backgrounds 3 says (queue item 877): never seen through a
         // background that lets it through, and never under a transparent
@@ -981,6 +1004,45 @@ impl Builder<'_> {
         if face.is_none() {
             self.draw_borders(id, area, first, last, out);
         }
+    }
+
+    /// How far what is behind `id` is blurred, in CSS pixels — the
+    /// standard deviation its `backdrop-filter: blur()` says (queue item
+    /// 885) — or [`None`] when nothing is: `none`, a blur of nothing, or a
+    /// value refused, which is said in `refused` by name.
+    fn backdrop_blur_of(&self, id: BoxId, refused: &mut Vec<alo_css::StyleIssue>) -> Option<f32> {
+        let style = self.style_of(id)?;
+        let text = style.get("backdrop-filter")?;
+        let refuse = |refused: &mut Vec<alo_css::StyleIssue>| {
+            refused.push(alo_css::StyleIssue {
+                kind: alo_css::IssueKind::UnsupportedValue,
+                source: format!("backdrop-filter: {text}"),
+                at: alo_css::Location { line: 0, column: 0 },
+            });
+        };
+        match alo_value::parse_backdrop_filter(text) {
+            Some(alo_value::BackdropFilter::None) => None,
+            Some(alo_value::BackdropFilter::Blur(length)) => {
+                let blur = length.to_px(style.metrics());
+                (blur.is_finite() && blur > 0.0).then_some(blur)
+            }
+            // Another filter function, or more than one: CSS, and not drawn
+            // here yet — said by name, and drawn as if absent.
+            Some(alo_value::BackdropFilter::Unbuilt(_)) | None => {
+                refuse(refused);
+                None
+            }
+        }
+    }
+
+    /// Whether `id`'s `backdrop-filter` asks for anything — any value but
+    /// `none`, drawn or refused: a stacking context, as Filter Effects 2
+    /// § 3 says (queue item 885).
+    fn has_backdrop_filter(&self, id: BoxId) -> bool {
+        self.style_of(id)
+            .and_then(|style| style.get("backdrop-filter"))
+            .and_then(alo_value::parse_backdrop_filter)
+            .is_some_and(|filter| filter.is_some())
     }
 
     /// Whether `backdrop`, `id`'s background, is known to cover its border

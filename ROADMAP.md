@@ -2216,6 +2216,12 @@ unreachable without it.
 - [ ] Animations and transitions
 - [ ] Container queries, `:has()`, cascade layers, `@property`
 - [ ] Filters, `backdrop-filter`, blend modes, masks, `clip-path`
+      · Built: `backdrop-filter: blur()`, as Chrome 157 draws it at one,
+      two and eight — its kernel, its halvings past σ 4, its crop mirrored
+      at its edge — and painted over only where nothing under it changed
+      (queue item 885, ADR 0104; corpus case `backdrops-blurred`) · Owed:
+      every other filter function (refused by name), `filter`, blend
+      modes, masks, `clip-path`, and a nested backdrop's own root (887)
 - [ ] `position: sticky`, multi-column, scroll snap, overscroll behaviour
 - [ ] Writing modes, and layout that is right-to-left rather than mirrored afterwards
       · Built: `padding-block` and `margin-block`, split in `alo-css` into
@@ -2563,6 +2569,9 @@ items where being right and being unusable are the same outcome.
       (880); a press held on the bar paging on, as measured on a Mac (876);
       an outer shadow kept outside its box, Chrome's at one and two (877);
       a button pressed on its own icon through both Chromiums (882);
+      *Settings* a panel over the conversation blurred and dimmed behind
+      it, ⌘, opening it, the keyboard given back as it closes — the owner's
+      design of 8 November 2026 (886, ADR 0104);
       the pointer following a card's page, a link's strip on an
       expanded card, alo's own menu and a link opened as the next turn, a
       closed list's normal dropdown and the agent's list in its column, and

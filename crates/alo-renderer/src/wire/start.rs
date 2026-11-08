@@ -58,11 +58,11 @@ impl Writer {
         self.float(start.scale);
         self.face(start.face);
         // *Settings* and what of it the keyboard is on (queue item 856), in
-        // one byte: not it, it, its *Back to the chat*, its *Font*.
+        // one byte: not it, it, its *Close* (886), its *Font*.
         self.tag(match (start.settings, start.settings_keyed) {
             (false, _) => 0,
             (true, None) => 1,
-            (true, Some(SettingsKeyed::Back)) => 2,
+            (true, Some(SettingsKeyed::Close)) => 2,
             (true, Some(SettingsKeyed::Font)) => 3,
             // *alo at work*'s three (queue item 878).
             (true, Some(SettingsKeyed::Sites)) => 4,
@@ -146,7 +146,15 @@ impl Writer {
         }
         self.float(start.down);
         // The sign of more above or below (queue item 755).
-        match start.bar {
+        self.bar(start.bar);
+        // *Settings*' own scroll and sign, in its panel (queue item 886).
+        self.float(start.settings_down);
+        self.bar(start.settings_bar);
+    }
+
+    /// A sign of more above or below, if there is one.
+    fn bar(&mut self, bar: Option<Bar>) {
+        match bar {
             Some(bar) => {
                 self.bool(true);
                 self.float(bar.top);
@@ -229,7 +237,7 @@ impl Reader<'_> {
         let (settings, settings_keyed) = match self.tag()? {
             0 => (false, None),
             1 => (true, None),
-            2 => (true, Some(SettingsKeyed::Back)),
+            2 => (true, Some(SettingsKeyed::Close)),
             3 => (true, Some(SettingsKeyed::Font)),
             4 => (true, Some(SettingsKeyed::Sites)),
             5 => (true, Some(SettingsKeyed::Actions)),
@@ -293,6 +301,11 @@ impl Reader<'_> {
             ));
         }
         let bar = self.bar()?;
+        let settings_down = self.float()?;
+        if settings_down.abs() > MOST {
+            return Err(unreadable("Settings scrolled further than any reaches"));
+        }
+        let settings_bar = self.bar()?;
         Ok(Start {
             greeting,
             sites,
@@ -312,6 +325,8 @@ impl Reader<'_> {
             settings,
             settings_keyed,
             limits,
+            settings_down,
+            settings_bar,
         })
     }
 

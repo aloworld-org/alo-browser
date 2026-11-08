@@ -72,6 +72,7 @@ pub static SUPPORTED: &[(&str, &[Reader])] = &[
     ("align-self", &[Layout]),
     ("appearance", &[Paint]),
     ("aspect-ratio", &[Layout]),
+    ("backdrop-filter", &[Layout, Paint]),
     ("background", &[Paint]),
     ("background-color", &[Paint]),
     ("background-image", &[Paint]),

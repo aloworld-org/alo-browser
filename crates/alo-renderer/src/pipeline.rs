@@ -86,6 +86,9 @@ pub struct Drawing {
     /// it is not a property of any one of them. It needs the boxes, the styles
     /// **and** the fonts, and the fonts are the one thing no tree here holds.
     pub wanted: crate::families::Wanted,
+    /// The raster pictures it decoded, for the next drawing to take rather
+    /// than decode again (queue item 886, [`crate::pictures::Decoded`]).
+    pub decoded: crate::pictures::Decoded,
 }
 
 impl Rendered {
@@ -367,10 +370,17 @@ pub fn draw_over(
     // decides what box it is — the picture's size, its `alt` as text, or
     // nothing (ADR 0046 § 1) — and a picture's own size is what an `<img>`
     // with no width lays out at.
-    let pictures = Pictures::read(document, resources);
+    let pictures = Pictures::read(
+        document,
+        resources,
+        before
+            .as_deref()
+            .map_or(&crate::pictures::Decoded::new(), |drawing| &drawing.decoded),
+    );
     sheet_issues.extend(pictures.issues.iter().cloned());
     let boxes = alo_box::build_showing(document, &styles, &pictures.shown);
     let drawn_in = pictures.by_box(&boxes);
+    let decoded = pictures.decoded.clone();
 
     let measurer = TextMeasurer::new(fonts);
     let layout = alo_layout::compute(&boxes, &styles, size, &measurer);
@@ -426,6 +436,7 @@ pub fn draw_over(
         kept,
         sheet_issues,
         wanted,
+        decoded,
     }
 }
 

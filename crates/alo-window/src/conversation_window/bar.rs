@@ -73,7 +73,7 @@ impl ConversationWindow {
         let Some(bar) = scrolled.bar(room.height, scale.factor()) else {
             return false;
         };
-        let Some(part) = conversation_bar_press::pressed(on.x, on.y, viewport, room, &bar) else {
+        let Some(part) = conversation_bar_press::pressed(on.x, on.y, room, &bar) else {
             return false;
         };
         let down = scrolled.down();

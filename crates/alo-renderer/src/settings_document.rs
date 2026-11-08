@@ -2,18 +2,23 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! *Settings*, built into the first screen's document in place of the chat
-//! on screen (queue item 854, `docs/design/shell.md`, *Settings*; approved
-//! by the owner 2026-11-07).
+//! *Settings*, built into the first screen's document over the chat on
+//! screen (queue items 854, 886, `docs/design/shell.md`, *Settings*;
+//! approved by the owner 2026-11-07, as a popup 2026-11-08).
 //!
-//! The screen's `main` loses the greeting, the box and the groups, and
-//! holds the template's `<template id="settings">` instead: *Back to the
-//! chat*, the page's heading, and two sections: **Font** — a radio group
-//! named *Font* holding a radio for each face a person may set the
-//! interface's words in ([`InterfaceFace::ALL`]), each named by the face
-//! and checked when it is the one chosen ([`Start::face`]) — an `<input
-//! type=radio>`, drawn as Chrome draws one, in the ink — and, under it,
-//! **alo at work** (queue item 878, [`crate::settings_work_document`]).
+//! The screen's `main` is built as it would be with *Settings* closed — the
+//! conversation, a live card's page among it, scrolled as it was — and
+//! hidden from an agent, since a modal dialog stands over it. Over it, the
+//! template's `<template id="settings">`: **a veil** the whole screen,
+//! which blurs and dims what is under it (`backdrop-filter`, queue item
+//! 885) and is pressed as *Close*, and in its middle **a dialog named
+//! *Settings***: its heading and *Close* — the × at its top right — and
+//! under them two sections: **Font** — a radio group named *Font* holding a
+//! radio for each face a person may set the interface's words in
+//! ([`InterfaceFace::ALL`]), each named by the face and checked when it is
+//! the one chosen ([`Start::face`]) — an `<input type=radio>`, drawn as
+//! Chrome draws one, in the ink — and, under it, **alo at work** (queue
+//! item 878, [`crate::settings_work_document`]).
 //!
 //! # Each face shown as it would be
 //!
@@ -26,30 +31,37 @@
 //!
 //! # Where the keyboard is
 //!
-//! Tab and ⇧Tab move the keyboard between *Back to the chat* and the radio
-//! group *Font* (queue item 856), which the browser process holds and says
-//! ([`Start::settings_keyed`]): the one it is on is of the class `keyed`
-//! too, *Back to the chat*'s button or the face chosen — on the group, the
-//! keyboard is on its checked radio, as the ARIA radio group pattern has
-//! it — and drawn with a ring outside its edge.
+//! Tab and ⇧Tab move the keyboard between *Close* and the radio group
+//! *Font* and on through *alo at work* (queue items 856, 878), which the
+//! browser process holds and says ([`Start::settings_keyed`]): the one it
+//! is on is of the class `keyed` too, *Close*'s button or the face chosen —
+//! on the group, the keyboard is on its checked radio, as the ARIA radio
+//! group pattern has it — and drawn with a ring outside its edge.
 //!
 //! # What a press is on
 //!
 //! A face — its radio, its name, its sample, the room around them — is of
 //! the class `face`, `face on` when chosen, and claimed by its place among
-//! the faces drawn ([`crate::conversation_claim`]); *Back
-//! to the chat* is of the class `pback`, one of a kind. Which face a place
-//! was is the browser process's to say, from the faces it holds, never
-//! anything the renderer said.
+//! the faces drawn ([`crate::conversation_claim`]); *Close* is of the class
+//! `pclose`, one of a kind, and so is the veil around the dialog — a press
+//! there is *Close*'s, and nothing's under it — while a press on the
+//! dialog's own room is on nothing. Which face a place was is the browser
+//! process's to say, from the faces it holds, never anything the renderer
+//! said.
 
-use crate::conversation_scroll::{NEWEST, Room};
+use crate::conversation_scroll::Room;
 use crate::interface_face::InterfaceFace;
 use crate::start::{SettingsKeyed, Start};
 use crate::start_document::{Unbuilt, append, attribute, by_id, element};
 use alo_dom::{Document, NodeId};
 
-/// The id of the template's `<template>` holding the page.
+/// The id of the template's `<template>` holding the veil and the dialog.
 const SETTINGS: &str = "settings";
+
+/// The id of what scrolls in the dialog (queue item 880): the page under
+/// its heading, measured for how far it reaches
+/// ([`crate::conversation_scroll::reach_of`]).
+pub const PAGE: &str = "settings-page";
 
 /// The id of the place for the faces.
 const FACES: &str = "faces";
@@ -63,8 +75,8 @@ pub const TITLE: &str = "Settings";
 /// What its one section, and the radio group in it, is named.
 pub const FONT: &str = "Font";
 
-/// What *Back to the chat* is named.
-pub const BACK: &str = "Back to the chat";
+/// What the × at its top right is named (queue item 886).
+pub const CLOSE: &str = "Close";
 
 /// What stands after the default face's name.
 pub const DEFAULT: &str = "Default";
@@ -76,8 +88,8 @@ pub const SAMPLE_TITLE: &str = "Kampala \u{2013} Wikipedia";
 pub const SAMPLE_DESCRIPTION: &str =
     "The capital and largest city of Uganda, set on hills near the shore of Lake Victoria.";
 
-/// Put *Settings* into `document`, the first screen's, in place of
-/// everything the screen's `main` held.
+/// Put *Settings* into `document`, the first screen's, over everything
+/// the screen's `main` holds, which is hidden from an agent.
 ///
 /// # Errors
 ///
@@ -85,49 +97,41 @@ pub const SAMPLE_DESCRIPTION: &str =
 /// refused an operation, which no state can cause.
 pub fn put(document: &mut Document, start: &Start) -> Result<(), Unbuilt> {
     let screen = by_id(document, SCREEN)?;
-    attribute(document, screen, "class", "start set")?;
-    let held: Vec<NodeId> = document.children(screen).collect();
-    for child in held {
-        document
-            .remove_child(screen, child)
-            .map_err(|refused| Unbuilt {
-                why: format!("a node could not be taken out of the first screen: {refused}"),
-            })?;
-    }
-    let page = take_page(document)?;
-    // Scrolled as the conversation is (queue item 880): the page in a clip
-    // the screen's height, moved up by how far the browser process
-    // scrolled it — a number of its own — with the sign that it goes on
-    // above or below in the clip's right gutter.
-    let clip = element(document, "div")?;
-    attribute(document, clip, "class", "sclip")?;
-    let scrolled = element(document, "div")?;
-    attribute(document, scrolled, "class", "spage")?;
-    attribute(document, scrolled, "id", NEWEST)?;
-    if start.down != 0.0 && start.down.is_finite() {
+    // A modal dialog stands over it: what is under it is read by nobody.
+    attribute(document, screen, "aria-hidden", "true")?;
+    let body = document.parent(screen).ok_or_else(|| Unbuilt {
+        why: "the first screen's main has no body around it".to_owned(),
+    })?;
+    let veil = take_veil(document)?;
+    append(document, body, veil)?;
+    let page = by_id(document, PAGE)?;
+    // Scrolled in its panel (queue items 880, 886): moved up by how far
+    // the browser process scrolled it — a number of its own — with the
+    // sign that it goes on above or below in the clip's right gutter.
+    if start.settings_down != 0.0 && start.settings_down.is_finite() {
         attribute(
             document,
-            scrolled,
+            page,
             "style",
-            &format!("top: {}px", -start.down),
+            &format!("top: {}px", -start.settings_down),
         )?;
     }
-    append(document, scrolled, page)?;
-    append(document, clip, scrolled)?;
-    if let Some(bar) = start.bar {
+    if let Some(bar) = start.settings_bar {
+        let clip = document.parent(page).ok_or_else(|| Unbuilt {
+            why: "the first screen's settings hold their page in no clip".to_owned(),
+        })?;
         let room = Room::settings(start.viewport).height;
         crate::conversation_document::append_bar(document, clip, bar, &bar.said_of(TITLE, room))?;
     }
-    append(document, screen, clip)?;
-    // The keyboard on *Back to the chat* (queue item 856): ringed.
-    if start.settings_keyed == Some(SettingsKeyed::Back) {
-        let back = document
-            .descendants(page)
-            .find(|&node| document.attribute_by_name(node, "class") == Some("pback"))
+    // The keyboard on *Close* (queue item 856): ringed.
+    if start.settings_keyed == Some(SettingsKeyed::Close) {
+        let close = document
+            .descendants(veil)
+            .find(|&node| document.attribute_by_name(node, "class") == Some("pclose"))
             .ok_or_else(|| Unbuilt {
-                why: "the first screen's settings hold no Back to the chat".to_owned(),
+                why: "the first screen's settings hold no Close".to_owned(),
             })?;
-        attribute(document, back, "class", "pback keyed")?;
+        attribute(document, close, "class", "pclose keyed")?;
     }
     let faces = by_id(document, FACES)?;
     let font = start.settings_keyed == Some(SettingsKeyed::Font);
@@ -142,8 +146,9 @@ pub fn put(document: &mut Document, start: &Start) -> Result<(), Unbuilt> {
     Ok(())
 }
 
-/// The page the template's `<template>` holds, to be moved into the screen.
-fn take_page(document: &Document) -> Result<NodeId, Unbuilt> {
+/// The veil the template's `<template>` holds, the dialog in it, to be
+/// moved over the screen.
+fn take_veil(document: &Document) -> Result<NodeId, Unbuilt> {
     let holder = by_id(document, SETTINGS)?;
     document
         .element(holder)
@@ -244,31 +249,62 @@ mod tests {
     }
 
     #[test]
-    fn settings_stands_in_place_of_the_greeting_the_box_and_the_groups() {
+    fn settings_stands_over_the_screen_which_is_hidden_from_an_agent() {
+        // Queue item 886: the greeting, the box and the groups are still
+        // there, under a veil and a dialog.
         let document = build(&settings(InterfaceFace::Inter)).expect("built");
-        let classes = classes(&document);
-        for gone in ["hello", "sub", "box", "ask", "blocks"] {
+        let found = classes(&document);
+        for kept in ["hello", "box", "blocks", "veil", "sdialog", "pclose"] {
             assert!(
-                !classes.iter().any(|class| class == gone),
-                "{gone} in {classes:?}"
+                found.iter().any(|class| class == kept),
+                "{kept} in {found:?}"
             );
         }
-        assert!(
-            classes.iter().any(|class| class == "start set"),
-            "{classes:?}"
-        );
-        let faces = classes
+        let faces = found
             .iter()
             .filter(|class| *class == "face" || *class == "face on")
             .count();
         assert_eq!(faces, 5);
         let text = document.text_content(document.root());
-        assert!(text.contains(TITLE) && text.contains(FONT), "{text}");
-        assert!(!text.contains("Hello."), "{text}");
+        assert!(
+            text.contains(TITLE) && text.contains(FONT) && text.contains("Hello."),
+            "{text}"
+        );
+        let of = |id: &str| {
+            document
+                .descendants(document.root())
+                .find(|&node| document.attribute_by_name(node, "id") == Some(id))
+        };
+        let screen = of("start").expect("the screen");
+        assert_eq!(
+            document.attribute_by_name(screen, "aria-hidden"),
+            Some("true")
+        );
+        let dialog = document
+            .descendants(document.root())
+            .find(|&node| document.attribute_by_name(node, "role") == Some("dialog"))
+            .expect("a dialog");
+        assert_eq!(
+            document.attribute_by_name(dialog, "aria-modal"),
+            Some("true")
+        );
+        assert!(of(PAGE).is_some());
+        // Closed, nothing of it.
+        let closed = build(&Start {
+            settings: false,
+            ..settings(InterfaceFace::Inter)
+        })
+        .expect("built");
+        assert!(!classes(&closed).iter().any(|class| class == "veil"));
+        let screen = closed
+            .descendants(closed.root())
+            .find(|&node| closed.attribute_by_name(node, "id") == Some("start"))
+            .expect("the screen");
+        assert_eq!(closed.attribute_by_name(screen, "aria-hidden"), None);
     }
 
     #[test]
-    fn the_keyboard_on_back_or_on_the_font_rings_it_and_nothing_else() {
+    fn the_keyboard_on_close_or_on_the_font_rings_it_and_nothing_else() {
         // Queue item 856.
         let keyed = |settings_keyed| {
             let start = Start {
@@ -282,7 +318,7 @@ mod tests {
                 .collect::<Vec<_>>()
         };
         assert!(keyed(None).is_empty());
-        assert_eq!(keyed(Some(SettingsKeyed::Back)), vec!["pback keyed"]);
+        assert_eq!(keyed(Some(SettingsKeyed::Close)), vec!["pclose keyed"]);
         assert_eq!(keyed(Some(SettingsKeyed::Font)), vec!["face on keyed"]);
     }
 

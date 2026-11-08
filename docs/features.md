@@ -42,7 +42,7 @@ and an item marked [2] is a decision that it is *not* stage 1's problem.
 - [1] Media queries for width, and `prefers-color-scheme` — the light and dark the workspace already ships. A width is in `px`, `em` or `rem`, and the last two are the initial 16 px rather than the page's font size, as Media Queries says; any other unit is recorded and the query never matches
 - [2] Animations and transitions
 - [2] Container queries, `:has()`, cascade layers, `@property`
-- [2] Filters, `backdrop-filter`, blend modes, masks and `clip-path`
+- [2] Filters, `backdrop-filter`, blend modes, masks and `clip-path` — **`backdrop-filter: blur()` built** (item 885, ADR 0104), as Chrome 157 draws it; every other filter function refused by name; `filter`, blend modes, masks and `clip-path` not yet
 - [2] Paged media and print styles
 - [3] Vendor prefixes, and anything that exists only for a page written before 2015
 
@@ -1206,11 +1206,15 @@ The reason this exists rather than a faster fork of somebody else's engine.
   (`tests/a_chosen_face_set_as_chrome_sets_it.rs`). The stylesheets ask
   for `var(--face)`, which the document builders set on the root from the
   face the browser process names (`interface_face.rs`). **Settings**
-  (`settings_document.rs`): the panel's *Settings* row opens it in the
-  conversation's place, the chat left as it was; one section, *Font*, a
-  radio group of the five, each a sample of a result set in that face;
-  choosing one sets both parts at once, with no restart, never a card's
-  page; *Back to the chat*, Escape, a chat or *New chat* closes it. Kept in
+  (`settings_document.rs`): the panel's *Settings* row or ⌘, opens it —
+  since 886 a panel over the conversation, which is drawn under it as it
+  was, blurred and dimmed (`backdrop-filter`, 885), a live card's page with
+  it; one section, *Font*, a radio group of the five, each a sample of a
+  result set in that face; choosing one sets both parts at once, with no
+  restart, never a card's page; its ×, Escape, a press beside the panel
+  (pressing nothing under it), a chat or *New chat* closes it, the
+  keyboard going back to where it was; read as a dialog named *Settings*
+  (`settings_over_the_conversation.rs`). Kept in
   `settings.txt` beside the chats, `0600`, whole or not at all; a file that
   does not read is Inter, and said (`alo-window`'s `settings_file.rs`,
   `conversation_settings.rs`). Layout assertions, references of the page
@@ -1218,8 +1222,9 @@ The reason this exists rather than a faster fork of somebody else's engine.
   — chosen, applied, relaunched, damaged
   (`alo-renderer/tests/settings_and_the_face_chosen.rs`,
   `alo-window/tests/a_font_chosen_in_settings_in_the_window.rs`); a second
-  section, *alo at work* (878, above). Not yet: the link strip in the face
-  chosen (852); *Settings* scrolled in a short window (880).
+  section, *alo at work* (878, above); *Settings* scrolled in a short
+  window (880), in its panel (886). Not yet: the link strip in the face
+  chosen (852).
   **The page menu's search line cut at its edge** (855): *Search for
   “…”*'s words end in `…` at the menu's edge, the quote kept, in each face
   — and right after the `…` (857: the words measured in the line's face

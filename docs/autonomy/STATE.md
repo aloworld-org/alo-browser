@@ -50137,7 +50137,7 @@ detached through `perl -MPOSIX=setsid` and waited on by its PID;
 slow, 1 leaky), 0 skipped** — *"The gate is met." (11 of 11 steps)*.
 `scripts/gate.sh` not edited.
 
-The next unused queue number is **885** and the next ADR is **0104**.
+The next unused queue number is **887** and the next ADR is **0104**.
 
 ---
 
@@ -50206,4 +50206,70 @@ then `the-panel-folded-at-759.png` and `the-rail-naming-a-chat-at-759.png`
 level), rewritten and read. `scripts/gate.sh` not edited. The release
 bundle rebuilt after it.
 
-The next unused queue number is **885** and the next ADR is **0104**.
+The next unused queue number is **887** and the next ADR is **0104**.
+
+---
+
+## 2026-11-08 — batch 25: `backdrop-filter: blur()` (885) and *Settings* as a popup (886)
+
+**Contracts read:** `CLAUDE.md`, this loop, ADRs 0100–0103,
+`docs/design/shell.md` (*Settings*, the sheet of 776), items 885 and 886
+as the owner wrote them (approved 8 November 2026).
+
+**885 — built (ADR 0104).** Chrome 157.0.8103.38 measured on its GPU path
+at 1, 2, 8 (scratchpad `m885/`; the carried CEF not measured — no client
+to screenshot with). Model and closeness in ADR 0104 and the item.
+Painting over stays right: a backdrop's crop is damaged whole when a
+change drawn before it reaches it, its blur kept and taken otherwise; ADR
+0101 § 3 amended.
+
+**886 — built.** Popup over the conversation, ⌘, by its character,
+Escape/×/veil, the keyboard given back, a dialog named *Settings*; the
+card's last frame drawn in the first screen under it; decoded pictures
+kept by their bytes and pictures drawn only in a confinement, so a change
+beside a card's frame is no longer a whole repaint.
+
+**Measured (renderer alone, release, this Mac, at two):** opening over a
+card ≈350 ms (the veil's blur 42); a Tab, a face or a stepper 60–105 ms,
+nothing blurred again; a letter typed with *Settings* closed 15.4 ms
+median, HEAD in a worktree the same (15.2–15.6). **Layout in numbers**:
+the panel, its room and bar edge at the design's and least windows; the
+corpus case's boxes. **References**: new `backdrops-blurred` (render,
+render-at-2, Chrome's at 1/2/8), `settings-over-a-card.png`,
+`settings-keyed-close.png`; rewritten and looked at `settings.png`,
+`settings-in-the-least-window.png`, `settings-keyed-font.png`,
+`settings-alo-at-work.png`, `settings-scrolled-short.png` (all moved by
+the popup); `settings-keyed-back.png` removed. **Mutations**: sixteen,
+each caught (listed in the items) — two (a backdrop's reach nothing, a
+picture's confined rows short) only by `alo-paint`'s repaint tests, which
+were run after the renderer's did not catch them.
+
+**By hand** (screen unlocked; release, CEF host and bundle rebuilt, no
+keys carried; the Retina at two, the window at 120, 60, 1280 × 852;
+`--conversation --chats handrun45/chats`; a local page on 127.0.0.1:8739;
+keys through System Events; scratchpad `handrun45/`): ⌘, over the start
+(`886-01`), Escape and the address typed into the box given back (`02`),
+the card (`03`), ⌘, over it blurred (`04`), Tab to *Font* (`05`), the veil
+pressed — closed, the box's caret back, the card not pressed (`06`), a
+window 640 tall opened by the button (`07`), Page Down inside (`08`), its
+× (`09`). **Not seen by hand:** scale one; the narrow window's sheet then
+⌘,; *Search chats* given back by hand; an agent reading it through the
+socket. **Spend: none.**
+
+**Cut, queued:** 887 (a backdrop's own root, a turning transform, the
+carried Chromium), 888 (text passed over on a confined canvas). Docs:
+ADR 0104, ADR 0101 amended, `shell.md`, CHANGELOG, features, conformance,
+ROADMAP (*Filters* · Built; *Built since* names 886), QUEUE (885, 886
+ticked; 887, 888 added).
+
+**Gate: met, second run** (CEF_PATH set, the pointer at 1400, 1000;
+detached through `perl -MPOSIX=setsid` and waited on by its PID;
+`gate-batch25.log`). **Summary [1279.791s] 6809 tests run: 6809 passed (7
+slow, 1 leaky), 0 skipped** — *"The gate is met." (11 of 11 steps)*. The
+first run (`gate-batch25-first.log`) failed one shown-CEF test,
+`a_persons_keys_on_a_card_through_chrome` through alo's CEF host, a letter
+of `new` not arriving (`typed?ne`) — a path this batch did not change; it
+passed three times of three alone, then in the second gate.
+`scripts/gate.sh` not edited. The release bundle rebuilt after it.
+
+The next unused queue number is **890** and the next ADR is **0105**.

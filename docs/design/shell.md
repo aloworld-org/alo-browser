@@ -1096,7 +1096,7 @@ way (ADR 0088). A face with an optical size — Newsreader's 6 to 72,
 Inter's 14 to 32 and DM Sans' 9 to 40 — is set to the CSS pixels its text
 is at, as Chrome sets it (measured in Chrome 157, item 853).
 
-## Settings (items 853, 854, 878)
+## Settings (items 853, 854, 878, 886)
 
 Approved by the owner on 7 November 2026 (*"Yes please"*), in their
 words: *Settings opens as a page in the conversation area, with one
@@ -1108,29 +1108,59 @@ affected. The choice is saved on this Mac beside the chats and remembered
 across launches. First Inter as the default, then the Settings page with
 the choice.*
 
+Approved by the owner on 8 November 2026 as **a popup** (item 886), in
+their words: *a centred white panel, about 720 wide, rounded 16, with a
+soft shadow, that scrolls inside; behind it the conversation blurred and
+dimmed as the narrow window's sheet dims. Settings titles it with × at the
+top right; its sections are inside (a list on its left once there are
+more than two). It opens from the Settings button and from ⌘, and closes
+with Escape, the ×, or a press on the blurred area, which presses nothing
+under it. A choice applies at once. Keys walk it as they walk Settings
+now; the keyboard comes back to where it was on closing. An agent reads it
+as a dialog named Settings.*
+
 Settled here, as the design left them open:
 
 - **Opened** by the panel's *Settings* row, pressed — or in the sheet over
-  a narrow window, which it closes, as a chat chosen does. Its row is then
-  white, as the chat on screen's is, and no chat's row is; an agent reads
-  the row's link as the current page. The rail has no *Settings*.
-- **In the conversation's place.** The first screen shows *Settings*
-  instead of the chat on screen, which is left exactly as it was — its
-  turns, how far it was scrolled, what was typed into the box, a live
-  card. Nothing of the chat is drawn, pressed, scrolled or typed into
-  while *Settings* stands there: no box, and a live card's page is not
-  streamed (ADR 0076: only while the card is on the screen).
-- **Closed**, back to the chat as it was, by *Back to the chat* — a 36 px
-  square button with the card's back arrow, at the page's top left — by
-  Escape (unless *Search chats* has the keyboard, which Escape empties
-  first), by a chat chosen in the panel (the chat on screen included) and
-  by *New chat*. Choosing a face does not close it.
-- **The page**, in the first screen's column (720 wide, or the room less
-  32 either side), 32 from the top: *Back to the chat* and **Settings**,
-  22 px 600, in a row of 36; 24 under it **Font**, 15 px 600, and under it,
-  in quiet 13.5 px, *The face alo's own words are set in. Pages in cards
-  keep their own.*; 14 under that the faces, **two a row, 10 apart**, in
-  the order above.
+  a narrow window, which it closes, as a chat chosen does — and by **⌘,**
+  wherever the keyboard is, as every Mac application's *Settings…* is:
+  the key that writes `,` with nothing held, wherever the layout puts it
+  (on this Mac's ABC – AZERTY, beside N), with exactly ⌘ held. ⌘, again
+  while it is open is nothing. Its row is white while it is open, as the
+  chat on screen's is, and no chat's row is; an agent reads the row's link
+  as the current page. The rail has no *Settings*; ⌘, opens it there too.
+- **Over the conversation.** The first screen is drawn under it exactly as
+  it was — its turns, how far it was scrolled, what was typed into the
+  box, a live card — **blurred by 8 and dimmed by the conversation's ink,
+  `#1b2433`, at 0.32**, as the narrow window's sheet dims (776): a veil the
+  whole first screen, `backdrop-filter: blur(8px)` (item 885, ADR 0104).
+  A live card's page is not streamed while *Settings* is open (ADR 0076:
+  only while the card is on the screen, and it is behind a modal); its last
+  frame is drawn in the card, so it is blurred with the rest, and beneath
+  again once *Settings* closes. Nothing under the veil is pressed,
+  scrolled, hovered or typed into, and an agent reads none of it. The
+  panel beside it is not under the veil: it is drawn and pressed as it
+  always is, a chat chosen in it closing *Settings*.
+- **Closed**, back to the chat as it was, by **Escape** (unless *Search
+  chats* has the keyboard, which Escape empties first), by **its ×**, by
+  **a press on the veil** — which presses nothing under it, not the box,
+  not a card's page — by a chat chosen in the panel (the chat on screen
+  included) and by *New chat*. Choosing a face does not close it. Closed by
+  Escape, its × or the veil, **the keyboard goes back to where it was** as
+  it opened: the box, *Search chats*, the card's page, or nothing; a chat
+  chosen or *New chat* puts it where they put it.
+- **The panel**, centred in the first screen: 720 wide, or the room less
+  32 either side; as tall as what it holds, and at most the room less 32
+  above and below; white, rounded 16, its shadow `0 24px 64px` and `0 2px
+  8px` of the ink at 0.22 and 0.08. At its top, 20 down, 28 in from its
+  left and 20 from its right, a row of 36: **Settings**, 22 px 600, and
+  its **×**, 36 square, the card's ×. 8 under that row, what it holds,
+  which scrolls: 28 in from either side, each section 24 under the one
+  before, 28 under the last. **Font**, 15 px 600, and under it, in quiet
+  13.5 px, *The face alo's own words are set in. Pages in cards keep their
+  own.*; 14 under that the faces, **two a row, 10 apart**, in the order
+  above. Its sections are one after the other while there are two; a list
+  of them on its left is for when there are more.
 - **A face** is a white box, 1 px line-colour border, rounded 14, 15 / 16
   / 16 inside: a row of 18 holding a radio, 16 across, drawn as Chrome
   draws one in the ink, and the face's name in 13 px 600 (*Inter ·
@@ -1144,7 +1174,8 @@ Settled here, as the design left them open:
   near the shore of Lake Victoria.*, fixed, set in that face whatever the
   page is set in. At the design's width each is whole in every face; in
   the least window (a column of 472, two faces of 231) the description is
-  cut at its two lines.
+  cut at its two lines. (In the panel at the design's size each face is
+  327 wide; in the least window, 203.)
 - **Effect**: choosing a face sets every word of the panel, the rail and
   the first screen in it at once — both renderers draw again, neither is
   started anew — and never the mark or the greeting, and never a card's
@@ -1152,28 +1183,30 @@ Settled here, as the design left them open:
   expanded card is drawn by the Chromium alo carries, which is not told the
   face (item 852).
 - **By keys** (item 856), as the ARIA radio group pattern and a Mac's
-  radio buttons have it: **Tab** puts the keyboard on *Back to the chat*,
-  Tab again on the radio group *Font* — on the face chosen — and Tab
-  again back, round; **⇧Tab** the other way, and from nothing to *Font*.
+  radio buttons have it: **Tab** puts the keyboard on its ×, Tab again on
+  the radio group *Font* — on the face chosen — and Tab on through *alo at
+  work* and back round; **⇧Tab** the other way.
   On *Font*, **← ↑** choose the face before the one chosen and **→ ↓** the
   one after, round from either end, set and kept at once as a press sets
-  and keeps it. On *Back to the chat*, **Space** or **Return** presses it.
-  Escape closes *Settings* wherever the keyboard is, as before. What the
-  keyboard is on is drawn with **a ring**, 3 px of the ink at a third,
-  outside its edge and following its rounding — around *Back to the chat*,
-  then standing on the paper, or around the face chosen, outside its ink
-  edge — **only once Tab has put the keyboard there**, as a browser draws
+  and keeps it. On its ×, **Space** or **Return** presses it. Escape
+  closes *Settings* wherever the keyboard is, as before. What the keyboard
+  is on is drawn with **a ring**, 3 px of the ink at a third, outside its
+  edge and following its rounding — around its ×, or around the face
+  chosen, outside its ink edge — **only once Tab has put the keyboard
+  there**, as a browser draws
   `:focus-visible`: opening *Settings*, by its row or otherwise, puts it on
   nothing, and a press of the pointer anywhere puts the ring away. Nothing
   moves for it. While *Search chats* has the keyboard these keys are its.
   How the rest of alo's interface takes keys beyond its fields — the
   panel, the rail, a card's own bar — is still 850's.
-- **What an agent reads**: a region named *Settings* holding *Back to the
-  chat*, its heading, and a region named *Font* holding its heading and
-  **a radio group named *Font*** holding a
+- **What an agent reads**: **a dialog named *Settings***, modal, holding
+  its heading, its × named *Close*, and a region named *Font* holding its
+  heading and **a radio group named *Font*** holding a
   radio named by each face — *Inter*, *Geist*, *DM Sans*, *Plus Jakarta
-  Sans*, *Instrument Sans* — the one chosen checked. The names, the circle
-  and the samples are hidden from it. Never a coordinate (ADR 0002).
+  Sans*, *Instrument Sans* — the one chosen checked — and *alo at work*'s
+  region. The names, the circle and the samples are hidden from it, and so
+  is everything of the conversation under it. Never a coordinate (ADR
+  0002).
 - **Kept** in `settings.txt` in the chats' directory (ADR 0092 § 1) — so
   `alo --conversation --chats DIR` keeps a hand run's choice apart from a
   person's, as it keeps its chats — `0600` in a `0700` directory, written
@@ -1208,7 +1241,7 @@ Settled here, as the design left them open:
   Asking before paying, sending, deleting or sending a form, and never
   typing a password or a card's details, are not settings. **By keys**:
   Tab goes on from *Font* to the sites, the actions and *Ask before
-  opening*, then round to *Back to the chat*; on a number ← ↓ make it one
+  opening*, then round to its ×; on a number ← ↓ make it one
   step fewer and → ↑ one more, stopping at its ends (a number is not a
   choice among equals, and 100 going round to 5 would surprise); on the
   radio group → ↑ choose the next and ← ↓ the one before, round from either
@@ -1217,16 +1250,18 @@ Settled here, as the design left them open:
   start**: a run keeps the limits it started with. **To an agent**: a
   region named *alo at work*, each number a `spinbutton` named by its row
   holding the number beside *Fewer …* and *More …* buttons, and a radio
-  group *Ask before opening*. In the design's window the whole page ends
-  at 792, inside 820.
-- **Scrolled** (item 880) as the conversation is: in a window too short
-  for it — the least window, 600 tall, among them — the page, from 32
-  above it to 24 below it, scrolls in the whole first screen's height (it
-  has no box under it) by the wheel (a wheel's lines glided), the paging
-  keys — Page Up and Down, Home and End, and Space and ⇧Space while the
-  keyboard is on nothing of it — and the bar, drawn where the
-  conversation's is, in the 880 column's right gutter, faded as it is,
-  pressed, dragged and held as it is. As Tab moves the keyboard, what it
+  group *Ask before opening*. In the design's window what the panel holds
+  is 752 tall in a room of 692, so it scrolls 60.
+- **Scrolled** (item 880) as the conversation is, **inside its panel**
+  (886): what the panel holds, from 24 above *Font* to 28 below *alo at
+  work*, scrolls in the room under the panel's heading — from 96 down the
+  first screen to 32 above its foot, once the panel is as tall as it can
+  be, which is the only time anything scrolls in it — by the wheel over
+  the first screen (a wheel's lines glided), the paging keys — Page Up and
+  Down, Home and End, and Space and ⇧Space while the keyboard is on
+  nothing of it — and the bar, in the panel's right gutter, 13 in from
+  its right edge, faded as the conversation's is, pressed, dragged and
+  held as it is. As Tab moves the keyboard, what it
   moves to is scrolled into view, 16 clear of the top or the foot, once it
   is drawn there, and no further; a person's wheel afterwards is not
   pulled back to it. It opens at its top each time. To an agent the bar
@@ -1255,7 +1290,8 @@ the agent is acting**, and appears nowhere else.
 ## What is not designed yet
 
 Dark mode, a phone-width window, downloads and bookmarks, and the
-settings other than *Font* — *What alo may do* among them (item 705).
+settings other than *Font* and *alo at work* — *What alo may do* among
+them (item 705) — and with them *Settings*' list of its sections.
 *Settings* is walked by keys (item 856); the rest of alo's interface,
 beyond its two fields and *Settings*, is pressed with the pointer only
 (item 850).

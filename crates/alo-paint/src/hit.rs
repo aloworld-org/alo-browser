@@ -123,6 +123,7 @@ pub fn box_at(list: &DisplayList, at: Point) -> Option<BoxId> {
             | DisplayItem::PopGroup
             | DisplayItem::Picture { .. }
             | DisplayItem::Beneath { .. }
+            | DisplayItem::Backdrop { .. }
             | DisplayItem::LayeredGlyph { .. }
             | DisplayItem::PaintedGlyph { .. }
             | DisplayItem::Text { .. } => {}

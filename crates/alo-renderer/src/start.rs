@@ -112,8 +112,9 @@ pub struct Start {
     /// The face its words are set in (queue items 853, 854): Inter unless
     /// a person chose another in *Settings*.
     pub face: InterfaceFace,
-    /// Whether the screen is *Settings* (queue item 854), drawn in place of
-    /// the chat on screen, which is left as it was.
+    /// Whether *Settings* is open (queue items 854, 886): a panel over the
+    /// chat on screen, which is drawn under it as it was, blurred and
+    /// dimmed, and pressed, scrolled and typed into by nobody.
     pub settings: bool,
     /// What of *Settings* the keyboard is on, drawn with a ring (queue item
     /// 856): nothing until Tab is pressed there.
@@ -121,14 +122,22 @@ pub struct Start {
     /// How far alo's agent may go on one task, as *Settings*' section *alo
     /// at work* shows it (queue item 878).
     pub limits: Limits,
+    /// How far *Settings* is scrolled inside its panel, in CSS pixels
+    /// (queue items 880, 886): its own, the conversation under it keeping
+    /// [`Start::down`].
+    pub settings_down: f32,
+    /// *Settings*' sign that it goes on above or below its panel's room,
+    /// placed by the browser process: none while it fits.
+    pub settings_bar: Option<Bar>,
 }
 
 /// What of *Settings* the keyboard is on (queue item 856,
 /// `docs/design/shell.md`, *Settings*).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SettingsKeyed {
-    /// *Back to the chat*: Space or Return presses it.
-    Back,
+    /// *Close*, the × at its top right (queue item 886): Space or Return
+    /// presses it.
+    Close,
     /// The radio group *Font*, at the face chosen: the arrows choose
     /// another.
     Font,
@@ -146,7 +155,7 @@ pub enum SettingsKeyed {
 impl SettingsKeyed {
     /// Each, in the order Tab moves the keyboard through them.
     pub const ALL: [SettingsKeyed; 5] = [
-        SettingsKeyed::Back,
+        SettingsKeyed::Close,
         SettingsKeyed::Font,
         SettingsKeyed::Sites,
         SettingsKeyed::Actions,
@@ -198,6 +207,8 @@ impl Default for Start {
             settings: false,
             settings_keyed: None,
             limits: Limits::default(),
+            settings_down: 0.0,
+            settings_bar: None,
         }
     }
 }
