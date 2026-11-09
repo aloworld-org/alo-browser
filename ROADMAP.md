@@ -247,7 +247,8 @@ about this project (ADR 0058 § 6).
   **the application's icon, drawn by this engine** — a page of ours laid
   out at each size an `.icns` holds, 16 to 1,024 pixels, every picture a
   reference the gate compares, packed by our own code into the `.icns`
-  `CFBundleIconFile` names, and shown by the Finder (689); and
+  `CFBundleIconFile` names, and shown by the Finder (689) — since 913 the
+  owner's icon, `docs/brand/alo-browser-icon.svg`, as it is; and
   **an application that, quit, leaves nothing behind** — the shutdown
   that closes Chrome, waits for it and removes its profile and the
   socket run as the frame's event loop ends, which `winit`'s own
@@ -2325,10 +2326,18 @@ unreachable without it.
       SVG, and `svg_picture.rs` draws it through `alo-svg` at the `<img>`'s
       content box with its own cascade, confined there, and handed nothing
       it could fetch with; corpus case `alo-meet-greeting`, alo Meet's
-      greeting with its waving hand
+      greeting with its waving hand; a `<linearGradient>` as the paint of a
+      fill or a stroke (item 275's first part, ADR 0107) — `alo-svg`'s
+      `server.rs` finds it by `id` in the document and `gradient.rs` makes
+      it `alo-paint`'s `Ramp`, a colour along a line in the drawing's
+      coordinates mixed as straight colours; corpus case
+      `svg-linear-gradients`, within a level of Chrome 157 away from
+      edges, with the owner's icon, which the application's icon and the
+      chats panel's mark now draw (913)
       · Owed: `fill-box` on a `<g>` and `stroke-box` (288); a per cent on
       an inline-level `<svg>`, resolved twice like any inline-block's (284);
-      a nested `<svg>` (278), `<use>` (274), SVG paint servers (275),
+      a nested `<svg>` (278), `<use>` (274), a `<radialGradient>` (910), a
+      `<pattern>` (911) and a gradient's `href` (912),
       `<text>` (276), each when a page needs it; and an SVG file in
       `background-image` (311), when a page needs one.
       Decided in ADR 0022. An `<svg>` is one

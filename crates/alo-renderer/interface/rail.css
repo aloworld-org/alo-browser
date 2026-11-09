@@ -48,14 +48,18 @@ body {
   background: var(--panel);
 }
 
+/* The mark: the owner's icon, 28 square in the middle of its row of 40
+   (queue item 913). The panel shows it before the word; the rail has room
+   for the icon alone. */
 .mark {
   display: flex;
   align-items: center;
   height: 40px;
-  font-family: Newsreader, serif;
-  font-size: 22px;
-  line-height: 26px;
-  color: var(--ink);
+}
+
+.logo {
+  width: 28px;
+  height: 28px;
 }
 
 /* Each button 44 square, rounded 10, its 18 px icon in the middle in the

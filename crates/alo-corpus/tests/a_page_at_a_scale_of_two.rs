@@ -27,7 +27,8 @@
 //! does at one, it places exactly where Chrome does at two. The 75th,
 //! `pictures-sized-on-a-line`, was measured on 2026-10-14 for queue item
 //! 590, and the 76th, `centred-and-middle-on-the-grid`, the same day for
-//! item 598.
+//! item 598. The 77th, `svg-linear-gradients`, was measured on 2026-11-09
+//! in Chrome 157.0.8103.38 for item 275.
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -419,7 +420,7 @@ fn every_box_placed_as_chrome_places_it_at_one_is_placed_as_chrome_places_it_at_
         }
     }
     assert!(wrong.is_empty(), "{}", wrong.join("\n"));
-    assert_eq!(cases, 76, "every case Chrome was measured on at two");
+    assert_eq!(cases, 77, "every case Chrome was measured on at two");
     assert_eq!(
         loaded, 22,
         "the pages whose script runs, loaded by a renderer told the scale"

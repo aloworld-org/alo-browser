@@ -157,6 +157,7 @@ fn opacity_on_a_group_is_a_group_and_on_a_shape_is_its_alpha() {
             DrawingItem::PushGroup { opacity } => format!("group {opacity}"),
             DrawingItem::PopGroup => "ungroup".to_owned(),
             DrawingItem::Fill { color, .. } => format!("fill {}", color.alpha),
+            DrawingItem::Ramp { .. } => "ramp".to_owned(),
         })
         .collect();
     assert_eq!(
@@ -911,4 +912,48 @@ fn a_hostile_transform_property_never_panics_and_an_infinite_one_is_refused() {
         vec![(0.0, 0.0, 1.0, 1.0)],
         "drawn as though it had none"
     );
+}
+
+#[test]
+fn a_linear_gradient_paints_a_fill_and_a_stroke_measured_on_the_shapes_own_box() {
+    // The gradient is in a later <svg> on the page, as SVG allows; the
+    // shape is moved by its own transform, and the gradient with it.
+    let drawn = drawn(
+        r#"<svg><rect x="2" y="2" width="10" height="4" transform="translate(5 0)" fill="url(#g)" stroke="url(#g)" opacity="0.5" stroke-width="0.5"/></svg><svg width="0" height="0"><defs><linearGradient id="g"><stop offset="0" stop-color="red"/><stop offset="1" stop-color="blue"/></linearGradient></defs></svg>"#,
+        (40.0, 40.0),
+    );
+    assert!(drawn.issues.is_empty(), "{:?}", drawn.issues);
+    let ramps: Vec<&alo_paint::Ramp> = drawn
+        .drawing
+        .items()
+        .iter()
+        .filter_map(|item| match item {
+            DrawingItem::Ramp { ramp, .. } => Some(ramp),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(ramps.len(), 2, "{:?}", drawn.drawing);
+    for ramp in ramps {
+        // The box runs from 7 to 17 once moved.
+        assert!(ramp.along(7.0, 0.0).abs() < 1.0e-4);
+        assert!((ramp.along(12.0, 30.0) - 0.5).abs() < 1.0e-4);
+        assert!((ramp.along(17.0, 0.0) - 1.0).abs() < 1.0e-4);
+    }
+    assert!(matches!(
+        drawn.drawing.items().first(),
+        Some(DrawingItem::PushGroup { opacity }) if (opacity - 0.5).abs() < 1.0e-6
+    ));
+}
+
+#[test]
+fn a_gradient_that_cannot_be_used_is_its_fallback_and_is_recorded() {
+    let drawn = drawn(
+        r#"<svg><radialGradient id="r"><stop/></radialGradient><rect width="4" height="4" fill="url(#r) lime"/><rect y="5" width="4" height="4" fill="url(#missing)"/></svg>"#,
+        (20.0, 20.0),
+    );
+    assert_eq!(drawn.issues.len(), 2, "{:?}", drawn.issues);
+    assert!(matches!(
+        drawn.drawing.items(),
+        [DrawingItem::Fill { color, .. }] if *color == Rgba::from_rgba8(0, 255, 0, 255)
+    ));
 }

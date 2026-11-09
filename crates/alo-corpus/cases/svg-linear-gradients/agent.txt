@@ -1,0 +1,13 @@
+document at (0, 0) 320×0
+  image at (10, 10) 40×40
+  image at (60, 10) 80×40
+  image at (150, 10) 40×40
+  image at (200, 10) 40×40
+  image at (250, 10) 40×40
+  image at (10, 60) 40×40
+  image at (60, 60) 40×40
+  image at (110, 60) 40×40
+  image at (160, 60) 40×40
+  image at (210, 60) 40×40
+  image at (260, 60) 40×40
+  image at (10, 110) 80×80

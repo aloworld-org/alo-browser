@@ -156,6 +156,8 @@ pub static SUPPORTED: &[(&str, &[Reader])] = &[
     ("position", &[Boxes, Layout, Paint]),
     ("right", &[Layout]),
     ("row-gap", &[Layout]),
+    ("stop-color", &[Svg]),
+    ("stop-opacity", &[Svg]),
     ("stroke", &[Svg]),
     ("stroke-dasharray", &[Svg]),
     ("stroke-dashoffset", &[Svg]),

@@ -2,7 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! How a shape is filled: one colour, or a colour that changes across it.
+//! How a shape is filled: one colour, or a colour that changes across it —
+//! a CSS gradient measured against a box, here, or an SVG gradient along a
+//! line anywhere in the plane ([`crate::ramp`]).
 //!
 //! A fill used to be an `Rgba` and nothing else. A gradient is a *function of
 //! position*, so the display list carries the function and the area it is
@@ -18,6 +20,7 @@
 //! rectangles are the same on almost every box, and being right about the ones
 //! where they differ costs one field.
 
+use crate::ramp::Ramp;
 use alo_layout::Rect;
 use alo_value::{Extent, Gradient, Rgba, Shape};
 use core::fmt;
@@ -36,6 +39,9 @@ pub enum Paint {
         /// What `currentColor` means here, for a stop that asked for it.
         current: Rgba,
     },
+    /// A colour along a line anywhere in the plane: an SVG
+    /// `<linearGradient>` ([`crate::ramp`]).
+    Ramp(Ramp),
 }
 
 impl Paint {
@@ -48,6 +54,7 @@ impl Paint {
                 area,
                 current,
             } => gradient.at(along(gradient, *area, x, y), *current),
+            Paint::Ramp(ramp) => ramp.at(x, y),
         }
     }
 
@@ -65,6 +72,7 @@ impl Paint {
                 .stops()
                 .iter()
                 .all(|stop| stop.color.resolve(*current).is_invisible()),
+            Paint::Ramp(ramp) => ramp.is_invisible(),
         }
     }
 
@@ -75,7 +83,7 @@ impl Paint {
     pub fn solid(&self) -> Option<Rgba> {
         match self {
             Paint::Solid(color) => Some(*color),
-            Paint::Gradient { .. } => None,
+            Paint::Gradient { .. } | Paint::Ramp(_) => None,
         }
     }
 }
@@ -189,6 +197,7 @@ impl fmt::Display for Paint {
         match self {
             Paint::Solid(color) => write!(f, "{color}"),
             Paint::Gradient { gradient, .. } => write!(f, "{gradient}"),
+            Paint::Ramp(ramp) => write!(f, "{ramp}"),
         }
     }
 }

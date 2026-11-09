@@ -27,7 +27,8 @@ they open one.
 
 Top to bottom, inside 6 px above and 10 px either side, 12 px below:
 
-- **The mark**, *alo*, in the serif, 22 px, in a row 46 px tall with the
+- **The mark**: the owner's icon (`docs/brand/`), 24 px square, then 8 px
+  on, *alo* in the serif, 22 px (item 913), in a row 46 px tall with the
   button that hides the panel.
 - **New chat**, a white button 40 px tall, a plus before its words and
   `⌘T` at its end.
@@ -108,7 +109,8 @@ and with none at all the panel says *No chat is called "…"* in quiet text,
 square, rounded 8, an 18 px icon — a window with its left side ruled off —
 in the panel's text colour, named *Hide the panel*. Pressed, the panel
 becomes **the rail**, 64 wide, and the conversation takes the rest of the
-window: the mark, 40 tall 10 down; *New chat*, a 44-square button with an
+window: the mark — the owner's icon alone, 28 square, in the middle (item
+913) — 40 tall 10 down; *New chat*, a 44-square button with an
 18 px plus, 6 under it; a 28-wide line 4 above and below; and at the foot,
 12 up, *Show the panel*, 44 square with the same icon, which brings the
 panel back as it was, what was searched kept.

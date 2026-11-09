@@ -1696,6 +1696,19 @@ impl Builder<'_> {
                     paint: Paint::Solid(*color),
                     rule: *rule,
                 },
+                DrawingItem::Ramp { path, ramp, rule } => {
+                    // Moved with the drawing; a translation always has an
+                    // inverse, so a ramp is never lost here.
+                    let Some(ramp) = ramp.transformed(place) else {
+                        continue;
+                    };
+                    DisplayItem::Fill {
+                        box_id: id,
+                        path: path.transformed(place),
+                        paint: Paint::Ramp(ramp),
+                        rule: *rule,
+                    }
+                }
                 DrawingItem::PushGroup { opacity } => DisplayItem::PushGroup {
                     box_id: id,
                     opacity: *opacity,

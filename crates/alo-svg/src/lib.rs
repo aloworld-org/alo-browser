@@ -28,7 +28,10 @@
 //! outline, made by the rented stroker in `alo-paint`'s `raster.rs`. With item
 //! 287, the `transform` *property*, of which the attribute is the
 //! presentation attribute, measured against `transform-box` about
-//! `transform-origin` ([`transform`]). A nested `<svg>` is item 278; that,
+//! `transform-origin` ([`transform`]). With item 275 (ADR 0107), a
+//! `<linearGradient>` as the paint of a fill or a stroke ([`server`],
+//! [`gradient`]); a `<radialGradient>`, a `<pattern>` and a gradient's
+//! `href` are items 910 to 912. A nested `<svg>` is item 278; that,
 //! `fill-box` on a `<g>` and `stroke-box` (item 288), and everything ADR 0022
 //! § 7 refuses, are left out **and recorded**.
 //!
@@ -49,6 +52,8 @@
 //! - [`stroke`] — the stroke a computed style asks for;
 //! - [`dashes`] — `stroke-dasharray`, and how many dashes it would cut;
 //! - [`paint`] — what `fill` and `stroke` are written as;
+//! - [`server`] — a paint server found by its name, or what stands in for it;
+//! - [`gradient`] — a `<linearGradient>`, as the colours along its line;
 //! - [`viewport`] — `viewBox` and `preserveAspectRatio` as one transform;
 //! - [`transform`] — the `transform` property: its box and its origin;
 //! - [`bbox`] — a shape's object bounding box, which `fill-box` is;
@@ -64,9 +69,11 @@ pub mod bbox;
 pub mod bounds;
 pub mod dashes;
 pub mod fill;
+pub mod gradient;
 pub mod length;
 pub mod paint;
 pub mod path_data;
+pub mod server;
 pub mod shape;
 pub mod stroke;
 pub mod transform;

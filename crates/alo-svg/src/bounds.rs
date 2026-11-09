@@ -72,3 +72,11 @@ pub const MOST_DASH_LENGTHS: usize = 256;
 /// still fits inside [`MOST_SEGMENTS`], so one path at this bound cannot by
 /// itself refuse a drawing that would otherwise be drawn.
 pub const MOST_DASHES: usize = 16_384;
+
+/// Stops in one gradient.
+///
+/// A gradient has two, a careful one a dozen. Every pixel the gradient
+/// paints walks its stops, so a gradient of thousands painting a large
+/// shape is a way to make a renderer walk a list the size of the document
+/// for every pixel of it.
+pub const MOST_STOPS: usize = 256;

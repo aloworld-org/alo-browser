@@ -11,6 +11,10 @@
 //! picture rather than the white a page is rendered on, because nothing is
 //! behind the tile and an icon's corners are the Finder's to show through.
 //!
+//! The drawing is the owner's, `docs/brand/alo-browser-icon.svg`, written
+//! into the page as it is (queue item 913): a cream tile, a navy globe and
+//! a teal swoosh filled by a `<linearGradient>` (queue item 275).
+//!
 //! The pictures, `icon-16.png` to `icon-1024.png` beside the case, are the
 //! references compared here — and the bytes `alo-bundle` packs into the
 //! application's `.icns`, so the icon a person sees is the one this test
@@ -77,7 +81,7 @@ fn near(a: f32, b: f32) -> bool {
 }
 
 #[test]
-fn the_tile_stands_on_apples_grid_at_every_size() {
+fn the_tile_and_its_drawing_stand_on_apples_grid_at_every_size() {
     let case = case().expect("the case is in the corpus");
     for side in SIDES {
         let drawing = drawn(&case, side);
@@ -91,19 +95,15 @@ fn the_tile_stands_on_apples_grid_at_every_size() {
                 && near(tile.size.height, width),
             "at {side}: {tile:?}, not {inset} in and {width} wide"
         );
-        let name = box_of(&case, &drawing, "name").expect("the name has a box");
-        let (centre, middle) = (
-            name.left() + name.size.width / 2.0,
-            name.top() + name.size.height / 2.0,
-        );
+        // The owner's drawing stands exactly on the box that casts its
+        // shadow, so the shadow's corners are the drawing's.
+        let drawn = box_of(&case, &drawing, "icon").expect("the drawing has a box");
         assert!(
-            (centre - 512.0 * unit).abs() < 0.01 && (middle - 512.0 * unit).abs() < 0.01,
-            "at {side}: the name at {name:?} is not centred on the tile"
-        );
-        assert!(
-            name.size.width < width,
-            "at {side}: the name is {} wide, wider than its tile",
-            name.size.width
+            near(drawn.left(), tile.left())
+                && near(drawn.top(), tile.top())
+                && near(drawn.size.width, tile.size.width)
+                && near(drawn.size.height, tile.size.height),
+            "at {side}: the drawing at {drawn:?} is not on its tile at {tile:?}"
         );
     }
 }
@@ -175,4 +175,44 @@ fn the_icon_at_1024_is_the_case_as_the_corpus_renders_it() {
         compared > 500_000,
         "only {compared} opaque pixels to compare"
     );
+}
+
+#[test]
+fn the_drawing_is_the_owners_as_it_is() {
+    // Every element of the owner's file is in the page, attribute for
+    // attribute: the page adds a class and a name to its <svg> and nothing
+    // else.
+    let case = case().expect("the case is in the corpus");
+    let owners = include_str!("../../../docs/brand/alo-browser-icon.svg");
+    let body = owners
+        .split_once('>')
+        .map(|(_, rest)| rest.trim())
+        .expect("the owner's file opens with its <svg>");
+    assert!(
+        case.html.contains(&body.replace('\n', "\n    ")),
+        "the page's drawing is not the owner's file"
+    );
+}
+
+#[test]
+fn the_swoosh_is_filled_by_its_gradient_at_every_size() {
+    let case = case().expect("the case is in the corpus");
+    for side in SIDES {
+        let drawing = drawn(&case, side);
+        let ramps = drawing
+            .display
+            .items()
+            .iter()
+            .filter(|item| {
+                matches!(
+                    item,
+                    alo_paint::DisplayItem::Fill {
+                        paint: alo_paint::Paint::Ramp(_),
+                        ..
+                    }
+                )
+            })
+            .count();
+        assert_eq!(ramps, 1, "at {side}");
+    }
 }

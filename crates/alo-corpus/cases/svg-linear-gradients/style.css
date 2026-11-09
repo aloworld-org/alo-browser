@@ -1,0 +1,17 @@
+/* SVG linear gradients (queue item 275, ADR 0107), every <svg> on whole
+   CSS pixels so a pixel's colour is the gradient's at its middle: two rows
+   of 40 px drawings, and the owner's icon at 80 under them. */
+body { margin: 0; background: #ffffff }
+svg { position: absolute; width: 40px; height: 40px }
+.g1 { left: 10px; top: 10px }
+.g2 { left: 60px; top: 10px; width: 80px }
+.g3 { left: 150px; top: 10px }
+.g4 { left: 200px; top: 10px }
+.g5 { left: 250px; top: 10px }
+.g6 { left: 10px; top: 60px }
+.g7 { left: 60px; top: 60px }
+.g8 { left: 110px; top: 60px }
+.g9 { left: 160px; top: 60px }
+.g10 { left: 210px; top: 60px }
+.g11 { left: 260px; top: 60px }
+.logo { left: 10px; top: 110px; width: 80px; height: 80px }

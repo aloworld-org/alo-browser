@@ -1,4 +1,8 @@
-# alo browser
+<p align="center">
+  <img src="docs/brand/alo-browser-icon.svg" alt="alo browser's icon: a navy globe crossed by a teal swoosh, on a cream tile" width="128" height="128">
+</p>
+
+<h1 align="center">alo browser</h1>
 
 **A browser built as a conversation, with an engine written in Rust.**
 

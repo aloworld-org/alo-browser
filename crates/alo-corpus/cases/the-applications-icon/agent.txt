@@ -1,2 +1,2 @@
 document at (0, 0) 1024×0
-  text "alo" at (254.26563, 326) 515.46875×372
+  img "alo browser" at (100, 100) 824×824

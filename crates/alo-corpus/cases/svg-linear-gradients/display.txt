@@ -1,0 +1,40 @@
+fill box#1 rgb(255 255 255) at (0, 0) 320×0
+clip box#4 to (10, 10) 40×40
+fill box#4 ramp(0.025x + 0y + -0.25, rgb(231 111 81) 0, rgb(38 70 83) 1, pad) at (10, 10) 40×40
+unclip
+clip box#6 to (60, 10) 80×40
+fill box#6 ramp(0.00625x + 0.0125y + -0.5, rgb(233 196 106) 0, rgb(38 70 83) 1, pad) at (60, 10) 80×40
+unclip
+clip box#8 to (150, 10) 40×40
+fill box#8 ramp(0.025x + 0y + -3.75, rgb(231 111 81) 0, rgb(42 157 143 / 0.2) 0.5, rgb(38 70 83) 1, pad) at (150, 10) 40×40
+unclip
+clip box#10 to (200, 10) 40×40
+fill box#10 ramp(0.05x + 0y + -10.5, rgb(231 111 81) 0, rgb(38 70 83) 1, pad) at (200, 10) 40×40
+unclip
+clip box#12 to (250, 10) 40×40
+fill box#12 ramp(0.1x + 0y + -26, rgb(231 111 81) 0, rgb(38 70 83) 1, reflect) at (250, 10) 40×40
+unclip
+clip box#14 to (10, 60) 40×40
+fill box#14 ramp(0.1x + 0y + -2, rgb(231 111 81) 0, rgb(38 70 83) 1, repeat) at (10, 60) 40×40
+unclip
+clip box#16 to (60, 60) 40×40
+fill box#16 ramp(0.01767767x + 0.01767767y + -2.328427, rgb(231 111 81) 0, rgb(38 70 83) 1, pad) at (60, 60) 40×40
+unclip
+clip box#18 to (110, 60) 40×40
+fill box#18 ramp(0x + 0.027777778y + -1.7222222, rgb(231 111 81 / 0.5) 0, rgb(38 70 83 / 0.5) 1, pad) at (112, 62) 36×36
+unclip
+clip box#20 to (160, 60) 40×40
+fill box#20 ramp(0.035714287x + 0y + -5.9285717, rgb(231 111 81) 0, rgb(38 70 83) 1, pad) at (162, 62) 36×36
+unclip
+clip box#22 to (210, 60) 40×40
+fill box#22 ramp(0.04330127x + 0.025y + -11.459292, rgb(231 111 81) 0, rgb(38 70 83) 1, pad) at (213.33975, 61.143593) 33.320496×37.712814
+unclip
+clip box#24 to (260, 60) 40×40
+fill box#24 ramp(0.025x + 0y + -6.5, rgb(231 111 81) 0.5, rgb(38 70 83) 0.5, pad) at (260, 60) 40×40
+unclip
+clip box#26 to (10, 110) 80×80
+fill box#26 rgb(251 250 248) at (10, 110) 80×80
+fill box#26 rgb(27 62 94) at (20.245316, 121.26719) 55.848434×39.606255
+fill box#26 ramp(0.016710395x + 0y + -0.3583808, rgb(29 111 132) 0, rgb(20 147 145) 1, pad) at (21.388012, 143.1209) 59.90156×25.662506
+fill box#26 rgb(27 62 94) at (31.09375, 153.90625) 45.768753×24.370316
+unclip

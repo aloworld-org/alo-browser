@@ -6,6 +6,18 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **alo browser has its own logo.** The Mac application's icon is now
+  the owner's — a navy globe crossed by a teal swoosh on a cream tile —
+  drawn by alo's own engine at every size macOS asks for, on Apple's grid
+  with the soft shadow the old one had. Inside alo, the chats panel shows
+  the icon beside the word *alo*, and the folded rail shows the icon on
+  its own. The README carries it too. To draw it, alo's engine now paints
+  SVG **linear gradients** — on a fill or a stroke, in a shape's box or its
+  own space, turned, reflected or repeated, with translucent stops mixed as
+  Chrome mixes them — within one level of Chrome's colours away from
+  shapes' edges. Radial gradients, patterns and gradients that borrow
+  another's stops still draw in their fallback colour, and say so
+  (ADR 0107).
 - **Choose your own search and AI services.** alo no longer depends on
   one search engine: searching, a search's written answer and alo's agent
   each go through a common interface, and which service is asked is

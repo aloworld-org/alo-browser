@@ -22,16 +22,16 @@
 use crate::bounds::MOST_DASH_LENGTHS;
 use crate::dashes::{self, Pattern};
 use crate::length::{Axis, Viewport, user_units};
-use crate::paint::{faded, paint_of};
+use crate::paint::{Brush, faded_brush, paint_of};
 use alo_paint::{Dashes, LineCap, LineJoin, Stroke};
 use alo_style::ComputedStyle;
-use alo_value::Rgba;
 
 /// A stroke, ready to outline.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Painted {
-    /// The colour, with `stroke-opacity` in its alpha.
-    pub color: Rgba,
+    /// The colour, with `stroke-opacity` in its alpha, or the paint server
+    /// it names, with `stroke-opacity` kept for its colours.
+    pub brush: Brush,
     /// Its width, ends, corners and dashes, in user units.
     pub stroke: Stroke,
 }
@@ -48,10 +48,10 @@ pub fn stroke_of(
     viewport: Viewport,
     issues: &mut Vec<String>,
 ) -> Result<Option<Painted>, String> {
-    let Some(color) = paint_of(style, "stroke", None, issues) else {
+    let Some(brush) = paint_of(style, "stroke", None, issues) else {
         return Ok(None);
     };
-    let Some(color) = faded(color, style.get("stroke-opacity")) else {
+    let Some(brush) = faded_brush(brush, style.get("stroke-opacity")) else {
         return Ok(None);
     };
     let metrics = style.metrics();
@@ -113,7 +113,7 @@ pub fn stroke_of(
         },
     };
     Ok(Some(Painted {
-        color,
+        brush,
         stroke: Stroke {
             width,
             cap,
@@ -148,6 +148,7 @@ mod tests {
     use alo_css::{MediaContext, parse_stylesheet};
     use alo_dom::parse_document;
     use alo_style::{Origin, SourcedSheet};
+    use alo_value::Rgba;
 
     const VIEW: Viewport = Viewport {
         width: 30.0,
@@ -196,7 +197,10 @@ mod tests {
             r##"<svg viewBox="0 0 24 24" fill="none" stroke="#e76f51" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path id=x d="M0 0h1"/></svg>"##,
             "",
         );
-        assert_eq!(found.color, Rgba::from_rgba8(0xe7, 0x6f, 0x51, 255));
+        assert_eq!(
+            found.brush,
+            Brush::Colour(Rgba::from_rgba8(0xe7, 0x6f, 0x51, 255))
+        );
         assert_eq!(
             found.stroke,
             Stroke {
@@ -221,7 +225,7 @@ mod tests {
             r#"<p class=lead><svg><g stroke="red"><rect id=x stroke="currentColor" stroke-width="3"/></g></svg></p>"#,
             ".lead { color: rgb(0 128 0) } rect { stroke-width: 5 }",
         );
-        assert_eq!(found.color, Rgba::from_rgba8(0, 128, 0, 255));
+        assert_eq!(found.brush, Brush::Colour(Rgba::from_rgba8(0, 128, 0, 255)));
         assert_eq!(Some(found.stroke.width), Some(5.0));
     }
 
@@ -247,7 +251,7 @@ mod tests {
             r#"<svg><rect id=x stroke="red" stroke-opacity="25%"/></svg>"#,
             "",
         );
-        assert_eq!(Some(found.color.alpha), Some(0.25));
+        assert!(matches!(found.brush, Brush::Colour(color) if (color.alpha - 0.25).abs() < 1.0e-6));
         for markup in [
             r#"<svg><rect id=x stroke="red" stroke-opacity="0"/></svg>"#,
             r#"<svg><rect id=x stroke="red" stroke-width="0"/></svg>"#,
@@ -267,7 +271,7 @@ mod tests {
         assert_eq!(
             found,
             Ok(Some(Painted {
-                color: Rgba::from_rgba8(255, 0, 0, 255),
+                brush: Brush::Colour(Rgba::from_rgba8(255, 0, 0, 255)),
                 stroke: Stroke::default(),
             }))
         );
@@ -285,13 +289,13 @@ mod tests {
     }
 
     #[test]
-    fn a_paint_server_strokes_in_its_fallback_and_says_so() {
+    fn a_paint_server_is_named_for_the_walk_to_follow() {
         let (found, issues) = stroke(r#"<svg><rect id=x stroke="url(#g) blue"/></svg>"#, "");
-        assert_eq!(
-            found.ok().flatten().map(|painted| painted.color),
-            Some(Rgba::from_rgba8(0, 0, 255, 255))
-        );
-        assert_eq!(issues.len(), 1);
-        assert!(issues.iter().all(|issue| issue.starts_with("stroke: ")));
+        let Some(Brush::Server(server)) = found.ok().flatten().map(|painted| painted.brush) else {
+            panic!("a server");
+        };
+        assert_eq!(server.property, "stroke");
+        assert_eq!(server.fallback, Some(Rgba::from_rgba8(0, 0, 255, 255)));
+        assert!(issues.is_empty());
     }
 }

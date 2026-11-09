@@ -12092,10 +12092,32 @@ The long pole, and the thing most of section E is unreachable without.
   because `<use>` is SVG's billion laughs.
   *Depends on 273. Opened only by a frozen page that needs it*, as 179 is.
 
-- [ ] **275. Gradients and patterns as SVG paint.** *Cut from 107 (ADR 0022
+- [x] **275. Gradients and patterns as SVG paint.** *Cut from 107 (ADR 0022
   § 6).* `linearGradient` and `radialGradient` through the gradients paint
   already draws (item 19), and `pattern`.
   *Depends on 273. Opened only by a frozen page that needs it.*
+  **Opened by the owner's icon** (`docs/brand/alo-browser-icon.svg`, 9
+  November 2026), whose swoosh is a `<linearGradient>`. **Cut to
+  `<linearGradient>`** — its scope, not its depth: `<radialGradient>` is
+  910, `<pattern>` 911, a gradient's `href` 912, each drawn meanwhile in
+  the reference's fallback colour and recorded. ***Done (batch 32, ADR
+  0107).*** Not through item 19's CSS gradient, which runs at an angle
+  through a box: `alo-paint`'s new `Ramp` is `t = a·x + b·y + c` in the
+  drawing's coordinates with `colour_paint.rs`'s colour line (straight
+  colours, then premultiplied; pad, reflect, repeat), `Paint::Ramp` and
+  `DrawingItem::Ramp`; `alo-svg`'s `paint.rs` reads `url(#id) fallback`,
+  `server.rs` finds the element by `id` in the whole document and stands in
+  for what cannot be used, `gradient.rs` reads units, `x1`–`y2`,
+  `gradientTransform`, `spreadMethod` and the stops (`stop-color`,
+  `stop-opacity` — new presentation attributes and properties), at most
+  256. Fill and stroke both. Corpus case `svg-linear-gradients`, frozen
+  against Chrome 157.0.8103.38 at one and two (`chrome.png`,
+  `chrome-at-2.png`, `chrome-at-1.txt`, `chrome-at-2.txt`):
+  `tests/svg_linear_gradients.rs` holds the boxes in numbers, where each
+  gradient is at nothing, half and one in numbers, every pixel away from
+  an edge within one level of Chrome's at both scales, each drawing's
+  edges within a measured bound, and `render-at-2.png`. A premultiplied
+  mix, tried as a mutation, was 38 levels off.
 
 - [ ] **276. `<text>` in SVG.** *Cut from 107 (ADR 0022 § 6).* Text placed by
   coordinates and shaped by `alo-text`.
@@ -25160,6 +25182,46 @@ What stage 2's exit gate actually measures: a person using it.
   stands at a field's end: moving it by the arrows, selecting, a press
   placing it, and the field's words scrolled to the caret, as
   `field_line` does for the box. *Depends on 905.*
+
+- [ ] **910. `<radialGradient>` as SVG paint (cut from 275).** Between two
+  circles — `cx`, `cy`, `r`, `fx`, `fy`, `fr` — in the shape's box or user
+  space, through the colour line `Ramp` uses and a radial field beside it
+  (`colour_paint.rs` already has one for a `COLR` glyph). Drawn meanwhile
+  in the fallback colour and recorded. *Depends on 275. Opened only by a
+  frozen page that needs it.*
+
+- [ ] **911. `<pattern>` as SVG paint (cut from 275).** A tile drawn once
+  and repeated under the shape, bounded like everything a stranger's SVG
+  asks for (ADR 0022 § 5). Drawn meanwhile in the fallback colour and
+  recorded. *Depends on 275. Opened only by a frozen page that needs it.*
+
+- [ ] **912. A gradient's `href` (cut from 275).** A gradient that writes
+  no stops takes another's, and each attribute it does not write, along a
+  chain held against loops and length. Drawn meanwhile from what it
+  writes itself, and recorded. *Depends on 275. Opened only by a frozen
+  page that needs it.*
+
+- [x] **913. The owner's logo: the application's icon and alo's mark.**
+  *ADR 0067 § 6 (amended), ADR 0107; amends 689.* The owner supplied the
+  logo on 9 November 2026: `docs/brand/alo-browser-icon.svg` and
+  `lockup.png`, kept as supplied with a note of their colours
+  (`docs/brand/README.md`). ***Done (batch 32).*** **The application's
+  icon** — `cases/the-applications-icon` writes the owner's drawing as it
+  is on Apple's grid (824 of 1,024, 100 around it) over a box of its
+  corners (104 of 512) casting the soft shadow 689 drew; `icon-16.png` to
+  `icon-1024.png`, `render.png` and the case's expectations rewritten and
+  inspected; `the_applications_icon.rs` asserts the drawing on its tile at
+  every size, the drawing the owner's attribute for attribute, and its
+  swoosh one gradient at every size. `bundle_icon.rs` and `icns.rs` are
+  unchanged: they take the references as they are. **Inside alo** — the
+  chats panel's head: the icon 24 square, 8 before the word *alo*; the
+  rail: the icon alone, 28 square, where the word stood (the rail has room
+  for one mark). Both hidden from an agent as the word was; no row moved.
+  The first screen, Settings and a card show no mark of alo's and gained
+  none; alo has no offline screen or *About* page of its own, and
+  macOS's *About alo* panel shows the bundle's icon (seen by hand). `the_mark.rs`
+  holds both templates' drawings to the owner's file; `the_chats_panel.rs`
+  places both in numbers. **The README** opens with the icon.
 
 ## K. ★ The agent, on somebody else's pages
 

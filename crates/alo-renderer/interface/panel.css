@@ -84,11 +84,21 @@ a {
   margin: 0 auto;
 }
 
+/* The mark: the owner's icon, 24 square, 8 before the word alo in the
+   serif (queue item 913), as the owner's lockup sets them side by side. */
 .mark {
+  display: flex;
+  align-items: center;
+  column-gap: 8px;
   font-family: Newsreader, serif;
   font-size: 22px;
   line-height: 26px;
   color: var(--ink);
+}
+
+.logo {
+  width: 24px;
+  height: 24px;
 }
 
 .new {

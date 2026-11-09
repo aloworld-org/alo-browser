@@ -50733,3 +50733,96 @@ steps)*. This machine's disk was slow throughout (`cargo fmt` 1–2 minutes at
 2 % CPU), so the third run took about two hours.
 
 The next unused queue number is **910** and the next ADR is **0107**.
+
+## 2026-11-09 — batch 32: SVG linear gradients (275, ADR 0107), the owner's logo as the application's icon and alo's mark (913)
+
+**Contracts read:** `CLAUDE.md`, `LOOP.md`, `QUEUE.md` (275, 689, 909),
+ADR 0022 (§§ 2, 5–7), ADR 0027 § 5, ADR 0067 § 6, `docs/design/shell.md`
+(the panel and the rail), `docs/conformance.md`'s SVG paragraph.
+
+**What the owner asked:** the official logo, supplied as
+`alo-browser-icon.svg` and `lockup.png`, in the repository, as the
+application's icon, inside alo where a mark belongs, and at the README's
+top. Its swoosh is a `<linearGradient>`, which this engine did not draw
+(`conformance.md`: gradients in SVG reported), so 275 came first.
+
+**Built — 275 cut to `<linearGradient>` (ADR 0107).** `alo-paint`'s
+`ramp.rs`: a colour along a line, `t = a·x + b·y + c` in the drawing's
+coordinates (an affine map of a projection is still one, so the shape's,
+the gradient's and the box's transforms are three numbers), with
+`colour_paint.rs`'s colour line — straight colours then premultiplied;
+pad, reflect, repeat. `Paint::Ramp`, `DrawingItem::Ramp`, and `build.rs`
+moving a ramp with its drawing. `alo-svg`: `paint.rs` reads `url(#id)
+fallback` into a `Brush`; `server.rs` finds the element by `id` across the
+document (first wins) and stands the fallback colour, or nothing, in for a
+`<radialGradient>`, a `<pattern>`, a missing name, a non-server or another
+document, each recorded; `gradient.rs` reads `gradientUnits`, `x1`–`y2`,
+`gradientTransform`, `spreadMethod` and the stops; fill and stroke both;
+`fill-opacity`/`stroke-opacity` and a shape's `opacity` fade the stops; at
+most 256 stops (`bounds.rs`). `stop-color` and `stop-opacity` are new
+presentation attributes and properties (`presentation.rs`,
+`alo-css/properties.rs`). **Cut and queued:** 910 `<radialGradient>`, 911
+`<pattern>`, 912 a gradient's `href`.
+
+**Measured against Chrome 157.0.8103.38** (headless, no `--disable-gpu`,
+`--force-device-scale-factor` 1 and 2; boxes by `getBoundingClientRect`
+×64, html 320 wide; scratchpad `m910/`): corpus case
+`svg-linear-gradients` — eleven drawings and the owner's icon. Away from
+edges every pixel is within one level at both scales (53,685 at one,
+240,974 at two); edges within measured bounds (icon 80 at one, 89 at two,
+where Chrome's edge is quarter-quantised). A premultiplied mix, tried as
+a mutation, put `g3` 38 levels off and failed the test. The scale-two
+test now counts 77 cases with Chrome's boxes.
+
+**Built — 913.** `docs/brand/`: the two files as supplied (SHA-1 equal to
+the scratchpad's) and a note of their colours. `the-applications-icon`:
+the owner's drawing written in as it is on Apple's grid over a box with
+its corners (104 of 512 → 16.345 vmin) casting the old shadow;
+`icon-16.png`…`icon-1024.png`, `render.png`, `display.txt`, `layout.txt`,
+`boxes.txt`, `agent.txt` rewritten and **inspected** (every size; 16 and
+32 zoomed: the drawing is faint at 16, as the owner drew it, not
+retouched). `bundle_icon.rs` and `icns.rs` needed no change.
+**Inside alo:** the panel's head shows the icon 24 square, 8 before *alo*;
+the rail shows the icon alone, 28 square, where the word stood — **a
+judgment call**: the least intrusive placements, no row moved; the first
+screen, Settings and cards show no mark of alo's and gained none; alo has
+no offline screen or *About* page of its own (macOS's *About alo* panel
+shows the bundle's icon). `the_mark.rs` holds both templates to the
+owner's file; `the_chats_panel.rs` places both in numbers.
+**References moved, each inspected (diffs confined to the mark):**
+renderer `face-{dm-sans,geist,instrument-sans,inter,plus-jakarta-sans}-panel`,
+`panel-chats`, `panel-closing`, `panel-deleting`, `panel-rail`,
+`panel-rail-at-two`, `panel-rail-addresses`, `panel-rail-named`,
+`panel-search-selected`, `panel-searched`; window `the-conversation`,
+`the-conversation-at-two`, `the-conversation-panel-hidden`,
+`the-conversation-panel-hidden-at-two`, `the-panel-after-a-press`,
+`the-panel-folded-at-759`, `the-rail-naming-a-chat-at-759`,
+`the-sheet-at-700`, `the-sheet-sliding-at-700` (two pixels at the sheet's
+edge). Backups in scratchpad `refs-before-913/`. **The README** opens with
+the icon and *alo browser*.
+
+**By hand** (release, `alo-bundle --into handrun52/app` with the CEF host,
+no keys; `--conversation --chats handrun52/chats`; scratchpad
+`handrun52/`): the panel's mark (`52-01`, `52-02`), the rail's (`52-03`),
+the Dock (`52-05`, `52-06`), the Finder in icon view (`52-07`), Get Info
+(`52-08`), macOS's About panel (`52-09`); Settings closed throughout. A
+first `open` without `--conversation` exited at once (its usage); the
+problem-report dialogs on screen were older than this run (no crash report
+was written).
+
+**ROADMAP:** the SVG line's *Built* names the linear gradient, its *Owed*
+910–912; the application line names the owner's icon.
+
+
+**Gate: met on the second run** (CEF_PATH set, the pointer at 1400, 1000;
+detached through `perl -MPOSIX=setsid`, waited on by its PID;
+`gate-batch32.log`). The first failed one test,
+`alo-svg::what_it_reads_is_listed`: a `#[cfg(test)]` import near the top
+of `fill.rs` hid the rest of the file from its scan, so `fill`,
+`fill-opacity` and `fill-rule` read as unread (fixed by importing `Rgba`
+plainly; kept as `gate-batch32-first.log`). **Summary [1187.868s] 6947
+tests run: 6947 passed (5 slow, 1 leaky), 0 skipped** — *"The gate is
+met." (11 of 11 steps)*. The hand run's application was built before that
+one-line fix, which changes no behaviour.
+
+The next unused queue number is **914** and the next ADR is **0108**.

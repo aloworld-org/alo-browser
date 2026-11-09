@@ -378,7 +378,10 @@ fn a_panel_of_open_and_earlier_chats_is_read_by_name_with_what_is_happening() {
         "{outline}"
     );
     // The icons, inside rows that did not move for them (items 712, 711):
-    // the hide button's 18 square in the middle of its 36, 9 in and down;
+    // first the mark, the owner's icon 24 square (item 913), 8 into the
+    // head after the panel's 10, and in the middle of the mark's line of
+    // 26, itself in the middle of the head's 46 from 6: 6 + 10 + 1 = 17
+    // down; the hide button's 18 square in the middle of its 36, 9 in and down;
     // New chat's plus after its 1 of border and 12 of padding, so 23 in,
     // and centred in the 38 inside the border, 1 + 11 = 12 down; Search
     // chats' glass 12 in and 11 down; Settings' sliders after its 10 of
@@ -386,6 +389,7 @@ fn a_panel_of_open_and_earlier_chats_is_read_by_name_with_what_is_happening() {
     assert_eq!(
         drawn.icons,
         vec![
+            px(18.0, 17.0, 24.0, 24.0),
             px(203.0, 20.0, 18.0, 18.0),
             px(23.0, 68.0, 16.0, 16.0),
             px(22.0, 113.0, 16.0, 16.0),
@@ -567,9 +571,16 @@ fn hidden_the_panel_is_the_rail_at_one_and_at_two() {
             vec![px(42.0, 176.0, 7.0, 7.0)],
             "{outline}"
         );
+        // The mark, the owner's icon 28 square (item 913), in the middle of
+        // the rail's 64 and of its row of 40 from 10; then New chat's plus
+        // and Show the panel's window.
         assert_eq!(
             drawn.icons,
-            vec![px(23.0, 69.0, 18.0, 18.0), px(23.0, 517.0, 18.0, 18.0)],
+            vec![
+                px(18.0, 16.0, 28.0, 28.0),
+                px(23.0, 69.0, 18.0, 18.0),
+                px(23.0, 517.0, 18.0, 18.0)
+            ],
             "{outline}"
         );
         let frame = drawn.frame.unwrap_or_else(|| panic!("nothing was painted"));

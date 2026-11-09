@@ -860,8 +860,17 @@ three caps, the three joins, the miter limit, `stroke-opacity`, and dashes with
 their offset, a stroke squashed with its shape under a transform (corpus case
 `svg-strokes`) — so alo's offline screen draws its hand (`alo-offline`).
 SVG 2's `miter-clip` and `arcs` joins are not understood, as in every browser,
-and `paint-order` and `vector-effect` are reported and not applied. A nested
-`<svg>`, `<use>`, `<text>` and gradients are not drawn and are reported. **The
+and `paint-order` and `vector-effect` are reported and not applied. **A `<linearGradient>`
+paints a fill or a stroke** (item 275, ADR 0107) — by the shape's box or in
+user space, `x1` to `y2`, `gradientTransform`, `pad`, `reflect` and `repeat`,
+`<stop>`s with `stop-color` and `stop-opacity` mixed as straight colours as
+Chrome mixes them, faded by `fill-opacity` and `opacity`, and found anywhere
+in the document: away from shapes' edges within one level of Chrome 157 at one
+and at two (corpus case `svg-linear-gradients`, with the owner's icon). A
+nested `<svg>`, `<use>`, `<text>`, a `<radialGradient>` (item 910), a
+`<pattern>` (item 911) and a gradient's `href` (item 912) are not drawn and
+are reported; a paint server that cannot be used is drawn in its fallback
+colour, or not at all. **The
 `transform` property on an SVG element is applied** — a stylesheet's replaces
 the element's `transform` attribute, a child's composes inside its group's,
 and `transform-box: fill-box` with `transform-origin` turns a shape about its

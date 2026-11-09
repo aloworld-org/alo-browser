@@ -41,6 +41,7 @@
 
 use crate::fill_rule::FillRule;
 use crate::path::Path;
+use crate::ramp::Ramp;
 use alo_value::Rgba;
 
 /// One step of a drawing.
@@ -52,6 +53,17 @@ pub enum DrawingItem {
         path: Path,
         /// What with, with `fill-opacity` already in its alpha.
         color: Rgba,
+        /// What counts as inside.
+        rule: FillRule,
+    },
+    /// A shape, filled with a colour that runs along a line: an SVG
+    /// `<linearGradient>` (queue item 275).
+    Ramp {
+        /// What to fill, in the box's coordinates.
+        path: Path,
+        /// What with, in the box's coordinates, with `fill-opacity` already
+        /// in its stops' alpha.
+        ramp: Ramp,
         /// What counts as inside.
         rule: FillRule,
     },
@@ -125,6 +137,7 @@ impl Drawing {
     pub fn draws_anything(&self) -> bool {
         self.items.iter().any(|item| match item {
             DrawingItem::Fill { path, color, .. } => !path.is_empty() && !color.is_invisible(),
+            DrawingItem::Ramp { path, ramp, .. } => !path.is_empty() && !ramp.is_invisible(),
             DrawingItem::PushGroup { .. } | DrawingItem::PopGroup => false,
         })
     }
@@ -172,5 +185,40 @@ mod tests {
                 ..
             })
         ));
+    }
+
+    #[test]
+    fn a_ramp_draws_unless_every_stop_is_invisible() {
+        use crate::colour_paint::{ColourLine, Extend};
+        let ramp = |alpha: u8| {
+            crate::ramp::Ramp::between(
+                (0.0, 0.0),
+                (4.0, 0.0),
+                alo_value::Matrix::IDENTITY,
+                ColourLine {
+                    stops: vec![
+                        (0.0, Rgba::from_rgba8(255, 0, 0, alpha)),
+                        (1.0, Rgba::from_rgba8(0, 0, 255, alpha)),
+                    ],
+                    extend: Extend::Pad,
+                },
+            )
+        };
+        let (Some(seen), Some(unseen)) = (ramp(255), ramp(0)) else {
+            panic!("two ramps");
+        };
+        let mut drawing = Drawing::new();
+        drawing.push(DrawingItem::Ramp {
+            path: Path::rectangle(0.0, 0.0, 4.0, 4.0),
+            ramp: unseen,
+            rule: FillRule::NonZero,
+        });
+        assert!(!drawing.draws_anything());
+        drawing.push(DrawingItem::Ramp {
+            path: Path::rectangle(0.0, 0.0, 4.0, 4.0),
+            ramp: seen,
+            rule: FillRule::NonZero,
+        });
+        assert!(drawing.draws_anything());
     }
 }

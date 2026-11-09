@@ -16,7 +16,8 @@
 //! # Which attributes
 //!
 //! Only those whose property this engine draws, which is a list that grows
-//! with the items that draw them: item 271's fills, item 273's strokes, and
+//! with the items that draw them: item 271's fills, item 273's strokes, item
+//! 275's gradient stops (`stop-color`, `stop-opacity`), and
 //! the properties that decide whether anything is drawn at all. An attribute not in the list is an
 //! attribute and nothing more, which is the state every SVG attribute was in
 //! before this file. Geometry — `x`, `r`, `d`, `points` — is read by `alo-svg`
@@ -63,6 +64,8 @@ pub const PRESENTATION_PROPERTIES: &[&str] = &[
     "fill-rule",
     "height",
     "opacity",
+    "stop-color",
+    "stop-opacity",
     "stroke",
     "stroke-dasharray",
     "stroke-dashoffset",
@@ -153,8 +156,8 @@ fn valid(property: &str, value: &str) -> bool {
     }
     match property {
         "fill" | "stroke" => paint(value),
-        "color" => alo_value::parse_color(value).is_some(),
-        "fill-opacity" | "opacity" | "stroke-opacity" => alpha(value),
+        "color" | "stop-color" => alo_value::parse_color(value).is_some(),
+        "fill-opacity" | "opacity" | "stroke-opacity" | "stop-opacity" => alpha(value),
         "fill-rule" => one_of(value, &["nonzero", "evenodd"]),
         "stroke-width" => length(value).is_some_and(|length| length >= 0.0),
         "stroke-dashoffset" => length(value).is_some(),

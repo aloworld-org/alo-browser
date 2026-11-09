@@ -166,6 +166,13 @@ Its input is not watched. `alo` never watched it; only `--chrome` does.
   compared by the gate like any other render. The `.icns` holds them as
   PNG, which is a container a few dozen lines of ours write; Apple's
   `iconutil` is not needed.
+  *Amended 9 November 2026 (queue item 913):* the drawing on that page is
+  **the owner's icon**, `docs/brand/alo-browser-icon.svg`, written in as it
+  is — a cream tile, a navy globe, a teal swoosh — on Apple's grid (824 of
+  1,024, 100 around it) over a box of the same corners that casts the soft
+  shadow the icon always had. The terracotta tile with *alo* in cream that
+  stood there until then was ours, not the owner's. Its swoosh is a
+  `<linearGradient>`, which this engine draws since ADR 0107.
 - **It is sealed ad hoc** with `codesign -s -`, Apple's own tool, rented
   as `screencapture` is in the tests. That is what makes it valid on disk
   (§ 1) — not trusted: `spctl` rejects it, and a copy macOS has marked as

@@ -26,6 +26,7 @@ use crate::bounds::{DEEPEST, MOST_DASHES, MOST_ELEMENTS, MOST_GROUPS_DEEP, MOST_
 use crate::fill::fill_of;
 use crate::length::Viewport;
 use crate::paint::alpha;
+use crate::server::{Servers, Shade, Target};
 use crate::shape::{Geometry, Refusal, fills};
 use crate::stroke::stroke_of;
 use crate::viewport::AspectRatio;
@@ -71,6 +72,9 @@ struct Walk<'a> {
     segments: usize,
     groups: usize,
     groups_open: usize,
+    /// The document's elements by `id`, found the first time a shape names
+    /// a paint server.
+    servers: Option<Servers>,
 }
 
 /// Draw what an outermost `<svg>` holds into a box of `size` CSS pixels.
@@ -130,6 +134,7 @@ pub fn draw(document: &Document, styles: &StyleTree, svg: NodeId, size: (f32, f3
         segments: 0,
         groups: 0,
         groups_open: 0,
+        servers: None,
     };
     walk.push_children(svg, 1, base);
     match walk.run() {
@@ -298,7 +303,8 @@ impl Walk<'_> {
         };
         // Measured before anything else can be refused, because the box is the
         // shape's own geometry, untransformed and unstroked.
-        let matrix = self.under_own_transform(name, style, object_bounding_box(&path), matrix);
+        let bbox = object_bounding_box(&path);
+        let matrix = self.under_own_transform(name, style, bbox, matrix);
         let fill = if fills(name, &path) {
             fill_of(style, &mut self.issues)
         } else {
@@ -308,12 +314,35 @@ impl Walk<'_> {
         if fill.is_none() && stroke.is_none() {
             return Ok(());
         }
+        // A paint server is followed once the shape's box and transform are
+        // known, which is what it is measured against.
+        let target = Target {
+            bbox,
+            matrix,
+            viewport: self.viewport,
+            metrics: style.metrics(),
+        };
+        let fill = match fill {
+            Some(fill) => self
+                .shade(fill.brush, &target)?
+                .map(|shade| (shade, fill.rule)),
+            None => None,
+        };
+        let stroke = match stroke {
+            Some(stroke) => self
+                .shade(stroke.brush.clone(), &target)?
+                .map(|shade| (shade, stroke)),
+            None => None,
+        };
+        if fill.is_none() && stroke.is_none() {
+            return Ok(());
+        }
         self.not_applied(element, style);
         self.count(&path)?;
 
         let outline = match stroke {
             None => None,
-            Some(stroke) => {
+            Some((shade, stroke)) => {
                 if let Some(dashes) = &stroke.stroke.dashes {
                     let dashes = crate::dashes::count(&path, &dashes.lengths);
                     #[expect(
@@ -330,7 +359,7 @@ impl Walk<'_> {
                     }
                 }
                 alo_paint::raster::outline(&path, &stroke.stroke, resolution(matrix))
-                    .map(|outline| (outline, stroke.color))
+                    .map(|outline| (outline, shade))
             }
         };
         if let Some((outline, _)) = &outline {
@@ -348,11 +377,11 @@ impl Walk<'_> {
         } else {
             opacity
         };
-        if let Some(fill) = fill {
-            self.paint(path.transformed(matrix), fill.color, fill.rule, fade);
+        if let Some((shade, rule)) = fill {
+            self.paint(path.transformed(matrix), &shade, rule, fade);
         }
-        if let Some((outline, color)) = outline {
-            self.paint(outline.transformed(matrix), color, FillRule::NonZero, fade);
+        if let Some((outline, shade)) = outline {
+            self.paint(outline.transformed(matrix), &shade, FillRule::NonZero, fade);
         }
         if grouped {
             self.close_group();
@@ -361,14 +390,43 @@ impl Walk<'_> {
     }
 
     /// One shape, filled, faded by `fade`, unless that leaves nothing to see.
-    fn paint(&mut self, path: Path, color: Rgba, rule: FillRule, fade: f32) {
-        let color = Rgba {
-            alpha: color.alpha * fade,
-            ..color
-        };
-        if !color.is_invisible() {
-            self.drawing.push(DrawingItem::Fill { path, color, rule });
+    fn paint(&mut self, path: Path, shade: &Shade, rule: FillRule, fade: f32) {
+        match shade {
+            Shade::Colour(color) => {
+                let color = Rgba {
+                    alpha: color.alpha * fade,
+                    ..*color
+                };
+                if !color.is_invisible() {
+                    self.drawing.push(DrawingItem::Fill { path, color, rule });
+                }
+            }
+            Shade::Ramp(ramp) => {
+                let ramp = ramp.faded(fade);
+                if !ramp.is_invisible() {
+                    self.drawing.push(DrawingItem::Ramp { path, ramp, rule });
+                }
+            }
         }
+    }
+
+    /// What a brush paints the shape `target` describes with, every
+    /// reference followed ([`crate::server`]).
+    fn shade(
+        &mut self,
+        brush: crate::paint::Brush,
+        target: &Target,
+    ) -> Result<Option<Shade>, String> {
+        let document = self.document;
+        let servers = self.servers.get_or_insert_with(|| Servers::of(document));
+        crate::server::shade(
+            brush,
+            document,
+            self.styles,
+            servers,
+            target,
+            &mut self.issues,
+        )
     }
 
     /// Count a path the drawing is about to hold against the drawing's bound.
