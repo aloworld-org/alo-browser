@@ -50544,3 +50544,51 @@ slow, 1 leaky), 0 skipped** — *"The gate is met." (11 of 11 steps)*.
 `scripts/gate.sh` not edited.
 
 The next unused queue number is **902** and the next ADR is **0105**.
+
+## 2026-11-09 — batch 30: the window's present measured, a card's picture composed only where it changed (873, partly)
+
+**873 — partly done, not ticked; the present waits for the owner.**
+Measured first (release, the Retina display at two, ADR 0100's page streaming
+as a card, 872's timestamps in a worktree of ad229528; scratchpad
+`handrun50/`): each new picture of the card composed its whole place —
+1,826,240 pixels in 14.8 ms — then was presented in 10.4, the event loop
+held 66 % of the time; a letter beside it reached the screen in 39–48 ms,
+median 44.9.
+
+**The present, every route measured outside the repository**
+(`present873/`, a window of alo's size, 150 letter-sized changes;
+ADR 0105, *proposed*): `softbuffer` 0.4.8 11.6–13.2 ms a frame, 10.56 of it
+its own `present` (a new `CGImage` each frame; no version keeps one on
+macOS); `wgpu` 30 with a kept texture and only the change written
+0.16–0.8 ms and safe — but its Metal layer is not colour-matched (sRGB red
+shown as (255, 0, 0) where alo shows (234, 51, 35)); Display P3 the same;
+half floats in extended sRGB 72 % of pixels 1–2 levels off; the layer
+tagged as `softbuffer` tags its image — **one `unsafe` block**,
+`Surface::as_hal` — flat colours identical but 15 % of colours one level
+off in one channel. A boundary in a workspace crate is refused by
+`gate.sh` and by ADR 0080, so it is the owner's to allow: ADR 0105 asks
+two questions (the boundary; colours matched by the window server) and
+**nothing of it is built**. `scripts/gate.sh` not edited.
+
+**Built (ADR 0102 § 4, amended):** a card's new picture of the same size at
+the same place composes again only its rows that differ, put where they
+land one to one and cut to what the window shows
+(`conversation_composed::on_window`, `beneath_moved`). **After:** a picture
+composed over 310,584 pixels in 4.8 ms, the loop held 45 %; a letter 30–46
+ms, median 37.1. The no-card case is untouched by the change and was not
+measured again. **Tests:** two units in `conversation_composed` (the
+changed pixels counted where they land; half off and wholly off the frame;
+two rectangles, not the place; every word as composed whole). **Mutations**,
+each caught: the whole place; the frame's edge not cut; the place's corner
+left out; only the first run of rows.
+
+**Queued:** 902, the kept surface and the card's own layer (*blocked: the
+owner's answer to ADR 0105*); 903, the picture's 4.8 ms composed off the
+event loop. 873 is marked *blocked* and closes with them.
+
+**Gate: met, first run** (CEF_PATH set, the pointer at 1400, 1000;
+detached through `perl -MPOSIX=setsid`, waited on by its PID;
+`gate-batch30.log`). **Summary [1173.695s] 6872 tests run: 6872 passed (5
+slow, 1 leaky), 0 skipped** — *"The gate is met." (11 of 11 steps)*.
+
+The next unused queue number is **904** and the next ADR is **0106**.

@@ -1,6 +1,6 @@
 # ADR 0102 — What a drawing did not change is neither made, sent nor composed again
 
-**Status:** accepted — built by queue items 871 and 872 (7 November 2026); § 2 amended for queue item 892 (what a drawing does not use laid aside); §§ 2–4 amended for queue items 894 (a backdrop's blur and a picture laid aside) and 896 (a patch per piece, composed per piece)
+**Status:** accepted — built by queue items 871 and 872 (7 November 2026); § 2 amended for queue item 892 (what a drawing does not use laid aside); §§ 2–4 amended for queue items 894 (a backdrop's blur and a picture laid aside) and 896 (a patch per piece, composed per piece); § 4 amended for queue item 873 (a card's new picture composed again only where it changed)
 **Date:** 2026-11-07
 **Context:** ADR 0101 (a drawing painted over the last only where their
 lists differ, which left the first letter beside a card painted whole and
@@ -303,3 +303,38 @@ by runs of rows that differ, each the smallest rectangle holding its
 differing pixels, joined as a drawing's places are. Measured in the window
 alone (release, this Mac, *Settings* at two, *Close* → *Font*): composed
 again over 196,200 pixels in 2.19 ms where it was 721,392 in 5.01.
+
+## Amended (9 November 2026, queue item 873)
+
+**§ 4: a new picture of the card is composed again only where it changed.**
+§ 4 composed the card's whole place again for every new picture of it.
+Measured at ad229528 (release, the Retina display at two, ADR 0100's page
+streaming as a card, the timestamps of 872 put in a worktree for the
+measurement only; scratchpad `handrun50/before-card.log`): 712 pictures drawn
+in 27 s, each composed over **1,826,240 pixels in 14.8 ms** (median; 15.1 at
+the ninetieth) and presented in 10.4, so drawing pictures held the window's
+event loop **66 %** of the time, and a letter's frame waited behind one for
+12–15 ms more often than not — key to screen 39–48 ms, median 44.9.
+
+Now a picture of the same size at the same place is compared with the last
+row by row, as the first screen's frame is (§ 4's `differing`), and each run
+of differing rows' rectangle is put where the picture lands — one to one,
+at the place's corner in the frame standing in the window — and cut to the
+part of the place the window shows (`conversation_composed::on_window`). A
+picture moved, of another size, come or gone still composes both places
+whole. Composing stays a pixel's own arithmetic, so the window's words are
+those composed whole: each test compares every word.
+
+**After** (the same run, `handrun50/after-card.log`): 825 pictures drawn,
+each composed over a median **310,584 pixels in 4.8 ms** (5.4 at the
+ninetieth); drawing them holds the loop **45 %** of the time; key to screen
+30–46 ms, median **37.1** (from 44.9), the slower third still a letter
+behind a picture's 10.4 ms present, which ADR 0105 is about. **Tests:**
+`a_new_picture_of_the_card_composes_again_only_where_its_pixels_changed`
+(one change: its 80 pixels where they land; one half off the frame's left
+edge: the 12 shown; one wholly off it: nothing) and
+`a_card_turning_a_box_composes_again_the_box_and_not_its_page` (two
+rectangles, 88,000 pixels of a place of 840,000), every word as composed
+whole in each. **Mutations**, each caught: the whole place composed again;
+the frame's edge not cut; the place's corner left out (every word differs);
+only the first run of rows taken.

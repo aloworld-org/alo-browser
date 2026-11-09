@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Typing beside a live card is quicker.** A new picture of a page playing
+  in a card used to be composed into the window whole, 15 or more times a
+  second; now only the part of it that changed is — a turning box, not the
+  page around it — in about a third of the time. A letter typed beside such
+  a card reaches the screen in about 37 ms where it took 45. Nothing drawn
+  looks any different. Putting the window on screen still copies all of it
+  (about 10 ms a frame): doing less there needs a decision about `unsafe`
+  code that is the owner's to make, written up as ADR 0105.
 - **No provider's name is shown any more.** alo still searches with the
   same service underneath, but nothing a person reads names it: a search
   says *Searching for “…”…* and *No sites found for “…”.*, a refusal or a

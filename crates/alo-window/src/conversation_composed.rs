@@ -35,7 +35,13 @@
 //! - **the first screen's frame** — of another size, everything; of the same
 //!   size, the rows whose bytes differ, each run of them the smallest
 //!   rectangle holding its differing pixels (queue item 896);
-//! - **the card's page beneath** — another picture or place, both places.
+//! - **the card's page beneath** — another picture of the same size at the
+//!   same place, its pixels that differ, found as the first screen's and
+//!   put where the picture lands one to one, inside the part of its place
+//!   the window shows (queue item 873: a live card's 15 pictures a second
+//!   each composed its whole place again, 1.8 million pixels and 14.8 ms of
+//!   the window's event loop at two, for a box turning in a sixth of it);
+//!   moved, of another size, come or gone, both places.
 //!
 //! What may have changed is then joined as a drawing's damage is
 //! ([`alo_paint::pieces::cut`]): far apart, two rings in *Settings* are
@@ -237,25 +243,92 @@ fn changed(
         .beneath
         .as_ref()
         .map(|(picture, place)| (picture, *place));
-    if was_beneath != scene.beneath {
-        for (beneath, frame) in [
-            (was_beneath, made.start.as_ref()),
-            (scene.beneath, scene.start),
-        ] {
-            if let (Some(beneath), Some(frame)) = (beneath, frame) {
-                add(beneath_rect(
-                    beneath,
-                    (frame.width, frame.height),
-                    placed.start,
-                ));
+    match (was_beneath, scene.beneath, scene.start) {
+        _ if was_beneath == scene.beneath => {}
+        // A new picture of the card, of the same size at the same place
+        // (queue item 873): only where its pixels differ, as the first
+        // screen's — each window pixel of it is the picture's one pixel
+        // there, one to one, over the frame's.
+        (Some((was, at)), Some((is, place)), Some(frame))
+            if at == place && (was.width, was.height) == (is.width, is.height) =>
+        {
+            let shown = beneath_rect((is, place), (frame.width, frame.height), placed.start);
+            for rect in differing(was, is) {
+                if let Some(rect) = on_window(rect, place, placed.start, shown) {
+                    add(rect);
+                }
             }
         }
+        _ => beneath_moved(&mut add, made, scene, placed),
     }
     let pieces = alo_paint::pieces::cut(&found, &[]);
     if pieces.is_empty() {
         Recomposed::Nothing
     } else {
         Recomposed::Within(pieces)
+    }
+}
+
+/// The picture's `rect`, in its own pixels, where it lands in the window:
+/// at `place` in the first screen's frame standing at `start`, inside
+/// `shown`, the part of the place the window shows.
+fn on_window(
+    rect: PixelRect,
+    place: Beneath,
+    start: PixelRect,
+    shown: PixelRect,
+) -> Option<PixelRect> {
+    let span = |origin: u32, at: i32, from: u32, length: u32, within: (u32, u32)| {
+        let first = i64::from(origin) + i64::from(at) + i64::from(from);
+        let low = first.max(i64::from(within.0));
+        let high = (first + i64::from(length)).min(i64::from(within.0) + i64::from(within.1));
+        Some((u32::try_from(low).ok()?, u32::try_from(high - low).ok()?))
+    };
+    let (x, width) = span(
+        start.x,
+        place.left,
+        rect.x,
+        rect.width,
+        (shown.x, shown.width),
+    )?;
+    let (y, height) = span(
+        start.y,
+        place.top,
+        rect.y,
+        rect.height,
+        (shown.y, shown.height),
+    )?;
+    (width > 0 && height > 0).then_some(PixelRect {
+        x,
+        y,
+        width,
+        height,
+    })
+}
+
+/// Where the card's picture was and is, each whole: it moved, changed
+/// size, came or went.
+fn beneath_moved(
+    add: &mut impl FnMut(PixelRect),
+    made: &Made,
+    scene: &ConversationScene<'_>,
+    placed: ConversationPlacement,
+) {
+    let was_beneath = made
+        .beneath
+        .as_ref()
+        .map(|(picture, place)| (picture, *place));
+    for (beneath, frame) in [
+        (was_beneath, made.start.as_ref()),
+        (scene.beneath, scene.start),
+    ] {
+        if let (Some(beneath), Some(frame)) = (beneath, frame) {
+            add(beneath_rect(
+                beneath,
+                (frame.width, frame.height),
+                placed.start,
+            ));
+        }
     }
 }
 
@@ -491,6 +564,143 @@ mod tests {
             whole(&scene(&panel, &start, None)).as_slice(),
             "and gone"
         );
+    }
+
+    #[test]
+    fn a_new_picture_of_the_card_composes_again_only_where_its_pixels_changed() {
+        // Queue item 873: a live card's page turning a box in a sixth of
+        // its picture composed the whole place again, 15 times a second.
+        let (panel, start) = (varied(480, 120, 1), varied(220, 120, 2));
+        let picture = varied(90, 40, 3);
+        let place = Beneath {
+            left: -10,
+            top: 20,
+            width: 90,
+            height: 40,
+        };
+        let mut composed = Composed::new();
+        composed.compose(
+            &scene(&panel, &start, Some((&picture, place))),
+            &lettering(),
+        );
+        let turned = touched(
+            &picture,
+            PixelRect {
+                x: 20,
+                y: 5,
+                width: 10,
+                height: 8,
+            },
+        );
+        let next = scene(&panel, &start, Some((&turned, place)));
+        let (words, recomposed) = composed.compose(&next, &lettering());
+        assert_eq!(
+            words,
+            whole(&next).as_slice(),
+            "every word as composed whole"
+        );
+        assert_eq!(
+            recomposed,
+            Recomposed::Within(vec![Region {
+                left: 490,
+                top: 25,
+                right: 500,
+                bottom: 33
+            }]),
+            "the picture's changed pixels, where they land in the window"
+        );
+        assert_eq!(recomposed.area((700, 120)), 10 * 8);
+
+        // A change half off the frame's left edge: only the part shown.
+        let slid = touched(
+            &turned,
+            PixelRect {
+                x: 2,
+                y: 30,
+                width: 10,
+                height: 6,
+            },
+        );
+        let last = scene(&panel, &start, Some((&slid, place)));
+        let (words, recomposed) = composed.compose(&last, &lettering());
+        assert_eq!(words, whole(&last).as_slice());
+        assert_eq!(
+            recomposed,
+            Recomposed::Within(vec![Region {
+                left: 480,
+                top: 50,
+                right: 482,
+                bottom: 56
+            }]),
+            "what is off the frame's left is not composed"
+        );
+        // A change entirely off the frame: nothing at all.
+        let hidden = touched(
+            &slid,
+            PixelRect {
+                x: 0,
+                y: 0,
+                width: 4,
+                height: 3,
+            },
+        );
+        let (words, recomposed) =
+            composed.compose(&scene(&panel, &start, Some((&hidden, place))), &lettering());
+        assert_eq!(
+            words,
+            whole(&scene(&panel, &start, Some((&hidden, place)))).as_slice()
+        );
+        assert_eq!(recomposed, Recomposed::Nothing);
+    }
+
+    #[test]
+    fn a_card_turning_a_box_composes_again_the_box_and_not_its_page() {
+        // The hand run's page at two, in proportion: a picture of 1200 by
+        // 700 whose box of 280 by 280 turned and whose bar of 240 by 40
+        // slid, far below it — two rectangles, not the 840,000 pixels of
+        // the place; every word as composed whole.
+        let (panel, start) = (varied(100, 900, 1), varied(1300, 900, 2));
+        let picture = varied(1200, 700, 3);
+        let place = Beneath {
+            left: 40,
+            top: 100,
+            width: 1200,
+            height: 700,
+        };
+        let mut composed = Composed::new();
+        let mut first = scene(&panel, &start, Some((&picture, place)));
+        first.window = (1400, 900);
+        composed.compose(&first, &lettering());
+        let turned = touched(
+            &touched(
+                &picture,
+                PixelRect {
+                    x: 400,
+                    y: 60,
+                    width: 280,
+                    height: 280,
+                },
+            ),
+            PixelRect {
+                x: 100,
+                y: 600,
+                width: 240,
+                height: 40,
+            },
+        );
+        let mut next = scene(&panel, &start, Some((&turned, place)));
+        next.window = (1400, 900);
+        let (words, recomposed) = composed.compose(&next, &lettering());
+        assert_eq!(
+            words,
+            whole(&next).as_slice(),
+            "every word as composed whole"
+        );
+        let Recomposed::Within(regions) = &recomposed else {
+            panic!("composed {recomposed:?}");
+        };
+        assert_eq!(regions.len(), 2, "{regions:?}");
+        assert_eq!(recomposed.area((1400, 900)), 280 * 280 + 240 * 40);
     }
 
     #[test]
