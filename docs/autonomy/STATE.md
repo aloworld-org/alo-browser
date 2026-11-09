@@ -50592,3 +50592,57 @@ detached through `perl -MPOSIX=setsid`, waited on by its PID;
 slow, 1 leaky), 0 skipped** — *"The gate is met." (11 of 11 steps)*.
 
 The next unused queue number is **904** and the next ADR is **0106**.
+
+## 2026-11-09 — batch 30, continued: the window kept on the GPU (902, closing 873), the owner's yes to ADR 0105
+
+**The owner's answer** to ADR 0105's two questions: yes to both (*"Okay go
+ahead"*), if the tagged Metal layer is measured to be at least as near the
+machine's Chrome as `softbuffer`. **Measured first** (Chrome 157.0.8103.38,
+shown, the same display at two; scratchpad `handrun50/chrome/`): the tagged
+layer is nearer Chrome on every frame whose colours differ (varied pixels
+11.02 % apart from Chrome vs `softbuffer`'s 12.52 %; 13,824 colours 11.27
+vs 12.41; `settings-over-a-card.png` 3.07 vs 4.35; `start-screen.png` 84.12
+vs 84.16, each a level in one channel), and the same on sixteen flat
+colours. So it was built.
+
+**Built (ADR 0105 accepted; 0080 and 0024 § 1 amended):**
+`alo-window/src/present_kept.rs` (`wgpu` 30.0.1 Metal-only, `objc2-core-graphics`,
+`bytemuck`; the kept texture written only where `Composed` composed again,
+copied to the drawable; **one `unsafe` block**, `Surface::as_hal`, at
+line 360, to tag the layer with the device's RGB after each `configure`);
+`present_chosen.rs` (that or `softbuffer`, on no GPU/surface or
+`ALO_PRESENT=copied`); `present_shown.rs` and the `alo-present` binary (a
+frame of known colours shown either way). The workspace's `unsafe_code` is
+`deny` (was `forbid`), lifted by one `#[expect]` on `mod present_kept;`.
+`scripts/gate.sh` extended by file — the root lint `deny`, `unsafe` in that
+file alone and there one block, the lint named once on that module, the
+three crates behind their boundary — each refusal seen to fire on a copy
+(ten mutations). `.config/nextest.toml`: the new on-screen test takes both
+turns and is in the chrome group.
+
+**After** (one release build, `ALO_PRESENT=copied` for before, 872's
+timestamps in a worktree): a letter presented in 0.3 ms (from 10.5), a card
+picture in 0.4 (from 10.4); key to screen beside the streaming card median
+21.7 ms (from 43.2), with none 15.2 (from 25.6). The first screen captured
+both ways: 74 % of pixels one level apart in one channel (the paper:
+`softbuffer` (243, 241, 237), kept (244, 241, 236), Chrome (244, 241,
+237)). CPU and memory of the application not measured.
+
+**Tests:** `present_kept` (regions alone written at an odd width, read back
+every word), `conversation_composed` (the kept texture every word composed
+whole after each redraw; a letter's 432 bytes of 336,000),
+`present_chosen` (the name), `present_shown` (the pattern),
+`the_window_on_screen_kept_and_copied.rs` (both ways off the screen in one
+run). **Mutations**, each caught: untagged; always whole; a region dropped.
+**Not forced:** `Kept::over` failing on a real machine and then falling
+back — the fallback's way is tested by asking for it.
+
+**Queued:** 903, the card picture's 4.8 ms composed off the event loop.
+A wgpu issue (an 8-bit `Srgb` surface's layer left untagged) is drafted in
+the scratchpad (`wgpu-issue-draft.md`) for the owner, not posted.
+
+**Gate: met, first run** (`gate-batch30b.log`). **Summary [1414.084s] 6877
+tests run: 6877 passed (9 slow, 1 leaky), 0 skipped** — *"The gate is met."
+(11 of 11 steps)*.
+
+The next unused queue number is **904** and the next ADR is **0106**.

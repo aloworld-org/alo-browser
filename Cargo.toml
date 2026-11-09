@@ -184,6 +184,18 @@ softbuffer = "0.4.8"
 # The two traits `softbuffer` bounds a window by, named in `present.rs` so that
 # `winit` stays in `window.rs`. Already beneath both crates at this version.
 raw-window-handle = "0.6"
+# The window's pixels kept on the GPU between frames, on macOS (ADR 0105,
+# queue item 873): `wgpu` for the Metal layer and a texture of the window's
+# size, written only where a frame changed; `objc2-core-graphics` for the
+# colour space the layer is tagged with (the layer's own type, and its
+# `setColorspace`, are `objc2-quartz-core`'s, which `wgpu` already brings with
+# that method enabled); `bytemuck` to hand `wgpu` the
+# window's words as bytes without copying them. All three named in one file,
+# `alo-window`'s `present_kept.rs`, with its one `unsafe` block. Metal alone,
+# no shader language: nothing is drawn on the GPU, only copied.
+wgpu = { version = "=30.0.1", default-features = false, features = ["metal", "std"] }
+objc2-core-graphics = { version = "=0.3.2", default-features = false, features = ["std", "CGColorSpace"] }
+bytemuck = { version = "1.25", default-features = false }
 # How much of a disk is free, rented (ADR 0025 § 3, queue item 306). The
 # standard library has no call for it and law 4 forbids writing one, so this is
 # `rustix`'s `statvfs`: a safe function whose `unsafe` is the crate's, not ours
@@ -204,10 +216,14 @@ serde_json = { version = "1", default-features = false, features = ["std"] }
 taffy = { version = "0.14", default-features = false, features = ["std", "taffy_tree", "flexbox", "grid", "block_layout", "content_size", "calc", "detailed_layout_info"] }
 
 # Law 4 of CLAUDE.md, enforced by the compiler rather than by review: `unsafe`
-# is forbidden outside a reviewed, named boundary with an ADR. A crate that ever
-# earns such a boundary relaxes this in its own manifest, and the ADR says why.
+# is forbidden outside a reviewed, named boundary with an ADR. It is `deny`,
+# not `forbid`, because a `forbid` cannot be lifted on one module, and the
+# workspace holds one: `alo-window`'s `present_kept` (ADR 0105), lifted by
+# one `#[expect]` in its `lib.rs`. `scripts/gate.sh` checks that this says
+# `deny`, that the lint is named nowhere else in the workspace's sources, and
+# that `unsafe` is written in that one file alone.
 [workspace.lints.rust]
-unsafe_code = "forbid"
+unsafe_code = "deny"
 missing_docs = "deny"
 
 # The gate in CLAUDE.md asks for zero clippy warnings and zero errors. These go

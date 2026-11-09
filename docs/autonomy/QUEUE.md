@@ -24112,7 +24112,7 @@ What stage 2's exit gate actually measures: a person using it.
   compared (each *every word as composed whole* fails). **Cut, queued:**
   the 10.4 ms present and the waits behind a card picture (873).
 
-- [ ] **873. The window presented without copying all of it, and a card's
+- [x] **873. The window presented without copying all of it, and a card's
   picture composed off its event loop (found by 872).** After 872 a letter
   is composed in 2–3 ms, and then presented in 10.4 ms: `softbuffer` 0.4.8
   hands the window server a new zeroed buffer each frame on macOS (`age`
@@ -24126,8 +24126,8 @@ What stage 2's exit gate actually measures: a person using it.
   event loop or given to the window server as a layer of its own, never a
   pixel moved. *Closes when:* each is measured on hardware before and
   after, with a test that counts the work. *Depends on 872.*
-  ***Partly done, cut (batch 30, 9 November 2026) — not ticked: the
-  present waits for the owner (902).*** **Measured** (release, the Retina
+  ***Done, cut (batch 30, 9 November 2026): the present built by 902 once
+  the owner said yes; the picture off the event loop queued (903).*** **Measured** (release, the Retina
   display at two, ADR 0100's page streaming as a card, 872's timestamps
   in a worktree of ad229528; scratchpad `handrun50/`): a new picture of
   the card composed its **whole place, 1,826,240 pixels in 14.8 ms**, and
@@ -24154,8 +24154,7 @@ What stage 2's exit gate actually measures: a person using it.
   the frame's edge not cut; the place's corner left out; only the first
   run of rows. **Cut, queued:** the present and the card's own layer
   (902, the owner's yes on ADR 0105), the card's 4.8 ms composed off the
-  event loop (903). *blocked: the owner's answer to ADR 0105 (902); it
-  closes with 902 and 903.*
+  event loop (903).
 
 - [x] **874. An address with a port and no scheme (found by 871/872's
   hand run).** `127.0.0.1:8739` typed into the one box — and
@@ -25023,7 +25022,7 @@ What stage 2's exit gate actually measures: a person using it.
   `settings-scrolled-short.png`. `docs/design/shell.md` notes the owner's
   change beside the approved words.
 
-- [ ] **902. The window presented from a surface that keeps its last frame
+- [x] **902. The window presented from a surface that keeps its last frame
   — the owner's yes first (cut from 873).** ADR 0105, *proposed*: `wgpu`
   30's Metal layer, a kept texture given only what changed, presents a
   letter in 0.16 ms where `softbuffer` takes 10.4, but only with **one
@@ -25038,18 +25037,47 @@ What stage 2's exit gate actually measures: a person using it.
   is built as ADR 0105 says (the boundary checked by the gate as the
   host's is, a test counting bytes written, a test that the kept texture
   read back is every word composed whole, the screenshot comparison in the
-  same run), or the ADR is closed by a no. *Depends on 873.* *blocked: the
-  owner's answer to ADR 0105.*
+  same run), or the ADR is closed by a no. *Depends on 873.*
+  ***Done (batch 30, 9 November 2026).*** **The owner's answer:** yes to
+  both (*"Okay go ahead"*), if the tagged layer is as near the machine's
+  Chrome as `softbuffer` or nearer. **Measured against Chrome** (157,
+  shown, the same display at two; `handrun50/chrome/compare.txt`): nearer
+  on every frame whose colours differ — varied pixels 11.02 % of pixels
+  apart from Chrome where `softbuffer` is 12.52 %, 13,824 colours 11.27 %
+  where 12.41 %, `settings-over-a-card.png` 3.07 % where 4.35 %,
+  `start-screen.png` 84.12 % where 84.16 % (each a level in one channel) —
+  and the same on sixteen flat colours. **Built (ADR 0105, accepted):**
+  `present_kept.rs` — `wgpu` 30's Metal layer, a texture of the window
+  kept and written only where `Composed` composed again, copied to the
+  drawable on the GPU, the layer tagged with the device's RGB after every
+  `configure` in **one `unsafe` block** (`Surface::as_hal`, with its
+  `// SAFETY:`); `present_chosen.rs` — that, or `softbuffer` when no GPU or
+  surface is had or `ALO_PRESENT=copied` asks; `present_shown.rs` and
+  `alo-present`, a frame of known colours shown either way. The workspace's
+  lint `deny` (was `forbid`), lifted by one `#[expect]` on
+  `mod present_kept;`; `scripts/gate.sh` extended by file, every refusal
+  seen to fire on a copy; ADRs 0080 and 0024 § 1 amended. **After** (the
+  same release build, `ALO_PRESENT=copied` for before): a letter presented
+  in 0.3 ms (from 10.5), a card's picture in 0.4 (from 10.4); key to screen
+  beside the streaming card median **21.7 ms** (from 43.2), with none
+  **15.2** (from 25.6). **Tests:** `present_kept` (regions alone written,
+  an odd width, read back every word), `conversation_composed` (the kept
+  texture every word composed whole after each redraw; a letter's 432
+  bytes of 336,000), `the_window_on_screen_kept_and_copied.rs` (both ways
+  captured off the screen in one run: the copied one presents, flat colours
+  pixel for pixel, the rest within a level). **Mutations**, each caught:
+  untagged; always whole; a region dropped. A wgpu issue asking `Srgb` to
+  tag the layer is drafted for the owner, not posted.
 
 - [ ] **903. The card's picture composed off the window's event loop (cut
-  from 873).** After 873 a new picture of a live card is composed in 4.8 ms
-  (310,584 pixels at two) and presented in 10.4 on the event loop, which
-  drawing pictures holds 45 % of the time; a letter's frame arriving during
-  one waits up to 15 ms. Composing on a thread of its own — the frames
-  shared rather than copied (`Frame`'s 17 MB is cloned into the scene
-  `Composed` keeps today), the words handed to the present — takes the 4.8
-  off the loop and leaves the present (902). Never a pixel moved: every
-  word as composed whole. *Closes when:* measured on hardware before and
+  from 873).** After 873 and 902 a new picture of a live card is composed
+  in 4.8 ms (310,584 pixels at two) on the event loop and presented in 0.4,
+  so a letter's frame arriving during one waits up to about 5 ms (beside
+  the streaming card a letter is 21.7 ms key to screen, median, where it is
+  15.2 with none). Composing on a thread of its own — the frames shared
+  rather than copied (`Frame`'s 17 MB is cloned into the scene `Composed`
+  keeps today), the words handed to the present — takes the 4.8 off the
+  loop. Never a pixel moved: every word as composed whole. *Closes when:* measured on hardware before and
   after, with a test that counts the work done on the event loop.
   *Depends on 873.*
 

@@ -28,6 +28,11 @@ alo-text = { path = "../alo-text" }
 alo-url = { path = "../alo-url" }
 alo-value = { path = "../alo-value" }
 
+[target.'cfg(target_os = "macos")'.dependencies]
+wgpu.workspace = true
+objc2-core-graphics.workspace = true
+bytemuck.workspace = true
+
 [dev-dependencies]
 alo-corpus = { path = "../alo-corpus" }
 

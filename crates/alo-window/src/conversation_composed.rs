@@ -81,6 +81,15 @@ impl Recomposed {
             Recomposed::Whole => u64::from(size.0) * u64::from(size.1),
         }
     }
+    /// The regions composed again — none when nothing was — or [`None`] for
+    /// every pixel: what the pixels kept on the GPU are given (ADR 0105).
+    pub fn regions(&self) -> Option<&[Region]> {
+        match self {
+            Recomposed::Nothing => Some(&[]),
+            Recomposed::Within(regions) => Some(regions),
+            Recomposed::Whole => None,
+        }
+    }
 }
 
 /// What the window was composed from, kept to compare the next with.
@@ -701,6 +710,76 @@ mod tests {
         };
         assert_eq!(regions.len(), 2, "{regions:?}");
         assert_eq!(recomposed.area((1400, 900)), 280 * 280 + 240 * 40);
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn the_pixels_kept_on_the_gpu_are_every_word_composed_whole_given_only_what_changed() {
+        // Queue item 873 (ADR 0105): what the window keeps on the GPU, read
+        // back after each redraw, is every word composed whole — given a
+        // letter's bytes for a letter, a picture's changed pixels for a
+        // picture, and the whole window only when it is composed whole.
+        let mut held = crate::present_kept::Held::headless().unwrap_or_else(|why| panic!("{why}"));
+        let (panel, start) = (varied(480, 120, 1), varied(220, 120, 2));
+        let picture = varied(90, 40, 3);
+        let place = Beneath {
+            left: -10,
+            top: 20,
+            width: 90,
+            height: 40,
+        };
+        let mut composed = Composed::new();
+        let mut shown = |scene: &ConversationScene<'_>| {
+            let (words, recomposed) = composed.compose(scene, &lettering());
+            let written = held.write(scene.window, words, recomposed.regions());
+            assert_eq!(
+                held.read_back(),
+                Ok(whole(scene)),
+                "every word kept as composed whole"
+            );
+            written
+        };
+        let whole_window = 700 * 120 * 4;
+        assert_eq!(
+            shown(&scene(&panel, &start, Some((&picture, place)))),
+            whole_window
+        );
+        let letter = touched(
+            &start,
+            PixelRect {
+                x: 100,
+                y: 70,
+                width: 12,
+                height: 9,
+            },
+        );
+        assert_eq!(
+            shown(&scene(&panel, &letter, Some((&picture, place)))),
+            12 * 9 * 4,
+            "a letter's bytes, of {whole_window}"
+        );
+        assert_eq!(
+            shown(&scene(&panel, &letter, Some((&picture, place)))),
+            0,
+            "nothing changed, nothing written"
+        );
+        let turned = touched(
+            &picture,
+            PixelRect {
+                x: 20,
+                y: 5,
+                width: 10,
+                height: 8,
+            },
+        );
+        assert_eq!(
+            shown(&scene(&panel, &letter, Some((&turned, place)))),
+            10 * 8 * 4,
+            "a picture's changed pixels"
+        );
+        let mut said = scene(&panel, &letter, Some((&turned, place)));
+        said.start_sentence = Some("the first screen's renderer went");
+        assert_eq!(shown(&said), whole_window, "composed whole, written whole");
     }
 
     #[test]

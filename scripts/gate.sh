@@ -111,9 +111,15 @@ declare -a BOUNDARIES=(
   "ruzstd:crates/alo-net/src/decompress.rs"
   "sha2:crates/alo-net/src/digest.rs"
   "unicode_id_start:crates/alo-js/src/unicode.rs"
-  "winit:crates/alo-window/src/window.rs"
+  "winit:crates/alo-window/src/window.rs,crates/alo-window/src/present_shown.rs"
   "softbuffer:crates/alo-window/src/present.rs"
-  "raw_window_handle:crates/alo-window/src/present.rs"
+  "raw_window_handle:crates/alo-window/src/present.rs,crates/alo-window/src/present_chosen.rs"
+  # The window's pixels kept on the GPU (ADR 0105, queue item 873): the Metal
+  # layer and its texture, the colour space it is tagged with, and the words
+  # handed to it as bytes — all in the one module that may write `unsafe`.
+  "wgpu:crates/alo-window/src/present_kept.rs"
+  "objc2_core_graphics:crates/alo-window/src/present_kept.rs"
+  "bytemuck:crates/alo-window/src/present_kept.rs"
   "rustix:crates/alo-storage/src/volume.rs"
   "serde_json:crates/alo-window/src/protocol.rs,crates/alo-window/src/chrome_protocol.rs,crates/alo-window/src/search_protocol.rs,crates/alo-window/src/answer_protocol.rs,crates/alo-window/src/agent_protocol.rs,crates/alo-window/src/chat_record.rs"
   # Brave's matcher of filter lists (ADR 0094): asked of every request a page
@@ -152,6 +158,12 @@ HOST=crates/alo-cef-host
 HOST_UNSAFE="$HOST/src/application_mac.rs"
 HOST_LIFTED="$HOST/src/main.rs"
 HOST_TRANSMUTE="$HOST/src/window.rs"
+# ADR 0105 allows the workspace one `unsafe` boundary too, on macOS: the Metal
+# layer `wgpu` made, tagged with a colour space, in one block of one file. The
+# workspace's lint is `deny` so that it can be lifted there; it is lifted by
+# one `#[expect]` in `alo-window`'s `lib.rs`, on that file's module alone.
+WINDOW_UNSAFE=crates/alo-window/src/present_kept.rs
+WINDOW_LIFTED=crates/alo-window/src/lib.rs
 # A CEF distribution unpacked where `CEF_PATH` names, as the host's tests look
 # for one: its framework, and the archive's description beside it.
 cef_distribution() {
@@ -289,30 +301,61 @@ else
 fi
 
 step "no unsafe without an ADR"
-# The workspace forbids it at the compiler, so this catches only a manifest
-# that has quietly relaxed the lint.
+# The workspace denies it at the compiler, so this catches a manifest that
+# has quietly relaxed the lint, and a workspace lint set to anything but
+# `deny` (ADR 0105: `deny` and not `forbid` only so that its one boundary can
+# lift it).
 if relaxed=$(grep -rn 'unsafe_code' crates/*/Cargo.toml 2>/dev/null); then
   echo "$relaxed"
   bad "a crate has opted out of the workspace's unsafe ban — it needs an ADR"
+elif [ "$(grep -vE '^[[:space:]]*#' Cargo.toml | grep -c 'unsafe_code' || true)" -ne 1 ] \
+  || ! grep -qx 'unsafe_code = "deny"' Cargo.toml; then
+  grep -nE '^[^#]*unsafe_code' Cargo.toml || true
+  bad "the workspace's unsafe_code lint is not \"deny\" (ADR 0105)"
 else
-  good "unsafe is forbidden everywhere"
+  good "unsafe is denied everywhere"
 fi
 # Nor in any source of the workspace's crates: an `unsafe` block, function,
 # implementation, trait, extern block or attribute, the lint named at all, or
 # the clippy lint the CEF host's macros need — the compiler already refuses
 # the first two, and this says so without building. The words a page may say
 # (`'unsafe-inline'`) are not Rust's, and are not matched.
+#
+# ADR 0105's one boundary: in `present_kept.rs`, exactly one line of code
+# writes `unsafe`, and it is a block — no `unsafe fn`, implementation, trait
+# or extern block; and the lint is named once in the workspace's sources, in
+# `lib.rs`, on the attribute whose item is that file's module.
 written=""
+lint_named=""
 while IFS= read -r file; do
-  if found=$(code_of "$file" | grep -nE '(^|[^A-Za-z0-9_])unsafe[[:space:]]*(\{|\(|fn([^A-Za-z0-9_]|$)|impl([^A-Za-z0-9_]|$)|trait([^A-Za-z0-9_]|$)|extern([^A-Za-z0-9_]|$))|unsafe_code|transmute_ptr_to_ptr'); then
+  if [ "$file" != "$WINDOW_UNSAFE" ] \
+    && found=$(code_of "$file" | grep -nE '(^|[^A-Za-z0-9_])unsafe[[:space:]]*(\{|\(|fn([^A-Za-z0-9_]|$)|impl([^A-Za-z0-9_]|$)|trait([^A-Za-z0-9_]|$)|extern([^A-Za-z0-9_]|$))|transmute_ptr_to_ptr'); then
     written="$written$(printf '%s\n' "$found" | sed "s@^@  $file:@")"$'\n'
   fi
+  if found=$(code_of "$file" | grep -n 'unsafe_code'); then
+    lint_named="$lint_named$(printf '%s\n' "$found" | sed "s@^@$file:@")"$'\n'
+  fi
 done < <(find crates -name '*.rs' -not -path '*/target/*' -not -path "$HOST/*")
+window_written=$(code_of "$WINDOW_UNSAFE" 2>/dev/null | grep -nE '(^|[^A-Za-z0-9_])unsafe([^A-Za-z0-9_]|$)' || true)
+window_lifted_on=$(code_of "$WINDOW_LIFTED" | awk '
+  /unsafe_code/ { after = 1; next }
+  after && /^[[:space:]]*(reason|\)\]|$)/ { next }
+  after { print; exit }')
 if [ -n "$written" ]; then
   printf '%s' "$written"
-  bad "unsafe is written in a crate of the workspace — it needs an ADR"
+  bad "unsafe is written in a crate of the workspace outside $WINDOW_UNSAFE — it needs an ADR"
+elif [ "$(printf '%s' "$window_written" | grep -c . || true)" -ne 1 ] \
+  || ! printf '%s' "$window_written" | grep -qE 'unsafe[[:space:]]*\{' \
+  || printf '%s' "$window_written" | grep -qE 'unsafe[[:space:]]*(fn|impl|trait|extern)([^A-Za-z0-9_]|$)'; then
+  printf '  %s\n' "$window_written"
+  bad "$WINDOW_UNSAFE must hold exactly one unsafe block, and nothing else unsafe (ADR 0105)"
+elif [ "$(printf '%s' "$lint_named" | grep -c . || true)" -ne 1 ] \
+  || ! printf '%s' "$lint_named" | grep -qE "^$WINDOW_LIFTED:[0-9]+:#\[expect\($|^$WINDOW_LIFTED:[0-9]+:[[:space:]]*unsafe_code,$" \
+  || [ "$window_lifted_on" != "mod present_kept;" ]; then
+  printf '%s' "$lint_named"
+  bad "unsafe_code may be named once in the workspace, expected on mod present_kept in $WINDOW_LIFTED (ADR 0105)"
 else
-  good "no crate of the workspace writes unsafe"
+  good "the workspace writes unsafe only in $WINDOW_UNSAFE, one block, lifted on its module alone (ADR 0105)"
 fi
 # The host's one boundary (ADR 0080): `unsafe` in the application object's
 # file and no other; the lint named twice in the whole program, both in

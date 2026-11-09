@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The window reaches the screen in a fraction of a millisecond.** On a
+  Mac, alo's window is now kept on the graphics chip between frames and
+  given only what changed: a letter is put on screen in about 0.3 ms where
+  it took 10.5, so typing reaches the screen in about 15 ms (from 26), and
+  beside a playing card in about 22 (from 43). Colours are matched to the
+  display by macOS as it composes the screen; measured against Chrome on
+  the same screen, they are as near it as before or nearer, about one
+  colour in seven landing one level differently. Where the graphics chip
+  cannot be had, or `ALO_PRESENT=copied` is set, the window is copied as
+  before. This takes one small, reviewed piece of `unsafe` code, allowed by
+  the owner and written up in ADR 0105.
 - **Typing beside a live card is quicker.** A new picture of a page playing
   in a card used to be composed into the window whole, 15 or more times a
   second; now only the part of it that changed is — a turning box, not the

@@ -195,12 +195,14 @@ use crate::message::{News, Order};
 use crate::notice::Lettering;
 use crate::place::{Placement, STRIP_HEIGHT, screen};
 use crate::present::Presenter;
+use crate::present_chosen::{How, Screen};
 use crate::scale::Scale;
 use crate::showing::Showing;
 use alo_renderer::host::Renderers;
 use alo_renderer::{Frame, Visibility};
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::Arc;
 use std::sync::mpsc::Receiver;
 use std::time::Instant;
 use winit::application::ApplicationHandler;
@@ -1010,8 +1012,11 @@ struct Conversing<'c> {
     state: ConversationWindow,
     /// The face the window's own lines are drawn in.
     lettering: Lettering,
-    window: Option<Rc<Window>>,
-    presenter: Option<Presenter<Rc<Window>>>,
+    window: Option<Arc<Window>>,
+    /// How the window is put on screen: from its pixels kept on the GPU,
+    /// given only what was composed again (queue item 873, ADR 0105), or
+    /// copied whole by `softbuffer` where that cannot be had.
+    presenter: Option<Screen<Arc<Window>>>,
     /// The window's pixels as last composed, composed again only where what
     /// they are made from changed (queue item 872).
     composed: Composed,
@@ -1082,9 +1087,9 @@ impl Conversing<'_> {
             return;
         };
         let size = scene.window;
-        let (words, _) = self.composed.compose(&scene, &self.lettering);
+        let (words, recomposed) = self.composed.compose(&scene, &self.lettering);
         if let Some(presenter) = self.presenter.as_mut()
-            && let Err(why) = presenter.show_words(size, words)
+            && let Err(why) = presenter.show(size, words, &recomposed)
         {
             self.failed = Some(why);
         }
@@ -1103,15 +1108,20 @@ impl ApplicationHandler<Heard> for Conversing<'_> {
             .with_inner_size(LogicalSize::new(CONVERSATION_SIZE.0, CONVERSATION_SIZE.1))
             .with_min_inner_size(LogicalSize::new(LEAST_SIZE.0, LEAST_SIZE.1));
         let window = match event_loop.create_window(attributes) {
-            Ok(window) => Rc::new(window),
+            Ok(window) => Arc::new(window),
             Err(why) => {
                 self.failed = Some(format!("no window: {why}"));
                 event_loop.exit();
                 return;
             }
         };
-        match Presenter::over(Rc::clone(&window)) {
-            Ok(presenter) => self.presenter = Some(presenter),
+        match Screen::over(Arc::clone(&window), How::asked()) {
+            Ok((presenter, missed)) => {
+                if let Some(why) = missed {
+                    eprintln!("alo: the window's pixels are copied whole each frame: {why}");
+                }
+                self.presenter = Some(presenter);
+            }
             Err(why) => {
                 self.failed = Some(why);
                 event_loop.exit();
@@ -1145,8 +1155,15 @@ impl ApplicationHandler<Heard> for Conversing<'_> {
                 }
             }
             // Covered or minimised, the card is off the screen, and its
-            // page is not streamed (ADR 0076).
-            WindowEvent::Occluded(hidden) => self.state.seen(!hidden),
+            // page is not streamed (ADR 0076). Seen again, it is presented
+            // again: a Metal layer covered gives no drawable, and keeps the
+            // frame written while it was (ADR 0105).
+            WindowEvent::Occluded(hidden) => {
+                self.state.seen(!hidden);
+                if !hidden && let Some(window) = &self.window {
+                    window.request_redraw();
+                }
+            }
             WindowEvent::Focused(focused) => self.state.focused(focused),
             WindowEvent::RedrawRequested => {
                 self.draw();

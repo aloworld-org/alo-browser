@@ -270,6 +270,17 @@ pub mod opening;
 pub mod pages;
 pub mod place;
 pub mod present;
+pub mod present_chosen;
+// The one `unsafe` boundary of the workspace (ADR 0105): `wgpu`'s Metal
+// layer tagged with a colour space, in one block. `scripts/gate.sh` checks
+// that the lint is lifted here alone, and `unsafe` written in that file alone.
+#[cfg(target_os = "macos")]
+#[expect(
+    unsafe_code,
+    reason = "ADR 0105: the Metal layer wgpu made, tagged as softbuffer tags its images"
+)]
+mod present_kept;
+pub mod present_shown;
 pub mod protocol;
 pub mod scale;
 pub mod scrolled;

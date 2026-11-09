@@ -1,7 +1,9 @@
 # ADR 0080 — the CEF host's one `unsafe` boundary
 
 **Status:** accepted — the owner's "Yes", 30 October 2026. Built the same
-day (queue items 731, 732, 730; iteration 457).
+day (queue items 731, 732, 730; iteration 457). *What alo's own process
+keeps* amended 9 November 2026 by ADR 0105 (the owner's yes): the
+workspace holds one boundary too, in `alo-window`.
 
 ## The decision in one line
 
@@ -217,3 +219,22 @@ calls only (the manifest names `NSBox`, `NSColor`, `NSControl`, `NSFont`,
 `unsafe`; `application_mac.rs` is unchanged, and the gate's boundary list
 names the new file beside the others. No other file of the host holds
 `unsafe` or names the lint.
+
+## Amended (9 November 2026, ADR 0105, queue item 873)
+
+*What alo's own process keeps* said alo's process holds no `unsafe`, and
+the decision in one line that every crate of the workspace stays free of
+it. Both held until the owner's yes to ADR 0105 ("Okay go ahead", 9
+November 2026): the workspace now holds **one** boundary as well —
+`crates/alo-window/src/present_kept.rs`, one `unsafe` block
+(`wgpu::Surface::as_hal`, to tag the window's Metal layer with a colour
+space) — so alo's own process holds that block and no other. The
+workspace's `unsafe_code` is `deny` where it was `forbid`, because a
+`forbid` cannot be lifted on one module; it is lifted by one `#[expect]`
+in `alo-window`'s `lib.rs`, on `mod present_kept;` alone, as this ADR lifts
+it on `mod application_mac;` in the host. `scripts/gate.sh` checks that
+boundary as it checks this one, by file: the workspace's lint `deny`; no
+manifest naming the lint; `unsafe` written in no file of the workspace but
+`present_kept.rs`, and there exactly one line, a block; the lint named once
+in the workspace's sources, on that module. The host's boundary, and its
+checks, are unchanged.

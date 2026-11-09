@@ -1,6 +1,6 @@
 # ADR 0024 — A window is rented, and the tab strip is a page we render
 
-**Status:** accepted
+**Status:** accepted; § 1 amended 9 November 2026 by ADR 0105 (the conversation's window kept on the GPU through `wgpu`, with one `unsafe` block of ours — the owner's yes)
 **Date:** 2026-10-06
 **Context:** queue item 118, *a window, tabs, and a tab strip*, the first line
 of `ROADMAP.md`'s *The browser itself* — what stage 2's exit gate measures, *"a
@@ -272,3 +272,22 @@ been bypassed, and the strip has become a picture.
 
 **If `winit` or `softbuffer` turn out to need `unsafe` of ours**, § 1's
 premise is false, and the rental is reopened rather than the `unsafe` written.
+
+## Amended (9 November 2026, ADR 0105, queue item 873)
+
+§ 1's survey said of `wgpu` *"not now"*, and the stop rule above said a
+rental needing `unsafe` of ours is reopened rather than the `unsafe`
+written. Both were met by measurement and by the owner. `softbuffer` 0.4.8
+hands the window server a new image of the whole window for every frame on
+macOS (10.4 ms of a letter, at two), and no version of it keeps a frame;
+`wgpu` 30 keeps the window's pixels in a texture, is given only what
+changed, and presents in 0.16 ms — but its Metal layer reaches the display
+uncolour-matched unless tagged, and tagging it takes one `unsafe` call.
+The owner allowed that one block (ADR 0105). So the **conversation's**
+window is put on screen by `wgpu`, named only in `alo-window`'s
+`present_kept.rs`, from pixels kept on the GPU; `softbuffer` stays — in
+`present.rs`, as before — for the other windows, and as the conversation
+window's way onto the screen wherever `wgpu` finds no GPU for it, or
+`ALO_PRESENT=copied` asks (`present_chosen.rs`). `winit` is named in
+`present_shown.rs` too, a window of known colours that a test and a person
+read off the screen.
