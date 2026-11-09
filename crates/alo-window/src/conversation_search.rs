@@ -92,7 +92,7 @@ use crate::search_thumbnails;
 use alo_net::Pool;
 use alo_net::cause::Identities;
 use alo_renderer::results::{
-    Found, Images, PROVIDER, Page, Pictured, SetUp, Showing, Stories, Videos,
+    Found, Images, Page, Pictured, SEARCH_SERVICE, SetUp, Showing, Stories, Videos,
 };
 use alo_renderer::results_answer::Answer;
 use alo_renderer::results_media::{Story, Video};
@@ -417,8 +417,8 @@ fn ask(
                 Ok(made) => pool = Some(made.patient_for(PATIENCE)),
                 Err(why) => {
                     let why = format!(
-                        "{PROVIDER} could not be reached: this Mac's certificates could not be \
-                         read ({why})"
+                        "{SEARCH_SERVICE} could not be reached: this Mac's certificates could \
+                         not be read ({why})"
                     );
                     if !tell(Searched::sites(number, words, Showing::Unanswered(why))) {
                         return;
@@ -460,7 +460,7 @@ fn ask(
         // newer search, and waits for them.
         let images = if newer_waits(asking, &mut pending) {
             Images::Unanswered(format!(
-                "{PROVIDER} was not asked for images of \u{201c}{words}\u{201d}: a newer search \
+                "Images of \u{201c}{words}\u{201d} were not searched for: a newer search \
                  came first."
             ))
         } else {
@@ -577,8 +577,9 @@ fn further_answer(
             .ok()
             .map(|made| made.patient_for(PATIENCE));
     }
-    let unreached =
-        || format!("{PROVIDER} could not be reached: this Mac's certificates could not be read");
+    let unreached = || {
+        format!("{SEARCH_SERVICE} could not be reached: this Mac's certificates could not be read")
+    };
     let (number, words, came) = match work {
         Work::Videos(number, words) => {
             let came = Came::Videos(match pool.as_mut() {
@@ -726,13 +727,13 @@ mod tests {
     fn with_no_provider_searching_is_not_set_up_and_says_why() {
         let (tell, told) = channel();
         let searcher = Searcher::start(
-            Err("no Brave Search key in this Mac's keychain (alo-brave-search)".to_owned()),
+            Err("no search key in this Mac's keychain".to_owned()),
             Box::new(move |searched| tell.send(searched).is_ok()),
         )
         .unwrap();
         assert_eq!(
             searcher.set_up(),
-            &SetUp::Not("no Brave Search key in this Mac's keychain (alo-brave-search)".into())
+            &SetUp::Not("no search key in this Mac's keychain".into())
         );
         searcher.search(3, "x");
         assert_eq!(
@@ -741,9 +742,7 @@ mod tests {
                 3,
                 "x",
                 Showing::Unanswered(
-                    "Searching is not set up yet: no Brave Search key in this Mac's keychain \
-                     (alo-brave-search)."
-                        .to_owned()
+                    "Searching is not set up yet: no search key in this Mac's keychain.".to_owned()
                 ),
             ))
         );
@@ -757,8 +756,7 @@ mod tests {
                     number: 4,
                     words: "y".to_owned(),
                     came: Came::Videos(Videos::Unanswered(
-                        "Searching is not set up yet: no Brave Search key in this Mac's \
-                         keychain (alo-brave-search)."
+                        "Searching is not set up yet: no search key in this Mac's keychain."
                             .to_owned()
                     )),
                 },
@@ -766,8 +764,7 @@ mod tests {
                     number: 5,
                     words: "z".to_owned(),
                     came: Came::News(Stories::Unanswered(
-                        "Searching is not set up yet: no Brave Search key in this Mac's \
-                         keychain (alo-brave-search)."
+                        "Searching is not set up yet: no search key in this Mac's keychain."
                             .to_owned()
                     )),
                 },

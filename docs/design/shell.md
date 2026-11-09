@@ -262,7 +262,8 @@ the one Return chooses on the paper's colour with 10 px corners:
   as Chrome reads them: a server a person runs there almost never has a
   certificate, so `https://` was an error page (item 874). A scheme
   written is kept.
-- *Search for “…”*, saying *Brave Search* under it when a key is held,
+- *Search for “…”*, saying *alo searches the web* under it when a key is
+  held (never the provider's name, item 900),
   and otherwise, in quiet text, *Not set up yet — why* (708); then *Ask
   alo about “…”*, in quiet text, saying *Not set up yet* until the agent
   is built (704); a search's own answer is drawn with its results (707).
@@ -440,10 +441,14 @@ person's words — in the 880 column, 40 below the top, 20 apart — stands the
 
 While it searches, and when nothing is found or the search is not answered,
 one sentence of 14.5 on 23 in quiet text stands where the sites would be —
-*Searching Brave Search for “…”…*, *Brave Search found no sites for “…”.*,
-or why: the key refused (401, 403), too many searches or the allowance used
-up (429), Brave unable to answer (5xx), unreachable, or its answer
-unreadable. The line at the window's foot says the same, and how many sites
+*Searching for “…”…*, *No sites found for “…”.*, or why: the key refused
+(401, 403), too many searches or the allowance used up (429), the search
+service unable to answer (5xx), unreachable, or its answer unreadable —
+each saying *The search service*, never the provider's name: the owner's
+word of 9 November 2026, *"we do not need to show any brave words on the
+ui or to the users"* (item 900). No word a person reads — a tab's
+sentence, the line at the window's foot, the note under an answer, the
+offer, what the agent says it found — names it. The line at the window's foot says the same, and how many sites
 were found. Once sites are found, the short answer stands between the tab
 row and the sites (707, *The answer* below). A press on a site's title opens it as a card, in a
 turn of its own under the results, its bubble the title (703).
@@ -1108,6 +1113,11 @@ affected. The choice is saved on this Mac beside the chats and remembered
 across launches. First Inter as the default, then the Settings page with
 the choice.*
 
+On 9 November 2026 the owner changed the sample (item 901): *"instead of
+kampala we should use this — "if you live each day as if it was your last
+someday you'll most certainly be right""* — so each face shows that one
+sentence, not a result's title and snippet.
+
 Approved by the owner on 8 November 2026 as **a popup** (item 886), in
 their words: *a centred white panel, about 720 wide, rounded 16, with a
 soft shadow, that scrolls inside; behind it the conversation blurred and
@@ -1167,14 +1177,13 @@ Settled here, as the design left them open:
   Default* for Inter) — quiet, or the ink when chosen; 10 under it the
   sample. The face chosen has its border in the ink and a second pixel
   inside it, so nothing moves. The whole box is pressed as the face.
-- **The sample** is a search's result as the results draw one — its
-  title, 18 px 600 in the link colour on one line, cut with `…` where it
-  ends; its description, 14.5 px on lines of 23, at most two — *Kampala –
-  Wikipedia* and *The capital and largest city of Uganda, set on hills
-  near the shore of Lake Victoria.*, fixed, set in that face whatever the
-  page is set in. At the design's width each is whole in every face; in
-  the least window (a column of 472, two faces of 231) the description is
-  cut at its two lines. (In the panel at the design's size each face is
+- **The sample** (item 901) is the owner's one sentence, *If you live
+  each day as if it was your last, someday you’ll most certainly be
+  right.*, 16 px 400 in the ink on lines of 25, its room never less than
+  three lines so every face is as tall, fixed, set in that face whatever
+  the page is set in, and never cut: at the design's width Inter and DM
+  Sans take three lines and Geist, Plus Jakarta Sans and Instrument Sans
+  two; in the least window it is four lines, whole, and the faces taller. (In the panel at the design's size each face is
   327 wide; in the least window, 203.)
 - **Effect**: choosing a face sets every word of the panel, the rail and
   the first screen in it at once — both renderers draw again, neither is

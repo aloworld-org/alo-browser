@@ -1025,8 +1025,12 @@ The reason this exists rather than a faster fork of somebody else's engine.
   title as a link, two lines of description — then *More sites ›*; Brave's
   `<strong>` is taken out and its entities read, and every string enters as
   text. An answer refused, 401, 429, 5xx or no connection is said in words
-  where the sites would be. A press on a title opens it in the card, a turn
-  under the results (703). In a
+  where the sites would be. None of what a person reads names the
+  provider (900, the owner's word of 9 November 2026): *Searching for
+  “…”…*, *No sites found for “…”.*, *The search service could not answer
+  just now (500).*, the offer's *alo searches the web*, and what the agent
+  says it found — held by `tests/no_providers_name_on_screen.rs`. A press
+  on a title opens it in the card, a turn under the results (703). In a
   layout assertion and two reference renders
   (`tests/a_searchs_results_on_the_all_tab.rs`), and through the window's
   own road against a local server answering in Brave's shape
@@ -1209,8 +1213,10 @@ The reason this exists rather than a faster fork of somebody else's engine.
   (`settings_document.rs`): the panel's *Settings* row or ⌘, opens it —
   since 886 a panel over the conversation, which is drawn under it as it
   was, blurred and dimmed (`backdrop-filter`, 885), a live card's page with
-  it; one section, *Font*, a radio group of the five, each a sample of a
-  result set in that face; choosing one sets both parts at once, with no
+  it; one section, *Font*, a radio group of the five, each a sample set in
+  that face — since queue item 901 the owner's one sentence, *If you live
+  each day as if it was your last, someday you’ll most certainly be
+  right.*; choosing one sets both parts at once, with no
   restart, never a card's page; its ×, Escape, a press beside the panel
   (pressing nothing under it), a chat or *New chat* closes it, the
   keyboard going back to where it was; read as a dialog named *Settings*

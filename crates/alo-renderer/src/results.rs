@@ -84,8 +84,10 @@ pub const SHOWING_MORE: &str = "Showing more sites\u{2026}";
 /// The tabs of a search's results, in the design's order.
 pub const TABS: [&str; 6] = ["All", "Answer", "Sites", "Images", "Videos", "News"];
 
-/// What the search provider is called, where the person reads it.
-pub const PROVIDER: &str = "Brave Search";
+/// What a sentence a person reads calls the search provider: never its
+/// name (queue item 900, the owner's word of 9 November 2026 — no
+/// provider's name reaches anything a person sees).
+pub const SEARCH_SERVICE: &str = "The search service";
 
 /// How many images the All tab's row shows: the design's five.
 pub const IMAGES_ON_ALL: usize = 5;
@@ -164,7 +166,7 @@ impl Tab {
 /// Whether searching can be done, as the box's offer says it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SetUp {
-    /// It can: searches go to [`PROVIDER`].
+    /// It can: searches go to the search provider.
     Ready,
     /// It cannot, and why, in words a person reads under the offer.
     Not(String),
@@ -532,13 +534,13 @@ impl Results {
     /// What the Videos tab says where the videos would be, when there are
     /// none to show.
     pub fn videos_note(&self) -> Option<String> {
-        asked_note(&self.videos, &self.said, "videos")
+        asked_note(&self.videos, &self.said, ("Videos were", "videos"))
     }
 
     /// What the News tab says where the stories would be, when there are
     /// none to show.
     pub fn news_note(&self) -> Option<String> {
-        asked_note(&self.news, &self.said, "news")
+        asked_note(&self.news, &self.said, ("News was", "news"))
     }
 
     /// What the Images tab says where the images would be, when there are
@@ -551,11 +553,11 @@ impl Results {
                 self.said
             )),
             Images::Asking => Some(format!(
-                "Searching {PROVIDER} for images of \u{201c}{}\u{201d}\u{2026}",
+                "Searching for images of \u{201c}{}\u{201d}\u{2026}",
                 self.said
             )),
             Images::Found(found) if found.is_empty() => Some(format!(
-                "{PROVIDER} found no images for \u{201c}{}\u{201d}.",
+                "No images found for \u{201c}{}\u{201d}.",
                 self.said
             )),
             Images::Found(_) => None,
@@ -683,13 +685,12 @@ impl Results {
     pub fn note(&self) -> Option<String> {
         match &self.showing {
             Showing::Searching => Some(format!(
-                "Searching {PROVIDER} for \u{201c}{}\u{201d}\u{2026}",
+                "Searching for \u{201c}{}\u{201d}\u{2026}",
                 self.said
             )),
-            Showing::Found(found) if found.is_empty() => Some(format!(
-                "{PROVIDER} found no sites for \u{201c}{}\u{201d}.",
-                self.said
-            )),
+            Showing::Found(found) if found.is_empty() => {
+                Some(format!("No sites found for \u{201c}{}\u{201d}.", self.said))
+            }
             Showing::Found(_) => None,
             Showing::Unanswered(why) => Some(why.clone()),
         }
@@ -805,18 +806,19 @@ impl Pictured {
 
 /// What a tab says where what it shows would be, when there is none: that
 /// it was not asked, is being asked, found nothing, or why it was not
-/// answered — of the search for `said`, for `what` (`videos`, `news`).
-fn asked_note<T>(asked: &Asked<T>, said: &str, what: &str) -> Option<String> {
+/// answered — of the search for `said`, for `what` (`videos`, `news`),
+/// which begins a sentence as `unasked` (`Videos were`, `News was`).
+fn asked_note<T>(asked: &Asked<T>, said: &str, (unasked, what): (&str, &str)) -> Option<String> {
     match asked {
         Asked::NotAsked => Some(format!(
-            "{PROVIDER} was not asked for {what} of \u{201c}{said}\u{201d}."
+            "{unasked} not searched for \u{201c}{said}\u{201d}."
         )),
         Asked::Asking => Some(format!(
-            "Searching {PROVIDER} for {what} of \u{201c}{said}\u{201d}\u{2026}"
+            "Searching for {what} of \u{201c}{said}\u{201d}\u{2026}"
         )),
-        Asked::Found(found) if found.is_empty() => Some(format!(
-            "{PROVIDER} found no {what} for \u{201c}{said}\u{201d}."
-        )),
+        Asked::Found(found) if found.is_empty() => {
+            Some(format!("No {what} found for \u{201c}{said}\u{201d}."))
+        }
         Asked::Found(_) => None,
         Asked::Unanswered(why) => Some(why.clone()),
     }
@@ -938,10 +940,10 @@ mod tests {
         // A page not answered says why and is offered again, at the same
         // offset.
         assert_eq!(results.ask_more(), Some(2));
-        assert!(results.more_came(Err("Brave Search could not answer (503).".to_owned())));
+        assert!(results.more_came(Err("The search service could not answer (503).".to_owned())));
         assert_eq!(
             results.pages.next,
-            Next::Unanswered("Brave Search could not answer (503).".to_owned())
+            Next::Unanswered("The search service could not answer (503).".to_owned())
         );
         assert!(results.can_show_more());
         for offset in 2..=MOST_PAGES {
@@ -1161,22 +1163,23 @@ mod tests {
         let mut asked = Results::of("ev", Showing::Found(vec![found("https://a.example/")]));
         assert_eq!(
             asked.videos_note().as_deref(),
-            Some("Brave Search was not asked for videos of \u{201c}ev\u{201d}.")
+            Some("Videos were not searched for \u{201c}ev\u{201d}.")
         );
         asked.videos = Videos::Asking;
         assert_eq!(
             asked.videos_note().as_deref(),
-            Some("Searching Brave Search for videos of \u{201c}ev\u{201d}\u{2026}")
+            Some("Searching for videos of \u{201c}ev\u{201d}\u{2026}")
         );
         asked.news = Stories::Found(Vec::new());
         assert_eq!(
             asked.news_note().as_deref(),
-            Some("Brave Search found no news for \u{201c}ev\u{201d}.")
+            Some("No news found for \u{201c}ev\u{201d}.")
         );
-        asked.news = Stories::Unanswered("Brave Search could not answer just now (502).".into());
+        asked.news =
+            Stories::Unanswered("The search service could not answer just now (502).".into());
         assert_eq!(
             asked.news_note().as_deref(),
-            Some("Brave Search could not answer just now (502).")
+            Some("The search service could not answer just now (502).")
         );
         // Videos' pictures count against the first screen's budget too.
         let heavy = || {
@@ -1295,12 +1298,13 @@ mod tests {
         results.images = Images::Found(Vec::new());
         assert_eq!(
             results.images_note().as_deref(),
-            Some("Brave Search found no images for \u{201c}ev\u{201d}.")
+            Some("No images found for \u{201c}ev\u{201d}.")
         );
-        results.images = Images::Unanswered("Brave Search could not answer just now (503).".into());
+        results.images =
+            Images::Unanswered("The search service could not answer just now (503).".into());
         assert_eq!(
             results.images_note().as_deref(),
-            Some("Brave Search could not answer just now (503).")
+            Some("The search service could not answer just now (503).")
         );
         results.images = Images::Found(vec![image(1, 1)]);
         assert_eq!(results.images_note(), None);
@@ -1312,7 +1316,7 @@ mod tests {
         assert!(results.on_all().is_empty());
         assert_eq!(
             results.note().as_deref(),
-            Some("Searching Brave Search for \u{201c}rust borrow checker\u{201d}\u{2026}")
+            Some("Searching for \u{201c}rust borrow checker\u{201d}\u{2026}")
         );
         results.showing = Showing::Found(vec![found("https://a.example/"); 5]);
         assert_eq!(results.on_all().len(), ON_ALL);
@@ -1322,14 +1326,14 @@ mod tests {
         results.showing = Showing::Found(Vec::new());
         assert_eq!(
             results.note().as_deref(),
-            Some("Brave Search found no sites for \u{201c}rust borrow checker\u{201d}.")
+            Some("No sites found for \u{201c}rust borrow checker\u{201d}.")
         );
         results.showing =
-            Showing::Unanswered("Brave Search could not answer just now (500).".into());
+            Showing::Unanswered("The search service could not answer just now (500).".into());
         assert!(results.on_all().is_empty());
         assert_eq!(
             results.note().as_deref(),
-            Some("Brave Search could not answer just now (500).")
+            Some("The search service could not answer just now (500).")
         );
     }
 }

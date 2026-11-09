@@ -94,7 +94,7 @@ fn the_application_carries_its_keys_sealed_and_asks_with_them() -> Result<(), St
         format!(
             "alo-bundle: CEF_PATH is not set, so the application carries no Chromium: it draws \
              its page with this browser's own engine, and says so\n\
-             alo-bundle: carries the Brave Search key, the OpenAI key, taken from {}\n\
+             alo-bundle: carries the search key, the OpenAI key, taken from {}\n\
              alo-bundle: made, sealed ad hoc and checked by codesign\n",
             keys.display()
         )
@@ -164,7 +164,7 @@ fn the_application_carries_its_keys_sealed_and_asks_with_them() -> Result<(), St
     assert!(!sealed(&application)?, "a changed key was accepted");
     assert_eq!(
         for_this_application(Some(&bundle)).err().as_deref(),
-        Some("the Brave Search key this application carries could not be read (keys/search)"),
+        Some("the search key this application carries could not be read (keys/search)"),
         "a damaged key is said, and never swapped for the keychain's"
     );
 
@@ -187,7 +187,7 @@ fn a_key_not_given_is_refused_and_nothing_is_made() -> Result<(), String> {
         format!(
             "alo-bundle: CEF_PATH is not set, so the application carries no Chromium: it draws \
              its page with this browser's own engine, and says so\n\
-             alo-bundle: no Brave Search key at {} for the application to carry\n",
+             alo-bundle: no search key at {} for the application to carry\n",
             keys.join("search").display()
         )
     );

@@ -31,7 +31,7 @@
 //! search's Answer tab. Nothing else here claims a press: a source is read,
 //! not opened, in this cut (queue item 813).
 
-use crate::results::{Found, PROVIDER, Results};
+use crate::results::{Found, Results};
 use crate::results_answer::{self, Answer, Cited, FULL_ANSWER, NO_RELIABLE_ANSWER, Written};
 use crate::start_document::{Unbuilt, append, attribute, element};
 use alo_dom::{Document, NodeId};
@@ -216,7 +216,7 @@ fn said_instead(
 ) -> Result<(), Unbuilt> {
     let note = match &results.answer {
         Answer::NotFound => format!(
-            "{NO_RELIABLE_ANSWER} The sites {PROVIDER} found for \u{201c}{}\u{201d} {where_they_are}.",
+            "{NO_RELIABLE_ANSWER} The sites found for \u{201c}{}\u{201d} {where_they_are}.",
             results.said
         ),
         other => other.note().unwrap_or_default(),
@@ -332,7 +332,7 @@ mod tests {
         assert_eq!(
             of_class(&document, "sent"),
             vec![
-                "Your question and what Brave Search said of its first 4 sites were sent to \
+                "Your question and what the search said of its first 4 sites were sent to \
                  OpenAI to write this answer."
             ]
         );
@@ -348,10 +348,10 @@ mod tests {
             ),
             (
                 Answer::NotFound,
-                "I couldn\u{2019}t find a reliable answer. The sites Brave Search found for \
-                 \u{201c}ev charger\u{201d} are below.",
-                "I couldn\u{2019}t find a reliable answer. The sites Brave Search found for \
-                 \u{201c}ev charger\u{201d} are on the Sites tab.",
+                "I couldn\u{2019}t find a reliable answer. The sites found for \u{201c}ev \
+                 charger\u{201d} are below.",
+                "I couldn\u{2019}t find a reliable answer. The sites found for \u{201c}ev \
+                 charger\u{201d} are on the Sites tab.",
             ),
             (
                 Answer::Unanswered("OpenAI could not answer just now (503).".into()),

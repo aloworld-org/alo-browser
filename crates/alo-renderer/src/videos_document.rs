@@ -259,7 +259,7 @@ mod tests {
         let document = build(&start).unwrap_or_else(|unbuilt| panic!("{}", unbuilt.why));
         assert_eq!(
             of_class(&document, "note"),
-            vec!["Searching Brave Search for videos of \u{201c}ev\u{201d}\u{2026}"]
+            vec!["Searching for videos of \u{201c}ev\u{201d}\u{2026}"]
         );
         assert!(pictures(&start).is_empty());
         let on_all = Start {

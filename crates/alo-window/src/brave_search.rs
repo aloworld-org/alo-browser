@@ -44,13 +44,15 @@
 //!
 //! # What the person is told
 //!
-//! ADR 0083 § 5's sentences, by status ([`unanswered`]). None says the key.
+//! ADR 0083 § 5's sentences, by status ([`unanswered`]). None says the key,
+//! and none names the provider: each calls it [`SEARCH_SERVICE`] (queue
+//! item 900).
 
 use crate::search_key::{Held, Key};
 use crate::search_protocol::{self, ImageFound, StoryFound, VideoFound};
 use alo_net::cause::{Cause, Identities};
 use alo_net::{Pool, Request};
-use alo_renderer::results::{MOST_PAGES, PROVIDER, Showing};
+use alo_renderer::results::{MOST_PAGES, SEARCH_SERVICE, Showing};
 use alo_url::Url;
 
 /// Where a web search is asked.
@@ -164,7 +166,7 @@ impl Provider {
         let endpoint = self
             .videos
             .as_ref()
-            .ok_or_else(|| format!("{PROVIDER} is not asked for videos here"))?;
+            .ok_or_else(|| format!("{SEARCH_SERVICE} is not asked for videos here"))?;
         self.asking(endpoint, words, identities)
     }
 
@@ -182,7 +184,7 @@ impl Provider {
         let endpoint = self
             .news
             .as_ref()
-            .ok_or_else(|| format!("{PROVIDER} is not asked for news here"))?;
+            .ok_or_else(|| format!("{SEARCH_SERVICE} is not asked for news here"))?;
         self.asking(endpoint, words, identities)
     }
 
@@ -246,7 +248,7 @@ impl Provider {
         let (endpoint, _) = self
             .images
             .as_ref()
-            .ok_or_else(|| format!("{PROVIDER} is not asked for images here"))?;
+            .ok_or_else(|| format!("{SEARCH_SERVICE} is not asked for images here"))?;
         self.asking(endpoint, words, identities)
     }
 
@@ -344,7 +346,7 @@ fn asked(provider: &Provider, pool: &mut Pool, request: &Request) -> Answered {
     match pool.fetch(request) {
         Ok(response) if response.status.0 == 200 => answered_with_marks(&response.body),
         Ok(response) => Answered::not(unanswered(response.status.0, provider.key.held())),
-        Err(why) => Answered::not(format!("{PROVIDER} could not be reached: {why}")),
+        Err(why) => Answered::not(format!("{SEARCH_SERVICE} could not be reached: {why}")),
     }
 }
 
@@ -366,9 +368,9 @@ pub fn images(
     match pool.fetch(&request) {
         Ok(response) if response.status.0 == 200 => search_protocol::read_images(&response.body)
             .map(|read| read.found)
-            .map_err(|why| format!("{PROVIDER}'s answer could not be read: {why}")),
+            .map_err(|why| format!("{SEARCH_SERVICE}'s answer could not be read: {why}")),
         Ok(response) => Err(unanswered(response.status.0, provider.key.held())),
-        Err(why) => Err(format!("{PROVIDER} could not be reached: {why}")),
+        Err(why) => Err(format!("{SEARCH_SERVICE} could not be reached: {why}")),
     }
 }
 
@@ -423,9 +425,9 @@ fn answer_of<T>(
 ) -> Result<T, String> {
     match pool.fetch(request) {
         Ok(response) if response.status.0 == 200 => read(&response.body)
-            .map_err(|why| format!("{PROVIDER}'s answer could not be read: {why}")),
+            .map_err(|why| format!("{SEARCH_SERVICE}'s answer could not be read: {why}")),
         Ok(response) => Err(unanswered(response.status.0, held)),
-        Err(why) => Err(format!("{PROVIDER} could not be reached: {why}")),
+        Err(why) => Err(format!("{SEARCH_SERVICE} could not be reached: {why}")),
     }
 }
 
@@ -451,7 +453,9 @@ pub fn answered_with_marks(body: &[u8]) -> Answered {
             marks: read.marks,
             more: read.more,
         },
-        Err(why) => Answered::not(format!("{PROVIDER}'s answer could not be read: {why}")),
+        Err(why) => Answered::not(format!(
+            "{SEARCH_SERVICE}'s answer could not be read: {why}"
+        )),
     }
 }
 
@@ -461,19 +465,19 @@ pub fn answered_with_marks(body: &[u8]) -> Answered {
 pub fn unanswered(status: u16, held: Held) -> String {
     match (status, held) {
         (401 | 403, Held::Keychain) => format!(
-            "{PROVIDER} refused alo's key ({status}). The key in this Mac's keychain may be wrong \
+            "{SEARCH_SERVICE} refused alo's key ({status}). The key in this Mac's keychain may be wrong \
              or revoked."
         ),
         (401 | 403, Held::Carried) => format!(
-            "{PROVIDER} refused alo's key ({status}). The key this application carries may have \
+            "{SEARCH_SERVICE} refused alo's key ({status}). The key this application carries may have \
              been revoked: a newer alo carries a new one."
         ),
         (429, _) => format!(
-            "{PROVIDER} says alo has searched too often, or its allowance is used up ({status}). \
+            "{SEARCH_SERVICE} says alo has searched too often, or its allowance is used up ({status}). \
              Try again later."
         ),
-        (500..=599, _) => format!("{PROVIDER} could not answer just now ({status})."),
-        _ => format!("{PROVIDER} answered {status}, which alo does not read."),
+        (500..=599, _) => format!("{SEARCH_SERVICE} could not answer just now ({status})."),
+        _ => format!("{SEARCH_SERVICE} answered {status}, which alo does not read."),
     }
 }
 
@@ -618,11 +622,11 @@ mod tests {
         let at = Provider::at("http://127.0.0.1:9/res/v1/web/search", key()).unwrap();
         assert_eq!(
             at.videos_request("x", &mut identities).err().as_deref(),
-            Some("Brave Search is not asked for videos here")
+            Some("The search service is not asked for videos here")
         );
         assert_eq!(
             at.news_request("x", &mut identities).err().as_deref(),
-            Some("Brave Search is not asked for news here")
+            Some("The search service is not asked for news here")
         );
         assert!(at.clone().with_videos("ftp://x.example/").is_err());
         assert!(at.with_news("not an address").is_err());
@@ -660,7 +664,7 @@ mod tests {
     }
 
     #[test]
-    fn every_status_is_said_in_words_and_none_says_the_key() {
+    fn every_status_is_said_in_words_and_none_says_the_key_or_the_provider() {
         for (status, says) in [
             (401, "refused alo's key (401)"),
             (403, "refused alo's key (403)"),
@@ -673,7 +677,8 @@ mod tests {
             for held in [Held::Keychain, Held::Carried] {
                 let said = unanswered(status, held);
                 assert!(said.contains(says), "{status}: {said}");
-                assert!(said.starts_with("Brave Search"), "{said}");
+                assert!(said.starts_with(SEARCH_SERVICE), "{said}");
+                assert!(!said.to_lowercase().contains("brave"), "{said}");
                 assert!(!said.contains("test-key"), "{said}");
             }
         }
@@ -696,7 +701,7 @@ mod tests {
         assert_eq!(
             answered(b"<html>"),
             Showing::Unanswered(
-                "Brave Search's answer could not be read: it is not JSON (expected value at \
+                "The search service's answer could not be read: it is not JSON (expected value at \
                  line 1 column 1)"
                     .to_owned()
             )

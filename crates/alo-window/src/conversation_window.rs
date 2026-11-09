@@ -91,7 +91,7 @@ use alo_layout::Size;
 use alo_renderer::Frame;
 use alo_renderer::card_menu::{CardMenu, MenuItem};
 use alo_renderer::conversation_scroll::{self, Reach};
-use alo_renderer::results::{PROVIDER, SetUp, Showing, Tab};
+use alo_renderer::results::{SetUp, Showing, Tab};
 use alo_renderer::split_place::Stands;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -1941,11 +1941,11 @@ impl ConversationWindow {
         let line = match &searched.came {
             Came::Sites { showing, .. } => match showing {
                 Showing::Found(found) if found.is_empty() => Some(format!(
-                    "{PROVIDER} found no sites for \u{201c}{}\u{201d}",
+                    "The search found no sites for \u{201c}{}\u{201d}",
                     searched.words
                 )),
                 Showing::Found(found) => Some(format!(
-                    "{PROVIDER} found {} sites for \u{201c}{}\u{201d}",
+                    "The search found {} sites for \u{201c}{}\u{201d}",
                     found.len(),
                     searched.words
                 )),
@@ -4338,7 +4338,7 @@ mod tests {
     fn a_search_not_set_up_says_why_and_one_set_up_says_what_came_back() {
         let (tell, told) = std::sync::mpsc::channel();
         let searcher = Searcher::start(
-            Err("no Brave Search key in this Mac's keychain (alo-brave-search)".to_owned()),
+            Err("no search key in this Mac's keychain".to_owned()),
             Box::new(move |searched| tell.send(searched).is_ok()),
         )
         .unwrap();
@@ -4347,9 +4347,7 @@ mod tests {
         type_and_return(&mut unset, "what is x");
         assert_eq!(
             unset.scene().and_then(|scene| scene.start_sentence),
-            Some(
-                "searching is not set up yet: no Brave Search key in this Mac's keychain (alo-brave-search)"
-            )
+            Some("searching is not set up yet: no search key in this Mac's keychain")
         );
         assert!(told.try_recv().is_err(), "nothing searched");
         unset.finish();
@@ -4363,7 +4361,7 @@ mod tests {
         type_and_return(&mut window, "what is x");
         assert_eq!(
             window.scene().and_then(|scene| scene.start_sentence),
-            Some("searching Brave Search for \u{201c}what is x\u{201d}")
+            Some("searching for \u{201c}what is x\u{201d}")
         );
         window.heard(Heard::Searched(Searched::sites(
             1,

@@ -271,7 +271,7 @@ fn words_typed_and_return_are_searched_and_drawn_as_the_all_tab() -> Result<(), 
     assert_eq!(now.typed, "", "the box kept what was typed");
     assert_eq!(
         driven.line().as_deref(),
-        Some("searching Brave Search for \u{201c}rust borrow checker\u{201d}")
+        Some("searching for \u{201c}rust borrow checker\u{201d}")
     );
     driven.until("the sites found", |driven| {
         matches!(
@@ -293,7 +293,7 @@ fn words_typed_and_return_are_searched_and_drawn_as_the_all_tab() -> Result<(), 
     );
     assert_eq!(
         driven.line().as_deref(),
-        Some("Brave Search found 3 sites for \u{201c}rust borrow checker\u{201d}")
+        Some("The search found 3 sites for \u{201c}rust borrow checker\u{201d}")
     );
     // Drawn by the first screen's confined renderer: the first site's mark
     // where the renderer's layout assertion puts it, in a tint of the four.

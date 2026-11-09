@@ -365,7 +365,7 @@ mod tests {
             .unwrap_or_else(|unbuilt| panic!("{}", unbuilt.why));
         assert_eq!(
             of_class(&document, "note"),
-            vec!["Searching Brave Search for images of \u{201c}ev\u{201d}\u{2026}"]
+            vec!["Searching for images of \u{201c}ev\u{201d}\u{2026}"]
         );
     }
 

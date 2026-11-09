@@ -1,6 +1,6 @@
 # ADR 0086 — A search's images cost a second request, and come only from Brave
 
-**Status:** accepted — built by queue items 743 and 744 (31 October 2026); § 1's further pages built by 761 (1 November 2026)
+**Status:** accepted — built by queue items 743 and 744 (31 October 2026); § 1's further pages built by 761 (1 November 2026); no provider named to a person (9 November 2026, queue item 900, *Amended* below)
 **Date:** 2026-10-31
 **Context:** ADR 0083 (a search is asked by the browser process, with the
 words alone); ADR 0082 § 0 (the Brave Search API; alo pays it through a
@@ -183,3 +183,13 @@ and 746 — asked only when their tab is opened, ADR 0087.)*
   response's body set per request in `alo-net` (762). Found on the way: a
   press on a relatively positioned box inside the conversation finds the box
   behind it (763); the tiles are not positioned.
+
+## Amended (9 November 2026, queue item 900): the provider is never named to a person
+
+The owner, verbatim: *"we do not need to show any brave words on the ui or
+to the users"*. alo still asks the Brave Search API; what is decided above
+of where, with what and how stands. What changes is only the words a person
+reads: none names the provider. The newer search's sentence is now *Images of "…" were not searched for: a newer search came first.* The sentences quoted above are kept as
+they were decided; what is said now is in `crates/alo-renderer/src/results.rs`
+and `crates/alo-window/src/brave_search.rs`, and
+`crates/alo-renderer/tests/no_providers_name_on_screen.rs` holds it.

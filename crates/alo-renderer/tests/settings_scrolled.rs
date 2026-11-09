@@ -194,7 +194,7 @@ fn holds(name: &str, frame: Option<&Frame>) -> Result<(), String> {
 
 /// How far *Settings* reaches in the least window: what its renderer
 /// answered, read here once and checked against the layout above.
-const REACH: f32 = 820.0;
+const REACH: f32 = 895.0;
 
 /// The room it scrolls in, in its panel in the least window (queue item
 /// 886): 600 less 32 above and below and its heading's 64.
@@ -230,10 +230,11 @@ fn least_reach() -> Option<Reach> {
 fn in_the_least_window_it_reaches_past_the_room_and_is_drawn_scrolled() {
     let reach = least_reach().expect("a reach");
     // The page from the room's top: 24 above *Font*, its faces two a row
-    // in the panel's 416, *alo at work*, and 28 under it: 820 — the 752 it
-    // is at the design's size, and 68 more where the panel is narrow (both
+    // in the panel's 416, *alo at work*, and 28 under it: 895 — the 752 it
+    // is at the design's size, and 143 more where the panel is narrow (both
     // lines about them on two lines, *Ask before opening*'s choices under
-    // its name).
+    // its name, and each face's sample on four lines, 25 more each of the
+    // faces' three rows: queue item 901).
     assert_eq!(
         conversation_scroll::Room::settings(LEAST).height.to_bits(),
         ROOM.to_bits()

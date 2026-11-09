@@ -4,8 +4,8 @@
 
 //! Queue item 854 (`docs/design/shell.md`, *Settings*; approved by the
 //! owner 2026-11-07): *Settings*, with its section **Font** — the five
-//! faces the interface's words may be set in, each a sample of a result set
-//! in that face — and both parts of the interface drawn in the face chosen;
+//! faces the interface's words may be set in, each a sample set in that
+//! face (since queue item 901 the owner's one sentence, [`SAMPLE`]) — and both parts of the interface drawn in the face chosen;
 //! since queue item 886 (approved 2026-11-08) a dialog over the chat on
 //! screen, which is blurred and dimmed under a veil around it.
 //!
@@ -38,7 +38,7 @@ use alo_renderer::frame::frame_to_png;
 use alo_renderer::interface_face::InterfaceFace;
 use alo_renderer::panel::{Chat, Doing, Panel};
 use alo_renderer::results::{Found, Results, SetUp, Showing};
-use alo_renderer::settings_document::{CLOSE, FONT, SAMPLE_DESCRIPTION, SAMPLE_TITLE, TITLE};
+use alo_renderer::settings_document::{CLOSE, FONT, SAMPLE, TITLE};
 use alo_renderer::settings_work_document::AT_WORK;
 use alo_renderer::start::{SettingsKeyed, Start};
 use alo_renderer::turn::Turn;
@@ -318,7 +318,8 @@ fn settings_is_laid_out_in_a_panel_over_the_screen_two_faces_a_row() {
     assert_eq!(at("pname").first(), Some(&px(188.0, 120.0, 664.0, 20.0)));
     assert_eq!(at("pabout").first(), Some(&px(188.0, 144.0, 664.0, 18.0)));
     // Two a row, 10 apart: (664 - 10) / 2 = 327 each; each 15 + 18 + 10 +
-    // 25 + 4 + 46 + 16 and its border, 136 tall; three rows.
+    // 75 (the sample's three lines of 25) + 16 and its border, 136 tall;
+    // three rows.
     assert_eq!(at("faces"), vec![px(188.0, 176.0, 664.0, 428.0)]);
     let faces: Vec<String> = at("face on").into_iter().chain(at("face")).collect();
     assert_eq!(
@@ -332,11 +333,19 @@ fn settings_is_laid_out_in_a_panel_over_the_screen_two_faces_a_row() {
         ]
     );
     // Inside each, 1 of border and 15 down, 16 in: the name's row of 18,
-    // its circle 16 centred in it; the title's 25 and the description's two
-    // lines of 23.
+    // its circle 16 centred in it; 10 under it the sample's three lines of
+    // 25 (queue item 901).
     assert_eq!(at("dot").first(), Some(&px(205.0, 193.0, 16.0, 16.0)));
-    assert_eq!(at("sample-t").first(), Some(&px(205.0, 220.0, 293.0, 25.0)));
-    assert_eq!(at("sample-d").first(), Some(&px(205.0, 249.0, 293.0, 46.0)));
+    assert_eq!(
+        at("sample"),
+        vec![
+            px(205.0, 220.0, 293.0, 75.0),
+            px(542.0, 220.0, 293.0, 75.0),
+            px(205.0, 366.0, 293.0, 75.0),
+            px(542.0, 366.0, 293.0, 75.0),
+            px(205.0, 512.0, 293.0, 75.0)
+        ]
+    );
 }
 
 #[test]
@@ -368,14 +377,15 @@ fn in_the_least_window_every_face_stands_inside_the_panel() {
     }
     assert_eq!(
         faces.last().map(|face| units(*face)),
-        Some(px(60.0, 486.0, 203.0, 136.0))
+        // Its sample on four lines of 25 there, whole, never cut: 161.
+        Some(px(60.0, 536.0, 203.0, 161.0))
     );
 }
 
 #[test]
 fn at_the_designs_room_each_faces_sample_is_whole_in_that_face() {
-    // In whichever face the page is set, each sample is in its own: its
-    // title on one line, uncut, and its description on two.
+    // In whichever face the page is set, each sample is in its own, on
+    // its lines, none of it cut off (queue item 901).
     for chosen in [InterfaceFace::Inter, InterfaceFace::Geist] {
         let drawn = draw(ToRenderer::Start(Box::new(settings(chosen, DESIGN))));
         let runs = runs(&drawn.renderer);
@@ -384,13 +394,9 @@ fn at_the_designs_room_each_faces_sample_is_whole_in_that_face() {
                 .iter()
                 .filter(|(_, family, _)| family == face.family())
                 .collect();
-            assert!(
-                in_face.iter().any(|(text, _, _)| text == SAMPLE_TITLE),
-                "{face:?}'s title whole: {in_face:?}"
-            );
             let lines: Vec<f32> = in_face
                 .iter()
-                .filter(|(text, _, _)| SAMPLE_DESCRIPTION.contains(text.trim()))
+                .filter(|(text, _, _)| SAMPLE.contains(text.trim()))
                 .filter(|(text, _, _)| !text.trim().is_empty())
                 .map(|(_, _, baseline)| *baseline)
                 .fold(Vec::new(), |mut lines, baseline| {
@@ -399,14 +405,21 @@ fn at_the_designs_room_each_faces_sample_is_whole_in_that_face() {
                     }
                     lines
                 });
-            assert_eq!(lines.len(), 2, "{face:?}: {in_face:?}");
+            // Wider faces take three lines of the room, narrower two; every face
+            // is as tall, the room three lines'.
+            let wide = matches!(face, InterfaceFace::Inter | InterfaceFace::DmSans);
+            assert_eq!(
+                lines.len(),
+                if wide { 3 } else { 2 },
+                "{face:?}: {in_face:?}"
+            );
             let words: String = in_face
                 .iter()
-                .filter(|(text, _, _)| SAMPLE_DESCRIPTION.contains(text.trim()))
+                .filter(|(text, _, _)| SAMPLE.contains(text.trim()))
                 .map(|(text, _, _)| text.trim())
                 .collect::<Vec<_>>()
                 .join(" ");
-            assert_eq!(words, SAMPLE_DESCRIPTION, "{face:?}: none of it cut off");
+            assert_eq!(words, SAMPLE, "{face:?}: none of it cut off");
         }
     }
 }

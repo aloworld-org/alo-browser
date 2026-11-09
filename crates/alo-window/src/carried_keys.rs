@@ -76,7 +76,7 @@ impl Slot {
     /// What its key is, in words a person reads.
     pub fn what(self) -> &'static str {
         match self {
-            Self::Search => "Brave Search key",
+            Self::Search => "search key",
             Self::Answer => "OpenAI key",
         }
     }
@@ -261,7 +261,7 @@ mod tests {
         let said = read(&resources, Slot::Search).unwrap_err();
         assert_eq!(
             said,
-            "the Brave Search key this application carries could not be read (keys/search)"
+            "the search key this application carries could not be read (keys/search)"
         );
         std::fs::write(path(&resources, Slot::Search), vec![b'k'; LONGEST + 1]).unwrap();
         assert!(read(&resources, Slot::Search).is_err());

@@ -48,12 +48,11 @@ pub const ANSWERER: &str = "OpenAI";
 
 /// What the Answer tab says was sent to write it (ADR 0081 § 5: an answer
 /// says what it sent): the person's question and what the search provider
-/// said of the first `given` sites.
+/// said of the first `given` sites — the provider unnamed (queue item 900).
 pub fn sent(given: usize) -> String {
     format!(
-        "Your question and what {} said of its first {} were sent to {ANSWERER} to write this \
-         answer.",
-        crate::results::PROVIDER,
+        "Your question and what the search said of its first {} were sent to {ANSWERER} to \
+         write this answer.",
         sites(given)
     )
 }

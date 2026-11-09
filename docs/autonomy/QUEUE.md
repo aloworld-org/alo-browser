@@ -24923,6 +24923,76 @@ What stage 2's exit gate actually measures: a person using it.
   its place, or say so by name; with a test of the first screen holding
   one. *Depends on 885.*
 
+- [x] **900. No provider's name where a person reads (the owner's word, 9
+  November 2026).** Verbatim: *"we do not need to show any brave words on
+  the ui or to the users"*. alo keeps asking the Brave Search API (ADR
+  0082 § 0); no word a person reads — a tab's sentence, a refusal, the
+  window's line, the offer, the note under an answer, what the agent says
+  it found, a key's absence — names it. Code, endpoints, keychain
+  services, comments, docs and ADRs may. *Depends on nothing.*
+  ***Done (batch 29, 9 November 2026; ADRs 0083, 0086 and 0095 amended).***
+  `results::PROVIDER` is gone; `SEARCH_SERVICE` (*The search service*)
+  stands where a refusal needs a subject. **Before → after:** *Searching
+  Brave Search for “…”…* → *Searching for “…”…* (and *… for images / videos
+  / news of “…”…*); *Brave Search found no sites / images / videos / news
+  for “…”.* → *No sites / images / videos / news found for “…”.*; *Brave
+  Search was not asked for videos / news of “…”.* → *Videos were / News
+  was not searched for “…”.*; *Brave Search was not asked for images of
+  “…”: a newer search came first.* → *Images of “…” were not searched for:
+  a newer search came first.*; every status (401/403, 429, 5xx, other), *…
+  could not be reached*, *…'s answer could not be read* and *… is not asked
+  for videos / news / images here* → *The search service …*; the offer's
+  *Brave Search* → *alo searches the web* (`SEARCHES_THE_WEB`); the note
+  *Your question and what Brave Search said of its first 4 sites were sent
+  to OpenAI …* → *… what the search said of its first 4 sites …*; *The
+  sites Brave Search found for “…”* → *The sites found for “…”*; the
+  window's line *Brave Search found N sites / no sites for “…”* → *The
+  search found …*, and its status *searching Brave Search for “…”* →
+  *searching for “…”*; the agent's *Brave Search found these sites / no
+  sites / did not answer the search for “…”* → *The search found these
+  sites / no sites …*, *The search for “…” got no answer*; *no Brave Search
+  key in this Mac's keychain (alo-brave-search)* → *no search key in this
+  Mac's keychain* (the service's own name holds the word, so it is said
+  only in `alo-bundle`'s output and the docs); *the Brave Search key this
+  application carries could not be read* → *the search key …*. **Left, and
+  why:** `alo-bundle`'s keychain line still names the service
+  `alo-brave-search` — build tooling's output to the developer, never
+  shown in the application. **Tests:** `no_providers_name_on_screen.rs`
+  (96 renders — every search state on every tab, the offer set up and
+  not, *Settings* open — every text, attribute and agent-read name free of
+  the word in any case; every tab's note, `sent` and the offer's line);
+  `agent_found`'s `what_the_model_is_told_of_a_search_names_no_provider`;
+  `brave_search`'s status test asserting the subject and no name; every
+  string test updated. **Mutation**, caught by all three tests: the
+  offer's line put back as *Brave Search*. **References moved, inspected:**
+  `answer-tab.png`, `all-tab-with-no-reliable-answer.png`,
+  `all-tab-not-answered.png`, `start-ask-to-do-it.png`.
+
+- [x] **901. *Settings › Font* sets the owner's sentence in each face (the
+  owner's word, 9 November 2026).** Verbatim: *"instead of kampala we
+  should use this — "if you live each day as if it was your last someday
+  you'll most certainly be right""*. Each face's sample — *Kampala –
+  Wikipedia* and its description — becomes that one sentence. *Depends on
+  854.*
+  ***Done (batch 29, 9 November 2026).*** `settings_document::SAMPLE`, *If
+  you live each day as if it was your last, someday you’ll most certainly
+  be right.* (capital I, typographic apostrophe, no attribution), one
+  `p.sample` in place of `sample-t` and `sample-d`: 16 px 400 in the ink on
+  lines of 25, `min-height` three lines so every face stays 136 tall at the
+  design's room, never cut. At the design's room Inter and DM Sans take
+  three lines, Geist, Plus Jakarta Sans and Instrument Sans two; in the
+  least window four, whole, each face 161 tall, so *Settings* reaches 895
+  there where it reached 820. **Layout in numbers**
+  (`settings_and_the_face_chosen.rs`: every sample's box, each face's
+  lines, the whole sentence in each face; the least window's last face;
+  `settings_scrolled.rs`'s reach); `the_interfaces_typefaces.rs` (each
+  sample's first line in its face at 400). **References moved,
+  inspected:** `settings.png`, `settings-in-the-least-window.png`,
+  `settings-keyed-close.png`, `settings-keyed-font.png`,
+  `settings-alo-at-work.png`, `settings-over-a-card.png`,
+  `settings-scrolled-short.png`. `docs/design/shell.md` notes the owner's
+  change beside the approved words.
+
 ## K. ★ The agent, on somebody else's pages
 
 The reason this exists rather than a faster fork. ADR 0002 holds here or it does

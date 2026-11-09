@@ -317,7 +317,9 @@ fn a_searchs_results_survive_the_crossing() {
         ToRenderer::Start(Box::new(Start {
             turns: vec![Turn::Searched(Results::of(
                 "x".to_owned(),
-                Showing::Unanswered("Brave Search could not answer just now (500).".to_owned()),
+                Showing::Unanswered(
+                    "The search service could not answer just now (500).".to_owned(),
+                ),
             ))],
             ..Start::default()
         })),
@@ -1681,7 +1683,7 @@ fn a_searchs_images_and_tab_survive_the_crossing() {
         Results::of("x", sites()).on(Tab::Sites),
         Results::of("x", sites())
             .with_images(Images::Unanswered(
-                "Brave Search could not answer (503).".to_owned(),
+                "The search service could not answer (503).".to_owned(),
             ))
             .on(Tab::Images),
     ] {
@@ -1841,7 +1843,7 @@ fn a_searchs_videos_and_news_survive_the_crossing() {
             .on(Tab::Sites),
         Results::of("x", sites())
             .with_news(Stories::Unanswered(
-                "Brave Search could not answer (503).".to_owned(),
+                "The search service could not answer (503).".to_owned(),
             ))
             .on(Tab::News),
     ] {

@@ -104,7 +104,7 @@ impl Key {
 /// Why there is none, in words a person reads under the box's offer to
 /// search — never the key, and never what the tool printed.
 pub fn from_the_keychain(account: &str) -> Result<Key, String> {
-    let missing = || format!("no Brave Search key in this Mac's keychain ({SERVICE})");
+    let missing = || "no search key in this Mac's keychain".to_owned();
     match keychain::generic_password(SERVICE, account) {
         Ok(written) => Key::of(&written).ok_or_else(missing),
         Err(Unread::NoTool) => Err(format!(
@@ -175,15 +175,15 @@ mod tests {
     #[test]
     fn an_item_nobody_made_is_missing_and_says_which() {
         // An account no keychain holds an item for: the tool refuses, and
-        // what is said names the item, not anything the tool printed.
+        // what is said names what is missing, not anything the tool printed.
         let refused = from_the_keychain("alo-no-such-account-for-a-test").err();
         assert_eq!(
             refused.as_deref(),
-            Some("no Brave Search key in this Mac's keychain (alo-brave-search)")
+            Some("no search key in this Mac's keychain")
         );
         assert_eq!(
             from_the_keychain("").err().as_deref(),
-            Some("no Brave Search key in this Mac's keychain (alo-brave-search)")
+            Some("no search key in this Mac's keychain")
         );
     }
 }

@@ -332,11 +332,11 @@ mod tests {
     fn with_no_sites_a_sentence_stands_where_they_would() {
         let document = built(Results::of(
             "x".to_owned(),
-            Showing::Unanswered("Brave Search could not answer just now (500).".into()),
+            Showing::Unanswered("The search service could not answer just now (500).".into()),
         ));
         assert_eq!(
             of_class(&document, "note"),
-            vec!["Brave Search could not answer just now (500)."]
+            vec!["The search service could not answer just now (500)."]
         );
         assert!(of_class(&document, "found").is_empty());
         assert!(of_class(&document, "more").is_empty());

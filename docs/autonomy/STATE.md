@@ -50487,3 +50487,60 @@ slow, 1 leaky), 0 skipped** — *"The gate is met." (11 of 11 steps)*.
 `scripts/gate.sh` not edited. The release bundle was rebuilt before it.
 
 The next unused queue number is **900** and the next ADR is **0105**.
+
+---
+
+## 2026-11-09 — batch 29: no provider's name on screen (900), the owner's sentence in *Settings › Font* (901)
+
+**Contracts read:** `CLAUDE.md`, `docs/autonomy/LOOP.md`, ADRs 0082, 0083,
+0086, 0095, `docs/design/shell.md` (*Settings*, *Search results*). Both
+items are the owner's own words of 9 November 2026, not a roadmap line:
+**no `ROADMAP.md` line moved**, because neither builds or finishes anything
+a roadmap line names — they change words and one sample on screens whose
+lines (search results, *Settings*) already say what was built.
+
+**900 — no provider's name where a person reads.** alo still asks the
+Brave Search API; every sentence, status, note, offer line, agent outcome
+and key error a person can read now says *Searching for “…”…*, *No sites
+found for “…”.*, *The search service …*, *alo searches the web*, *what the
+search said of its first 4 sites*, *The search found …*, *no search key in
+this Mac's keychain* (the full before → after list is in the item).
+`results::PROVIDER` is gone. Left: `alo-bundle`'s keychain line names the
+service `alo-brave-search` — the developer's build output, never the
+application's. ADRs 0083, 0086 and 0095 amended. **Guard:**
+`tests/no_providers_name_on_screen.rs` (96 renders, every search state on
+every tab, the offer set up and not, *Settings* open; every text, attribute
+and agent-read name), plus unit tests in `agent_found` and `brave_search`;
+a mutation (the offer's line back to *Brave Search*) caught by all three.
+
+**901 — the owner's sentence.** Each face's sample is now *If you live each
+day as if it was your last, someday you’ll most certainly be right.* — one
+`p.sample`, 16 px 400 in the ink on lines of 25, room for three lines at
+least so each face is still 136 at the design's room, never cut. Inter and
+DM Sans take three lines there, the other three two; in the least window
+four, each face 161, *Settings* reaching 895 (was 820). Layout in numbers
+and every line count asserted.
+
+**References moved, each inspected:** `answer-tab`,
+`all-tab-with-no-reliable-answer`, `all-tab-not-answered`,
+`start-ask-to-do-it`, `settings`, `settings-in-the-least-window`,
+`settings-keyed-close`, `settings-keyed-font`, `settings-alo-at-work`,
+`settings-over-a-card`, `settings-scrolled-short` (backed up first,
+scratchpad `refs-backup-b29/`).
+
+**By hand** (release, `.app` rebuilt by `alo-bundle` with the CEF host and
+no keys carried, so the keychain's key was used for one real search;
+`--conversation --chats handrun49/chats`; keys through System Events;
+scratchpad `handrun49/`): the offer *alo searches the web* (`49-00`),
+*Searching for “uganda museum hours”…* (`49-01`), the results with *The
+sites found for “…” are below.* (`49-02`), ⌘, — *Settings › Font* with the
+sentence in each face (`49-03`). **Not seen by hand:** a refusal's
+sentence (held by tests), the agent's words, Videos and News tabs.
+
+**Gate: met, first run** (CEF_PATH set, the pointer at 1400, 1000;
+detached through `perl -MPOSIX=setsid`, waited on by its PID;
+`gate-batch29.log`). **Summary [1163.072s] 6870 tests run: 6870 passed (5
+slow, 1 leaky), 0 skipped** — *"The gate is met." (11 of 11 steps)*.
+`scripts/gate.sh` not edited.
+
+The next unused queue number is **902** and the next ADR is **0105**.

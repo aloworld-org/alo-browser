@@ -486,7 +486,7 @@ fn the_all_tab_with_results_is_drawn_as_the_reference() {
 #[test]
 fn a_search_not_answered_says_why_where_the_sites_would_be() {
     let unanswered = with(Showing::Unanswered(
-        "Brave Search says alo has searched too often, or its allowance is used up (429). \
+        "The search service says alo has searched too often, or its allowance is used up (429). \
          Try again later."
             .to_owned(),
     ));
@@ -513,11 +513,11 @@ fn a_search_not_answered_says_why_where_the_sites_would_be() {
     for (showing, says) in [
         (
             Showing::Searching,
-            "Searching Brave Search for \u{201c}home ev charger installation\u{201d}\u{2026}",
+            "Searching for \u{201c}home ev charger installation\u{201d}\u{2026}",
         ),
         (
             Showing::Found(Vec::new()),
-            "Brave Search found no sites for \u{201c}home ev charger installation\u{201d}.",
+            "No sites found for \u{201c}home ev charger installation\u{201d}.",
         ),
     ] {
         let outline = draw(with(showing)).tree.to_outline();

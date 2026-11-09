@@ -38,7 +38,7 @@
 use crate::field_edit::{self, Made};
 use crate::text_field::TextField;
 use crate::typing::Edit;
-use alo_renderer::results::{PROVIDER, SetUp};
+use alo_renderer::results::SetUp;
 use alo_renderer::typed::{Offer, offers_for};
 
 /// The one box.
@@ -188,7 +188,7 @@ pub fn said(chosen: &Offer, search: &SetUp, asking: &SetUp) -> String {
     match (chosen, search) {
         (Offer::Go(url), _) => format!("going to {url}"),
         (Offer::Search(words), SetUp::Ready) => {
-            format!("searching {PROVIDER} for \u{201c}{words}\u{201d}")
+            format!("searching for \u{201c}{words}\u{201d}")
         }
         (Offer::Search(_), SetUp::Not(why)) if why.trim().is_empty() => {
             "searching is not set up yet".to_owned()
@@ -258,15 +258,15 @@ mod tests {
         let _ = put(&mut the_box, "what is x");
         let chosen = the_box.edit(Edit::Choose, false);
         assert_eq!(chosen, Typed::Chose(Offer::Search("what is x".to_owned())));
-        let missing = SetUp::Not("no Brave Search key in this Mac's keychain".to_owned());
+        let missing = SetUp::Not("no search key in this Mac's keychain".to_owned());
         if let Typed::Chose(offer) = chosen {
             assert_eq!(
                 said(&offer, &missing, &SetUp::Ready),
-                "searching is not set up yet: no Brave Search key in this Mac's keychain"
+                "searching is not set up yet: no search key in this Mac's keychain"
             );
             assert_eq!(
                 said(&offer, &SetUp::Ready, &SetUp::Ready),
-                "searching Brave Search for \u{201c}what is x\u{201d}"
+                "searching for \u{201c}what is x\u{201d}"
             );
         }
         // Asking alo says what it does when it is set up, and why not when

@@ -1215,7 +1215,7 @@ ol.result {
   background: #6b655c;
 }
 
-/* A site's own mark (queue item 747): its icon from Brave's proxy, an
+/* A site's own mark (queue item 747): its icon from the provider's proxy, an
    `<img>` in the letter's 18 square, rounded by its own radius as the
    tile is (769); transparent where the icon is. */
 .fav.icon {
@@ -1870,8 +1870,9 @@ ol.result {
   line-height: 18px;
 }
 
-/* The faces, two a row, 10 apart: each a sample of a result — its title
-   and its description, at the sizes and in the colours a search's are —
+/* The faces, two a row, 10 apart: each a sample — one sentence, the
+   owner's words (queue item 901), in the ink at 16 on lines of 25, never
+   fewer than three lines' room so every face is as tall, and never cut —
    drawn in that face, which its own style names. */
 .faces {
   display: grid;
@@ -1925,23 +1926,11 @@ ol.result {
   color: var(--ink);
 }
 
-.sample-t {
-  margin-bottom: 4px;
-  color: #22406e;
-  font-size: 18px;
+.sample {
+  min-height: 75px;
+  color: var(--ink);
+  font-size: 16px;
   line-height: 25px;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.sample-d {
-  max-height: 46px;
-  overflow: hidden;
-  color: #4a463f;
-  font-size: 14.5px;
-  line-height: 23px;
 }
 
 /* *alo at work* (queue item 878, docs/design/shell.md, *Settings*): one

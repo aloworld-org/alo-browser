@@ -551,7 +551,7 @@ fn an_agent_reads_the_answer_and_its_sources_by_name() {
         "text \"Electricians\"",
         "text \"grants.example\"",
         "text \"Do I need a new circuit for a charger?\"",
-        "text \"Your question and what Brave Search said of its first 4 sites were sent to \
+        "text \"Your question and what the search said of its first 4 sites were sent to \
          OpenAI to write this answer.\"",
     ] {
         assert!(outline.contains(said), "{said}: {outline}");
@@ -571,7 +571,7 @@ fn with_no_answer_to_draw_one_sentence_stands_in_its_place() {
         ),
         (
             Answer::NotFound,
-            "I couldn\u{2019}t find a reliable answer. The sites Brave Search found for \
+            "I couldn\u{2019}t find a reliable answer. The sites found for \
              \u{201c}how long does a home ev charger take to install\u{201d} are below.",
         ),
         (

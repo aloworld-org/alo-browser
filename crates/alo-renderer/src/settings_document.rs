@@ -22,9 +22,9 @@
 //!
 //! # Each face shown as it would be
 //!
-//! A radio holds a sample of a search's result — its title and its
-//! description, [`SAMPLE_TITLE`] and [`SAMPLE_DESCRIPTION`], at the sizes
-//! and in the colours a search draws them — set in that face: its own
+//! A radio holds a sample — one sentence, [`SAMPLE`], the owner's words of
+//! 9 November 2026 (queue item 901), in place of the result's title and
+//! description it held before — set in that face: its own
 //! style names it ([`InterfaceFace::declaration`]), so each is drawn in its
 //! face whatever the page is set in. The face's name and the sample are
 //! hidden from an agent, which reads the radio by its name.
@@ -81,12 +81,10 @@ pub const CLOSE: &str = "Close";
 /// What stands after the default face's name.
 pub const DEFAULT: &str = "Default";
 
-/// The title of the result each face is shown setting.
-pub const SAMPLE_TITLE: &str = "Kampala \u{2013} Wikipedia";
-
-/// Its description.
-pub const SAMPLE_DESCRIPTION: &str =
-    "The capital and largest city of Uganda, set on hills near the shore of Lake Victoria.";
+/// The sentence each face is shown setting (queue item 901, the owner's
+/// words).
+pub const SAMPLE: &str = "If you live each day as if it was your last, someday you\u{2019}ll most \
+                          certainly be right.";
 
 /// Put *Settings* into `document`, the first screen's, over everything
 /// the screen's `main` holds, which is hidden from an agent.
@@ -207,12 +205,10 @@ fn make_face(
     append(document, name, words)?;
     append(document, head, name)?;
     append(document, made, head)?;
-    for (class, text) in [("sample-t", SAMPLE_TITLE), ("sample-d", SAMPLE_DESCRIPTION)] {
-        let line = hidden(document, "p", class)?;
-        let words = document.create_text_node(text);
-        append(document, line, words)?;
-        append(document, made, line)?;
-    }
+    let sample = hidden(document, "p", "sample")?;
+    let words = document.create_text_node(SAMPLE);
+    append(document, sample, words)?;
+    append(document, made, sample)?;
     Ok(made)
 }
 

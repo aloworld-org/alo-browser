@@ -499,7 +499,7 @@ fn the_sites_tab_offers_more_sites_under_its_sites() {
     // Not answered: why, on a line of 23, then the button again, 22 under
     // it.
     let unanswered = laid_out(offering(Next::Unanswered(
-        "Brave Search could not answer just now (503).".to_owned(),
+        "The search service could not answer just now (503).".to_owned(),
     )));
     assert_eq!(
         boxes_of(&unanswered, "note"),
@@ -593,12 +593,14 @@ fn with_no_images_yet_all_draws_no_row_and_the_images_tab_says_so() {
     let drawn = draw(with(asking.on(Tab::Images)));
     let outline = drawn.tree.to_outline();
     assert!(
-        outline.contains("Searching Brave Search for images of \u{201c}home ev charger installation\u{201d}\u{2026}"),
+        outline.contains(
+            "Searching for images of \u{201c}home ev charger installation\u{201d}\u{2026}"
+        ),
         "{outline}"
     );
     let unanswered = Results::of(SAID, Showing::Found(sites(4)))
         .with_images(Images::Unanswered(
-            "Brave Search could not answer just now (503).".to_owned(),
+            "The search service could not answer just now (503).".to_owned(),
         ))
         .on(Tab::Images);
     let renderer = laid_out(with(unanswered));

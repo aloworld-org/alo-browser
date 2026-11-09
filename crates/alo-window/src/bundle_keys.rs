@@ -103,7 +103,7 @@ impl fmt::Debug for Taken {
 }
 
 impl Taken {
-    /// The slots taken, in words a person reads: *the Brave Search key*.
+    /// The slots taken, in words a person reads: *the search key*.
     pub fn said(&self) -> String {
         self.0
             .iter()
@@ -176,7 +176,7 @@ mod tests {
         std::fs::write(given.join("answer"), "not-a-real-answer-key-0987").unwrap();
         let taken = taken(&Source::Directory(given.clone())).unwrap();
         assert_eq!(format!("{taken:?}"), r#"["search", "answer"]"#);
-        assert_eq!(taken.said(), "the Brave Search key, the OpenAI key");
+        assert_eq!(taken.said(), "the search key, the OpenAI key");
 
         let application = directory("made").join("alo browser.app");
         let resources = application.join("Contents").join("Resources");
@@ -212,14 +212,14 @@ mod tests {
         assert_eq!(
             said,
             format!(
-                "no Brave Search key at {} for the application to carry",
+                "no search key at {} for the application to carry",
                 empty.join("search").display()
             )
         );
         std::fs::write(empty.join("search"), "two words").unwrap();
         let said = taken(&Source::Directory(empty.clone())).unwrap_err();
         assert!(
-            said.ends_with("holds no Brave Search key a request header can carry"),
+            said.ends_with("holds no search key a request header can carry"),
             "{said}"
         );
         assert!(!said.contains("two words"), "{said}");
@@ -235,7 +235,7 @@ mod tests {
         .unwrap_err();
         assert_eq!(
             said,
-            "no Brave Search key in this Mac's keychain (alo-brave-search) for the application to \
+            "no search key in this Mac's keychain (alo-brave-search) for the application to \
              carry"
         );
     }

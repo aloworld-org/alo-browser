@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **No provider's name is shown any more.** alo still searches with the
+  same service underneath, but nothing a person reads names it: a search
+  says *Searching for “…”…* and *No sites found for “…”.*, a refusal or a
+  failure says *The search service could not answer just now (500).*, the
+  offer to search says *alo searches the web*, the note under an answer
+  says *Your question and what the search said of its first 4 sites were
+  sent to OpenAI*, and the agent says *The search found these sites*.
+- ***Settings › Font* shows each face setting one sentence**, the owner's:
+  *If you live each day as if it was your last, someday you’ll most
+  certainly be right.* — in place of a search result's title and
+  description, at 16 px, whole in every face.
 - ***Settings* opens again more quickly, and its blur costs less.** Opened
   again over a page in a card that has not changed, it takes about 130 ms
   at two where it took 155–160, the blur behind it kept from the last

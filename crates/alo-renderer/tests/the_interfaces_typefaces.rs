@@ -17,7 +17,7 @@ use alo_layout::Size;
 use alo_paint::DisplayItem;
 use alo_renderer::interface_face::InterfaceFace;
 use alo_renderer::panel::{Chat, Doing, Panel};
-use alo_renderer::settings_document::SAMPLE_TITLE;
+use alo_renderer::settings_document::SAMPLE;
 use alo_renderer::start::{KeptSite, Start};
 use alo_renderer::typed::offers;
 use alo_renderer::typefaces::{self, INTER, NEWSREADER};
@@ -259,17 +259,18 @@ fn settings_draws_each_face_in_itself_whatever_the_page_is_set_in() {
             "{runs:?}"
         );
         assert_eq!(drawn_in(&runs, "Font"), Some((chosen.family(), 600)));
-        // Each face's name and its sample in that face.
+        // Each face's name and its sample in that face: the sample's
+        // first line, at 400 (queue item 901).
         let samples: Vec<(&str, u16)> = runs
             .iter()
-            .filter(|(text, _, _)| text == SAMPLE_TITLE)
+            .filter(|(text, _, _)| text.starts_with("If you live") && SAMPLE.starts_with(text))
             .map(|(_, family, weight)| (family.as_str(), *weight))
             .collect();
         assert_eq!(
             samples,
             InterfaceFace::ALL
                 .iter()
-                .map(|face| (face.family(), 600))
+                .map(|face| (face.family(), 400))
                 .collect::<Vec<_>>(),
             "{runs:?}"
         );

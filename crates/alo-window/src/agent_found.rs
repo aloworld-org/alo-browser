@@ -22,7 +22,7 @@
 //! and nothing else: no mark, no picture.
 
 use crate::agent_protocol::kept;
-use alo_renderer::results::{Found, PROVIDER, Showing};
+use alo_renderer::results::{Found, Showing};
 use core::fmt::Write as _;
 
 /// The most sites of one search the model is told.
@@ -59,18 +59,18 @@ impl FoundSites {
     pub fn searched(&mut self, words: &str, showing: Showing) -> String {
         match showing {
             Showing::Searching => {
-                format!("{PROVIDER} did not answer the search for \u{201c}{words}\u{201d}.")
+                format!("The search for \u{201c}{words}\u{201d} got no answer.")
             }
             Showing::Unanswered(why) => {
-                format!("{PROVIDER} did not answer the search for \u{201c}{words}\u{201d}: {why}")
+                format!("The search for \u{201c}{words}\u{201d} got no answer: {why}")
             }
             Showing::Found(found) if found.is_empty() => {
-                format!("{PROVIDER} found no sites for \u{201c}{words}\u{201d}.")
+                format!("The search found no sites for \u{201c}{words}\u{201d}.")
             }
             Showing::Found(found) => {
                 let mut said = format!(
-                    "{PROVIDER} found these sites for \u{201c}{words}\u{201d}; open one with its \
-                     number:"
+                    "The search found these sites for \u{201c}{words}\u{201d}; open one with \
+                     its number:"
                 );
                 let mut unkept = false;
                 for site in found.into_iter().take(MOST_SHOWN) {
@@ -140,8 +140,8 @@ mod tests {
         );
         assert_eq!(
             said,
-            "Brave Search found these sites for \u{201c}Uganda Museum hours\u{201d}; open one \
-             with its number:\n1. Uganda Museum \u{2014} https://ugandamuseum.go.ug/\n   Open \
+            "The search found these sites for \u{201c}Uganda Museum hours\u{201d}; open \
+             one with its number:\n1. Uganda Museum \u{2014} https://ugandamuseum.go.ug/\n   Open \
              daily from 10.\n2. Visit \u{2014} https://visit.example/museum"
         );
         let more = found.searched(
@@ -165,7 +165,7 @@ mod tests {
         let mut found = FoundSites::default();
         assert_eq!(
             found.searched("x", Showing::Found(Vec::new())),
-            "Brave Search found no sites for \u{201c}x\u{201d}."
+            "The search found no sites for \u{201c}x\u{201d}."
         );
         assert!(
             found
@@ -188,5 +188,22 @@ mod tests {
         let past = found.searched("many", Showing::Found(many));
         assert!(past.contains("(not numbered)"), "{past}");
         assert!(found.numbered(MOST_KEPT + 1).is_none());
+    }
+
+    #[test]
+    fn what_the_model_is_told_of_a_search_names_no_provider() {
+        // Queue item 900: the agent repeats what it is told to the person,
+        // so the provider is never named in it.
+        let mut found = FoundSites::default();
+        for showing in [
+            Showing::Searching,
+            Showing::Unanswered("not answered".to_owned()),
+            Showing::Found(Vec::new()),
+            Showing::Found(vec![site("One", "https://one.example/", "")]),
+        ] {
+            let said = found.searched("x", showing);
+            assert!(said.starts_with("The search"), "{said}");
+            assert!(!said.to_lowercase().contains("brave"), "{said}");
+        }
     }
 }

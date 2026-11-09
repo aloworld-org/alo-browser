@@ -1,6 +1,6 @@
 # ADR 0095 — A search's answer is asked by the browser process, from its results' words alone
 
-**Status:** accepted — built by queue items 773 and 707 (1 November 2026)
+**Status:** accepted — built by queue items 773 and 707 (1 November 2026); no provider named to a person (9 November 2026, queue item 900, *Amended* below)
 **Date:** 2026-11-01
 **Context:** ADR 0081 (the model alo thinks with — decided 1 November 2026:
 OpenAI); ADR 0083 (a search is asked by the browser process, with the words
@@ -177,3 +177,13 @@ as *More sites ›* is.
 - **The evaluation ADR 0081 § 4 asks for** (817), and **zero data
   retention** at OpenAI (818), the owner's to ask for.
 - **The agent (704)**, which is not asked of any model here.
+
+## Amended (9 November 2026, queue item 900): the provider is never named to a person
+
+The owner, verbatim: *"we do not need to show any brave words on the ui or
+to the users"*. alo still asks the Brave Search API; what is decided above
+of where, with what and how stands. What changes is only the words a person
+reads: none names the provider. The note under an answer is *Your question and what the search said of its first 8 sites were sent to OpenAI to write this answer.*, and no reliable answer says *The sites found for "…" are below.* The sentences quoted above are kept as
+they were decided; what is said now is in `crates/alo-renderer/src/results.rs`
+and `crates/alo-window/src/brave_search.rs`, and
+`crates/alo-renderer/tests/no_providers_name_on_screen.rs` holds it.

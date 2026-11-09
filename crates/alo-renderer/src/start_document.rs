@@ -28,7 +28,8 @@
 //! What is offered for it ([`crate::typed`]) stands between the box and
 //! the groups: a `listbox` named *Suggestions*, each offer an `option`
 //! named by its words and what they lead to — *Go to the site* and the
-//! address; *Search for "…"* and where it goes, *Brave Search*, or
+//! address; *Search for "…"* and [`SEARCHES_THE_WEB`] — the provider is
+//! never named (queue item 900) — or
 //! [`NOT_SET_UP`] and why ([`searched_with`], queue item 708); *Ask alo
 //! about "…"* and [`ASKED_WITH`] while a card is open and the model can be
 //! asked (queue item 704) — with no card open, [`ASK_TO_DO_IT`] and
@@ -56,7 +57,7 @@
 //!
 //! It runs no script: the template has none and nothing here makes one.
 
-use crate::results::{PROVIDER, SetUp};
+use crate::results::SetUp;
 use crate::split_place::Stands;
 use crate::start::{KeptSite, Start, Waiting};
 use crate::turn::Turn;
@@ -97,11 +98,15 @@ pub fn search_for(said: &str) -> String {
 /// item 708).
 pub fn searched_with(search: &SetUp) -> String {
     match search {
-        SetUp::Ready => PROVIDER.to_owned(),
+        SetUp::Ready => SEARCHES_THE_WEB.to_owned(),
         SetUp::Not(why) if why.trim().is_empty() => NOT_SET_UP.to_owned(),
         SetUp::Not(why) => format!("{NOT_SET_UP} \u{2014} {why}"),
     }
 }
+
+/// What the offer to search says under its words when it is set up: what
+/// it does, never whose search it is (queue item 900).
+pub const SEARCHES_THE_WEB: &str = "alo searches the web";
 
 /// The words of the offer to ask alo about `said`.
 pub fn ask_about(said: &str) -> String {

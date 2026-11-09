@@ -314,11 +314,11 @@ mod tests {
     #[test]
     fn with_no_stories_the_tab_says_why() {
         let document = built(Stories::Unanswered(
-            "Brave Search could not answer just now (500).".to_owned(),
+            "The search service could not answer just now (500).".to_owned(),
         ));
         assert_eq!(
             of_class(&document, "note"),
-            vec!["Brave Search could not answer just now (500)."]
+            vec!["The search service could not answer just now (500)."]
         );
         assert!(of_class(&document, "n").is_empty());
     }

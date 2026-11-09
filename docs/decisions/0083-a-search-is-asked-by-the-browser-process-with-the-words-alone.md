@@ -1,6 +1,6 @@
 # ADR 0083 — A search is asked by the browser process, with the words alone
 
-**Status:** accepted — built by queue item 708 (31 October 2026)
+**Status:** accepted — built by queue item 708 (31 October 2026); no provider named to a person (9 November 2026, queue item 900, *Amended* below)
 **Date:** 2026-10-31
 **Context:** ADR 0082 § 0 (the owner chose the Brave Search API, and that in
 release alo pays for it through a subscription); ADR 0005 (a renderer has no
@@ -165,3 +165,13 @@ line at the window's foot.
 - How the key is carried in release — inside the application, or by a
   server of alo's own (§ 1): the owner's, undecided. *(Since decided:
   inside the application, ADR 0091, built by queue item 748.)*
+
+## Amended (9 November 2026, queue item 900): the provider is never named to a person
+
+The owner, verbatim: *"we do not need to show any brave words on the ui or
+to the users"*. alo still asks the Brave Search API; what is decided above
+of where, with what and how stands. What changes is only the words a person
+reads: none names the provider. Each of § 5's sentences says *The search service* where it said *Brave Search* — *The search service could not answer just now (500).* — no sites is *No sites found for "…".*, the offer says *alo searches the web* under it, and with no key it says *no search key in this Mac's keychain* (the item's service, `alo-brave-search`, is named in this ADR and in `alo-bundle`'s output to the developer, never to a person). The sentences quoted above are kept as
+they were decided; what is said now is in `crates/alo-renderer/src/results.rs`
+and `crates/alo-window/src/brave_search.rs`, and
+`crates/alo-renderer/tests/no_providers_name_on_screen.rs` holds it.

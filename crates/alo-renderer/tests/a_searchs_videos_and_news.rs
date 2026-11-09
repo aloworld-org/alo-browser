@@ -536,13 +536,13 @@ fn while_asked_or_unanswered_each_tab_says_so_in_one_sentence() {
     let outline = drawn.tree.to_outline();
     assert!(
         outline.contains(
-            "Searching Brave Search for videos of \u{201c}home ev charger installation\u{201d}\u{2026}"
+            "Searching for videos of \u{201c}home ev charger installation\u{201d}\u{2026}"
         ),
         "{outline}"
     );
     let unanswered = Results::of(SAID, Showing::Found(sites(4)))
         .with_news(Stories::Unanswered(
-            "Brave Search could not answer just now (503).".to_owned(),
+            "The search service could not answer just now (503).".to_owned(),
         ))
         .on(Tab::News);
     let renderer = laid_out(with(unanswered));
@@ -555,9 +555,7 @@ fn while_asked_or_unanswered_each_tab_says_so_in_one_sentence() {
         .on(Tab::News);
     let outline = draw(with(none)).tree.to_outline();
     assert!(
-        outline.contains(
-            "Brave Search found no news for \u{201c}home ev charger installation\u{201d}."
-        ),
+        outline.contains("No news found for \u{201c}home ev charger installation\u{201d}."),
         "{outline}"
     );
 }
