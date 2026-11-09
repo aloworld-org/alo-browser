@@ -54,6 +54,9 @@ pub fn render(list: &DisplayList, canvas: &mut Canvas) {
 /// the next (queue item 871, [`crate::kept`]): the same pixels, since a
 /// kept coverage is the very coverage that would have been made.
 pub fn render_keeping(list: &DisplayList, canvas: &mut Canvas, kept: &mut Kept) {
+    // Whatever the canvas holds is not said: no blur is kept as blurred
+    // from the items before it (queue item 894).
+    kept.on(None);
     kept.begin();
     draw(list, canvas, Some(kept));
     kept.end();
@@ -90,7 +93,7 @@ pub(crate) fn draw(list: &DisplayList, canvas: &mut Canvas, mut kept: Option<&mu
     let confined = canvas.confinement();
     let mut seen = Seen::of(confined, (width, height));
 
-    for item in list.items() {
+    for (index, item) in list.items().iter().enumerate() {
         let current = transforms.last().copied().unwrap_or(screen);
         if seen.passes_over(item, current, list.scale()) {
             // Not drawn, but still this list's: what it was made as is
@@ -158,7 +161,7 @@ pub(crate) fn draw(list: &DisplayList, canvas: &mut Canvas, mut kept: Option<&mu
                 let target = groups.last_mut().map_or(&mut *canvas, |(_, group)| group);
                 let (clip, kept) = (innermost(&clips), kept.as_deref_mut());
                 if matches!(item, DisplayItem::Backdrop { .. }) {
-                    draw_backdrop(target, item, current, clip, kept);
+                    draw_backdrop(target, (list, index), current, clip, kept);
                 } else {
                     draw_fill(target, item, current, clip, kept);
                 }
@@ -180,7 +183,7 @@ pub(crate) fn draw(list: &DisplayList, canvas: &mut Canvas, mut kept: Option<&mu
                 let misses = |reach: &dyn Fn() -> Reach| seen.misses_by(reach);
                 draw_text(
                     target,
-                    item,
+                    (index, item),
                     (current, list.scale()),
                     innermost(&clips),
                     &misses,
@@ -328,22 +331,28 @@ fn draw_fill(
 /// A box's backdrop (queue item 885, ADR 0104): its crop read from
 /// `target` — the canvas, or the group drawn into — blurred by its
 /// standard deviation grown with the transform in force, or taken as the
-/// last drawing kept it while nothing under it changed, and drawn where its
-/// shape covers inside the clip in force. Anything else draws nothing.
+/// last drawing kept it while nothing under it changed — or as a drawing
+/// kept it whose items before it drew alike the items of `list` before it,
+/// at its scale on a canvas its size (queue item 894) — and drawn where its
+/// shape covers inside the clip in force: the item at `index` of `list`.
+/// Anything else draws nothing.
 fn draw_backdrop(
     target: &mut Canvas,
-    item: &DisplayItem,
+    (list, index): (&DisplayList, usize),
     current: Matrix,
     clip: Option<&Clip>,
     mut kept: Option<&mut Kept>,
 ) {
-    let DisplayItem::Backdrop {
+    let Some(DisplayItem::Backdrop {
         rect, path, blur, ..
-    } = item
+    }) = list.items().get(index)
     else {
         return;
     };
     let size = (target.width(), target.height());
+    // What it reads was drawn by the items before it, which a blur is kept
+    // with (queue item 894).
+    let drawn = (list.items().get(..index).unwrap_or(&[]), list.scale(), size);
     let Some(crop) = crate::extent::crop_under(*rect, current, size) else {
         return;
     };
@@ -356,7 +365,7 @@ fn draw_backdrop(
     let sigma = blur * current.scale_factor();
     let make = || crate::backdrop::blurred(target, crop, sigma);
     let blurred = match kept {
-        Some(kept) => kept.backdrop(&crate::backdrop::key(crop, sigma), make),
+        Some(kept) => kept.backdrop(&crate::backdrop::key(crop, sigma), drawn, make),
         None => Arc::new(make()),
     };
     crate::backdrop::draw(target, crop, &blurred, &covered, clip);

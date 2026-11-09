@@ -3032,27 +3032,36 @@ fn a_cards_page_beneath_the_first_screen_crosses_and_hostile_ones_are_refused() 
 }
 
 /// Queue item 872: the ask to paint only what changed, and what changed of
-/// a frame, each cross whole — a rectangle of pixels, and nothing changed;
-/// a rectangle past the frame's side or foot, pixels more or fewer than the
-/// rectangle's, and every truncation are refused, never panicked on.
+/// a frame, each cross whole — rectangles of pixels (a rectangle per piece,
+/// queue item 896), and nothing changed; a rectangle past the frame's side
+/// or foot, pixels more or fewer than the rectangle's, more pieces than a
+/// renderer sends, and every truncation are refused, never panicked on.
 #[test]
 fn what_changed_of_a_frame_crosses_and_hostile_ones_are_refused() {
-    use alo_renderer::frame_patch::Patch;
+    use alo_renderer::frame_patch::{MOST_PIECES, Patch, Piece};
     let asked = ToRenderer::PaintOver;
     assert_eq!(read_to_renderer(&write_to_renderer(&asked)), Ok(asked));
-    let patch = Patch {
-        width: 2080,
-        height: 1640,
+    let piece = Piece {
         left: 205,
         top: 1264,
         across: 3,
         down: 2,
         pixels: (0..24).collect(),
     };
+    let far = Piece {
+        left: 1900,
+        top: 10,
+        across: 1,
+        down: 2,
+        pixels: (0..8).collect(),
+    };
+    let patch = Patch {
+        width: 2080,
+        height: 1640,
+        pieces: vec![piece.clone(), far.clone()],
+    };
     let nothing = Patch {
-        across: 0,
-        down: 0,
-        pixels: Vec::new(),
+        pieces: Vec::new(),
         ..patch.clone()
     };
     for answer in [
@@ -3070,33 +3079,46 @@ fn what_changed_of_a_frame_crosses_and_hostile_ones_are_refused() {
             .map(|why| why.why)
             .unwrap_or_default()
     };
+    // Queue item 896: each piece read as hostile on its own, the second as
+    // much as the first.
+    let with = |second: Piece| Patch {
+        pieces: vec![far.clone(), second],
+        ..patch.clone()
+    };
     assert!(
-        refused(Patch {
+        refused(with(Piece {
             left: 2078,
-            ..patch.clone()
-        })
+            ..piece.clone()
+        }))
         .contains("a patch of 3×2 at 2078, 1264")
     );
     assert!(
-        refused(Patch {
+        refused(with(Piece {
             top: 1639,
-            ..patch.clone()
-        })
+            ..piece.clone()
+        }))
         .contains("of a 2080×1640 frame")
     );
-    let mut short = patch.clone();
+    let mut short = piece.clone();
     short.pixels.pop();
-    assert!(refused(short).contains("carrying 23 bytes"));
-    let mut long = patch.clone();
+    assert!(refused(with(short)).contains("carrying 23 bytes"));
+    let mut long = piece.clone();
     long.pixels.push(0);
-    assert!(refused(long).contains("carrying 25 bytes"));
+    assert!(refused(with(long)).contains("carrying 25 bytes"));
     assert!(
-        refused(Patch {
+        refused(with(Piece {
             left: u32::MAX,
             across: 2,
+            ..piece.clone()
+        }))
+        .contains("at 4294967295")
+    );
+    assert!(
+        refused(Patch {
+            pieces: vec![far; MOST_PIECES + 1],
             ..patch.clone()
         })
-        .contains("at 4294967295")
+        .contains("more than the 8 a renderer sends")
     );
     let whole = write_from_renderer(&FromRenderer::PaintedOver(patch));
     for cut in 0..whole.len() {

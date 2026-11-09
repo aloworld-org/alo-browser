@@ -259,13 +259,16 @@ impl Driven {
             .unwrap_or_default()
     }
 
-    /// Wait until the first screen has been painted twice more — once
-    /// asked before now, and once asked after — so a press is decided
-    /// against the card as it is now.
-    fn painted_again(&mut self) -> Result<(), String> {
-        let then = self.painted;
-        self.until("the first screen painted again", |driven| {
-            driven.painted >= then + 2
+    /// Wait until the drawing thread has drawn the newest drawing the
+    /// window asked for ([`ConversationWindow::drawn_as_asked`], queue item
+    /// 862), so a press, sent after it on the same thread, is decided
+    /// against the card as it is now. Not until it has painted twice more:
+    /// a page that changes nothing on the first screen asks for no drawing,
+    /// and under load every drawing asked had often been painted before
+    /// the card was seen at its page, so none came (queue item 893).
+    fn drawn_as_asked(&mut self) -> Result<(), String> {
+        self.until("the first screen drawn as last asked", |driven| {
+            driven.window.drawn_as_asked()
         })
     }
 
@@ -402,7 +405,7 @@ fn through(chromium: Chromium, who: &'static str) -> Result<(), String> {
 
     // 1. A link pressed, its page held: Loading before anything commits.
     hold.store(true, Ordering::SeqCst);
-    driven.painted_again()?;
+    driven.drawn_as_asked()?;
     driven.press(LINK);
     driven.loading_while_held("/two.html", 1, &one)?;
     hold.store(false, Ordering::SeqCst);
@@ -414,7 +417,7 @@ fn through(chromium: Chromium, who: &'static str) -> Result<(), String> {
     // 2. A link to no document: Loading while it is held, and no more once
     // it is answered, at the page the card was at.
     hold.store(true, Ordering::SeqCst);
-    driven.painted_again()?;
+    driven.drawn_as_asked()?;
     driven.press(LINK);
     driven.loading_while_held("/nothing", 2, &two)?;
     let painted = driven.painted;

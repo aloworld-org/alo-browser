@@ -54,6 +54,7 @@ pub mod banded;
 pub mod beneath;
 pub mod bilinear;
 pub mod blur;
+mod blurred_from;
 pub mod border;
 pub mod build;
 pub mod canvas;

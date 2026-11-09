@@ -28,15 +28,20 @@
 //!
 //! Laying aside is right for the reason keeping is: a coverage is a
 //! function of its key alone, so what was made under a key a hundred
-//! drawings ago is the very coverage this one would make under it. Only a
-//! backdrop's blur is never laid aside, since it is a function of the
-//! pixels under it as well (ADR 0104 § 2), and is taken only while they
-//! stand.
+//! drawings ago is the very coverage this one would make under it. A
+//! backdrop's blur is a function of the pixels under it as well (ADR 0104
+//! § 2): it is kept with the items drawn before it ([`BlurredFrom`], queue
+//! item 894), and laid aside with them, and taken only while what it reads
+//! stands ([`Kept::stand`]) or a drawing's items before it draw alike every
+//! one of those.
 
 use crate::backdrop::Blurred;
+use crate::blurred_from::BlurredFrom;
 use crate::clip::Clip;
 use crate::coverage::Coverage;
+use crate::display::DisplayItem;
 use crate::path::{Path, Segment};
+use alo_value::Rgba;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
@@ -45,9 +50,11 @@ use std::sync::Arc;
 pub const MOST_BYTES: usize = 64 << 20;
 
 /// The most bytes of coverage kept past the drawing that last used it
-/// (queue item 892), inside [`MOST_BYTES`]: *Settings*' panel at two lays
-/// aside about 13 MB when it closes.
-pub const ASIDE_BYTES: usize = 24 << 20;
+/// (queue item 892), inside [`MOST_BYTES`]: *Settings* closed over a card at
+/// two lays aside about 31 MB — its panel's shadows, fills and clips, and
+/// its veil's blur (queue item 894, 3.4 MB), for which this grew from 24
+/// MiB.
+pub const ASIDE_BYTES: usize = 32 << 20;
 
 /// What a coverage is of, as numbers compared bit for bit: its kind, what
 /// was asked of it, and its shape point by point — two shapes alike to the
@@ -129,13 +136,29 @@ impl Key {
 pub struct Kept {
     coverages: HashMap<Key, Arc<Coverage>>,
     clips: HashMap<Key, Arc<Clip>>,
-    backdrops: HashMap<Key, Arc<Blurred>>,
+    backdrops: HashMap<Key, KeptBlur>,
+    /// The colour the canvas being drawn was made in, when a repaint says
+    /// so ([`Kept::on`]): what a backdrop's blur is kept as blurred from.
+    ground: Option<Rgba>,
     /// The backdrops whose crops nothing drawn before them changed since
     /// the last drawing, so that the blur it kept is this one's
     /// ([`crate::damage`]): only for the drawing they were said for.
     standing: HashSet<Key>,
     /// What this drawing drew or compared: what is kept past it.
     used: HashSet<Key>,
+    /// The runs of text this drawing outlined, by their place in its list
+    /// and what they are drawn under: made once for every piece the
+    /// drawing is painted in (queue item 895), let go as it ends.
+    runs: HashMap<RunAt, Run>,
+    /// The pieces this drawing was painted in (queue item 896): what of a
+    /// frame crosses for it.
+    pieces: Vec<crate::region::Region>,
+    /// The runs' outlines this drawing made or took, by what they were set
+    /// as ([`Set`]): kept for the next drawing, which takes those it sets
+    /// alike rather than outlining them again.
+    outlines: Outlines,
+    /// The last drawing's.
+    outlined_before: Outlines,
     /// Which drawing last used each coverage and clip kept, by its count
     /// ([`Kept::drawings`]): the newest of those this drawing did not use
     /// are laid aside, the oldest let go first.
@@ -144,6 +167,114 @@ pub struct Kept {
     drawings: u64,
     bytes: usize,
     made: Making,
+}
+
+/// A backdrop's blur, and the items drawn before it that it was blurred
+/// from, when they could be said.
+#[derive(Debug, Clone)]
+struct KeptBlur {
+    blurred: Arc<Blurred>,
+    from: Option<BlurredFrom>,
+}
+
+/// Runs' outlines by what they were set as, found by [`Set::hashed`].
+type Outlines = HashMap<u64, Vec<(Set, Arc<Vec<Path>>)>>;
+
+/// The items of a list drawn before a backdrop, the list's scale and the
+/// canvas's size: what a blur is kept as blurred from ([`BlurredFrom`]).
+pub(crate) type DrawnBefore<'a> = (&'a [DisplayItem], f32, (u32, u32));
+
+/// Where a run of text is in a drawing: its item's place in the list, the
+/// transform in force, and the screen's scale, bit for bit.
+type RunAt = (usize, [u32; 7]);
+
+/// A run of text outlined for a drawing: its glyphs as they are filled, and
+/// the bound of their ink once it was asked ([`crate::drawn_text`]).
+#[derive(Debug, Clone)]
+pub(crate) struct Run {
+    glyphs: Arc<Vec<Path>>,
+    reach: Option<crate::extent::Reach>,
+}
+
+impl Run {
+    /// Glyphs outlined, their bound not yet asked.
+    pub(crate) fn of(glyphs: Vec<Path>) -> Self {
+        Self {
+            glyphs: Arc::new(glyphs),
+            reach: None,
+        }
+    }
+
+    /// Glyphs outlined before, their bound not yet asked.
+    fn taken(glyphs: Arc<Vec<Path>>) -> Self {
+        Self {
+            glyphs,
+            reach: None,
+        }
+    }
+
+    /// The glyphs, each where it is drawn.
+    pub(crate) fn glyphs(&self) -> &[Path] {
+        &self.glyphs
+    }
+
+    /// The bound of their ink, if it was asked.
+    pub(crate) fn reach(&self) -> Option<crate::extent::Reach> {
+        self.reach
+    }
+}
+
+/// What a run of text is outlined from (queue item 895): its words, its
+/// face — the very face — and its size, the room after each character,
+/// where its pen starts and how far it leans, and the screen's scale, each
+/// number bit for bit. Two runs set alike are outlined alike
+/// ([`crate::drawn_text::run_glyphs`] reads nothing else).
+#[derive(Debug, Clone)]
+pub(crate) struct Set {
+    text: String,
+    font: alo_text::Font,
+    numbers: [u32; 6],
+}
+
+impl Set {
+    /// A run set as `set` on a screen of `scale`.
+    pub(crate) fn of(set: &crate::drawn_text::Set<'_>, scale: f32) -> Self {
+        Self {
+            text: set.text.to_owned(),
+            font: set.font.clone(),
+            numbers: [
+                set.size,
+                set.letter_spacing,
+                set.origin.0,
+                set.origin.1,
+                set.oblique,
+                scale,
+            ]
+            .map(f32::to_bits),
+        }
+    }
+
+    /// Whether `other` is set alike.
+    fn is(&self, other: &Self) -> bool {
+        self.numbers == other.numbers && self.text == other.text && self.font.is(&other.font)
+    }
+
+    /// What it is found by: its words and numbers, hashed.
+    fn hashed(&self) -> u64 {
+        use core::hash::{Hash, Hasher};
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        self.text.hash(&mut hasher);
+        self.numbers.hash(&mut hasher);
+        hasher.finish()
+    }
+}
+
+/// [`RunAt`] of a place, a transform and a scale.
+fn run_at((index, at, scale): (usize, alo_value::Matrix, f32)) -> RunAt {
+    (
+        index,
+        [at.a, at.b, at.c, at.d, at.e, at.f, scale].map(f32::to_bits),
+    )
 }
 
 /// How many of each kind the last drawing made, rather than took as kept:
@@ -160,10 +291,17 @@ pub struct Making {
     pub combined: u32,
     /// Backdrops blurred (queue item 885).
     pub backdrops: u32,
+    /// Backdrops' blurs taken because the items drawn before them drew
+    /// alike, every one, those they were blurred from (queue item 894).
+    pub blurs_alike: u32,
     /// Runs of text whose letters were filled, never kept (queue item
     /// 888): on a confined canvas, only the runs that could reach what was
     /// painted again.
     pub letters: u32,
+    /// Runs of text outlined: each at most once a drawing, however many
+    /// pieces it is painted in, and not at all when the drawing before set
+    /// it alike (queue item 895).
+    pub outlined: u32,
     /// Coverages and clips taken from what was laid aside, unused by the
     /// drawing before (queue item 892).
     pub aside: u32,
@@ -182,6 +320,11 @@ impl core::fmt::Debug for Kept {
             .field("backdrops", &self.backdrops.len())
             .field("standing", &self.standing.len())
             .field("used", &self.used.len())
+            .field("runs", &self.runs.len())
+            .field("outlines", &self.outlines.len())
+            .field("outlined_before", &self.outlined_before.len())
+            .field("pieces", &self.pieces.len())
+            .field("ground", &self.ground)
             .field("last_used", &self.last_used.len())
             .field("drawings", &self.drawings)
             .field("bytes", &self.bytes)
@@ -206,9 +349,20 @@ impl Kept {
         self.made
     }
 
+    /// The colour the canvas drawn next was made in — a new canvas, or the
+    /// pieces of one put back to it ([`crate::repaint()`]) — or [`None`]
+    /// when the canvas holds anything else: a backdrop's blur is kept as
+    /// blurred from the items before it only on a canvas whose colour is
+    /// said.
+    pub(crate) fn on(&mut self, ground: Option<Rgba>) {
+        self.ground = ground;
+    }
+
     /// A drawing begun: nothing is yet used by it, or made for it.
     pub(crate) fn begin(&mut self) {
         self.used.clear();
+        self.runs.clear();
+        self.pieces.clear();
         self.standing.clear();
         self.made = Making::default();
     }
@@ -225,23 +379,51 @@ impl Kept {
         self.backdrops.contains_key(key)
     }
 
-    /// The backdrop blurred under `key`: as kept, while it stands, or
-    /// blurred by `make` and kept while there is room.
-    pub(crate) fn backdrop(&mut self, key: &Key, make: impl FnOnce() -> Blurred) -> Arc<Blurred> {
-        self.used.insert(key.clone());
-        if self.standing.contains(key)
-            && let Some(kept) = self.backdrops.get(key)
-        {
-            return Arc::clone(kept);
+    /// The backdrop blurred under `key`, drawn after `before` — the
+    /// list's items before it, at its scale, on a canvas of `size`: as
+    /// kept, while what it reads stands or `before` draws alike every item
+    /// it was blurred from (queue item 894); or blurred by `make` and kept,
+    /// with `before`, while there is room.
+    pub(crate) fn backdrop(
+        &mut self,
+        key: &Key,
+        (before, scale, size): DrawnBefore<'_>,
+        make: impl FnOnce() -> Blurred,
+    ) -> Arc<Blurred> {
+        if let Some(kept) = self.backdrops.get(key) {
+            if self.standing.contains(key) {
+                let blurred = Arc::clone(&kept.blurred);
+                self.used.insert(key.clone());
+                return blurred;
+            }
+            if let (Some(ground), Some(from)) = (self.ground, &kept.from)
+                && from.is(before, scale, size, ground)
+            {
+                let blurred = Arc::clone(&kept.blurred);
+                self.taken_aside(key);
+                self.used.insert(key.clone());
+                self.made.blurs_alike = self.made.blurs_alike.saturating_add(1);
+                return blurred;
+            }
         }
+        self.used.insert(key.clone());
         self.count(Made::Backdrop);
         let fresh = Arc::new(make());
         if let Some(was) = self.backdrops.remove(key) {
-            self.bytes = self.bytes.saturating_sub(was.bytes());
+            self.bytes = self.bytes.saturating_sub(was.blurred.bytes());
         }
         if self.room(fresh.bytes()) {
             self.bytes += fresh.bytes();
-            self.backdrops.insert(key.clone(), Arc::clone(&fresh));
+            let from = self
+                .ground
+                .map(|ground| BlurredFrom::of(before, scale, size, ground));
+            self.backdrops.insert(
+                key.clone(),
+                KeptBlur {
+                    blurred: Arc::clone(&fresh),
+                    from,
+                },
+            );
         }
         fresh
     }
@@ -259,6 +441,12 @@ impl Kept {
                     .filter(|(key, _)| !self.used.contains(*key))
                     .map(|(_, clip)| clip.bytes()),
             )
+            .chain(
+                self.backdrops
+                    .iter()
+                    .filter(|(key, _)| !self.used.contains(*key))
+                    .map(|(_, kept)| kept.blurred.bytes()),
+            )
             .sum()
     }
 
@@ -275,6 +463,14 @@ impl Kept {
             .iter()
             .map(|(key, coverage)| (key, coverage.data().len()))
             .chain(self.clips.iter().map(|(key, clip)| (key, clip.bytes())))
+            // A blur is laid aside only with what it was blurred from: one
+            // without could never be taken again (queue item 894).
+            .chain(
+                self.backdrops
+                    .iter()
+                    .filter(|(_, kept)| kept.from.is_some())
+                    .map(|(key, kept)| (key, kept.blurred.bytes())),
+            )
             .filter(|(key, _)| !used.contains(*key))
             .map(|(key, bytes)| {
                 let last = self.last_used.get(key).copied().unwrap_or(0);
@@ -301,11 +497,15 @@ impl Kept {
         let keeps = |key: &Key| used.contains(key) || laid.contains(key);
         self.coverages.retain(|key, _| keeps(key));
         self.clips.retain(|key, _| keeps(key));
-        self.backdrops.retain(|key, _| used.contains(key));
+        self.backdrops.retain(|key, _| keeps(key));
         self.last_used.retain(|key, _| keeps(key));
         self.bytes = self.counted();
         self.used = used;
         self.standing.clear();
+        self.runs.clear();
+        // The runs this drawing outlined or took are the next drawing's to
+        // take; the rest are let go.
+        self.outlined_before = std::mem::take(&mut self.outlines);
     }
 
     /// Every byte kept, counted.
@@ -314,7 +514,7 @@ impl Kept {
             .values()
             .map(|coverage| coverage.data().len())
             .chain(self.clips.values().map(|clip| clip.bytes()))
-            .chain(self.backdrops.values().map(|blurred| blurred.bytes()))
+            .chain(self.backdrops.values().map(|kept| kept.blurred.bytes()))
             .sum()
     }
 
@@ -328,6 +528,7 @@ impl Kept {
             .coverages
             .keys()
             .chain(self.clips.keys())
+            .chain(self.backdrops.keys())
             .filter(|key| !self.used.contains(*key))
             .map(|key| (self.last_used.get(key).copied().unwrap_or(0), key.clone()))
             .collect();
@@ -341,6 +542,9 @@ impl Kept {
             }
             if let Some(clip) = self.clips.remove(&key) {
                 self.bytes = self.bytes.saturating_sub(clip.bytes());
+            }
+            if let Some(kept) = self.backdrops.remove(&key) {
+                self.bytes = self.bytes.saturating_sub(kept.blurred.bytes());
             }
             self.last_used.remove(&key);
         }
@@ -412,10 +616,72 @@ impl Kept {
         fresh
     }
 
-    /// One more piece of `pixels` painted again (queue item 891).
-    pub(crate) fn painted(&mut self, pixels: u64) {
+    /// The run of text at `at` in this drawing, set as `set`: as an
+    /// earlier piece of it outlined it, or a drawing before it outlined a
+    /// run set alike, or outlined by `make` now — and kept for the rest of
+    /// the drawing and the next (queue item 895).
+    pub(crate) fn run(
+        &mut self,
+        at: (usize, alo_value::Matrix, f32),
+        set: &crate::drawn_text::Set<'_>,
+        make: impl FnOnce() -> Vec<Path>,
+    ) -> Run {
+        let scale = at.2;
+        let at = run_at(at);
+        if let Some(run) = self.runs.get(&at) {
+            return run.clone();
+        }
+        let set = Set::of(set, scale);
+        let hashed = set.hashed();
+        let found = |outlines: &Outlines| {
+            outlines.get(&hashed).and_then(|alike| {
+                alike
+                    .iter()
+                    .find(|(each, _)| each.is(&set))
+                    .map(|(_, glyphs)| Arc::clone(glyphs))
+            })
+        };
+        let glyphs = if let Some(glyphs) = found(&self.outlines) {
+            glyphs
+        } else {
+            let glyphs = found(&self.outlined_before).unwrap_or_else(|| {
+                self.made.outlined = self.made.outlined.saturating_add(1);
+                Arc::new(make())
+            });
+            self.outlines
+                .entry(hashed)
+                .or_default()
+                .push((set, Arc::clone(&glyphs)));
+            glyphs
+        };
+        let run = Run::taken(glyphs);
+        self.runs.insert(at, run.clone());
+        run
+    }
+
+    /// The bound of the ink of the run at `at`, as asked of its outlines,
+    /// kept for the rest of the drawing.
+    pub(crate) fn run_reach(
+        &mut self,
+        at: (usize, alo_value::Matrix, f32),
+        reach: crate::extent::Reach,
+    ) {
+        if let Some(run) = self.runs.get_mut(&run_at(at)) {
+            run.reach = Some(reach);
+        }
+    }
+
+    /// One more piece painted again (queue item 891).
+    pub(crate) fn painted(&mut self, piece: crate::region::Region) {
         self.made.pieces = self.made.pieces.saturating_add(1);
-        self.made.painted = self.made.painted.saturating_add(pixels);
+        self.made.painted = self.made.painted.saturating_add(piece.area());
+        self.pieces.push(piece);
+    }
+
+    /// The pieces the last drawing was painted again in, each on its own
+    /// (queue item 896): none for one painted whole or not at all.
+    pub fn pieces(&self) -> &[crate::region::Region] {
+        &self.pieces
     }
 
     /// One more of `kind` made.
@@ -488,7 +754,7 @@ mod tests {
     fn past_what_may_be_laid_aside_the_oldest_is_let_go_first() {
         // Four of a third of the room each, then a drawing of none: the
         // first made is let go, the newer three stay.
-        let side = 2896; // 8.4 MB a square: three fit in 24 MiB, four do not.
+        let side = 3000; // 9 MB a square: three fit in 32 MiB, four do not.
         let mut kept = Kept::new();
         let mut keys = Vec::new();
         for drawing in 0..4 {
@@ -551,20 +817,56 @@ mod tests {
     }
 
     #[test]
-    fn a_backdrop_is_never_laid_aside() {
-        let mut kept = Kept::new();
-        kept.begin();
+    fn a_backdrop_is_laid_aside_with_what_it_was_blurred_from_and_taken_only_from_that() {
+        // Queue item 894: a blur made on a canvas whose colour is said is
+        // kept with the items before it, laid aside by a drawing that drew
+        // none, and taken by one whose items before it draw alike; made
+        // again for any other items, and never kept on a canvas not said.
         let crop = crate::region::Region::new(0, 0, 4, 4).expect("pixels");
         let key = crate::backdrop::key(crop, 2.0);
-        let canvas = crate::canvas::Canvas::new(4, 4, alo_value::Rgba::WHITE);
-        kept.backdrop(&key, || crate::backdrop::blurred(&canvas, crop, 2.0));
+        let canvas = crate::canvas::Canvas::new(4, 4, Rgba::WHITE);
+        let blur = || crate::backdrop::blurred(&canvas, crop, 2.0);
+        let under = |x: f32| DisplayItem::Fill {
+            box_id: alo_box::BoxId::from_index_for_tests(0),
+            path: Path::rectangle(x, 0.0, 2.0, 2.0),
+            paint: crate::paint::Paint::Solid(Rgba::BLACK),
+            rule: crate::fill_rule::FillRule::NonZero,
+        };
+        let (one, other) = ([under(0.0)], [under(1.0)]);
+        let mut kept = Kept::new();
+        kept.on(Some(Rgba::WHITE));
+        kept.begin();
+        let first = kept.backdrop(&key, (&one, 1.0, (4, 4)), blur);
         kept.end();
-        assert!(kept.holds_backdrop(&key));
+        kept.begin();
+        kept.end();
+        assert!(kept.holds_backdrop(&key), "laid aside");
+        assert!(kept.aside_bytes() >= first.bytes());
+        kept.begin();
+        let again = kept.backdrop(&key, (&one, 1.0, (4, 4)), blur);
+        assert!(Arc::ptr_eq(&first, &again), "taken as it was blurred");
+        let made = kept.made();
+        assert_eq!((made.backdrops, made.blurs_alike, made.aside), (0, 1, 1));
+        kept.end();
+        kept.begin();
+        let moved = kept.backdrop(&key, (&other, 1.0, (4, 4)), blur);
+        assert!(!Arc::ptr_eq(&first, &moved), "another item under it");
+        assert_eq!(kept.made().backdrops, 1);
+        kept.end();
+        kept.begin();
+        kept.backdrop(&key, (&other, 2.0, (4, 4)), blur);
+        assert_eq!(kept.made().backdrops, 1, "another scale");
+        kept.end();
+        kept.on(None);
+        kept.begin();
+        kept.backdrop(&key, (&other, 2.0, (4, 4)), blur);
+        assert_eq!(kept.made().backdrops, 1, "a canvas not said");
+        kept.end();
         kept.begin();
         kept.end();
         assert!(
             !kept.holds_backdrop(&key),
-            "let go by a drawing that drew none"
+            "blurred from nothing said, it is not laid aside"
         );
     }
 
@@ -589,6 +891,52 @@ mod tests {
             Key::within(Some(&key), &key),
             "a chain of clips is said with its length"
         );
+    }
+
+    #[test]
+    fn a_run_set_alike_is_outlined_once_and_any_other_again() {
+        // Queue item 895: by its words, its very face and its numbers.
+        let load = |family: &str, bytes: &[u8]| {
+            alo_text::Font::load(
+                family,
+                alo_text::Weight::NORMAL,
+                alo_text::Slant::Normal,
+                bytes.to_vec(),
+            )
+            .expect("a face this crate is tested with")
+        };
+        let sans = load("DejaVu Sans", dejavu::sans::regular());
+        let serif = load("DejaVu Serif", dejavu::serif::regular());
+        let set = |text, font, size| crate::drawn_text::Set {
+            text,
+            font,
+            size,
+            letter_spacing: 0.0,
+            origin: (10.0, 20.0),
+            oblique: 0.0,
+        };
+        let at = (3, alo_value::Matrix::IDENTITY, 2.0);
+        let mut kept = Kept::new();
+        let outlined = |kept: &mut Kept, run: &crate::drawn_text::Set<'_>| {
+            kept.begin();
+            kept.run(at, run, || vec![Path::rectangle(0.0, 0.0, 1.0, 1.0)]);
+            kept.run(at, run, || vec![Path::new()]);
+            let made = kept.made().outlined;
+            kept.end();
+            made
+        };
+        assert_eq!(outlined(&mut kept, &set("word", &sans, 16.0)), 1);
+        assert_eq!(outlined(&mut kept, &set("word", &sans, 16.0)), 0);
+        let again = load("DejaVu Sans", dejavu::sans::regular());
+        assert_eq!(
+            outlined(&mut kept, &set("word", &again, 16.0)),
+            1,
+            "another face"
+        );
+        assert_eq!(outlined(&mut kept, &set("word", &serif, 16.0)), 1);
+        assert_eq!(outlined(&mut kept, &set("words", &serif, 16.0)), 1);
+        assert_eq!(outlined(&mut kept, &set("words", &serif, 16.5)), 1);
+        assert_eq!(outlined(&mut kept, &set("words", &serif, 16.5)), 0);
     }
 
     #[test]

@@ -1,6 +1,6 @@
 # ADR 0102 — What a drawing did not change is neither made, sent nor composed again
 
-**Status:** accepted — built by queue items 871 and 872 (7 November 2026); § 2 amended for queue item 892 (what a drawing does not use laid aside)
+**Status:** accepted — built by queue items 871 and 872 (7 November 2026); § 2 amended for queue item 892 (what a drawing does not use laid aside); §§ 2–4 amended for queue items 894 (a backdrop's blur and a picture laid aside) and 896 (a patch per piece, composed per piece)
 **Date:** 2026-11-07
 **Context:** ADR 0101 (a drawing painted over the last only where their
 lists differ, which left the first letter beside a card painted whole and
@@ -270,3 +270,36 @@ at one and two). A backdrop's blur is never laid aside: it is a function
 of the pixels under it too (ADR 0104 § 2). **What it costs:** the first
 screen at two keeps about 56 MB with *Settings* closed where it kept
 about 31 — still under the cap, which bounds it.
+
+## Amended (9 November 2026, queue items 894 and 896)
+
+**§ 2: a backdrop's blur is laid aside too (894).** 892 never laid one
+aside, its blur being a function of the pixels under it as well. It is now
+kept with the items drawn before it (ADR 0104, amended), so it is laid
+aside with them and taken by a drawing whose items before it draw alike;
+one blurred on a canvas whose colour was not said is let go as before.
+`ASIDE_BYTES` grew from 24 to 32 MiB for it: *Settings* closed over a card
+at two lays aside about 31 MB, its veil's blur 3.4 of them, and the first
+screen keeps about 62 MB in all, under the 64 MiB cap. And a picture a
+drawing did not show is laid aside by the renderer, up to 32 MiB of pixels
+(`alo_renderer::pictures::Decoded`): a card's frame drawn under *Settings*,
+then beneath the first screen while it is closed, is the very same picture
+— not decoded again, and alike to the list its veil's blur was kept with.
+
+**§ 3: a patch per piece (896).** A renderer sent the rectangle holding
+what every drawing since its last frame painted: two rings far apart in
+*Settings* at two crossed as 721,392 pixels where 196,200 were painted.
+Now it sends each piece (`frame_patch::Patch`'s `pieces`, `unsent::Unsent`):
+the pieces of every drawing since, joined as a drawing's places are joined
+(`alo_paint::pieces::cut`) once there are more than eight. On the wire each
+piece is read as hostile on its own — inside the frame, exactly its
+rectangle's pixels — and no more than eight are read, the count said and
+refused before any piece is.
+
+**§ 4: composed per piece (896).** The window compared frames and composed
+the smallest rectangle holding every byte that differs. It still compares
+— it never takes a renderer's word for which of its pixels changed — but
+by runs of rows that differ, each the smallest rectangle holding its
+differing pixels, joined as a drawing's places are. Measured in the window
+alone (release, this Mac, *Settings* at two, *Close* → *Font*): composed
+again over 196,200 pixels in 2.19 ms where it was 721,392 in 5.01.

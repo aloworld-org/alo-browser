@@ -1,6 +1,6 @@
 # ADR 0101 — A drawing is painted over the last only where their lists differ
 
-**Status:** accepted — built by queue item 870 (7 November 2026); § 2 extended and what was left answered by ADR 0102 (queue items 871, 872); § 3 amended by ADR 0104 (queue item 885, a backdrop reads pixels of its own crop) for queue item 888 (a run of text passed over), and for queue items 890–892 (a layout kept, damage cut into pieces, less arithmetic per pixel)
+**Status:** accepted — built by queue item 870 (7 November 2026); § 2 extended and what was left answered by ADR 0102 (queue items 871, 872); § 3 amended by ADR 0104 (queue item 885, a backdrop reads pixels of its own crop) for queue item 888 (a run of text passed over), and for queue items 890–892 (a layout kept, damage cut into pieces, less arithmetic per pixel); for queue item 895 (a run outlined once a drawing, and kept for the next)
 **Date:** 2026-11-07
 **Context:** ADR 0100 (a card's page drawn beneath the first screen by a
 renderer of its own, which left an edit's own paint at 137–143 ms with a
@@ -320,3 +320,31 @@ two shadows for the first time. Queued: the veil's blur kept for an
 opening whose screen under it is the list it was blurred from (894), the
 blur itself (894), a piece's fixed cost (895) and a frame crossing as its
 pieces (896).
+
+## Amended (9 November 2026, queue item 895)
+
+A drawing cut into pieces (891) draws the whole list once per piece, and
+every run of text was outlined and its reach bounded again for each: at two,
+a piece of 7,396 pixels — a ring — took 3.0–3.4 ms, 2.0 of them outlining
+*Settings*' 41 runs to pass them over. A run's outlines are a function of
+its words, its very face, its size, spacing, pen and lean and the screen's
+scale; its reach, of those outlines, its shadows, the transform and the
+canvas — all the same in every piece of one drawing. So each run is
+outlined once a drawing and its reach asked once (`Kept::run`,
+`Kept::run_reach`, by its place in the list); and its outlines are kept for
+the next drawing, which takes those of a run set alike — the words, the
+face by `Font::is` and every number bit for bit — rather than outlining it
+again (`Making::outlined`). Drawn whole, a run is outlined as before.
+
+**What is left of a piece**, measured the same way (release, this Mac, at
+two, the harness of 890–892): a second piece of a drawing, its runs
+outlined, costs about 1.2 ms for 15,000 pixels and seven runs filled; a
+drawing's first piece no longer outlines any run the drawing before set
+alike. The rest of a piece is what it paints: the runs that reach it
+filled, the clips in force pushed, and its own pixels.
+
+| *Settings* over a card, at two | before | after |
+|---|---|---|
+| a Tab between near stops | 16.5, 16.5 ms (at most 26.4, 26.9) | 14.3, 14.1 (at most 22.0, 21.9) |
+| Tab *Close* → *Font*, two rings far apart | 27.5, 27.7 | 22.9, 22.9 |
+| a letter typed with *Settings* closed | 14.3, 14.4 | 14.1, 13.9 |

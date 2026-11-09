@@ -135,30 +135,15 @@ pub(crate) fn damage_standing(
     let Some(lined) = aligned(&old, &new) else {
         return damage(Damage::Whole);
     };
-    let (old_matched, new_matched) = (&lined.old, &lined.new);
     let mut found = Found::new(size);
-    for (walked, matched, scale, was) in [
-        (&old, old_matched, before.scale(), true),
-        (&new, new_matched, after.scale(), false),
-    ] {
-        for (index, item) in walked.items.iter().enumerate() {
-            if matched.get(index).copied().unwrap_or(false) {
-                continue;
-            }
-            match item {
-                DisplayItem::PushGroup { .. }
-                | DisplayItem::PopGroup
-                | DisplayItem::Picture { .. } => return damage(Damage::Whole),
-                DisplayItem::PushClip { .. }
-                | DisplayItem::PopClip
-                | DisplayItem::PushTransform { .. }
-                | DisplayItem::PopTransform => {}
-                _ => found.add((was, index), item, walked.at.get(index).copied(), scale),
-            }
-            if found.whole {
-                return damage(Damage::Whole);
-            }
-        }
+    if !unmatched(
+        &old,
+        &new,
+        &lined,
+        (before.scale(), after.scale()),
+        &mut found,
+    ) {
+        return damage(Damage::Whole);
     }
     // What is matched inside clips that differ, where their masks do.
     let mut masks = Masks {
@@ -218,6 +203,55 @@ pub(crate) fn damage_standing(
         return damage(Damage::Whole);
     }
     (found.damage(), standing)
+}
+
+/// Every item of either list that `lined` left unmatched, counted where it
+/// can reach — a backdrop only the list after draws by its whole crop —
+/// into `found`: whether that could be said, and not the whole canvas.
+fn unmatched(
+    old: &Walked,
+    new: &Walked,
+    lined: &Lined,
+    scales: (f32, f32),
+    found: &mut Found,
+) -> bool {
+    for (walked, matched, scale, was) in [
+        (old, &lined.old, scales.0, true),
+        (new, &lined.new, scales.1, false),
+    ] {
+        for (index, item) in walked.items.iter().enumerate() {
+            if matched.get(index).copied().unwrap_or(false) {
+                continue;
+            }
+            match item {
+                DisplayItem::PushGroup { .. }
+                | DisplayItem::PopGroup
+                | DisplayItem::Picture { .. } => return false,
+                DisplayItem::PushClip { .. }
+                | DisplayItem::PopClip
+                | DisplayItem::PushTransform { .. }
+                | DisplayItem::PopTransform => {}
+                // A backdrop only the list after draws reads its whole crop
+                // as drawn before it: held whole by one piece, as one whose
+                // crop changed is (queue item 894).
+                DisplayItem::Backdrop { .. } if !was => {
+                    match walked
+                        .at
+                        .get(index)
+                        .and_then(|at| backdrop_key(item, *at, found.size))
+                    {
+                        Some((crop, _)) => found.add_crop((was, index), crop),
+                        None => found.add((was, index), item, walked.at.get(index).copied(), scale),
+                    }
+                }
+                _ => found.add((was, index), item, walked.at.get(index).copied(), scale),
+            }
+            if found.whole {
+                return false;
+            }
+        }
+    }
+    true
 }
 
 /// Which backdrops of `new` stand, and every crop of one that does not
@@ -652,7 +686,7 @@ impl Found {
 /// that reaches a pixel the same — a number the very same number, bit for
 /// bit — a picture the very same picture (since its first draw decides its
 /// copy's levels), and a face the very same face.
-fn same(was: &DisplayItem, is: &DisplayItem) -> bool {
+pub(crate) fn same(was: &DisplayItem, is: &DisplayItem) -> bool {
     use DisplayItem as D;
     match (was, is) {
         (

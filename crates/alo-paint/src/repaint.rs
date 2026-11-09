@@ -79,6 +79,10 @@ pub fn repaint(
     kept: &mut Kept,
 ) -> Repainted {
     let size = (canvas.width(), canvas.height());
+    // Every pixel drawn is drawn onto `ground`, a new canvas or a piece put
+    // back to it: what a backdrop's blur is kept as blurred from (queue
+    // item 894).
+    kept.on(Some(ground));
     kept.begin();
     let (damage, standing) = damage_standing(before, after, size, kept);
     let repainted = match damage {
@@ -97,7 +101,7 @@ pub fn repaint(
                 canvas.reset(piece, ground);
                 canvas.confine(Some(piece));
                 draw(after, canvas, Some(kept));
-                kept.painted(piece.area());
+                kept.painted(piece);
                 bounds = Some(bounds.map_or(piece, |was| was.joined(piece)));
             }
             canvas.confine(None);
@@ -494,6 +498,91 @@ mod tests {
                 made.painted >= 400 * 2 * 300 * 2 / 4,
                 "the whole crop and the far mark: {made:?}"
             );
+        }
+    }
+
+    /// `list` without its blurred box, the backdrop and the fill over it.
+    fn unboxed(list: &DisplayList) -> Vec<DisplayItem> {
+        list.items()
+            .iter()
+            .filter(|item| item.box_id() != Some(BoxId::from_index_for_tests(1)))
+            .cloned()
+            .collect()
+    }
+
+    /// [`marked`] with or without its blurred box, and a bar down the page
+    /// at `bar` drawn over everything.
+    fn barred(boxed: bool, bar: f32) -> DisplayList {
+        let page = marked(100.0, 500.0, 1100.0);
+        let mut items = if boxed {
+            page.items().to_vec()
+        } else {
+            unboxed(&page)
+        };
+        items.push(fill(
+            bar,
+            0.0,
+            10.0,
+            900.0,
+            Rgba::from_rgba8(160, 20, 120, 255),
+        ));
+        list(items)
+    }
+
+    #[test]
+    fn a_backdrop_drawn_anew_holds_its_whole_crop_in_one_piece() {
+        // Queue item 894: a blurred box that only the list after has, and a
+        // tall bar moved over its left edge — far too costly to join with
+        // its crop by waste alone. The bar's piece meets the crop the blur
+        // reads afresh, so it is joined with it: painted on its own after
+        // the crop, it would blur pixels the crop's piece had already
+        // finished.
+        let size = (1200, 900);
+        for (was, after) in [
+            (barred(false, 1150.0), barred(true, 395.0)),
+            (barred(false, 395.0), barred(true, 1150.0)),
+        ] {
+            let mut kept = Kept::new();
+            let mut canvas = drawn(&was, size);
+            let repainted = repaint(&was, &after, &mut canvas, Rgba::WHITE, &mut kept);
+            assert!(matches!(repainted, Repainted::Within(_)), "{repainted:?}");
+            assert_eq!(canvas, drawn(&after, size), "every pixel as drawn whole");
+            assert_eq!(kept.made().backdrops, 1, "{:?}", kept.made());
+        }
+    }
+
+    #[test]
+    fn a_blur_closed_over_and_opened_again_is_taken_while_nothing_under_it_changed() {
+        // Queue item 894: *Settings*' veil opened, closed and opened again.
+        // Opened again over the very items it was blurred from, its blur is
+        // taken as it was made; over any change under it, blurred anew —
+        // every pixel, each time, as drawn whole.
+        let size = (1200, 900);
+        let open = |under: f32| marked(under, 500.0, 1100.0);
+        let shut = |under: f32| list(unboxed(&open(under)));
+        let mut kept = Kept::new();
+        let mut canvas = Canvas::new(size.0, size.1, Rgba::WHITE);
+        let mut last = DisplayList::default();
+        for (after, blurred, alike) in [
+            (open(100.0), 1, 0),
+            (shut(100.0), 0, 0),
+            (shut(100.0), 0, 0),
+            (open(100.0), 0, 1),
+            (shut(100.0), 0, 0),
+            (shut(450.0), 0, 0),
+            (open(450.0), 1, 0),
+            (shut(450.0), 0, 0),
+            (open(100.0), 1, 0),
+        ] {
+            repaint(&last, &after, &mut canvas, Rgba::WHITE, &mut kept);
+            assert_eq!(canvas, drawn(&after, size), "every pixel as drawn whole");
+            let made = kept.made();
+            assert_eq!(
+                (made.backdrops, made.blurs_alike),
+                (blurred, alike),
+                "{made:?}"
+            );
+            last = after;
         }
     }
 

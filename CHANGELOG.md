@@ -6,6 +6,30 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- ***Settings* opens again more quickly, and its blur costs less.** Opened
+  again over a page in a card that has not changed, it takes about 130 ms
+  at two where it took 155–160, the blur behind it kept from the last
+  opening; opening it the first time, about 200 ms where it took 220, and
+  choosing a face about 140 where it took 157, the blur itself computed in
+  about two thirds of the time. Tab moves in about 14 ms where it took 16.5,
+  and from its × to the fonts in 23 where it took 27.5: words are outlined
+  once, not once for every part of the screen drawn again, and two far
+  changes cross to the window, and are composed there, as two small
+  rectangles rather than the one holding both. Nothing drawn looks any
+  different — every pixel is checked against a drawing made from nothing.
+- **A box that blurs what is behind it now holds what is inside it apart
+  from the page**, as Chrome does: a frosted box inside another blurs only
+  what the outer one drew, never the page under both. A blurred box cut
+  by the page's edge was measured and is drawn as Chrome draws it. alo's
+  own Chromium was measured drawing them: exactly as Chrome at one; at two
+  its pictures come in other colours, which is being looked into.
+- **A card test that failed under a busy machine no longer does**: it
+  waited for the screen to be drawn twice more although nothing asked for
+  it, and its little test server answered a connection Chrome had not yet
+  used with *Not Found*. It now waits for what was asked to be drawn, and
+  answers only what is asked. The painter is also built optimised in
+  development builds, so a busy machine no longer takes it for a stuck one.
+
 - ***Settings* is quicker to open and to use.** Over a page in a card at
   two, it opens in about 220 ms where it took 300, and again in about
   160; Tab moves in about 17 ms where it took 37, and from its × to the

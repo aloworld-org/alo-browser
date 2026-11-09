@@ -77,6 +77,12 @@ const PAGE: &str = "<!doctype html><title>Mail</title>\
 
 /// A server on this machine answering `/mail.html`: its port. Every page
 /// asked for is written into `asked`.
+///
+/// A connection is read for as long as anything is waited for: Chrome opens
+/// connections before it has anything to ask, and under load asks on one
+/// more than five seconds later — a server that gave up on it then and
+/// answered *Not Found* to nothing had that answer read as the page's
+/// (queue item 893). A connection that asks for nothing is not answered.
 fn serve(asked: Arc<Mutex<Vec<String>>>) -> Result<u16, String> {
     let listener = TcpListener::bind("127.0.0.1:0").map_err(|why| why.to_string())?;
     let port = listener.local_addr().map_err(|why| why.to_string())?.port();
@@ -87,7 +93,7 @@ fn serve(asked: Arc<Mutex<Vec<String>>>) -> Result<u16, String> {
             };
             let asked = Arc::clone(&asked);
             std::thread::spawn(move || {
-                let _ = socket.set_read_timeout(Some(Duration::from_secs(5)));
+                let _ = socket.set_read_timeout(Some(AT_MOST));
                 let mut read = Vec::new();
                 let mut block = [0u8; 1024];
                 while let Ok(got) = socket.read(&mut block) {
@@ -97,6 +103,9 @@ fn serve(asked: Arc<Mutex<Vec<String>>>) -> Result<u16, String> {
                     }
                 }
                 let read = String::from_utf8_lossy(&read);
+                if read.trim().is_empty() {
+                    return;
+                }
                 let path = read.split(' ').nth(1).unwrap_or_default().to_owned();
                 let (status, body) = if path == "/mail.html" {
                     ("200 OK", PAGE)
@@ -146,8 +155,6 @@ struct Driven {
     pressed: Vec<Pressed>,
     /// Every time Chrome's thread said the page was loading or not.
     loading: Vec<bool>,
-    /// How many times the first screen was painted.
-    painted: usize,
     /// Every page Chrome's thread said did not open.
     unopened: Vec<String>,
     /// Every line the window said on the terminal.
@@ -180,7 +187,6 @@ impl Driven {
                 Heard::Drawn(Drawn::Said(part, said)) => {
                     return Err(format!("{}: {part} said {said}", self.who));
                 }
-                Heard::Drawn(Drawn::Painted(Part::Start, _)) => self.painted += 1,
                 Heard::Drawn(Drawn::Pressed(Part::Start, pressed)) => {
                     self.pressed.push(pressed.clone());
                 }
@@ -232,13 +238,16 @@ impl Driven {
         })
     }
 
-    /// Wait until the first screen has been painted twice more — once
-    /// asked before now, and once asked after — so a press is decided
-    /// against the card as it is now.
-    fn painted_again(&mut self) -> Result<(), String> {
-        let then = self.painted;
-        self.until("the first screen painted again", |driven| {
-            driven.painted >= then + 2
+    /// Wait until the drawing thread has drawn the newest drawing the
+    /// window asked for ([`ConversationWindow::drawn_as_asked`], queue item
+    /// 862), so a press, sent after it on the same thread, is decided
+    /// against the card as it is now. Not until it has painted twice more:
+    /// a page that changes nothing on the first screen asks for no drawing,
+    /// and under load every drawing asked had often been painted before
+    /// the card was seen at its page, so none came (queue item 893).
+    fn drawn_as_asked(&mut self) -> Result<(), String> {
+        self.until("the first screen drawn as last asked", |driven| {
+            driven.window.drawn_as_asked()
         })
     }
 
@@ -290,7 +299,6 @@ fn the_window(chromium: Chromium, who: &'static str) -> Result<Driven, String> {
         heard,
         pressed: Vec::new(),
         loading: Vec::new(),
-        painted: 0,
         unopened: Vec::new(),
         said: Vec::new(),
         who,
@@ -326,7 +334,7 @@ fn through(chromium: Chromium, who: &'static str) -> Result<(), String> {
 
     // The link pressed: the page turns orange, so the press reached it,
     // and its navigation to `mailto:` is asked for.
-    driven.painted_again()?;
+    driven.drawn_as_asked()?;
     driven.press(LINK);
     driven.until("the press reaching the page", |driven| {
         driven

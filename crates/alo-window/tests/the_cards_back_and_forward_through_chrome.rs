@@ -134,8 +134,6 @@ struct Driven {
     pressed: Vec<Pressed>,
     /// Every time Chrome's thread said where the card can go.
     travels: Vec<Travel>,
-    /// How many times the first screen was painted.
-    painted: usize,
     /// Every line the window said on the terminal.
     said: Vec<String>,
     who: &'static str,
@@ -176,7 +174,6 @@ impl Driven {
                 Heard::Drawn(Drawn::Said(part, said)) => {
                     return Err(format!("{}: {part} said {said}", self.who));
                 }
-                Heard::Drawn(Drawn::Painted(Part::Start, _)) => self.painted += 1,
                 Heard::Drawn(Drawn::Pressed(Part::Start, pressed)) => {
                     self.pressed.push(pressed.clone());
                 }
@@ -210,13 +207,16 @@ impl Driven {
                 .is_some_and(|card| card.frame.is_some())
     }
 
-    /// Wait until the first screen has been painted twice more — once
-    /// asked before now, and once asked after — so a press is decided
-    /// against the card as it is now.
-    fn painted_again(&mut self) -> Result<(), String> {
-        let then = self.painted;
-        self.until("the first screen painted again", |driven| {
-            driven.painted >= then + 2
+    /// Wait until the drawing thread has drawn the newest drawing the
+    /// window asked for ([`ConversationWindow::drawn_as_asked`], queue item
+    /// 862), so a press, sent after it on the same thread, is decided
+    /// against the card as it is now. Not until it has painted twice more:
+    /// a page that changes nothing on the first screen asks for no drawing,
+    /// and under load every drawing asked had often been painted before
+    /// the card was seen at its page, so none came (queue item 893).
+    fn drawn_as_asked(&mut self) -> Result<(), String> {
+        self.until("the first screen drawn as last asked", |driven| {
+            driven.window.drawn_as_asked()
         })
     }
 
@@ -270,7 +270,6 @@ fn the_window(chromium: Chromium, who: &'static str) -> Result<Driven, String> {
         heard,
         pressed: Vec::new(),
         travels: Vec::new(),
-        painted: 0,
         said: Vec::new(),
         who,
     };
@@ -322,7 +321,7 @@ fn through(chromium: Chromium, who: &'static str) -> Result<(), String> {
         driven.at(&one, false, false) && !driven.travels.is_empty()
     })?;
     assert_eq!(driven.travels, vec![neither], "{who}: what was told");
-    driven.painted_again()?;
+    driven.drawn_as_asked()?;
     assert_eq!(
         driven.click(BACK)?,
         Pressed::Nothing,
@@ -338,7 +337,7 @@ fn through(chromium: Chromium, who: &'static str) -> Result<(), String> {
 
     // 3. Back, pressed where a person sees it: back at the first page,
     // Forward enabled.
-    driven.painted_again()?;
+    driven.drawn_as_asked()?;
     assert_eq!(
         driven.click(BACK)?,
         Pressed::Back,
@@ -354,7 +353,7 @@ fn through(chromium: Chromium, who: &'static str) -> Result<(), String> {
     );
 
     // 4. Forward: at the link's page again.
-    driven.painted_again()?;
+    driven.drawn_as_asked()?;
     assert_eq!(
         driven.click(FORWARD)?,
         Pressed::Forward,

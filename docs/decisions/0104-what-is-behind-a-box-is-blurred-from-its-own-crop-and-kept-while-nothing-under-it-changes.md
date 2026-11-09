@@ -1,6 +1,6 @@
 # ADR 0104 — What is behind a box is blurred from its own crop, and kept while nothing under it changes
 
-**Status:** accepted — built by queue items 885 and 886 (8 November 2026)
+**Status:** accepted — built by queue items 885 and 886 (8 November 2026); amended for queue items 887 (a backdrop root of its own, a crop cut by the page, the carried Chromium measured) and 894 (a blur kept with the items drawn before it, and blurred a row at a time)
 **Date:** 2026-11-08
 **Context:** Filter Effects 2 (`backdrop-filter`, the backdrop root) and
 Filter Effects 1 § 13.2.1 (`blur()`'s length is a standard deviation);
@@ -229,3 +229,106 @@ not kept is blurred from a crop painted whole); `alo-renderer`'s
 `settings_over_the_conversation.rs` (a card's page blurred under the
 veil; a Tab blurs nothing again; a change under the veil every pixel as
 drawn whole, at one and two).
+
+## Amended (9 November 2026, queue items 887 and 894)
+
+### A box blurring what is behind it is the backdrop root of what it holds (887)
+
+*What is not decided here* left nested backdrops open. Measured in Google
+Chrome 157.0.8103.38 on its GPU path at one and two (the session
+scratchpad's `m887/`, pages over `backdrops-blurred`'s 4 px cells):
+
+- a box `blur(5px)` inside a box `blur(3px)` with no background changes
+  nothing — every pixel is the outer box's alone;
+- inside one under `rgba(255, 255, 255, 0.3)`, its place is the outer
+  box's alone with that white once more over it, within a level (1.1 at
+  most, 0.39 on average); reading the page and the outer blur, as built,
+  was 44 levels off on average there;
+- reaching past its holder's side, what is past it reads as nothing.
+
+So a box with any `backdrop-filter` is Filter Effects 2's backdrop root for
+what it holds: its own backdrop is drawn onto what is behind it, and
+everything else it draws — shadows, background, border, what it holds — into
+a layer of its own composed over that (`alo-paint`'s `build`,
+`backdrop_root`), so a backdrop inside reads that layer only. Only a box
+holding another backdrop is given the layer: one that holds none is drawn
+as before, every bit, since composing a layer is not the same arithmetic to
+the last bit as drawing in place — no reference moved.
+
+**A crop cut by the page's edge**, mirrored there, was measured too: a box
+off the page's top left corner, rounded 16, is Chrome's within 1 level with
+no background and within 11 at its rounded rim with one. Both are frozen in
+`alo-corpus`' `backdrops-rooted-and-cut` with Chrome's screenshots at one,
+two and eight (`a_backdrop_rooted_and_cut_as_chrome_blurs_it.rs`): outside
+every box exact; inside at most 2 levels, 0.57–0.63 on average; on the rims
+at most 11, 12 and 13.
+
+**The Chromium alo carries** (CEF 156.0.8078.48) was measured through the
+card's own road — the case served on this machine and opened in a card,
+its frame read as the window reads it: at one, every byte of its frame is
+the machine's Chrome 157's, and every pixel of the page Chrome 157's
+headless screenshot. At two its whole frame is in other colours —
+`#e62828` arrives as (211, 61, 52), flat cells included — so its backdrops
+cannot be compared there until that is answered (queue item 898).
+
+**Still not decided:** a backdrop under a transform that turns. The
+bounding box of the turned border box is up to 71 and 80 levels from
+Chrome's at one and two (queue item 897). And a backdrop in alo's first
+screen over a card's page drawn beneath blurs the place left clear; only
+*Settings* has one, and it draws the page in (§ 3; queue item 899).
+
+### A blur kept with the items drawn before it (894)
+
+§ 2 kept a backdrop's blur only from one drawing to the next, and only
+while a change was matched to it. *Settings* opened again over the same
+screen found no blur, for the drawing before — *Settings* closed — had no
+veil to match: 45 ms at two, every opening.
+
+What a backdrop reads is its crop as the items before it left it, and those
+pixels are a function of nothing but those items in order, drawn onto a
+canvas of one size made in one colour at one scale — ADR 0101 § 2's
+argument, of a whole list rather than the pixels two lists share. So a blur
+is kept **with the items drawn before it** (`alo_paint::blurred_from`):
+each item as `damage` compares it, a picture by a weak hold (a blur laid
+aside keeps no decoded picture alive, and a picture let go is never the
+same as one decoded since). A later drawing whose items before the same
+backdrop draw alike — every one, in order, by `damage`'s own comparison,
+on a canvas of the same size, scale and colour — takes the blur
+(`Kept::backdrop`, `Making::blurs_alike`). A blur so kept is laid aside
+with the rest (ADR 0102 § 2 amended), and is taken from there.
+
+A backdrop that only the list after draws reads its whole crop afresh, as
+one whose crop changed does: its crop is now held whole by one piece
+(`damage`'s `unmatched`). It was a place like any other, and a piece of
+another change meeting it, painted after it, read pixels the crop's piece
+had already finished — a picture wrong where the two met, found by a test
+written for this item (`repaint`'s
+`a_backdrop_drawn_anew_holds_its_whole_crop_in_one_piece`).
+
+**The blur, a row at a time.** Every number is the sum of the same
+products in the same order as before, so every bit is the same — held to
+the pixel-by-pixel blur, kept for the tests (`backdrop::reference`), over
+crops of odd and even sizes, at the canvas's edges, past it, one pixel
+thin, at σ 0 to 40, grown back over whole and partial regions, and drawn
+whole, confined and clipped under rounded shapes partly off the canvas:
+
+- the first halving read from the canvas, each pixel premultiplied as it
+  is read, never a premultiplied copy of the whole crop (54 MB at two);
+- the Gaussian across from the row directly where no tap is past its
+  edge, and down a row of the result at a time;
+- grown back a row at a time; drawn along rows, an opaque pixel not
+  divided by its alpha of one.
+
+Measured (release, this Mac, a 2080 × 1640 crop at σ 16): blurred 20 → 10
+ms, grown back and drawn 24 → 18.5; the veil's 44 ms → 29.
+
+**Measured, *Settings* over a card at two** (renderer alone, release; the
+harness of 890–892, five rounds, medians, HEAD a9c2405 in a worktree and
+this tree alternated, two runs each; `m894/`):
+
+| | before | after |
+|---|---|---|
+| opened over the card | 217.5, 221.5 ms | 203.1, 202.0 |
+| opened again, the card's frame drawn in while closed | 154.6, 156.1 | 129.6, 128.8 |
+| opened again, the card's page beneath while closed | 160.6, 162.4 | 129.2, 129.1 |
+| a face chosen | 156.5, 159.0 | 141.7, 139.9 |

@@ -1147,8 +1147,8 @@ impl Renderer {
     }
 
     /// Only what changed since the last frame sent, to an asker that holds
-    /// it (queue item 872): the region every drawing since painted again, or
-    /// the whole frame when that is every pixel.
+    /// it (queue item 872): the pieces every drawing since painted again
+    /// (queue item 896), or the whole frame when that is every pixel.
     fn paint_over(&mut self) -> FromRenderer {
         self.fresh();
         let mut easel = self.easel.borrow_mut();
@@ -1161,15 +1161,16 @@ impl Renderer {
             });
         }
         match easel.send() {
-            alo_paint::Repainted::Whole => {
+            crate::unsent::Unsent::Whole => {
                 FromRenderer::Painted(Frame::from_canvas(&drawing.canvas))
             }
-            alo_paint::Repainted::Nothing => {
-                FromRenderer::PaintedOver(crate::frame_patch::Patch::of(&drawing.canvas, None))
+            crate::unsent::Unsent::Nothing => {
+                FromRenderer::PaintedOver(crate::frame_patch::Patch::of(&drawing.canvas, &[]))
             }
-            alo_paint::Repainted::Within(region) => FromRenderer::PaintedOver(
-                crate::frame_patch::Patch::of(&drawing.canvas, Some(region)),
-            ),
+            // A rectangle per piece painted again since (queue item 896).
+            crate::unsent::Unsent::Pieces(pieces) => {
+                FromRenderer::PaintedOver(crate::frame_patch::Patch::of(&drawing.canvas, &pieces))
+            }
         }
     }
 

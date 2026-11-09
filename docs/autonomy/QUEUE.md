@@ -24606,7 +24606,7 @@ What stage 2's exit gate actually measures: a person using it.
   the dialog not stopping a press; the card beneath under *Settings*; no
   decoded picture kept. **By hand** at two (`handrun45/886-*`).
 
-- [ ] **887. Backdrops: their own roots, a turning transform, the carried
+- [x] **887. Backdrops: their own roots, a turning transform, the carried
   Chromium (cut from 885).** A box with `backdrop-filter` is a backdrop
   root for what is inside it (Filter Effects 2); here only a faded group
   is. A backdrop under a transform that turns uses its bounding box, not
@@ -24614,6 +24614,32 @@ What stage 2's exit gate actually measures: a person using it.
   backdrop over a card picture drawn beneath (ADR 0100) blurs its clear
   place — only alo's own *Settings* asks for one, and draws the frame in.
   *Depends on 885.*
+  ***Done (batch 28, 9 November 2026; ADR 0104 amended) — the root, the cut
+  crop and the carried Chromium; the turning transform and a page's
+  backdrop over a card's page cut and queued (897, 899).*** **Measured** in
+  Chrome 157.0.8103.38 on its GPU path at one and two (scratchpad `m887/`):
+  a box `blur(5px)` inside one `blur(3px)` with no background changes
+  nothing; inside one under white 0.3, it is the outer box's alone with
+  that white once more over it (within 1.1 levels, 0.39 mean) — the box is
+  the backdrop root of what it holds, its own blur not in it. Built in
+  `alo-paint`'s `build` (`backdrop_root`): its own backdrop drawn first,
+  everything else it draws in a layer of its own — only for a box holding
+  another backdrop, so nothing else moved. Before: up to 58 levels off
+  (44 mean inside); after: as the outer box alone, 6/14 at its rounded rim.
+  **A crop cut by the page's edge**, rounded and plain, measured: within 1
+  level plain, 11 at its rounded rim. **The carried Chromium** (CEF
+  156.0.8078.48) measured through the card's own road: at one its frame is
+  byte for byte the machine's Chrome 157's and every pixel Chrome's
+  headless screenshot; at two every colour differs, flat cells included
+  (`#e62828` → (211, 61, 52)) — queued as 898. **Tests:** new corpus case
+  `backdrops-rooted-and-cut` (a cut rounded box, a holder whose held box
+  reaches past it, a bare holder) with Chrome's screenshots at 1, 2, 8 and
+  `a_backdrop_rooted_and_cut_as_chrome_blurs_it.rs` (outside exact; inside
+  at most 2, 0.57–0.63 mean; rims at most 11, 12, 13), its boxes, layout,
+  display list (the layer), agent tree and renders at 1 and 2.
+  **Mutation**, caught: no layer (158 levels off inside). **No reference
+  moved.** **Measured, not built:** the turning transform — the bounding
+  box's crop is up to 71 and 80 levels from Chrome's at one and two (897).
 
 - [x] **888. Text passed over on a confined canvas (found by 886).** Every
   run of text is outlined and drawn on each repaint, whatever the region:
@@ -24746,7 +24772,7 @@ What stage 2's exit gate actually measures: a person using it.
   aside, never making room, a backdrop laid aside — each caught. **No
   reference moved.**
 
-- [ ] **893. A mailto card test's first screen not painted again under load
+- [x] **893. A mailto card test's first screen not painted again under load
   (found by batch 26's first gate).** `a_mailto_link_in_a_card_through_chrome`
   (the machine's Chrome) waited 90 s for the first screen to be painted
   twice more and was not; it passed 3 of 3 alone. Under yes×96 it fails
@@ -24754,8 +24780,32 @@ What stage 2's exit gate actually measures: a person using it.
   the debug first-screen renderer said nothing for 10 s and was stopped.
   Find why a paint asked is not answered, and whether 10 s is a bound a
   loaded debug renderer can meet. *Depends on nothing.*
+  ***Done (batch 28, 9 November 2026).*** **Two causes, and a third found
+  on the way, each reproduced under yes×96.** (1) *The silence*: the debug
+  renderer's first drawing beside the card took 757 ms idle, 634 of them
+  painting — its two shadows blurred and its fills unoptimised — and under
+  yes×96 its answers took up to 19 times longer, past `LONGEST_SILENCE`
+  (10 s): stopped as silent in 2 runs of 2. That bound is a person's
+  release browser's (the same drawing ≈25 ms) and stays; `alo-paint` is
+  now built at `opt-level = 2` in the dev profile (`Cargo.toml`, every
+  overflow check and debug assertion kept): the drawing takes 278 ms, the
+  slowest answer under yes×96 5.6 s. (2) *The paint never asked* — the
+  gate's failure: `painted_again` waited for the first screen to be painted
+  twice more, but a card's frame asks for no drawing (ADR 0100), so once
+  every asked drawing was painted before the card was seen at its page —
+  Chrome late under load — none came: shown idle, 0 paints in 20 s once
+  drawn as asked. The test now waits for `drawn_as_asked()` (the drawing
+  thread's newest drawing told drawn, queue item 862), after which a press,
+  sent on the same thread, is decided against the card as it is; so do its
+  two siblings with the same wait (`the_cards_back_and_forward`, `a_cards_
+  loading_from_a_navigations_start`). (3) *Not Found to nothing*: the
+  test's server gave a connection 5 s and answered *Not Found* to the empty
+  read of one of Chrome's preconnects, which Chrome then read as the
+  page's answer (`ERR_HTTP_RESPONSE_CODE_FAILURE`, 5 runs of 5 once (1)
+  was fixed); it now reads as long as anything is waited for and answers
+  nothing to nothing. **After:** 5 runs of 5 pass under yes×96 (43–53 s).
 
-- [ ] **894. The veil's blur on every opening of *Settings* (found by
+- [x] **894. The veil's blur on every opening of *Settings* (found by
   892).** Opening *Settings* over a card blurs the whole screen under the
   veil, about 45 ms at two, on every opening, though nothing under it may
   have changed since the last. Keep the blur with the list drawn before it,
@@ -24763,18 +24813,115 @@ What stage 2's exit gate actually measures: a person using it.
   one (ADR 0101 § 2's own comparison); and make the blur itself cheaper —
   the crop premultiplied whole, halved, blurred and grown back pixel by
   pixel — by a path proved bit for bit the same. *Depends on nothing.*
+  ***Done (batch 28, 9 November 2026; ADRs 0104 and 0102 amended).*** A blur
+  is kept **with the items drawn before it** (`alo_paint::blurred_from`: each
+  item as `damage` compares it, a picture by a weak hold, the canvas's
+  size, scale and colour) and taken by a drawing whose items before the
+  same backdrop draw alike, every one (`Kept::backdrop`,
+  `Making::blurs_alike`); laid aside with the rest (`ASIDE_BYTES` 24 → 32
+  MiB); the renderer lays aside a picture it did not show, up to 32 MiB
+  (`pictures::Decoded`), so the card's frame drawn beneath while closed is
+  the very picture again. **Found and fixed:** a backdrop only the list
+  after draws now has its whole crop held by one piece — a piece of
+  another change meeting it, painted after, read finished pixels.
+  **The blur a row at a time**, every bit the pixel-by-pixel blur kept for
+  tests (`backdrop::reference`): the first halving read from the canvas,
+  the Gaussian along rows, grown back and drawn a row at a time; at σ 16
+  over 2080 × 1640, 44 → 29 ms. **Before → after** (renderer alone,
+  release, this Mac, at two; 890's harness, five rounds, medians, HEAD
+  a9c2405 in a worktree alternated, two runs each): opened over a card
+  217.5/221.5 → 203.1/202.0 ms; opened again 154.6/156.1 → 129.6/128.8;
+  opened again with the card's page beneath while closed 160.6/162.4 →
+  129.2/129.1; a face 156.5/159.0 → 141.7/139.9. **Tests:** `blurred_from`
+  units (alike; another scale, size, ground, item, order, length,
+  picture; a picture let go never the same); `kept` (laid aside, taken only
+  from what it was blurred from, never on a canvas not said); `repaint`
+  (opened, closed, opened again over the same and over a change, every
+  pixel as drawn whole; a crop drawn anew held whole by one piece);
+  `backdrop` (row-at-a-time blur and draw every bit the reference's);
+  `settings_opened_again_takes_what_it_made.rs` at one and two, closed with
+  the frame in and beneath (no backdrop blurred; a new frame blurred).
+  **Mutations**, each caught: `is` never true; never laid aside; a picture
+  by its size; the ground or the length not compared; items not compared;
+  the down taps' order; a halving's rows; no division at any alpha; the
+  coverage a column off; the taps from the next column; no picture laid
+  aside; an unmatched crop not held whole. **No reference moved.**
 
-- [ ] **895. What a piece of damage costs however small (found by 891).**
+- [x] **895. What a piece of damage costs however small (found by 891).**
   Each piece painted again draws the whole list confined to it: at two,
   about 3 ms for *Settings*, most of it every run of text outlined to be
   passed over. Outline a run once for every piece of a drawing, and
   measure what is left. *Depends on nothing.*
+  ***Done (batch 28, 9 November 2026; ADR 0101 amended).*** Measured first:
+  a ring's piece (7,396 pixels at two) took 3.0–3.4 ms, 2.0 of them
+  outlining *Settings*' 41 runs. A run is outlined and its reach asked once
+  a drawing (`Kept::run`, `run_reach`, by its place), and its outlines kept
+  for the next drawing, taken for a run set alike — words, the very face,
+  every number bit for bit (`Making::outlined`). **What is left:** a later
+  piece ≈1.2 ms for 15,000 pixels and 7 runs filled — what it paints, the
+  runs reaching it and the clips pushed. **Before → after** (same harness):
+  a Tab 16.5/16.5 → 14.3/14.1 ms (at most 26.4/26.9 → 22.0/21.9); *Close*
+  → *Font* 27.5/27.7 → 22.9/22.9; a letter with *Settings* closed
+  14.3/14.4 → 14.1/13.9. **Tests:** `drawn_text` (30 runs, two pieces:
+  outlined 30, then 0 by the next drawing, 30 for other words; every pixel
+  as drawn whole); `kept` (alike once; another face, words or size
+  again). **Mutations:** outlines not kept between drawings, the face not
+  compared — caught; two equivalent ones survive and are named: the
+  per-place map removed (the drawing's own outline map gives the same
+  glyphs) and a reach stored under another place (never found, so asked
+  again) — each costs time, never a pixel. **No reference moved.**
 
-- [ ] **896. A frame sent as the rectangle holding its pieces (found by
+- [x] **896. A frame sent as the rectangle holding its pieces (found by
   891).** Two rings far apart cross to the window as the rectangle holding
   both — about 725,000 pixels where 200,000 were painted — and the window
   composes all of it again. Send a patch per piece, each read as hostile.
   *Depends on nothing.*
+  ***Done (batch 28, 9 November 2026; ADR 0102 amended).*** A renderer sends a
+  rectangle per piece every drawing since its last frame painted
+  (`frame_patch::Patch`'s `pieces`, `unsent::Unsent`, joined as a drawing's
+  places once past eight); on the wire each piece read as hostile on its
+  own and at most eight, the count refused before any is read. The window
+  still compares frames itself, by runs of differing rows, each its own
+  rectangle, joined the same way (`conversation_composed`). **Before →
+  after**, *Settings* at two, *Close* → *Font*: crossing 721,392 → 196,200
+  pixels; composed in the window 5.01 → 2.19 ms (release, alone).
+  **Tests:** `frame_patch` units (two pieces put over, overlapping alike,
+  more than eight joined holding each, a short or past piece refused whole,
+  nine pieces refused); `unsent` units; `messages_across_a_boundary.rs` (a
+  second piece past its side or foot, short, long, at u32::MAX, nine pieces,
+  every truncation); `a_frame_crosses_only_what_changed.rs` (two far rings
+  cross as two rectangles, under a third of the one holding both, every
+  byte the frame sent whole, at one and two); `conversation_composed` (two
+  far changes composed as two, every word as composed whole). **Mutations**,
+  each caught: pieces collapsed to their bounds; no bound on the count; a
+  later piece unchecked; the window's rows as one band.
+
+- [ ] **897. A backdrop under a transform that turns (cut from 887).** Its
+  crop is the bounding box of the turned border box; measured in Chrome
+  157 (scratchpad `m887/turned`, `turnedbg`, `rotate(20deg)`, `blur(3px)`)
+  that is up to 71 levels from Chrome's at one and 80 at two (0.66 and
+  0.62 on average over the page). Measure where Chrome reads and blurs a
+  turned box's backdrop — in the box's own axes or the page's — and build
+  it, with a corpus case of Chrome's screenshots. *Depends on 885.*
+
+- [ ] **898. The carried Chromium's frames at two in other colours (found by
+  887).** Through the card's road, alo's CEF host (CEF 156.0.8078.48) sends
+  `backdrops-rooted-and-cut` at one byte for byte as the machine's Chrome
+  157 does; at two every colour differs, flat cells included — `#e62828`
+  arrives as (211, 61, 52), `#f0c828` as (234, 201, 78), `#1e3cc8` as (37,
+  59, 192), black and white alike — as if drawn in the display's colours,
+  not sRGB, where Chrome's frame at two is sRGB. So a card's page at two
+  shows in other colours than Chrome shows it. Find where (the host's
+  rendering at its device scale factor, its colour profile) and fix the
+  cause; then compare its backdrops at two. *Depends on nothing.*
+
+- [ ] **899. A backdrop in the first screen over a card's page drawn beneath
+  (cut from 887).** A backdrop whose crop meets the place the first screen
+  leaves clear for the card's page (ADR 0100) blurs the clear place, not
+  the page. Only *Settings* has one, and its page is drawn in while it is
+  open (ADR 0104 § 3). Draw the page in whenever a backdrop's crop meets
+  its place, or say so by name; with a test of the first screen holding
+  one. *Depends on 885.*
 
 ## K. ★ The agent, on somebody else's pages
 

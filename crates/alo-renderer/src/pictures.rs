@@ -50,7 +50,18 @@ use std::sync::Arc;
 /// being the very same picture lets a list painted over the last match it
 /// ([`alo_paint::damage`]), so a first screen holding a card's frame is not
 /// painted whole for every change beside it.
+///
+/// A picture a drawing did not show is **laid aside** in it too, up to
+/// [`ASIDE_BYTES`] of pixels (queue item 894): a card's frame drawn under
+/// *Settings*, then beneath the first screen while it is closed, is the very
+/// same picture when *Settings* opens again over the same frame — so it is
+/// neither decoded again nor anything but alike to the list its veil's blur
+/// was kept with ([`alo_paint::Kept`]).
 pub type Decoded = BTreeMap<String, (Vec<u8>, Arc<Canvas>)>;
+
+/// The most pixels' bytes of pictures a drawing did not show kept for the
+/// next: a card's frame at two, 1756 × 1040, is about 29 MB.
+pub const ASIDE_BYTES: usize = 32 << 20;
 
 /// Every picture a page's `<img>` elements show, read and sized.
 #[derive(Debug, Default)]
@@ -166,6 +177,21 @@ impl Pictures {
                 Err(why) => pictures
                     .issues
                     .push(format!("{src:?} is not a picture this engine reads: {why}")),
+            }
+        }
+        // What the drawing before had and this one did not show, laid aside
+        // while there is room, in the order of their names.
+        let mut aside = 0_usize;
+        for (src, (bytes, canvas)) in before {
+            if pictures.decoded.contains_key(src) {
+                continue;
+            }
+            let held = core::mem::size_of_val(canvas.pixels());
+            if aside.saturating_add(held) <= ASIDE_BYTES {
+                aside += held;
+                pictures
+                    .decoded
+                    .insert(src.clone(), (bytes.clone(), Arc::clone(canvas)));
             }
         }
         pictures

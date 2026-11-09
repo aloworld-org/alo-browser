@@ -94,8 +94,9 @@ pub struct Easel {
     draws: u64,
     /// What every drawing since the last frame was sent painted again,
     /// together (queue item 872): what an asker holding that frame is sent
-    /// ([`crate::frame_patch`]). Every pixel before any frame was sent.
-    unsent: alo_paint::Repainted,
+    /// ([`crate::frame_patch`]), as the pieces they were painted in (queue
+    /// item 896). Every pixel before any frame was sent.
+    unsent: crate::unsent::Unsent,
     /// The pictures a document of the browser's own interface is drawn with,
     /// handed in with it rather than fetched: the card's frame of a page
     /// Chrome draws (queue item 717). A page a stranger wrote has none.
@@ -135,7 +136,7 @@ impl Easel {
             drawn: None,
             before: None,
             draws: 0,
-            unsent: alo_paint::Repainted::Whole,
+            unsent: crate::unsent::Unsent::Whole,
             lent: Vec::new(),
             clear: false,
         }
@@ -242,7 +243,8 @@ impl Easel {
             &judged,
             before,
         );
-        self.unsent = self.unsent.joined(drawing.repainted);
+        self.unsent = std::mem::replace(&mut self.unsent, crate::unsent::Unsent::Nothing)
+            .joined(drawing.repainted, drawing.kept.pieces());
         self.drawn = Some((Rc::new(drawing), document.change_count()));
         self.draws = self.draws.saturating_add(1);
         self.restyle = false;
@@ -260,8 +262,8 @@ impl Easel {
 
     /// What every drawing since the last frame was sent painted again, the
     /// frame now sent: from here, nothing is unsent (queue item 872).
-    pub(crate) fn send(&mut self) -> alo_paint::Repainted {
-        std::mem::replace(&mut self.unsent, alo_paint::Repainted::Nothing)
+    pub(crate) fn send(&mut self) -> crate::unsent::Unsent {
+        std::mem::replace(&mut self.unsent, crate::unsent::Unsent::Nothing)
     }
 
     /// What the last drawing produced.

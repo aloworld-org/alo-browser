@@ -16,11 +16,13 @@
 //! - two drawings between two asks cross as one rectangle holding both, and
 //!   an ask for the whole frame between them starts the changes again from
 //!   it;
-//! - a first frame, and a frame of another size, cross whole.
+//! - a first frame, and a frame of another size, cross whole;
+//! - two rings far apart in *Settings* cross as a rectangle each, not the
+//!   rectangle holding both (queue item 896), at one and at two.
 
 use alo_renderer::card::Card;
 use alo_renderer::field::Editing;
-use alo_renderer::start::Start;
+use alo_renderer::start::{SettingsKeyed, Start};
 use alo_renderer::turn::Turn;
 use alo_renderer::typed::offers_for;
 use alo_renderer::wire::{read_from_renderer, write_from_renderer};
@@ -214,4 +216,72 @@ fn drawings_between_two_asks_cross_together_and_a_whole_frame_starts_them_again(
     );
     assert_eq!(held, whole(screen(2.0, false, "xy"))?);
     Ok(())
+}
+
+/// *Settings* over the first screen, the keyboard on `keyed`.
+fn settings(scale: f32, keyed: Option<SettingsKeyed>) -> Start {
+    Start {
+        settings: true,
+        settings_keyed: keyed,
+        ..screen(scale, false, "")
+    }
+}
+
+/// At `scale`, Tab from *Close* to *Font*: two rings far apart.
+fn two_far_rings(scale: f32) -> Result<(), String> {
+    let mut renderer = Renderer::new(fonts());
+    let (first, _) = asked(
+        &mut renderer,
+        settings(scale, Some(SettingsKeyed::Close)),
+        ToRenderer::PaintOver,
+    )?;
+    let FromRenderer::Painted(mut held) = first else {
+        return Err(format!("a first frame crossed as {first:?}"));
+    };
+    let font = settings(scale, Some(SettingsKeyed::Font));
+    let (answer, _) = asked(&mut renderer, font.clone(), ToRenderer::PaintOver)?;
+    let FromRenderer::PaintedOver(patch) = &answer else {
+        return Err(format!("two rings crossed as {answer:?}"));
+    };
+    let [one, two] = &patch.pieces[..] else {
+        return Err(format!("{} pieces crossed", patch.pieces.len()));
+    };
+    let holding = [one, two]
+        .map(|piece| {
+            (
+                piece.left,
+                piece.top,
+                piece.left + piece.across,
+                piece.top + piece.down,
+            )
+        })
+        .into_iter()
+        .reduce(|(left, top, right, bottom), (l, t, r, b)| {
+            (left.min(l), top.min(t), right.max(r), bottom.max(b))
+        })
+        .map_or(0, |(left, top, right, bottom)| {
+            u64::from(right - left) * u64::from(bottom - top)
+        });
+    assert!(
+        patch.area() * 3 < holding,
+        "at {scale}: {} pixels crossed where the rectangle holding both is {holding}",
+        patch.area()
+    );
+    if !held_after(&mut held, answer)? {
+        return Err("two rings crossed whole".to_owned());
+    }
+    if held != whole(font)? {
+        return Err(format!("at {scale}: not the frame sent whole"));
+    }
+    Ok(())
+}
+
+#[test]
+fn two_far_rings_cross_as_a_rectangle_each_at_one() -> Result<(), String> {
+    two_far_rings(1.0)
+}
+
+#[test]
+fn two_far_rings_cross_as_a_rectangle_each_at_two() -> Result<(), String> {
+    two_far_rings(2.0)
 }

@@ -440,6 +440,45 @@ struct Builder<'a> {
     refused: Vec<alo_css::StyleIssue>,
 }
 
+/// `items`, all a box with `backdrop-filter` draws, drawn as the backdrop
+/// root of what is inside it (Filter Effects 2 § 3, queue item 887): its own
+/// backdrop drawn first, onto what is behind it, and everything else it
+/// draws — its shadows, background, border and what it holds — into a layer
+/// of its own composed over that. So a backdrop inside it reads only that
+/// layer: the box's background and what is drawn inside before it, never
+/// the box's own blur nor the page past it.
+///
+/// Measured in Google Chrome 157.0.8103.38 on its GPU path at one and two
+/// (the session scratchpad's `m887/`): a box blurring what is behind it
+/// inside one blurring with no background of its own changes nothing — every
+/// pixel the outer box alone draws; inside one under `rgba(255, 255, 255,
+/// 0.3)`, its place is the outer box's alone with that white once more over
+/// it, within a level (1.1 at most, 0.39 on average), where reading the
+/// page and the outer blur was 44 levels off.
+///
+/// Only a box that holds another backdrop is given the layer: one that holds
+/// none draws exactly as before, every bit, since a layer composed over is
+/// not the same arithmetic to the last bit as drawing in place.
+fn backdrop_root(id: BoxId, items: Vec<DisplayItem>) -> Vec<DisplayItem> {
+    let holds_another = items
+        .iter()
+        .any(|item| matches!(item, DisplayItem::Backdrop { box_id, .. } if *box_id != id));
+    if !holds_another {
+        return items;
+    }
+    let (own, rest): (Vec<DisplayItem>, Vec<DisplayItem>) = items
+        .into_iter()
+        .partition(|item| matches!(item, DisplayItem::Backdrop { box_id, .. } if *box_id == id));
+    let mut rooted = own;
+    rooted.push(DisplayItem::PushGroup {
+        box_id: id,
+        opacity: 1.0,
+    });
+    rooted.extend(rest);
+    rooted.push(DisplayItem::PopGroup);
+    rooted
+}
+
 /// One positioned box's subtree, waiting for a stacking context to place it.
 struct Layer {
     z: i32,
@@ -561,6 +600,11 @@ impl Builder<'_> {
         }
         if clip.is_some() {
             items.push(DisplayItem::PopClip);
+        }
+        // A box with `backdrop-filter` is the backdrop root of what it holds
+        // (queue item 887).
+        if self.has_backdrop_filter(id) {
+            items = backdrop_root(id, items);
         }
 
         // The transform is inside the group: `opacity` fades what the box

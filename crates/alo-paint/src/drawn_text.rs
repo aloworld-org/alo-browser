@@ -24,12 +24,20 @@
 //! ([`crate::kept`]): measured opening *Settings*, 37 of the 41 runs filled
 //! were the panel's own, new to that drawing, so keeping them would have
 //! saved about 2 ms for the memory of every run on the screen.
+//!
+//! But inside one drawing they are (queue item 895): a repaint cut into
+//! pieces draws the whole list once per piece ([`crate::pieces`]), and every
+//! run was outlined and bounded again for each, about 2 ms at two for
+//! *Settings*' 41. A run's outlines and its bound are a function of the run
+//! and the transform it is drawn under, the same in every piece of the
+//! drawing — so each is made once for the drawing, by the item's place in
+//! its list, and taken by every other piece ([`Kept::run`]).
 
 use crate::canvas::Canvas;
 use crate::clip::Clip;
 use crate::display::DisplayItem;
 use crate::extent::{Reach, letters_reach};
-use crate::kept::{Kept, Made};
+use crate::kept::{Kept, Made, Run};
 use crate::paint::Paint;
 use crate::path::{Path, Point};
 use crate::raster::fill;
@@ -74,13 +82,17 @@ pub(crate) fn run_glyphs(set: &Set<'_>, scale: f32) -> Vec<Path> {
 /// painted whole spends nothing on it. A run filled is
 /// counted when coverage is kept ([`crate::kept::Making::letters`]).
 /// Anything that is not a text item draws nothing.
+///
+/// With coverage kept, the run's outlines and the bound of its ink are made
+/// once a drawing, for the item at `index` of its list, and taken by every
+/// other piece the drawing is painted in.
 pub(crate) fn draw_text(
     target: &mut Canvas,
-    item: &DisplayItem,
+    (index, item): (usize, &DisplayItem),
     (current, scale): (Matrix, f32),
     clip: Option<&Clip>,
     misses: &dyn Fn(&dyn Fn() -> Reach) -> bool,
-    kept: Option<&mut Kept>,
+    mut kept: Option<&mut Kept>,
 ) {
     let DisplayItem::Text {
         text,
@@ -109,9 +121,26 @@ pub(crate) fn draw_text(
     // is the same letters somewhere else. A lean is part of the letters, so
     // a shadow leans with them. Each glyph casts its own shadow, softened on
     // its own (queue item 831); the letters are filled as one shape.
-    let glyphs = run_glyphs(&set, scale);
     let page = (target.width(), target.height());
-    if misses(&|| letters_reach(&glyphs, shadows, current, page)) {
+    let run = match kept.as_deref_mut() {
+        Some(kept) => kept.run((index, current, scale), &set, || run_glyphs(&set, scale)),
+        None => Run::of(run_glyphs(&set, scale)),
+    };
+    let glyphs = run.glyphs();
+    // The bound, as this drawing first made it or made now and kept for its
+    // other pieces: asked only on a confined canvas.
+    let made = core::cell::Cell::new(None);
+    let passed_over = misses(&|| {
+        let reach = run
+            .reach()
+            .unwrap_or_else(|| letters_reach(glyphs, shadows, current, page));
+        made.set(Some(reach));
+        reach
+    });
+    if let (Some(kept), Some(reach)) = (kept.as_deref_mut(), made.get()) {
+        kept.run_reach((index, current, scale), reach);
+    }
+    if passed_over {
         return;
     }
     // Furthest back first, so the first shadow written ends up on top —
@@ -122,7 +151,7 @@ pub(crate) fn draw_text(
         draw_letters_shadow(target, &placed, (shadow.blur, shadow.color), current, clip);
     }
     let mut outlined = Path::new();
-    for glyph in &glyphs {
+    for glyph in glyphs {
         outlined.extend(glyph);
     }
     if let Some(kept) = kept {
@@ -250,7 +279,7 @@ mod tests {
                                     Canvas::new(size_px.0, size_px.1, Rgba::TRANSPARENT);
                                 draw_text(
                                     &mut canvas,
-                                    &item,
+                                    (0, &item),
                                     (current, scale),
                                     None,
                                     &|_| false,
@@ -356,5 +385,47 @@ mod tests {
                 "only the run whose shadow falls on the mark is filled"
             );
         }
+    }
+    /// Rows of words and two marks far apart, both changed: two pieces,
+    /// each drawing the whole list — and every run outlined once for both
+    /// (queue item 895), and not at all by the next drawing, which sets
+    /// them alike; every pixel as the new list drawn whole.
+    #[test]
+    fn a_run_is_outlined_once_however_many_pieces_a_drawing_is_painted_in() {
+        let font = &faces()[0];
+        let list = |mark: Rgba, words: &str| {
+            let mut items = vec![rectangle(0.0, 0.0, 1200.0, 900.0, Rgba::WHITE)];
+            for row in 0..30u8 {
+                let y = 20.0 + f32::from(row) * 28.0;
+                items.push(run(words, font, 16.0, (400.0, y)));
+            }
+            items.push(rectangle(10.0, 10.0, 20.0, 20.0, mark));
+            items.push(rectangle(1150.0, 850.0, 20.0, 20.0, mark));
+            DisplayList::from_parts(items, Vec::new(), 1.0)
+        };
+        let words = "The capital and largest city";
+        let before = list(Rgba::BLACK, words);
+        let after = list(Rgba::from_rgba8(200, 30, 30, 255), words);
+        let size = (1200, 900);
+        let mut canvas = Canvas::new(size.0, size.1, Rgba::WHITE);
+        render(&before, &mut canvas);
+        let mut kept = Kept::new();
+        for (was, now, outlined) in [(&before, &after, 30), (&after, &before, 0)] {
+            repaint(was, now, &mut canvas, Rgba::WHITE, &mut kept);
+            let mut whole = Canvas::new(size.0, size.1, Rgba::WHITE);
+            render(now, &mut whole);
+            assert!(canvas == whole, "as the list drawn whole");
+            let made = kept.made();
+            assert_eq!(made.pieces, 2, "{made:?}");
+            assert_eq!(made.outlined, outlined, "{made:?}");
+            assert_eq!(made.letters, 0, "no run reaches either mark: {made:?}");
+        }
+        // Set otherwise — another word — a run is outlined again.
+        let other = list(Rgba::BLACK, "The capital and largest town");
+        let mut whole = Canvas::new(size.0, size.1, Rgba::WHITE);
+        render(&other, &mut whole);
+        repaint(&before, &other, &mut canvas, Rgba::WHITE, &mut kept);
+        assert!(canvas == whole, "as the list drawn whole");
+        assert_eq!(kept.made().outlined, 30, "{:?}", kept.made());
     }
 }

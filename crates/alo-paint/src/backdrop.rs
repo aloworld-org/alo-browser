@@ -133,20 +133,31 @@ pub(crate) fn key(crop: Region, sigma: f32) -> Key {
 
 /// `crop` of `canvas` blurred by a standard deviation of `sigma` device
 /// pixels.
+///
+/// Computed a row at a time (queue item 894): the first halving read
+/// straight from the canvas, never a premultiplied copy of the whole crop
+/// made first, and each pass along rows of pixels held side by side. Every
+/// number is the sum of the same products in the same order as pixel by
+/// pixel, so every bit is the same (`reference`, which the tests hold this
+/// to).
 pub(crate) fn blurred(canvas: &Canvas, crop: Region, sigma: f32) -> Blurred {
     let size = (crop.right - crop.left, crop.bottom - crop.top);
-    let mut pixels = Vec::with_capacity((size.0 as usize) * (size.1 as usize));
-    for y in crop.top..crop.bottom {
-        for x in crop.left..crop.right {
-            pixels.push(premultiplied(canvas.at(x, y).unwrap_or(Rgba::TRANSPARENT)));
-        }
-    }
     let sigma = if sigma.is_finite() {
         sigma.clamp(0.0, MOST)
     } else {
         0.0
     };
-    let (mut small, mut halved, mut halvings) = (size, sigma, 0);
+    let (mut pixels, mut small, mut halved, mut halvings) =
+        if sigma > MOST_AT_FULL_SIZE && size.0 > 1 && size.1 > 1 {
+            (
+                halved_crop(canvas, crop),
+                (size.0.div_ceil(2), size.1.div_ceil(2)),
+                sigma / 2.0,
+                1,
+            )
+        } else {
+            (premultiplied_crop(canvas, crop), size, sigma, 0)
+        };
     while halved > MOST_AT_FULL_SIZE && small.0 > 1 && small.1 > 1 {
         pixels = halve(&pixels, small);
         small = (small.0.div_ceil(2), small.1.div_ceil(2));
@@ -163,6 +174,78 @@ pub(crate) fn blurred(canvas: &Canvas, crop: Region, sigma: f32) -> Blurred {
         halvings,
         small,
         pixels,
+    }
+}
+
+/// Row `y` of `canvas` from column `left` to `right`, when all of it is on
+/// the canvas.
+fn row_of(canvas: &Canvas, (left, right): (u32, u32), y: u32) -> Option<&[Rgba]> {
+    if right > canvas.width() || y >= canvas.height() {
+        return None;
+    }
+    let start = (y as usize) * (canvas.width() as usize);
+    canvas
+        .pixels()
+        .get(start + left as usize..start + right as usize)
+}
+
+/// `crop` of `canvas`, every pixel premultiplied, row by row: a pixel off
+/// the canvas transparent.
+fn premultiplied_crop(canvas: &Canvas, crop: Region) -> Vec<Pixel> {
+    let mut pixels = Vec::with_capacity(
+        ((crop.right - crop.left) as usize) * ((crop.bottom - crop.top) as usize),
+    );
+    for y in crop.top..crop.bottom {
+        match row_of(canvas, (crop.left, crop.right), y) {
+            Some(row) => pixels.extend(row.iter().map(|color| premultiplied(*color))),
+            None => pixels.extend(
+                (crop.left..crop.right)
+                    .map(|x| premultiplied(canvas.at(x, y).unwrap_or(Rgba::TRANSPARENT))),
+            ),
+        }
+    }
+    pixels
+}
+
+/// [`halve`] of [`premultiplied_crop`], read from the canvas without the
+/// crop's copy: each pixel premultiplied as it is read, the same pairs
+/// meaned in the same order.
+fn halved_crop(canvas: &Canvas, crop: Region) -> Vec<Pixel> {
+    let (width, height) = ((crop.right - crop.left), (crop.bottom - crop.top));
+    let (half_width, half_height) = (width.div_ceil(2), height.div_ceil(2));
+    let mut out = Vec::with_capacity((half_width as usize) * (half_height as usize));
+    let read = |y: u32| -> Vec<Pixel> {
+        match row_of(canvas, (crop.left, crop.right), crop.top + y) {
+            Some(row) => row.iter().map(|color| premultiplied(*color)).collect(),
+            None => (crop.left..crop.right)
+                .map(|x| premultiplied(canvas.at(x, crop.top + y).unwrap_or(Rgba::TRANSPARENT)))
+                .collect(),
+        }
+    };
+    for y in 0..half_height {
+        let upper = read((2 * y).min(height - 1));
+        let lower = read((2 * y + 1).min(height - 1));
+        halve_rows(&upper, &lower, half_width, &mut out);
+    }
+    out
+}
+
+/// Each pair of pixels across `upper` and `lower` made one, their mean, put
+/// at the end of `out`: `half_width` of them, an odd last pixel paired with
+/// itself.
+fn halve_rows(upper: &[Pixel], lower: &[Pixel], half_width: u32, out: &mut Vec<Pixel>) {
+    let last = upper.len().min(lower.len()).saturating_sub(1);
+    let get = |row: &[Pixel], x: usize| row.get(x.min(last)).copied().unwrap_or_default();
+    for x in 0..half_width as usize {
+        let (one, two) = (get(upper, 2 * x), get(upper, 2 * x + 1));
+        let (three, four) = (get(lower, 2 * x), get(lower, 2 * x + 1));
+        let mut mean = [0.0; 4];
+        for ((((value, one), two), three), four) in
+            mean.iter_mut().zip(one).zip(two).zip(three).zip(four)
+        {
+            *value = f32::midpoint(f32::midpoint(one, two), f32::midpoint(three, four));
+        }
+        out.push(mean);
     }
 }
 
@@ -206,33 +289,30 @@ pub(crate) fn draw(
     };
     let grown = grown_back(blurred, local);
     let width = (local.right - local.left) as usize;
-    for y in within.top..within.bottom {
-        for x in within.left..within.right {
-            let covered = at(coverage, x, y);
+    for (y, pixels) in (within.top..within.bottom).zip(grown.chunks_exact(width.max(1))) {
+        // The shape's coverage along this row, from the column `within`
+        // starts at: what `at` reads pixel by pixel.
+        let row = i64::from(y) - i64::from(top);
+        let column = i64::from(within.left) - i64::from(left);
+        let covered = match (u32::try_from(row), usize::try_from(column)) {
+            (Ok(row), Ok(column)) if row < coverage.height() => {
+                let start = (row as usize) * (coverage.width() as usize);
+                coverage
+                    .data()
+                    .get(start..start + coverage.width() as usize)
+                    .and_then(|line| line.get(column..))
+                    .unwrap_or(&[])
+            }
+            _ => &[],
+        };
+        for ((x, pixel), &covered) in (within.left..within.right).zip(pixels).zip(covered) {
             let inside = clip.map_or(u8::MAX, |clip| clip.at(x, y));
             let combined = multiply(covered, inside);
             if combined == 0 {
                 continue;
             }
-            let index = ((y - within.top) as usize) * width + (x - within.left) as usize;
-            let Some(pixel) = grown.get(index) else {
-                continue;
-            };
             canvas.blend(x, y, straight(*pixel), combined);
         }
-    }
-}
-
-/// How much `coverage` covers the canvas's pixel `(x, y)`.
-fn at(coverage: &Coverage, x: u32, y: u32) -> u8 {
-    let (left, top) = coverage.origin();
-    let (column, row) = (
-        i64::from(x) - i64::from(left),
-        i64::from(y) - i64::from(top),
-    );
-    match (u32::try_from(column), u32::try_from(row)) {
-        (Ok(column), Ok(row)) => coverage.at(column, row),
-        _ => 0,
     }
 }
 
@@ -252,6 +332,16 @@ fn straight([red, green, blue, alpha]: Pixel) -> Rgba {
     if alpha <= 0.0 {
         return Rgba::TRANSPARENT;
     }
+    // Divided by one, a number is itself (queue item 894): an opaque page's
+    // every pixel, written without the division.
+    if alpha.to_bits() == 1.0_f32.to_bits() && !(red.is_nan() || green.is_nan() || blue.is_nan()) {
+        return Rgba {
+            red,
+            green,
+            blue,
+            alpha,
+        };
+    }
     Rgba {
         red: red / alpha,
         green: green / alpha,
@@ -264,25 +354,13 @@ fn straight([red, green, blue, alpha]: Pixel) -> Rgba {
 /// an odd last pixel paired with itself.
 fn halve(pixels: &[Pixel], (width, height): (u32, u32)) -> Vec<Pixel> {
     let (half_width, half_height) = (width.div_ceil(2), height.div_ceil(2));
-    let get = |x: u32, y: u32| {
-        pixels
-            .get((y.min(height - 1) as usize) * (width as usize) + x.min(width - 1) as usize)
-            .copied()
-            .unwrap_or_default()
+    let row = |y: u32| {
+        let start = (y.min(height - 1) as usize) * (width as usize);
+        pixels.get(start..start + width as usize).unwrap_or(&[])
     };
     let mut out = Vec::with_capacity((half_width as usize) * (half_height as usize));
     for y in 0..half_height {
-        for x in 0..half_width {
-            let (one, two) = (get(2 * x, 2 * y), get(2 * x + 1, 2 * y));
-            let (three, four) = (get(2 * x, 2 * y + 1), get(2 * x + 1, 2 * y + 1));
-            let mut mean = [0.0; 4];
-            for ((((value, one), two), three), four) in
-                mean.iter_mut().zip(one).zip(two).zip(three).zip(four)
-            {
-                *value = f32::midpoint(f32::midpoint(one, two), f32::midpoint(three, four));
-            }
-            out.push(mean);
-        }
+        halve_rows(row(2 * y), row(2 * y + 1), half_width, &mut out);
     }
     out
 }
@@ -328,40 +406,56 @@ fn mirrored(at: i64, length: i64) -> usize {
     usize::try_from(inside).unwrap_or(0)
 }
 
-/// Each row blurred across by `weights`, the edge mirrored.
+/// Each row blurred across by `weights`, the edge mirrored: where every tap
+/// is inside the row, read from it directly; nearer the edge, mirrored.
 fn across(pixels: &[Pixel], (width, height): (u32, u32), weights: &[f32]) -> Vec<Pixel> {
     let length = i64::from(width);
+    let reach = weights.len().saturating_sub(1);
     let mut out = Vec::with_capacity(pixels.len());
     for y in 0..height as usize {
         let row = pixels
             .get(y * width as usize..(y + 1) * width as usize)
             .unwrap_or(&[]);
-        for x in 0..length {
-            out.push(convolved(weights, |offset| {
-                row.get(mirrored(x + offset, length)).copied()
-            }));
+        for (x, at) in (0..length).zip(0_usize..) {
+            if at >= reach && at + reach < row.len() {
+                out.push(convolved(weights, |offset| {
+                    row.get(at.wrapping_add_signed(isize::try_from(offset).unwrap_or(0)))
+                        .copied()
+                }));
+            } else {
+                out.push(convolved(weights, |offset| {
+                    row.get(mirrored(x + offset, length)).copied()
+                }));
+            }
         }
     }
     out
 }
 
-/// Each column blurred down by `weights`, the edge mirrored.
+/// Each column blurred down by `weights`, the edge mirrored: a row of the
+/// result at a time, each tap's row added across it — for every pixel the
+/// same products added in the same order as down its column.
 fn down(pixels: &[Pixel], (width, height): (u32, u32), weights: &[f32]) -> Vec<Pixel> {
     let length = i64::from(height);
+    let width = width as usize;
     let mut out = vec![[0.0; 4]; pixels.len()];
-    for x in 0..width as usize {
-        for y in 0..length {
-            let value = convolved(weights, |offset| {
-                pixels
-                    .get(mirrored(y + offset, length) * width as usize + x)
-                    .copied()
-            });
-            if let Some(slot) = usize::try_from(y)
-                .ok()
-                .and_then(|y| out.get_mut(y * width as usize + x))
-            {
-                *slot = value;
+    let row = |at: usize| pixels.get(at * width..(at + 1) * width).unwrap_or(&[]);
+    for (y, slots) in (0..length).zip(out.chunks_exact_mut(width.max(1))) {
+        let mut add = |weight: f32, source: &[Pixel]| {
+            for (slot, pixel) in slots.iter_mut().zip(source) {
+                for (total, channel) in slot.iter_mut().zip(pixel) {
+                    *total += weight * channel;
+                }
             }
+        };
+        add(
+            weights.first().copied().unwrap_or(1.0),
+            row(mirrored(y, length)),
+        );
+        for (i, weight) in weights.iter().enumerate().skip(1) {
+            let i = i64::try_from(i).unwrap_or(0);
+            add(*weight, row(mirrored(y - i, length)));
+            add(*weight, row(mirrored(y + i, length)));
         }
     }
     out
@@ -458,21 +552,29 @@ impl Taps {
 /// `blurred` grown back to full size over `local`, a region of the crop:
 /// its pixels row by row. Each is computed by the same sums whatever
 /// region it is asked in, so a confined repaint grows back exactly the
-/// pixels drawing it whole does.
+/// pixels drawing it whole does — and a row at a time (queue item 894),
+/// each tap's row added across the row it grows, in the order the taps are
+/// listed, as pixel by pixel.
 fn grown_back(blurred: &Blurred, local: Region) -> Vec<Pixel> {
     let width = (local.right - local.left) as usize;
     let height = (local.bottom - local.top) as usize;
     if blurred.halvings == 0 {
         let mut out = Vec::with_capacity(width * height);
+        let full = blurred.size.0 as usize;
         for y in local.top..local.bottom {
-            for x in local.left..local.right {
-                out.push(
+            let start = (y as usize) * full;
+            match blurred
+                .pixels
+                .get(start + local.left as usize..start + local.right as usize)
+            {
+                Some(row) => out.extend_from_slice(row),
+                None => out.extend((local.left..local.right).map(|x| {
                     blurred
                         .pixels
-                        .get((y as usize) * (blurred.size.0 as usize) + x as usize)
+                        .get(start + x as usize)
                         .copied()
-                        .unwrap_or_default(),
-                );
+                        .unwrap_or_default()
+                })),
             }
         }
         return out;
@@ -489,42 +591,51 @@ fn grown_back(blurred: &Blurred, local: Region) -> Vec<Pixel> {
         .map(|(first, run)| first + run.len())
         .max()
         .unwrap_or(first_row);
+    let columns: Vec<(usize, &[f32])> = (local.left..local.right)
+        .map(|x| {
+            across_taps
+                .of
+                .get(x as usize)
+                .map_or((0, &[][..]), |(first, run)| (*first, run.as_slice()))
+        })
+        .collect();
     // Across first, for every small row a pixel asked for is grown from.
     let mut grown_across = Vec::with_capacity((last_row - first_row) * width);
     for small_row in first_row..last_row {
-        for x in local.left..local.right {
-            let (first, run) = across_taps
-                .of
-                .get(x as usize)
-                .map_or((0, &[][..]), |(first, run)| (*first, run.as_slice()));
+        let source = blurred
+            .pixels
+            .get(small_row * small_width..(small_row + 1) * small_width)
+            .unwrap_or(&[]);
+        for &(first, run) in &columns {
             let mut sum = [0.0_f32; 4];
-            for (offset, weight) in run.iter().enumerate() {
-                if let Some(pixel) = blurred.pixels.get(small_row * small_width + first + offset) {
-                    for (total, channel) in sum.iter_mut().zip(pixel) {
-                        *total += weight * channel;
-                    }
+            let taps = source.get(first..).unwrap_or(&[]);
+            for (weight, pixel) in run.iter().zip(taps) {
+                for (total, channel) in sum.iter_mut().zip(pixel) {
+                    *total += weight * channel;
                 }
             }
             grown_across.push(sum);
         }
     }
-    let mut out = Vec::with_capacity(width * height);
-    for (first, run) in rows {
-        for column in 0..width {
-            let mut sum = [0.0_f32; 4];
-            for (offset, weight) in run.iter().enumerate() {
-                let row = first + offset - first_row;
-                if let Some(pixel) = grown_across.get(row * width + column) {
-                    for (total, channel) in sum.iter_mut().zip(pixel) {
-                        *total += weight * channel;
-                    }
+    let mut out = vec![[0.0_f32; 4]; width * height];
+    for ((first, run), slots) in rows.into_iter().zip(out.chunks_exact_mut(width.max(1))) {
+        for (offset, weight) in run.iter().enumerate() {
+            let row = first + offset - first_row;
+            let Some(source) = grown_across.get(row * width..(row + 1) * width) else {
+                continue;
+            };
+            for (slot, pixel) in slots.iter_mut().zip(source) {
+                for (total, channel) in slot.iter_mut().zip(pixel) {
+                    *total += weight * channel;
                 }
             }
-            out.push(sum);
         }
     }
     out
 }
+
+#[cfg(test)]
+mod reference;
 
 #[cfg(test)]
 mod tests {
@@ -733,5 +844,144 @@ mod tests {
             Rgba::TRANSPARENT
         );
         assert_eq!(blurred.bytes(), 64 * 16);
+    }
+    /// A canvas of `size` whose every pixel is drawn from `seed`: some
+    /// opaque, some translucent, some clear — what a page's crop holds.
+    fn noise((width, height): (u32, u32), seed: u32) -> Canvas {
+        let mut state = seed.wrapping_mul(2_654_435_761).wrapping_add(1);
+        let mut next = move || {
+            state ^= state << 13;
+            state ^= state >> 17;
+            state ^= state << 5;
+            u8::try_from(state >> 24).unwrap_or(0)
+        };
+        let mut canvas = Canvas::new(width, height, Rgba::WHITE);
+        for y in 0..height {
+            for x in 0..width {
+                let (red, green, blue) = (next(), next(), next());
+                let alpha = match next() % 4 {
+                    0 => 0,
+                    1 => next(),
+                    _ => u8::MAX,
+                };
+                canvas.replace(x, y, |_| Rgba::from_rgba8(red, green, blue, alpha));
+            }
+        }
+        canvas
+    }
+
+    fn bits(pixels: &[Pixel]) -> Vec<[u32; 4]> {
+        pixels.iter().map(|pixel| pixel.map(f32::to_bits)).collect()
+    }
+
+    fn canvas_bits(canvas: &Canvas) -> Vec<[u32; 4]> {
+        canvas
+            .pixels()
+            .iter()
+            .map(|color| [color.red, color.green, color.blue, color.alpha].map(f32::to_bits))
+            .collect()
+    }
+
+    const SIGMAS: [f32; 12] = [
+        0.0, 0.5, 1.5, 3.0, 4.0, 4.01, 6.0, 8.0, 13.0, 16.0, 24.0, 40.0,
+    ];
+
+    #[test]
+    fn the_blur_a_row_at_a_time_is_every_bit_the_blur_pixel_by_pixel() {
+        // Queue item 894: crops of odd and even sizes, at the canvas's
+        // edges and inside it, one or two pixels thin, and past the canvas,
+        // at every kind of σ — no halving, one, several, more than the crop
+        // can take.
+        let canvas = noise((97, 61), 7);
+        let crops = [
+            (0, 0, 97, 61),
+            (3, 5, 90, 58),
+            (10, 10, 11, 40),
+            (10, 10, 60, 12),
+            (50, 20, 97, 61),
+            (1, 1, 2, 2),
+            (40, 30, 120, 90),
+        ];
+        for (left, top, right, bottom) in crops {
+            let crop = Region::new(left, top, right, bottom).expect("a crop");
+            for sigma in SIGMAS {
+                let quick = blurred(&canvas, crop, sigma);
+                let slow = reference::blurred(&canvas, crop, sigma);
+                assert_eq!(
+                    (quick.size, quick.halvings, quick.small),
+                    (slow.size, slow.halvings, slow.small),
+                    "σ {sigma} over {crop:?}"
+                );
+                assert_eq!(
+                    bits(&quick.pixels),
+                    bits(&slow.pixels),
+                    "σ {sigma} over {crop:?}"
+                );
+                let (width, height) = quick.size;
+                for local in [
+                    Region::new(0, 0, width, height),
+                    Region::new(width / 3, height / 4, width - width / 5, height - 1),
+                    Region::new(width - 1, 0, width, height),
+                ]
+                .into_iter()
+                .flatten()
+                {
+                    assert_eq!(
+                        bits(&grown_back(&quick, local)),
+                        bits(&reference::grown_back(&slow, local)),
+                        "σ {sigma} over {crop:?}, grown over {local:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_backdrop_drawn_a_row_at_a_time_is_every_bit_as_drawn_pixel_by_pixel() {
+        // Under a rounded shape partly off the canvas, through a clip and
+        // without, whole and confined, over translucent pixels and opaque.
+        let size = (83, 59);
+        let page = noise(size, 11);
+        let shapes = [
+            crate::corner::rounded_rectangle(
+                alo_layout::Rect::new(6.5, 4.25, 60.0, 44.0),
+                crate::corner::Corners::all(12.0),
+            ),
+            crate::corner::rounded_rectangle(
+                alo_layout::Rect::new(-20.0, 30.0, 70.0, 50.0),
+                crate::corner::Corners::all(9.0),
+            ),
+        ];
+        let clip = Clip::from(&crate::clip::mask(&crate::path::Path::rectangle(
+            10.0, 0.0, 50.0, 40.5,
+        )));
+        for (index, shape) in shapes.iter().enumerate() {
+            let coverage = crate::raster::fill_on_page(shape, crate::FillRule::NonZero, size);
+            let crop = if index == 0 {
+                Region::new(6, 4, 67, 48)
+            } else {
+                Region::new(0, 30, 50, 59)
+            }
+            .expect("a crop");
+            for sigma in [2.0, 9.0, 16.0] {
+                let made = blurred(&page, crop, sigma);
+                for through in [None, Some(&clip)] {
+                    for confined in [None, Region::new(20, 10, 45, 55)] {
+                        let mut quick = page.clone();
+                        let mut slow = page.clone();
+                        quick.confine(confined);
+                        slow.confine(confined);
+                        draw(&mut quick, crop, &made, &coverage, through);
+                        reference::draw(&mut slow, crop, &made, &coverage, through);
+                        assert_eq!(
+                            canvas_bits(&quick),
+                            canvas_bits(&slow),
+                            "shape {index}, σ {sigma}, clipped {}, confined {confined:?}",
+                            through.is_some()
+                        );
+                    }
+                }
+            }
+        }
     }
 }

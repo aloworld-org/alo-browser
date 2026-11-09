@@ -33,8 +33,15 @@
 //! - **where everything is placed** — another, and everything;
 //! - **the panel's frame** — another, and the panel's place;
 //! - **the first screen's frame** — of another size, everything; of the same
-//!   size, the smallest rectangle holding every pixel whose bytes differ;
+//!   size, the rows whose bytes differ, each run of them the smallest
+//!   rectangle holding its differing pixels (queue item 896);
 //! - **the card's page beneath** — another picture or place, both places.
+//!
+//! What may have changed is then joined as a drawing's damage is
+//! ([`alo_paint::pieces::cut`]): far apart, two rings in *Settings* are
+//! composed again as two rectangles of about 198,000 pixels at two, not the
+//! 725,000 of the rectangle holding both. A pixel two rectangles share is
+//! composed twice, alike.
 
 use crate::conversation_compose::{
     ConversationScene, beneath_rect, compose_conversation, compose_within,
@@ -49,22 +56,22 @@ use alo_renderer::Frame;
 use alo_renderer::beneath::Beneath;
 
 /// What composing the window again did.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Recomposed {
     /// Nothing it is made from changed.
     Nothing,
-    /// The pixels of this region were composed again, and no others.
-    Within(Region),
+    /// The pixels of these regions were composed again, and no others.
+    Within(Vec<Region>),
     /// Every pixel.
     Whole,
 }
 
 impl Recomposed {
     /// How many pixels were composed again, of a window of `size`.
-    pub fn area(self, size: (u32, u32)) -> u64 {
+    pub fn area(&self, size: (u32, u32)) -> u64 {
         match self {
             Recomposed::Nothing => 0,
-            Recomposed::Within(region) => region.area(),
+            Recomposed::Within(regions) => regions.iter().map(|region| region.area()).sum(),
             Recomposed::Whole => u64::from(size.0) * u64::from(size.1),
         }
     }
@@ -154,11 +161,13 @@ impl Composed {
         let recomposed = match self.kept.as_mut() {
             Some((made, canvas, words)) => match changed(made, scene, placed) {
                 Recomposed::Nothing => Recomposed::Nothing,
-                Recomposed::Within(region) => {
-                    compose_within(canvas, scene, lettering, region);
-                    pack(canvas, words, region);
+                Recomposed::Within(regions) => {
+                    for &region in &regions {
+                        compose_within(canvas, scene, lettering, region);
+                        pack(canvas, words, region);
+                    }
                     made.refresh(scene);
-                    Recomposed::Within(region)
+                    Recomposed::Within(regions)
                 }
                 Recomposed::Whole => {
                     self.kept = None;
@@ -196,7 +205,7 @@ fn changed(
     {
         return Recomposed::Whole;
     }
-    let mut found: Option<Region> = None;
+    let mut found: Vec<Region> = Vec::new();
     let mut add = |rect: PixelRect| {
         if let Some(region) = Region::new(
             rect.x,
@@ -204,7 +213,7 @@ fn changed(
             rect.x.saturating_add(rect.width).min(scene.window.0),
             rect.y.saturating_add(rect.height).min(scene.window.1),
         ) {
-            found = Some(found.map_or(region, |was| was.joined(region)));
+            found.push(region);
         }
     };
     if made.panel.as_ref() != scene.panel {
@@ -214,7 +223,7 @@ fn changed(
     match (made.start.as_ref(), scene.start) {
         (None, None) => {}
         (Some(was), Some(is)) if (was.width, was.height) == (is.width, is.height) => {
-            if let Some(rect) = differing(was, is) {
+            for rect in differing(was, is) {
                 add(PixelRect {
                     x: placed.start.x + rect.x,
                     y: placed.start.y + rect.y,
@@ -242,23 +251,54 @@ fn changed(
             }
         }
     }
-    found.map_or(Recomposed::Nothing, Recomposed::Within)
+    let pieces = alo_paint::pieces::cut(&found, &[]);
+    if pieces.is_empty() {
+        Recomposed::Nothing
+    } else {
+        Recomposed::Within(pieces)
+    }
 }
 
-/// The smallest rectangle of `one` and `other`, two frames of one size,
-/// holding every pixel whose bytes differ, or [`None`] where none do.
-fn differing(one: &Frame, other: &Frame) -> Option<PixelRect> {
+/// Where `one` and `other`, two frames of one size, differ: each run of
+/// rows whose bytes differ, as the smallest rectangle holding every pixel
+/// of it whose bytes differ — none where none do.
+fn differing(one: &Frame, other: &Frame) -> Vec<PixelRect> {
     let row = (one.width as usize) * 4;
     if row == 0 {
-        return None;
+        return Vec::new();
     }
     let was: Vec<&[u8]> = one.pixels.chunks_exact(row).collect();
     let is: Vec<&[u8]> = other.pixels.chunks_exact(row).collect();
-    let differs = |y: &usize| was.get(*y) != is.get(*y);
-    let top = (0..was.len()).find(differs)?;
-    let bottom = (top..was.len()).rev().find(differs).unwrap_or(top);
-    let (mut left, mut right) = (one.width, 0);
-    for y in top..=bottom {
+    let differs = |y: usize| was.get(y) != is.get(y);
+    let mut found = Vec::new();
+    let mut y = 0;
+    while y < was.len() {
+        if !differs(y) {
+            y += 1;
+            continue;
+        }
+        let top = y;
+        while y < was.len() && differs(y) {
+            y += 1;
+        }
+        if let Some(rect) = columns(&was, &is, (top, y), one.width) {
+            found.push(rect);
+        }
+    }
+    found
+}
+
+/// The smallest rectangle holding every pixel whose bytes differ in rows
+/// `top` to `bottom` (not including it) of `was` and `is`, rows of `width`
+/// pixels.
+fn columns(
+    was: &[&[u8]],
+    is: &[&[u8]],
+    (top, bottom): (usize, usize),
+    width: u32,
+) -> Option<PixelRect> {
+    let (mut left, mut right) = (width, 0);
+    for y in top..bottom {
         let (Some(a), Some(b)) = (was.get(y), is.get(y)) else {
             continue;
         };
@@ -269,7 +309,7 @@ fn differing(one: &Frame, other: &Frame) -> Option<PixelRect> {
         if let Some(first) = (0..left).find(pixel) {
             left = first;
         }
-        if let Some(last) = (right..one.width).rev().find(pixel) {
+        if let Some(last) = (right..width).rev().find(pixel) {
             right = last + 1;
         }
     }
@@ -278,7 +318,7 @@ fn differing(one: &Frame, other: &Frame) -> Option<PixelRect> {
         x: left,
         y: top,
         width: right - left,
-        height: bottom + 1 - top,
+        height: bottom - top,
     })
 }
 
@@ -405,8 +445,8 @@ mod tests {
             "every word as composed whole"
         );
         assert_eq!(
-            Some(recomposed),
-            Region::new(580, 70, 592, 79).map(Recomposed::Within),
+            Some(recomposed.clone()),
+            Region::new(580, 70, 592, 79).map(|region| Recomposed::Within(vec![region])),
             "the letter's pixels, where the first screen stands"
         );
         assert_eq!(recomposed.area((700, 120)), 12 * 9);
@@ -432,12 +472,12 @@ mod tests {
         assert_eq!(words, whole(&next).as_slice());
         assert_eq!(
             recomposed,
-            Recomposed::Within(Region {
+            Recomposed::Within(vec![Region {
                 left: 480,
                 top: 20,
                 right: 560,
                 bottom: 60
-            }),
+            }]),
             "the place, less what is off the frame's left"
         );
         let moved = Beneath { left: 50, ..place };
@@ -482,5 +522,47 @@ mod tests {
         let (words, recomposed) = composed.compose(&grown, &lettering());
         assert_eq!(words, whole(&grown).as_slice());
         assert_eq!(recomposed, Recomposed::Whole);
+    }
+
+    #[test]
+    fn two_changes_far_apart_in_the_first_screen_compose_again_as_two_rectangles() {
+        // Queue item 896: two rings in *Settings*, one at the top right and
+        // one half way down the left — two rectangles, not the one holding
+        // both; every word as composed whole.
+        let (panel, start) = (varied(100, 1000, 1), varied(1200, 1000, 2));
+        let mut composed = Composed::new();
+        let mut first = scene(&panel, &start, None);
+        first.window = (1300, 1000);
+        composed.compose(&first, &lettering());
+        let rings = touched(
+            &touched(
+                &start,
+                PixelRect {
+                    x: 700,
+                    y: 40,
+                    width: 40,
+                    height: 40,
+                },
+            ),
+            PixelRect {
+                x: 100,
+                y: 600,
+                width: 300,
+                height: 120,
+            },
+        );
+        let mut next = scene(&panel, &rings, None);
+        next.window = (1300, 1000);
+        let (words, recomposed) = composed.compose(&next, &lettering());
+        assert_eq!(
+            words,
+            whole(&next).as_slice(),
+            "every word as composed whole"
+        );
+        let Recomposed::Within(regions) = &recomposed else {
+            panic!("composed {recomposed:?}");
+        };
+        assert_eq!(regions.len(), 2, "{regions:?}");
+        assert_eq!(recomposed.area((1300, 1000)), 40 * 40 + 300 * 120);
     }
 }

@@ -25,6 +25,19 @@
 [profile.dev]
 debug = 1
 
+# The painter optimised in a debug build (queue item 893). A debug renderer
+# answering the first screen with a card on it took 757 ms to draw it, 634
+# of them painting — the card's two shadows blurred and its fills, loops the
+# unoptimised build leaves as written. Under the gate's load, reproduced
+# with 96 busy processes, that drawing passed `LONGEST_SILENCE` (10 s) and
+# the renderer was stopped as silent, in two runs of two. Optimised, the
+# same drawing takes 278 ms and the slowest answer under that load 5.6 s,
+# in five runs of five. Every test runs and is judged as before — the same
+# overflow checks and debug assertions, which the opt-level does not turn
+# off — and the bound stays the one a person's browser is given.
+[profile.dev.package.alo-paint]
+opt-level = 2
+
 [workspace]
 resolver = "3"
 members = ["crates/*"]

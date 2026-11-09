@@ -1,0 +1,14 @@
+html, body { margin: 0; background: #ffffff; width: 240px; height: 100px; overflow: hidden }
+.g { display: grid; width: 240px; height: 100px; grid-template-columns: repeat(60, 4px); grid-auto-rows: 4px }
+.g i { display: block }
+.c0 { background: #f0c828 }
+.c1 { background: #141414 }
+.c2 { background: #e62828 }
+.c3 { background: #1e3cc8 }
+.c4 { background: #ffffff }
+.b { position: absolute; box-sizing: border-box }
+.cut { left: -20px; top: -14px; width: 72px; height: 56px; border-radius: 16px; backdrop-filter: blur(4px); background: rgba(255, 255, 255, 0.5) }
+.root { left: 70px; top: 12px; width: 88px; height: 76px; border-radius: 12px; backdrop-filter: blur(3px); background: rgba(255, 255, 255, 0.3) }
+.root .b { left: 52px; top: 16px; width: 48px; height: 40px; backdrop-filter: blur(5px) }
+.bare { left: 178px; top: 30px; width: 56px; height: 60px; backdrop-filter: blur(3px) }
+.bare .b { left: 8px; top: 8px; width: 32px; height: 30px; backdrop-filter: blur(6px) }

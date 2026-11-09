@@ -2219,9 +2219,11 @@ unreachable without it.
       · Built: `backdrop-filter: blur()`, as Chrome 157 draws it at one,
       two and eight — its kernel, its halvings past σ 4, its crop mirrored
       at its edge — and painted over only where nothing under it changed
-      (queue item 885, ADR 0104; corpus case `backdrops-blurred`) · Owed:
+      (queue item 885, ADR 0104; corpus case `backdrops-blurred`); a box
+      with it the backdrop root of what it holds, and a crop cut by the
+      page's edge, each Chrome's (887; `backdrops-rooted-and-cut`) · Owed:
       every other filter function (refused by name), `filter`, blend
-      modes, masks, `clip-path`, and a nested backdrop's own root (887)
+      modes, masks, `clip-path`, a backdrop under a turning transform (897)
 - [ ] `position: sticky`, multi-column, scroll snap, overscroll behaviour
 - [ ] Writing modes, and layout that is right-to-left rather than mirrored afterwards
       · Built: `padding-block` and `margin-block`, split in `alo-css` into
@@ -2582,6 +2584,12 @@ items where being right and being unusable are the same outcome.
       aside, a picture at its own size and flat fills drawn with less
       arithmetic, every pixel as drawn whole (890–892, ADRs 0101 and 0102
       amended);
+      *Settings* opened again taking its veil's blur, kept with the items
+      drawn before it, the blur a row at a time, a run of text outlined
+      once a drawing, and a frame crossing and composed as its pieces
+      (894–896, ADRs 0101, 0102 and 0104 amended); a backdrop root of its
+      own and the carried Chromium measured (887, ADR 0104 amended); a
+      card's mailto test that waited for paints nobody asked (893);
       the pointer following a card's page, a link's strip on an
       expanded card, alo's own menu and a link opened as the next turn, a
       closed list's normal dropdown and the agent's list in its column, and

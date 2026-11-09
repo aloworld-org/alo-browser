@@ -50409,3 +50409,81 @@ slow, 1 leaky), 0 skipped** — *"The gate is met." (11 of 11 steps)*.
 `scripts/gate.sh` not edited. The release bundle rebuilt after it.
 
 The next unused queue number is **897** and the next ADR is **0105**.
+
+---
+
+## 2026-11-09 — batch 28: the veil's blur kept and cheaper (894), a piece's cost (895), a frame as its pieces (896), backdrop roots and the carried Chromium (887), a mailto test under load (893)
+
+**Contracts read:** `CLAUDE.md`, this loop, ADRs 0100–0102 and 0104, the
+items' own text, the memory on gate timing, gate-only flakes, measuring
+Chrome and mutation checks.
+
+**Measured** (release, renderer alone, this Mac, at two, *Settings* over a
+live card whose frame is drawn at its own size; 890's harness with a row
+added — opened again after closing with the card's page beneath, as the
+window asks — five rounds, medians, HEAD a9c2405 in a worktree and this
+tree alternated, two runs each; scratchpad `m894/`, the harness and every
+probe removed before the gate):
+
+| | HEAD (a9c2405) | after |
+|---|---|---|
+| opened over the card | 217.5, 221.5 ms | 203.1, 202.0 |
+| opened again (frame in the first screen while closed) | 154.6, 156.1 | 129.6, 128.8 |
+| opened again (the page beneath while closed) | 160.6, 162.4 | 129.2, 129.1 |
+| Tab between near stops | 16.5, 16.5 (at most 26.4, 26.9) | 14.3, 14.1 (at most 22.0, 21.9) |
+| Tab *Close* → *Font*, two far rings | 27.5, 27.7 | 22.9, 22.9 |
+| a face chosen | 156.5, 159.0 | 141.7, 139.9 |
+| a letter, *Settings* closed | 14.3, 14.4 | 14.1, 13.9 |
+| the veil's blur alone (2080 × 1640, σ 16) | 44 | 29 |
+| *Close* → *Font* crossing to the window | 721,392 pixels | 196,200 |
+| … composed in the window (release, alone) | 5.01 ms | 2.19 |
+
+**894 — the veil's blur kept with the items drawn before it**
+(`alo_paint::blurred_from`, ADR 0104 amended), laid aside (`ASIDE_BYTES`
+32 MiB), a picture the renderer did not show laid aside (32 MiB), and the
+blur a row at a time, every bit the pixel-by-pixel reference's. **Found and
+fixed on the way:** a backdrop only the list after draws now has its crop
+held whole by one piece; before, a piece of another change meeting it,
+painted after it, read pixels already finished (a test reproduces it).
+**895 — a run outlined once a drawing** and kept for the next; what is left
+of a piece measured (a later piece ≈1.2 ms). **896 — a patch per piece**,
+each read as hostile, and the window composing per run of differing rows.
+**887 — a backdrop root** for a box with `backdrop-filter` (Chrome 157
+measured; before up to 58 levels off), a crop cut by the page's edge
+measured, the carried CEF 156 measured through the card's road (byte for
+byte Chrome's at one; at two its whole frame in other colours — 898);
+the turning transform measured, not built (897), a first-screen backdrop
+over a card's page beneath cut (899). **893 — three causes under yes×96**:
+the debug painter too slow for `LONGEST_SILENCE` (now `opt-level = 2` for
+`alo-paint` in the dev profile; the bound unchanged), a wait for paints
+nobody asks (now `drawn_as_asked`, in the two sibling tests too), and the
+test server answering a preconnect's silence with *Not Found*; 5 of 5 under
+yes×96 after.
+
+Tests, mutations and numbers are in each item's entry. **Mutations**: 22
+run, each caught but two equivalent ones in 895, named there (they cost
+time, never a pixel). A mutation restored from a copy keeps an older mtime,
+so cargo kept a mutated build until the sources were touched — every test
+was run again after. **Layout in numbers**: the new case's boxes and
+layout; no layout moved. **References**: one new case,
+`backdrops-rooted-and-cut` (render, render-at-2, Chrome's at 1, 2, 8);
+**no reference moved**.
+
+**By hand** (release, CEF host and `.app` rebuilt by `alo-bundle` with no
+keys; the Retina at two, the window at 120, 60, 1280 × 852; `--conversation
+--chats handrun48/chats`; `backdrops-rooted-and-cut`'s page on
+127.0.0.1:8739 opened as a card through the carried Chromium; keys through
+System Events; scratchpad `handrun48/`): the start (`48-00`), the card
+(`48-01`), ⌘, over it blurred (`48-02`), Escape (`48-03`), ⌘, again — the
+same picture (`48-04`). **Not seen by hand:** scale one; times on screen
+(renderer and window timings only); the nested backdrop inside a card is
+Chromium's drawing, not alo's — alo's is held by the corpus case.
+**Spend:** none.
+
+**Gate: met, first run** (CEF_PATH set, the pointer at 1400, 1000;
+detached through `perl -MPOSIX=setsid` and waited on by its PID;
+`gate-batch28.log`). **Summary [1153.241s] 6866 tests run: 6866 passed (4
+slow, 1 leaky), 0 skipped** — *"The gate is met." (11 of 11 steps)*.
+`scripts/gate.sh` not edited. The release bundle was rebuilt before it.
+
+The next unused queue number is **900** and the next ADR is **0105**.

@@ -42,7 +42,7 @@ and an item marked [2] is a decision that it is *not* stage 1's problem.
 - [1] Media queries for width, and `prefers-color-scheme` — the light and dark the workspace already ships. A width is in `px`, `em` or `rem`, and the last two are the initial 16 px rather than the page's font size, as Media Queries says; any other unit is recorded and the query never matches
 - [2] Animations and transitions
 - [2] Container queries, `:has()`, cascade layers, `@property`
-- [2] Filters, `backdrop-filter`, blend modes, masks and `clip-path` — **`backdrop-filter: blur()` built** (item 885, ADR 0104), as Chrome 157 draws it; every other filter function refused by name; `filter`, blend modes, masks and `clip-path` not yet
+- [2] Filters, `backdrop-filter`, blend modes, masks and `clip-path` — **`backdrop-filter: blur()` built** (items 885, 887, ADR 0104), as Chrome 157 draws it, a box with it the backdrop root of what it holds; every other filter function refused by name; `filter`, blend modes, masks and `clip-path` not yet
 - [2] Paged media and print styles
 - [3] Vendor prefixes, and anything that exists only for a page written before 2015
 
