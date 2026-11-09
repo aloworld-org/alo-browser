@@ -6,6 +6,21 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Choose your own search and AI services.** alo no longer depends on
+  one search engine: searching, a search's written answer and alo's agent
+  each go through a common interface, and which service is asked is
+  configuration. Brave Search stays the default; a SearXNG of your own (or
+  any whose JSON format is on) can be chosen instead, needing no key — it
+  searches the web, further pages and news, and its Images and Videos tabs
+  say plainly that it does not search them. A new *Settings* section,
+  **Search and answers**, chooses the services, takes a SearXNG's address,
+  and keeps your own keys in this Mac's keychain — shown only as dots,
+  never written to a file, a log or a chat, and removable. Your own key
+  wins over one a release carries. A change is used from alo's next start.
+  The services' names appear in that chooser and nowhere else; an answer's
+  note now says it was sent to *the AI service chosen in Settings*. Those
+  who make a release can set its services and keys with `alo-bundle
+  --services FILE --keys-from …` (ADR 0106).
 - **The window reaches the screen in a fraction of a millisecond.** On a
   Mac, alo's window is now kept on the graphics chip between frames and
   given only what changed: a letter is put on screen in about 0.3 ms where

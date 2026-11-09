@@ -232,6 +232,9 @@ pub struct ConversationWindow {
     /// Where what a person chose in *Settings* is kept, when the window was
     /// given somewhere (queue item 854).
     settings: Option<std::path::PathBuf>,
+    /// Where a person's own keys are kept and read (ADR 0106 § 4, queue
+    /// item 905): the person's keychain, a test's, or nowhere.
+    keys: Option<crate::service_keys::Keys>,
     /// What the card's page was streamed at when *Settings* came to stand
     /// in its place, or would be had the window been seen meanwhile: asked
     /// for again once the card is back on the screen (ADR 0076, queue item
@@ -414,6 +417,7 @@ impl ConversationWindow {
             over_the_panel: false,
             switches: None,
             settings: None,
+            keys: None,
             under_settings: None,
             slide: Slide::default(),
             sheet_frame: None,
@@ -664,13 +668,16 @@ impl ConversationWindow {
             Said::Stuck { why, .. } => self.said.push(format!("agent is stuck: {why}")),
             Said::Done { result } => self.said.push(format!("agent is done: {result}")),
             Said::Stopped { why } => self.said.push(format!("agent stopped: {why}")),
-            Said::Spent(spent) => self.said.push(format!(
-                "agent: {}'s {} chose a step ({} tokens in, {} out)",
-                crate::openai_answer::ANSWERER,
-                crate::openai_answer::MODEL,
-                spent.input,
-                spent.output
-            )),
+            Said::Spent(spent) => {
+                let by = self.agent.as_ref().map_or_else(
+                    || crate::ai_service::AI_SERVICE.to_owned(),
+                    |(agent, _)| agent.named(),
+                );
+                self.said.push(format!(
+                    "agent: {by} chose a step ({} tokens in, {} out)",
+                    spent.input, spent.output
+                ));
+            }
             Said::Opening { url, .. } => self.said.push(format!("agent opens {url}")),
             Said::SignIn => self
                 .said
@@ -801,8 +808,192 @@ impl ConversationWindow {
         if let Some(said) = read.said {
             self.tell(said);
         }
+        // The services its file names (ADR 0106 § 3), written back with
+        // every choice so no line of them is lost.
+        self.conversation = std::mem::take(&mut self.conversation).serving(
+            crate::conversation_services::ServicesPage::of(
+                read.services,
+                crate::services::Named::default(),
+                (
+                    Ok(crate::service_keys::Kept::None),
+                    Ok(crate::service_keys::Kept::None),
+                ),
+            ),
+        );
         self.settings = file;
         self
+    }
+
+    /// The same window, *Settings › Search and answers* showing the
+    /// application's `defaults` under the person's choices, and each key
+    /// read from and kept with `keys` (ADR 0106 §§ 3–4, queue item 905) —
+    /// the person's keychain, or a test's own.
+    #[must_use]
+    pub fn with_services(
+        mut self,
+        defaults: crate::services::Named,
+        keys: crate::service_keys::Keys,
+    ) -> Self {
+        let page = self.conversation.services().clone();
+        let services = page.named().clone().over(&defaults).services();
+        let kept_of = |keyed: Option<crate::services::Keyed>| match keyed {
+            Some(keyed) => keys.kept(keyed),
+            None => Ok(crate::service_keys::Kept::None),
+        };
+        let kept = (
+            kept_of(services.search.keyed()),
+            kept_of(Some(services.answers.keyed())),
+        );
+        self.conversation =
+            std::mem::take(&mut self.conversation).serving(page.under(defaults, kept));
+        self.keys = Some(keys);
+        self
+    }
+
+    /// Do what *Search and answers* asked (queue item 905): its choices
+    /// kept in the settings file, a key kept in or removed from the
+    /// person's keychain — never said, anywhere — and what came of it said
+    /// under the section.
+    fn do_services(&mut self) {
+        use crate::conversation_services::ToDo;
+        for to_do in self.conversation.services_mut().take_to_do() {
+            match to_do {
+                ToDo::KeepServices => self.keep_settings(),
+                ToDo::KeepKey(keyed, key) => {
+                    let kept = match &self.keys {
+                        Some(keys) => keys.keep(keyed, &key),
+                        None => Err("there is no keychain to keep it in".to_owned()),
+                    };
+                    drop(key);
+                    let said = match &kept {
+                        Ok(()) => format!(
+                            "Your key for {} is kept in this Mac\u{2019}s keychain. alo uses it \
+                             from its next start.",
+                            keyed.of()
+                        ),
+                        Err(why) => format!("Your key was not kept: {why}."),
+                    };
+                    self.key_done(keyed, said);
+                    if kept.is_ok() {
+                        self.said.push(format!(
+                            "a key for {} was kept in this Mac's keychain, as the item {} \
+                             (Settings)",
+                            keyed.of(),
+                            keyed.service()
+                        ));
+                    }
+                }
+                ToDo::RemoveKey(keyed) => {
+                    let removed = match &self.keys {
+                        Some(keys) => keys.remove(keyed),
+                        None => Err("there is no keychain to remove it from".to_owned()),
+                    };
+                    let said = match removed {
+                        Ok(true) => format!(
+                            "Your key for {} was removed from this Mac\u{2019}s keychain.",
+                            keyed.of()
+                        ),
+                        Ok(false) => "There was no key of yours to remove.".to_owned(),
+                        Err(why) => format!("Your key was not removed: {why}."),
+                    };
+                    self.key_done(keyed, said);
+                }
+            }
+        }
+    }
+
+    /// A key went down, read as `press`, writing `text`, while a field of
+    /// *Search and answers* has the keyboard (queue item 905): what is
+    /// typed or pasted put at its end, ⌫ taking the last character, Escape
+    /// emptying it, Return keeping it. Whether it was the field's: Escape
+    /// in an empty field, Tab, and every key it does not read, is not.
+    fn services_typed(&mut self, press: &Press, text: Option<&str>) -> bool {
+        use crate::text_field::Toward;
+        use crate::typing::Edit;
+        // Tab and ⇧Tab are still *Settings*' own, and *Search chats* keeps
+        // what it has.
+        if !self.conversation.settings().is_open()
+            || self.conversation.find().focused()
+            || press.key == crate::keys::Key::Tab
+        {
+            return false;
+        }
+        let Some(entry) = self.conversation.services().typing() else {
+            return false;
+        };
+        let Some(edit) = crate::typing::edit(press, text) else {
+            return false;
+        };
+        let changed = match edit {
+            Edit::Put(text) | Edit::Pasted(text) => self.conversation.services_mut().put(&text),
+            Edit::Paste => match (self.fields.paste)() {
+                Ok(pasted) => self.conversation.services_mut().put(&pasted),
+                Err(why) => {
+                    self.tell(format!("nothing was pasted: {why}"));
+                    true
+                }
+            },
+            Edit::Erase(_, Toward::Start) => self.conversation.services_mut().erase(),
+            Edit::Clear => {
+                if !self.conversation.services_mut().empty() {
+                    return false;
+                }
+                true
+            }
+            Edit::Choose => {
+                let pressed = alo_renderer::settings_services::ServicePress::Keep(entry);
+                let changed = self.conversation.services_mut().press(pressed);
+                self.do_services();
+                changed
+            }
+            // The caret stands at the field's end: moving it, selecting
+            // and the rest are not read here (queue item 909).
+            _ => false,
+        };
+        if changed {
+            self.ask_drawn();
+            self.redraw = true;
+        }
+        true
+    }
+
+    /// Whose key `keyed`'s service is asked with now, read again, and
+    /// `said` under the section.
+    fn key_done(&mut self, keyed: crate::services::Keyed, said: String) {
+        let kept = self
+            .keys
+            .as_ref()
+            .map_or(Ok(crate::service_keys::Kept::None), |keys| keys.kept(keyed));
+        self.conversation
+            .services_mut()
+            .kept_now(keyed, kept, Some(said));
+    }
+
+    /// Keep the services a person chose in the settings file, beside the
+    /// face and the limits (ADR 0106 § 3): one not kept is said.
+    fn keep_settings(&mut self) {
+        let settings = self.conversation.settings();
+        let named = self.conversation.services().named().clone();
+        let kept = match &self.settings {
+            Some(file) => {
+                crate::settings_file::write(file, settings.face(), settings.limits(), &named)
+            }
+            None => Err("there is nowhere to keep it".to_owned()),
+        };
+        match kept {
+            Ok(()) => {
+                let services = self.conversation.services().services();
+                self.said.push(format!(
+                    "Settings: searching with {} and answering with {} from alo's next start",
+                    services.search.name(),
+                    services.answers.name()
+                ));
+            }
+            Err(why) => self
+                .conversation
+                .services_mut()
+                .say(format!("Your choice was not kept: {why}.")),
+        }
     }
 
     /// Keep the face a person just chose in *Settings*, if one was (queue
@@ -817,7 +1008,12 @@ impl ConversationWindow {
         }
         let settings = self.conversation.settings();
         let kept = match &self.settings {
-            Some(file) => crate::settings_file::write(file, settings.face(), settings.limits()),
+            Some(file) => crate::settings_file::write(
+                file,
+                settings.face(),
+                settings.limits(),
+                self.conversation.services().named(),
+            ),
             None => Err("there is nowhere to keep it".to_owned()),
         };
         let limits = settings.limits();
@@ -1819,6 +2015,7 @@ impl ConversationWindow {
             self.stream_under_settings();
         }
         self.keep_face();
+        self.do_services();
         self.follow_runs();
         // Shown in a window too narrow for it, the panel slides over the
         // conversation as the sheet; a chat chosen in it, New chat or Hide
@@ -1955,8 +2152,18 @@ impl ConversationWindow {
             Came::Answer { answer, spent } => {
                 // Said on the terminal, with what it cost, never on the
                 // first screen's line, which keeps what the sites came to.
-                self.said
-                    .extend(conversation_answer::said(&searched.words, answer, *spent));
+                let by = self
+                    .searcher
+                    .as_ref()
+                    .and_then(Searcher::answered_by)
+                    .unwrap_or(crate::ai_service::AI_SERVICE)
+                    .to_owned();
+                self.said.extend(conversation_answer::said(
+                    &by,
+                    &searched.words,
+                    answer,
+                    *spent,
+                ));
                 None
             }
             Came::Images(_) | Came::Marks(_) | Came::Videos(_) | Came::News(_) | Came::Page(_) => {
@@ -2435,6 +2642,11 @@ impl ConversationWindow {
         {
             return;
         }
+        // A field of *Settings › Search and answers* takes what is typed
+        // (queue item 905); the paging keys scroll *Settings* (880).
+        if self.services_typed(press, text) || self.settings_paged(press) {
+            return;
+        }
         // Escape closes *Settings*, back to the chat (queue item 854) —
         // unless *Search chats* has the keyboard, which it empties first.
         if press.key == crate::keys::Key::Escape
@@ -2445,9 +2657,6 @@ impl ConversationWindow {
             self.stream_under_settings();
             self.ask_drawn();
             self.redraw = true;
-            return;
-        }
-        if self.settings_paged(press) {
             return;
         }
         // *Settings* by keys (queue item 856): Tab, the arrows, Space and
@@ -2461,6 +2670,7 @@ impl ConversationWindow {
                     self.stream_under_settings();
                 }
                 self.keep_face();
+                self.do_services();
                 self.ask_drawn();
                 self.redraw = true;
             }
@@ -3829,6 +4039,110 @@ mod tests {
         window.finish();
     }
 
+    /// Queue item 905 (ADR 0106): *Settings › Search and answers* in the
+    /// window — a service chosen kept in the settings file; an address typed
+    /// and kept there; a key pasted, kept in a keychain of this test's own
+    /// and never in the file, a line said or what is drawn; and removed.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn a_service_an_address_and_a_key_chosen_in_settings_are_kept_where_they_belong() {
+        use crate::keychain::{self, Keychain};
+        use crate::service_keys::{Kept, Keys};
+        use crate::services::Keyed;
+        use alo_renderer::settings_services::{Entry, ServicePress};
+        use std::process::{Command, Stdio};
+        let root = std::env::temp_dir().join(format!("alo-window-services-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("made");
+        let made = root.join("test.keychain-db");
+        let created = Command::new(keychain::SECURITY)
+            .args(["create-keychain", "-p", "alo-test"])
+            .arg(&made)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .expect("the tool");
+        assert!(created.success());
+        let keys = Keys::in_keychain(Keychain::File(made.clone()), "alo-test", None);
+        let file = root.join("settings.txt");
+        let mut window = window()
+            .with_settings(crate::settings_file::read(&file), Some(file.clone()))
+            .with_services(crate::services::Named::default(), keys.clone());
+        let press = |window: &mut ConversationWindow, pressed| {
+            window.heard(Heard::Drawn(Drawn::Pressed(
+                Part::Start,
+                Decided::Service(pressed),
+            )));
+        };
+        window.heard(Heard::Drawn(Drawn::Pressed(Part::Panel, Decided::Settings)));
+        // SearXNG chosen: kept, and nothing else of it.
+        press(&mut window, ServicePress::Search(1));
+        let kept = std::fs::read_to_string(&file).unwrap_or_default();
+        assert!(kept.ends_with("asks never\nsearch searxng\n"), "{kept}");
+        // Its address, typed and kept by Return.
+        press(&mut window, ServicePress::Field(Entry::Address));
+        for letter in "http://127.0.0.1:8888".chars() {
+            let letter = letter.to_string();
+            window.key(&Press::character(&letter), Some(&letter));
+        }
+        window.key(&Press::of(Key::Return), Some("\r"));
+        let kept = std::fs::read_to_string(&file).unwrap_or_default();
+        assert!(
+            kept.ends_with("search searxng\nsearxng http://127.0.0.1:8888/\n"),
+            "{kept}"
+        );
+        // Back to the default, and a key of the person's own pasted.
+        press(&mut window, ServicePress::Search(0));
+        window.paste_with(|| Ok("not-a-real-key-0905\n".to_owned()));
+        press(&mut window, ServicePress::Field(Entry::SearchKey));
+        window.key(
+            &Press::character("v").with(crate::keys::Modifier::Command),
+            Some("v"),
+        );
+        let drawn = window
+            .conversation()
+            .start(Size::new(1040.0, 820.0), Scale::ONE);
+        let shown = drawn.services.clone().expect("drawn");
+        assert_eq!(
+            shown
+                .row(Entry::SearchKey)
+                .map(|row| row.typed.shown.chars().count()),
+            Some(19),
+            "as many dots as the key has characters"
+        );
+        assert!(!format!("{drawn:?}").contains("not-a-real"));
+        press(&mut window, ServicePress::Keep(Entry::SearchKey));
+        assert_eq!(keys.kept(Keyed::BraveSearch), Ok(Kept::Yours));
+        assert_eq!(
+            keys.key(Keyed::BraveSearch)
+                .map(|key| key.header_value().to_owned()),
+            Ok("not-a-real-key-0905".to_owned())
+        );
+        let kept = std::fs::read_to_string(&file).unwrap_or_default();
+        assert!(!kept.contains("not-a-real"), "{kept}");
+        let said = window.take_said().join("\n");
+        assert!(said.contains("as the item alo-search-brave"), "{said}");
+        assert!(!said.contains("not-a-real"), "{said}");
+        let shown = window
+            .conversation()
+            .start(Size::new(1040.0, 820.0), Scale::ONE)
+            .services
+            .expect("drawn");
+        assert!(shown.row(Entry::SearchKey).is_some_and(|row| row.removable));
+        assert!(!format!("{shown:?}").contains("not-a-real"));
+        // Removed.
+        press(&mut window, ServicePress::Remove(Entry::SearchKey));
+        assert_eq!(keys.kept(Keyed::BraveSearch), Ok(Kept::None));
+        let _ = Command::new(keychain::SECURITY)
+            .arg("delete-keychain")
+            .arg(&made)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+        window.finish();
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
     /// Queue item 772: the window dragged from a display at one to one at
     /// two — measured again at twice the device pixels, the same size in
     /// points — asks for the card's stream at two, the same page box; and
@@ -4081,6 +4395,7 @@ mod tests {
                 crate::settings_file::Read {
                     face: InterfaceFace::Inter,
                     limits: five,
+                    services: crate::services::Named::default(),
                     said: None,
                 },
                 None,

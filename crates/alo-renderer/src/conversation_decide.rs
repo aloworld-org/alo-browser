@@ -114,6 +114,9 @@ pub struct Shown<C, S> {
     pub limits: Vec<Stepped>,
     /// The choices of asking it offers, in order, while it is drawn.
     pub asks: Vec<Asks>,
+    /// What *Search and answers* lets a person press, in order, while
+    /// *Settings* is drawn (queue item 905).
+    pub services: Vec<crate::settings_services::ServicePress>,
 }
 
 impl<C, S> Default for Shown<C, S> {
@@ -145,6 +148,7 @@ impl<C, S> Default for Shown<C, S> {
             faces: Vec::new(),
             limits: Vec::new(),
             asks: Vec::new(),
+            services: Vec::new(),
         }
     }
 }
@@ -240,6 +244,8 @@ pub enum Decided<C, S> {
     Stepped(Stepped),
     /// This choice of asking, made in *alo at work*.
     Asks(Asks),
+    /// This, pressed in *Search and answers* (queue item 905).
+    Service(crate::settings_services::ServicePress),
     /// *Settings*' × — or a press on the veil around it (queue item 886),
     /// which presses nothing under it.
     LeaveSettings,
@@ -286,6 +292,8 @@ pub enum Listed {
     Limits,
     /// The choices of asking it offers.
     Asks,
+    /// What *Search and answers* offers (queue item 905).
+    Services,
 }
 
 impl fmt::Display for Listed {
@@ -307,6 +315,7 @@ impl fmt::Display for Listed {
             Listed::Faces => "face Settings offers",
             Listed::Limits => "stepper's button Settings offers",
             Listed::Asks => "choice of asking Settings offers",
+            Listed::Services => "thing Search and answers offers",
         })
     }
 }
@@ -467,9 +476,11 @@ where
         }
         Claim::MenuItem { at } => held(Listed::MenuItems, at, &painted.menu, &now.menu)
             .map_or_else(Decided::Refused, Decided::MenuItem),
-        Claim::Face { .. } | Claim::LeaveSettings | Claim::Limit { .. } | Claim::Asks { .. } => {
-            in_settings(claim, painted, now)
-        }
+        Claim::Face { .. }
+        | Claim::LeaveSettings
+        | Claim::Limit { .. }
+        | Claim::Asks { .. }
+        | Claim::Service { .. } => in_settings(claim, painted, now),
         Claim::Expand => Decided::Expand,
         Claim::CloseTheCard => Decided::CloseTheCard,
         Claim::DeleteChat | Claim::CloseChat | Claim::Undo | Claim::Shield => {
@@ -561,6 +572,10 @@ fn in_settings<C, S>(claim: Claim, painted: &Shown<C, S>, now: &Shown<C, S>) -> 
             .map_or_else(Decided::Refused, Decided::Stepped),
         Claim::Asks { at } => held(Listed::Asks, at, &painted.asks, &now.asks)
             .map_or_else(Decided::Refused, Decided::Asks),
+        // *Search and answers* (queue item 905): what was painted at that
+        // place, still offered there.
+        Claim::Service { at } => held(Listed::Services, at, &painted.services, &now.services)
+            .map_or_else(Decided::Refused, Decided::Service),
         _ if painted.faces.is_empty() || now.faces.is_empty() => {
             Decided::Refused(Refusal::NotAsked { claim })
         }

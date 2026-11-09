@@ -1290,6 +1290,54 @@ Settled here, as the design left them open:
   with the file's path and why, on the terminal and in the first screen's
   line as the window opens; the file is left as it is until a face is next
   chosen, which writes it whole. No file is Inter, said nothing.
+- **Search and answers** (items 904, 905, ADR 0106; the owner's word of 9
+  November 2026, *"since it will be open source we should not be brave
+  hardcoded"*), 24 under *alo at work*: **Search and answers**, 15 px 600,
+  and in quiet 13.5 px *The services alo searches and writes its answers
+  with. A change is used from alo’s next start.*; 14 under it *alo at
+  work*'s white box, its rows ruled off as its are:
+  - **Search with** — a radio for each search service at its right, drawn
+    as *Ask before opening*'s: **Brave Search** (the default) and
+    **SearXNG**. **Answers by** — **OpenAI**. A service's own name is drawn
+    here and **nowhere else** in alo (ADR 0106 § 5): choosing a service is
+    choosing it by name.
+  - Under a chooser, a row for each field its service takes — a
+    SearXNG's **Address**, the **Search key**, the **AI key** — 72 tall: 10
+    above, then at its right the field, 240 × 28, a line of 1 rounded 8,
+    its words 13 px on one line (a key's as dots, `•`, as many as were
+    typed, at most 48), *https://search.example.org* or *Paste your own
+    key* quiet when empty, the caret 1 × 16 in the ink at its end while it
+    has the keyboard, its edge then in the ink; 8 beside it **Keep**, and
+    for a person's own key **Remove**, each 28 tall, 13 px 600, a line of
+    1 rounded 8; under them, the row's whole width, 12.5 px quiet: whose
+    key is used — *Your own key is used, kept in this Mac’s keychain.*,
+    *The key this application carries is used.*, *A key in this Mac’s
+    keychain is used.*, *No key yet.* — or *Searches go to ADDRESS.* /
+    *No address yet.*
+  - 10 under the box, 13 px in the ink, what the last *Keep* or *Remove*
+    came to: *Your key for the search service is kept in this Mac’s
+    keychain. alo uses it from its next start.*, *… was removed from this
+    Mac’s keychain.*, *The address is kept. alo searches there from its
+    next start.*, *That is not a site’s address: it begins https:// or
+    http://.*, *Paste or type a key first.*
+  **By keys**: Tab goes on from *Ask before opening* to the search
+  chooser, its fields and buttons, the AI chooser, its, and round to the
+  ×; on a chooser → ↑ choose the next and ← ↓ the one before, round; Space
+  or Return on a button presses it. In a field, what is typed and ⌘V's
+  first line go at its end, ⌫ takes the last character, Escape empties it
+  (Escape in an empty one closes *Settings*), Return keeps it. A press on a
+  field puts the keyboard in it. (Moving the caret, selecting, and a press
+  placing it are 909.) **A key** typed is held by the browser process
+  alone, and the renderer sent only its dots; kept, it goes to this Mac's
+  keychain (`alo-search-brave`, `alo-ai-openai`) and never to
+  `settings.txt`, a log or a chat; closing *Settings* forgets what was
+  typed. **To an agent**: a region named *Search and answers*, radio groups
+  *Search with* and *Answers by* with a radio named by each service, a text
+  box named by each field — an address read, a key's dots never — and
+  *Keep …* and *Remove …* buttons named by what they do. **Kept**: `search
+  brave|searxng`, `searxng ADDRESS` and `answers openai` after the limits
+  in `settings.txt`, only those a person chose. In the design's window the
+  panel holds 1095 in a room of 692 with SearXNG chosen.
 
 ## Colours
 

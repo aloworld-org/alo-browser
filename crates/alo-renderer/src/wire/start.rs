@@ -38,11 +38,17 @@ use crate::card::Card;
 use crate::card_menu::{CardMenu, MenuItem};
 use crate::conversation_scroll::{Bar, MOST};
 use crate::results::MOST_PICTURE_BYTES;
+use crate::settings_services::{
+    Entry, EntryRow, LONGEST_TYPED, MOST_DOTS, ServicePress, ServicesShown, Typed,
+};
 use crate::start::{KeptSite, SettingsKeyed, Start, Waiting};
 use crate::turn::{MOST_TURNS, Turn};
 use crate::typed::Offer;
 use alo_layout::geometry::Size;
 use alo_url::Url;
+
+/// The most services a chooser of *Settings* is read with.
+const MOST_SERVICES: usize = 8;
 
 /// What every PNG begins with.
 const PNG_SIGNATURE: &[u8] = b"\x89PNG\r\n\x1a\n";
@@ -68,7 +74,12 @@ impl Writer {
             (true, Some(SettingsKeyed::Sites)) => 4,
             (true, Some(SettingsKeyed::Actions)) => 5,
             (true, Some(SettingsKeyed::Asks)) => 6,
+            // *Search and answers* (queue item 905), what of it after.
+            (true, Some(SettingsKeyed::Service(_))) => 7,
         });
+        if let (true, Some(SettingsKeyed::Service(on))) = (start.settings, start.settings_keyed) {
+            self.service_press(on);
+        }
         // How far alo's agent may go (queue item 878).
         self.number(u64::from(start.limits.sites));
         self.number(u64::from(start.limits.actions));
@@ -150,6 +161,78 @@ impl Writer {
         // *Settings*' own scroll and sign, in its panel (queue item 886).
         self.float(start.settings_down);
         self.bar(start.settings_bar);
+        // *Search and answers* (queue item 905): never a key, only dots.
+        self.bool(start.services.is_some());
+        if let Some(services) = &start.services {
+            self.services(services);
+        }
+    }
+
+    /// Something of *Search and answers*: its kind, then its place or its
+    /// field.
+    fn service_press(&mut self, on: ServicePress) {
+        match on {
+            ServicePress::Search(at) => {
+                self.tag(0);
+                self.number(at as u64);
+            }
+            ServicePress::Answers(at) => {
+                self.tag(1);
+                self.number(at as u64);
+            }
+            ServicePress::Field(entry) => {
+                self.tag(2);
+                self.entry(entry);
+            }
+            ServicePress::Keep(entry) => {
+                self.tag(3);
+                self.entry(entry);
+            }
+            ServicePress::Remove(entry) => {
+                self.tag(4);
+                self.entry(entry);
+            }
+        }
+    }
+
+    /// One of the section's fields, by a tag.
+    fn entry(&mut self, entry: Entry) {
+        self.tag(match entry {
+            Entry::Address => 0,
+            Entry::SearchKey => 1,
+            Entry::AiKey => 2,
+        });
+    }
+
+    /// The section: each chooser's names and the one chosen, each one's
+    /// rows, and what was said.
+    fn services(&mut self, services: &ServicesShown) {
+        for (names, on, rows) in [
+            (&services.search, services.search_on, &services.search_rows),
+            (
+                &services.answers,
+                services.answers_on,
+                &services.answers_rows,
+            ),
+        ] {
+            self.number(names.len() as u64);
+            for name in names {
+                self.text(name);
+            }
+            self.number(on as u64);
+            self.number(rows.len() as u64);
+            for row in rows {
+                self.entry(row.entry);
+                self.text(&row.typed.shown);
+                self.bool(row.typed.focused);
+                self.text(&row.state);
+                self.bool(row.removable);
+            }
+        }
+        self.bool(services.said.is_some());
+        if let Some(said) = &services.said {
+            self.text(said);
+        }
     }
 
     /// A sign of more above or below, if there is one.
@@ -234,16 +317,7 @@ impl Reader<'_> {
         };
         let scale = alo_value::device_scale(self.float()?);
         let face = self.face()?;
-        let (settings, settings_keyed) = match self.tag()? {
-            0 => (false, None),
-            1 => (true, None),
-            2 => (true, Some(SettingsKeyed::Close)),
-            3 => (true, Some(SettingsKeyed::Font)),
-            4 => (true, Some(SettingsKeyed::Sites)),
-            5 => (true, Some(SettingsKeyed::Actions)),
-            6 => (true, Some(SettingsKeyed::Asks)),
-            other => return Err(unreadable(format!("a Settings tagged {other}"))),
-        };
+        let (settings, settings_keyed) = self.settings_keyed()?;
         let limits = self.limits()?;
         let greeting = self.text()?;
         let mut sites = Vec::new();
@@ -306,6 +380,7 @@ impl Reader<'_> {
             return Err(unreadable("Settings scrolled further than any reaches"));
         }
         let settings_bar = self.bar()?;
+        let services = self.services_drawn(settings_keyed)?;
         Ok(Start {
             greeting,
             sites,
@@ -327,7 +402,134 @@ impl Reader<'_> {
             limits,
             settings_down,
             settings_bar,
+            services,
         })
+    }
+
+    /// Whether it is *Settings*, and what of it the keyboard is on, as
+    /// [`Writer::start`] wrote them.
+    fn settings_keyed(&mut self) -> Result<(bool, Option<SettingsKeyed>), Unreadable> {
+        Ok(match self.tag()? {
+            0 => (false, None),
+            1 => (true, None),
+            2 => (true, Some(SettingsKeyed::Close)),
+            3 => (true, Some(SettingsKeyed::Font)),
+            4 => (true, Some(SettingsKeyed::Sites)),
+            5 => (true, Some(SettingsKeyed::Actions)),
+            6 => (true, Some(SettingsKeyed::Asks)),
+            7 => (true, Some(SettingsKeyed::Service(self.service_press()?))),
+            other => return Err(unreadable(format!("a Settings tagged {other}"))),
+        })
+    }
+
+    /// *Search and answers*, if it is drawn — refused if the keyboard is on
+    /// it as `keyed` says and it is not.
+    fn services_drawn(
+        &mut self,
+        keyed: Option<SettingsKeyed>,
+    ) -> Result<Option<ServicesShown>, Unreadable> {
+        let services = if self.bool()? {
+            Some(self.services()?)
+        } else {
+            None
+        };
+        if services.is_none() && matches!(keyed, Some(SettingsKeyed::Service(_))) {
+            return Err(unreadable(
+                "the keyboard on a section of Settings not drawn",
+            ));
+        }
+        Ok(services)
+    }
+
+    /// Something of *Search and answers*, as [`Writer::start`] wrote it.
+    fn service_press(&mut self) -> Result<ServicePress, Unreadable> {
+        Ok(match self.tag()? {
+            0 => ServicePress::Search(self.service_place()?),
+            1 => ServicePress::Answers(self.service_place()?),
+            2 => ServicePress::Field(self.entry()?),
+            3 => ServicePress::Keep(self.entry()?),
+            4 => ServicePress::Remove(self.entry()?),
+            other => return Err(unreadable(format!("a press of Settings tagged {other}"))),
+        })
+    }
+
+    /// A service's place among those offered: never past the most offered.
+    fn service_place(&mut self) -> Result<usize, Unreadable> {
+        usize::try_from(self.number()?)
+            .ok()
+            .filter(|at| *at < MOST_SERVICES)
+            .ok_or_else(|| unreadable("a service past the most offered"))
+    }
+
+    /// One of the section's fields, by its tag.
+    fn entry(&mut self) -> Result<Entry, Unreadable> {
+        Ok(match self.tag()? {
+            0 => Entry::Address,
+            1 => Entry::SearchKey,
+            2 => Entry::AiKey,
+            other => return Err(unreadable(format!("a field of Settings tagged {other}"))),
+        })
+    }
+
+    /// The section, as [`Writer::start`] wrote it: at most
+    /// [`MOST_SERVICES`] of each and two rows, the one chosen among them, a
+    /// field's words no longer than any is, and a key's never more than its
+    /// dots.
+    fn services(&mut self) -> Result<ServicesShown, Unreadable> {
+        let mut shown = ServicesShown::default();
+        for answers in [false, true] {
+            let count = self.count()?;
+            if count == 0 || count > MOST_SERVICES {
+                return Err(unreadable(format!("a chooser of {count} services")));
+            }
+            let mut names = Vec::with_capacity(count);
+            for _ in 0..count {
+                names.push(self.text()?);
+            }
+            let on = usize::try_from(self.number()?).unwrap_or(usize::MAX);
+            if on >= count {
+                return Err(unreadable("a service chosen that is not offered"));
+            }
+            let rows = self.count()?;
+            if rows > 2 {
+                return Err(unreadable(format!("a service of {rows} rows")));
+            }
+            let mut read = Vec::with_capacity(rows);
+            for _ in 0..rows {
+                let entry = self.entry()?;
+                let shown = self.text()?;
+                let most = if entry.masked() {
+                    MOST_DOTS
+                } else {
+                    LONGEST_TYPED
+                };
+                if shown.chars().count() > most
+                    || (entry.masked() && shown.chars().any(|c| c != '\u{2022}'))
+                {
+                    return Err(unreadable("a field holding more than it can"));
+                }
+                read.push(EntryRow {
+                    entry,
+                    typed: Typed {
+                        shown,
+                        focused: self.bool()?,
+                    },
+                    state: self.text()?,
+                    removable: self.bool()?,
+                });
+            }
+            if answers {
+                (shown.answers, shown.answers_on, shown.answers_rows) = (names, on, read);
+            } else {
+                (shown.search, shown.search_on, shown.search_rows) = (names, on, read);
+            }
+        }
+        shown.said = if self.bool()? {
+            Some(self.text()?)
+        } else {
+            None
+        };
+        Ok(shown)
     }
 
     /// One turn of the conversation, as [`Writer::start`] wrote it: a live

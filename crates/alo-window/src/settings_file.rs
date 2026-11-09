@@ -23,8 +23,14 @@
 //! number, and `asks` and `unnamed` or `every` (`sites 3`, `actions 20`,
 //! `asks unnamed`), each within its bounds
 //! (`alo_renderer::agent_limits`). A file written before 878 names only the
-//! font, and its limits are the default. Lines that are empty or begin
-//! with `#` are passed over. Nothing in it leaves the machine.
+//! font, and its limits are the default. Since ADR 0106 (queue item 904),
+//! which services alo asks: `search` and `brave` or `searxng`, `searxng`
+//! and a `SearXNG`'s address, `answers` and `openai`
+//! ([`crate::services::Named`]), each only if a person chose it — so a
+//! release's own default is never frozen into a person's file. **No key is
+//! ever in it**: a person's key is kept in their keychain
+//! ([`crate::service_keys`]). Lines that are empty or begin with `#` are
+//! passed over. Nothing in it leaves the machine.
 //!
 //! # Read back, or Inter and said
 //!
@@ -37,6 +43,7 @@
 //! first screen's line as the window opens. The file is left as it is
 //! until a person next chooses a face or a limit, which writes it whole.
 
+use crate::services::Named;
 use alo_renderer::agent_limits::{Asks, Limits};
 use alo_renderer::interface_face::InterfaceFace;
 use std::fs::{self, DirBuilder, File, OpenOptions};
@@ -81,6 +88,8 @@ pub struct Read {
     /// How far alo's agent may go: the limits kept, or the default (queue
     /// item 878).
     pub limits: Limits,
+    /// Which services it names (ADR 0106 § 3): none, when it does not read.
+    pub services: Named,
     /// Why the file did not read, when it did not, in words naming it: the
     /// face is then Inter.
     pub said: Option<String>,
@@ -90,14 +99,16 @@ pub struct Read {
 /// Inter and why, when it does not read.
 pub fn read(file: &Path) -> Read {
     match read_kept(file) {
-        Ok((face, limits)) => Read {
+        Ok((face, limits, services)) => Read {
             face,
             limits,
+            services,
             said: None,
         },
         Err(why) => Read {
             face: InterfaceFace::Inter,
             limits: Limits::default(),
+            services: Named::default(),
             said: Some(format!(
                 "the settings in {} do not read ({why}), so alo is set in Inter",
                 file.display()
@@ -106,12 +117,13 @@ pub fn read(file: &Path) -> Read {
     }
 }
 
-/// The face and the limits `file` names, or why it does not read.
-fn read_kept(file: &Path) -> Result<(InterfaceFace, Limits), String> {
+/// The face, the limits and the services `file` names, or why it does not
+/// read.
+fn read_kept(file: &Path) -> Result<(InterfaceFace, Limits, Named), String> {
     let opened = match File::open(file) {
         Ok(opened) => opened,
         Err(why) if why.kind() == std::io::ErrorKind::NotFound => {
-            return Ok((InterfaceFace::Inter, Limits::default()));
+            return Ok((InterfaceFace::Inter, Limits::default(), Named::default()));
         }
         Err(why) => return Err(format!("it could not be opened: {why}")),
     };
@@ -126,6 +138,7 @@ fn read_kept(file: &Path) -> Result<(InterfaceFace, Limits), String> {
     let text = String::from_utf8(bytes).map_err(|_| "it is not text".to_owned())?;
     let mut face = None;
     let (mut sites, mut actions, mut asks) = (None, None, None);
+    let mut services = Named::default();
     for line in text.lines().map(str::trim) {
         if line.is_empty() || line.starts_with('#') {
             continue;
@@ -163,6 +176,8 @@ fn read_kept(file: &Path) -> Result<(InterfaceFace, Limits), String> {
                     return Err(twice("when alo asks"));
                 }
             }
+            // Which services alo asks (ADR 0106 § 3).
+            _ if services.read_line(word, rest)? => {}
             _ => {
                 return Err(format!(
                     "it holds a line alo does not read: {:?}",
@@ -179,7 +194,7 @@ fn read_kept(file: &Path) -> Result<(InterfaceFace, Limits), String> {
         asks.unwrap_or(default.asks),
     )
     .ok_or_else(|| "it names a limit for alo at work past its bounds".to_owned())?;
-    Ok((face, limits))
+    Ok((face, limits, services))
 }
 
 /// Why a line giving a limit does not read.
@@ -192,25 +207,32 @@ fn said(line: &str) -> String {
     line.chars().take(SAID_OF_A_LINE).collect()
 }
 
-/// What [`write`] puts in the file for `face` and `limits`.
-pub fn text_of(face: InterfaceFace, limits: Limits) -> String {
+/// What [`write`] puts in the file for `face`, `limits` and the `services`
+/// named.
+pub fn text_of(face: InterfaceFace, limits: Limits, services: &Named) -> String {
     format!(
-        "{HEADER}\n{FONT} {}\n{SITES} {}\n{ACTIONS} {}\n{ASKS} {}\n",
+        "{HEADER}\n{FONT} {}\n{SITES} {}\n{ACTIONS} {}\n{ASKS} {}\n{}",
         face.name(),
         limits.sites,
         limits.actions,
-        limits.asks.word()
+        limits.asks.word(),
+        services.lines()
     )
 }
 
-/// Keep `face` and `limits` in `file`, whole or not at all, readable by
+/// Keep `face`, `limits` and the `services` named in `file`, whole or not at all, readable by
 /// this user alone; its directory made, readable by this user alone, if it
 /// is not there.
 ///
 /// # Errors
 ///
 /// Why it was not written, in words; the file is then as it was.
-pub fn write(file: &Path, face: InterfaceFace, limits: Limits) -> Result<(), String> {
+pub fn write(
+    file: &Path,
+    face: InterfaceFace,
+    limits: Limits,
+    services: &Named,
+) -> Result<(), String> {
     let failed = |why: std::io::Error| format!("{} could not be written: {why}", file.display());
     if let Some(directory) = file.parent()
         && !directory.is_dir()
@@ -233,7 +255,7 @@ pub fn write(file: &Path, face: InterfaceFace, limits: Limits) -> Result<(), Str
         .map_err(failed)?;
     out.set_permissions(fs::Permissions::from_mode(0o600))
         .map_err(failed)?;
-    out.write_all(text_of(face, limits).as_bytes())
+    out.write_all(text_of(face, limits, services).as_bytes())
         .map_err(failed)?;
     out.sync_all().map_err(failed)?;
     drop(out);
@@ -266,6 +288,7 @@ mod tests {
             Read {
                 face: InterfaceFace::Inter,
                 limits: Limits::default(),
+                services: Named::default(),
                 said: None
             }
         );
@@ -277,12 +300,13 @@ mod tests {
         let file = file_in(&directory);
         let limits = Limits::checked(5, 45, Asks::Every).expect("within");
         for face in InterfaceFace::ALL {
-            write(&file, face, limits).expect("written");
+            write(&file, face, limits, &Named::default()).expect("written");
             assert_eq!(
                 read(&file),
                 Read {
                     face,
                     limits,
+                    services: Named::default(),
                     said: None
                 }
             );
@@ -315,7 +339,7 @@ mod tests {
         let file = file_in(&directory);
         for asks in Asks::ALL {
             let limits = Limits::checked(3, 20, asks).expect("within");
-            write(&file, InterfaceFace::Inter, limits).expect("written");
+            write(&file, InterfaceFace::Inter, limits, &Named::default()).expect("written");
             assert_eq!(read(&file).limits.asks, asks);
             let text = fs::read_to_string(&file).unwrap_or_default();
             assert!(text.ends_with(&format!("asks {}\n", asks.word())), "{text}");
@@ -336,6 +360,77 @@ mod tests {
             ),
             (4, 15, Asks::Never, None)
         );
+        let _ = fs::remove_dir_all(&directory);
+    }
+
+    /// ADR 0106 § 3: the services a person chose, kept and read back; only
+    /// those named are written; one alo has no connector for, an address
+    /// that is not a site's or a line twice is the whole file not read; and
+    /// no key is ever written.
+    #[test]
+    fn the_services_chosen_are_kept_only_as_named_and_an_odd_one_is_said() {
+        use crate::services::{AiChoice, SearchChoice};
+        let directory = scratch("services");
+        let file = file_in(&directory);
+        let named = Named {
+            search: Some(SearchChoice::Searxng),
+            searxng: crate::services::address("https://search.example.org").ok(),
+            answers: Some(AiChoice::OpenAi),
+        };
+        write(&file, InterfaceFace::Geist, Limits::default(), &named).expect("written");
+        let text = fs::read_to_string(&file).unwrap_or_default();
+        assert!(
+            text.ends_with(
+                "asks never\nsearch searxng\nsearxng https://search.example.org/\nanswers openai\n"
+            ),
+            "{text}"
+        );
+        let kept = read(&file);
+        assert_eq!(
+            (kept.face, &kept.services, &kept.said),
+            (InterfaceFace::Geist, &named, &None)
+        );
+        // Only the search service named: nothing else is written for it.
+        let only = Named {
+            search: Some(SearchChoice::Brave),
+            ..Named::default()
+        };
+        write(&file, InterfaceFace::Inter, Limits::default(), &only).expect("written");
+        let text = fs::read_to_string(&file).unwrap_or_default();
+        assert!(text.ends_with("asks never\nsearch brave\n"), "{text}");
+        assert!(
+            !text.contains("searxng") && !text.contains("answers"),
+            "{text}"
+        );
+        for (bytes, why) in [
+            (
+                &b"font Inter\nsearch google\n"[..],
+                "it names a search service alo does not have: \"google\"",
+            ),
+            (
+                b"font Inter\nsearxng file:///etc/passwd\n",
+                "it gives an address that is not a site's: \"file:///etc/passwd\"",
+            ),
+            (
+                b"font Inter\nanswers openai\nanswers openai\n",
+                "it names the AI service twice",
+            ),
+            (
+                b"font Inter\nkey not-a-real-key\n",
+                "it holds a line alo does not read: \"key not-a-real-key\"",
+            ),
+        ] {
+            fs::write(&file, bytes).expect("written");
+            let unread = read(&file);
+            assert_eq!(unread.services, Named::default(), "{why}");
+            assert_eq!(
+                unread.said,
+                Some(format!(
+                    "the settings in {} do not read ({why}), so alo is set in Inter",
+                    file.display()
+                ))
+            );
+        }
         let _ = fs::remove_dir_all(&directory);
     }
 
@@ -438,6 +533,7 @@ mod tests {
             Read {
                 face: InterfaceFace::Geist,
                 limits: Limits::default(),
+                services: Named::default(),
                 said: None
             }
         );

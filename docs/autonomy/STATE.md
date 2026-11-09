@@ -50646,3 +50646,90 @@ tests run: 6877 passed (9 slow, 1 leaky), 0 skipped** — *"The gate is met."
 (11 of 11 steps)*.
 
 The next unused queue number is **904** and the next ADR is **0106**.
+
+## 2026-11-09 — batch 31: search and answers through one interface each, SearXNG beside Brave, Settings › Search and answers (904, 905, 906; ADR 0106)
+
+**The owner's word** (9 November 2026): *"since it will be open source we
+should not be brave hardcoded because the others may need to use google or
+other apis"*; *"yes please"* to Brave staying as one option; "both" ways of
+holding a key. **ADR 0106 written first**, accepted; ADRs 0083, 0091 and
+0095 amended by a note each.
+
+**Built.** `search_service.rs` (`SearchService` over `SearchConnector`,
+what each searches declared and the rest refused before asking) and
+`ai_service.rs` (`AiService` over `AiConnector`: answer and agent step);
+Brave (`brave_search.rs`) and OpenAI (`openai_answer.rs`) behind them;
+SearXNG (`searxng_search.rs`, `searxng_protocol.rs` — added to
+`serde_json`'s files in `scripts/gate.sh`'s boundary list, a protocol read
+from a stranger as the others are; no other check touched): web, pages,
+news; images and videos said unsupported. Configuration (`services.rs`,
+`services_made.rs`, `settings_file.rs`: `search`, `searxng`, `answers`
+lines, over an application's `services.txt`, over Brave/OpenAI). Keys
+(`service_keys.rs`, `keychain.rs`'s `find`/`keep`/`delete`): the person's
+own (`alo-search-brave`, `alo-ai-openai`) → carried → older items (still
+read). `search_key.rs`'s and `answer_key.rs`'s old run-time readers retired
+into `service_keys`. *Settings › Search and answers* (renderer
+`settings_services.rs`, `settings_services_document.rs`; window
+`conversation_services.rs`; the `Service` claim; wire). `alo-bundle
+--services FILE`. Every answer, agent and refusal sentence now says *the AI
+service*; the answer's note *… sent to the AI service chosen in Settings …*.
+
+**Found by hand and fixed:** the window never copied *alo at work*'s
+buttons and choices (878) into what it painted, so a press on any of them
+— and on the new section — was refused as *0 were shown*; `limits`, `asks`
+and `services` are now copied with `faces` (`conversation_drawing.rs`).
+Verified by hand for the new section (a press on *SearXNG* chosen); *alo at
+work*'s presses were not pressed by hand this batch.
+
+**Tests:** `searxng_protocol` (fixtures in SearXNG's JSON shape after its
+`get_json_response`, every refusal, every truncation, no panic),
+`searxng_search`, `search_service`, `services`, `services_made`,
+`service_keys` (precedence, keep, replace, remove, every sign a header
+carries, damaged carried key — all in a keychain file of the test's own),
+`conversation_services`, the conversation's Tab/arrow test, the window's
+(choice and address kept in the file, a pasted key kept in a test
+keychain and never in the file, a line or the drawing, removed),
+`settings_search_and_answers.rs` (layout in numbers, reference, rings,
+agent tree — never a dot — claims by place), `messages_across_a_boundary`
+(the section crosses; a key's field holding anything but dots refused),
+`no_providers_name_on_screen.rs` (brave, openai, searxng; a name allowed
+inside a chooser's option alone), `the_application_carrying_its_keys.rs`
+(`--services`: services.txt carried, only the AI key carried, a service
+alo lacks refused, nothing made). **Mutation**, caught: *SearXNG* put into
+the section's line. **References:** `settings-search-and-answers.png` new
+(inspected); `answer-tab.png` moved — inspected, only its note's words
+changed. Backed up first (scratchpad `refs-before-905/`).
+
+**By hand** (release, `.app` made by `alo-bundle --keys-from keychain` with
+the CEF host, `--conversation --chats handrun51/chats`, keys through System
+Events and cliclick; scratchpad `handrun51/`): a real search through Brave
+via the interface (`51-01`); *Settings › Search and answers* (`51-02`); a
+key's field with an obviously fake value as dots, emptied by Escape, never
+kept (`51-03`); *SearXNG* chosen by a press, kept in `settings.txt`
+(`51-05`); an address typed and kept by Return (`51-06`); after a restart,
+a search answered by **a local stand-in serving a hand-written document in
+SearXNG's JSON shape** on 127.0.0.1 (`51-07`), and the Images tab's
+sentence (`51-08`). **Not done: a real SearXNG.** The public instances
+tried answered HTML, 403 or 429 to `format=json`, and installing SearXNG
+locally was refused by this session's permissions, so the connector has met
+SearXNG's shape only through fixtures and the stand-in. No real key was
+typed, printed or kept; `alo-search-brave` does not exist after the run.
+
+**Queued (cut scope):** 907 a SearXNG's pictures, 908 a change used at
+once, 909 a Settings field edited as the box is. **No Google:** its Custom
+Search JSON API "is closed to new customers" (Google's overview, read
+today), ADR 0106 § 2.
+
+**Gate: met on the third run** (CEF_PATH set, the pointer at 1400, 1000;
+detached through `perl -MPOSIX=setsid`, waited on by its PID;
+`gate-batch31.log`). The first failed on `a_searchs_answer_in_the_window`'s
+old *OpenAI's answer* sentence (fixed; kept as `gate-batch31-first.log`);
+the second on `through_alos_cef_host_a_button_pressed_on_its_own_icon_is_pressed`,
+whose host build tried to update the CEF host's lock file under `--locked`
+(nothing of the host changed; the test passed alone and in the third run;
+`gate-batch31-second.log`). **Summary [1281.389s] 6913 tests run: 6913
+passed (7 slow, 1 leaky), 0 skipped** — *"The gate is met." (11 of 11
+steps)*. This machine's disk was slow throughout (`cargo fmt` 1–2 minutes at
+2 % CPU), so the third run took about two hours.
+
+The next unused queue number is **910** and the next ADR is **0107**.

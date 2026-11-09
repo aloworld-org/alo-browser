@@ -88,7 +88,7 @@
 //!
 //! With no page open (queue item 821, ADR 0103) the model is sent none and
 //! begins with two more steps: `search`, asked through the box's own search
-//! ([`crate::brave_search::search`]), its sites told to the model as words
+//! ([`SearchService::search`]), its sites told to the model as words
 //! ([`crate::agent_found`]); and `open`, a result by its number or an
 //! address, judged by the browser process ([`crate::agent_opening`]) —
 //! opened as if the person had, asked of them first, or refused, and at
@@ -111,15 +111,16 @@ use crate::agent_found::FoundSites;
 use crate::agent_gate::{self, Question};
 use crate::agent_opening::{self, Against, Judged, Visited};
 use crate::agent_page;
-use crate::agent_protocol::{self, Asking, Begin, Call, PERSON, Taken};
+use crate::agent_protocol::{Asking, Begin, Call, PERSON, Taken};
 use crate::agent_record::Caller;
 use crate::agent_sites::AgentSites;
+use crate::ai_service::{AI_SERVICE, AiService};
 use crate::answer_protocol::Spent;
 use crate::asking::{Answer, Ask, Refused};
 use crate::chrome_pin::Pinned;
 use crate::inbox::Orders;
 use crate::message::Order;
-use crate::openai_answer::{ANSWERER, Provider, why_unanswered};
+use crate::search_service::SearchService;
 use alo_agent::{Outcome, Target, Verb};
 use alo_box::BoxId;
 use alo_net::Pool;
@@ -299,13 +300,13 @@ fn the_machines(host: &str, port: u16, reach: Reach) -> Result<Vec<IpAddr>, Unre
 /// reaches the card by — the agent socket's own.
 #[derive(Clone)]
 pub struct Agent {
-    provider: Provider,
+    provider: AiService,
     orders: Orders,
     /// How long a run is held while the page is the person's.
     most_pause: Duration,
     /// What a run searches with, the box's own search, if it is set up
     /// (queue item 821).
-    search: Option<crate::brave_search::Provider>,
+    search: Option<SearchService>,
     /// The sites agents are kept to, which a site it opens must be one of.
     sites: AgentSites,
     /// How a name is resolved before a site is opened.
@@ -326,9 +327,9 @@ impl core::fmt::Debug for Agent {
 impl Agent {
     /// The agent asking `provider`, reaching the card by `orders`: the
     /// relay's ([`crate::conversation_agents::relay`]).
-    pub fn new(provider: Provider, orders: Orders) -> Self {
+    pub fn new(provider: impl Into<AiService>, orders: Orders) -> Self {
         Self {
-            provider,
+            provider: provider.into(),
             orders,
             most_pause: MOST_PAUSE,
             search: None,
@@ -341,9 +342,14 @@ impl Agent {
     /// when a run needs to find a site (queue item 821); none, and a run
     /// told searching is not set up.
     #[must_use]
-    pub fn searching_with(mut self, search: Option<crate::brave_search::Provider>) -> Self {
+    pub fn searching_with(mut self, search: Option<SearchService>) -> Self {
         self.search = search;
         self
+    }
+
+    /// Who chooses its steps, for the terminal alone.
+    pub fn named(&self) -> String {
+        self.provider.named()
     }
 
     /// The same agent, opening only sites of `sites` — those a person named
@@ -356,7 +362,7 @@ impl Agent {
 
     /// The same agent, resolving names with `resolve` rather than the
     /// machine's resolver: a Rust constructor, for a test that answers
-    /// names itself, as [`Provider::at`] is for one that answers as the
+    /// names itself, as `openai_answer::Provider::at` is for one that answers as the
     /// model.
     #[must_use]
     pub fn resolving_with(mut self, resolve: Resolving) -> Self {
@@ -575,7 +581,7 @@ impl Running {
             Ok(pool) => pool.patient_for(PATIENCE),
             Err(why) => {
                 return Some(stopped(format!(
-                    "alo could not go on: {ANSWERER} could not be reached: this Mac's \
+                    "alo could not go on: {AI_SERVICE} could not be reached: this Mac's \
                      certificates could not be read ({why})"
                 )));
             }
@@ -812,45 +818,25 @@ impl Running {
         let (tab, tree) = page.map_or((String::new(), String::new()), |(tab, snapshot)| {
             (tab.to_owned(), agent_page::text(snapshot))
         });
-        let body = agent_protocol::request_body(
-            self.agent.provider.model(),
-            &Asking {
-                asked: &self.asked,
-                plan: self.plan.as_ref(),
-                address: &tab,
-                tree: &tree,
-                steps: &self.steps,
-                left: usize::from(self.limits.actions).saturating_sub(self.verbs()),
-                sites_left: usize::from(self.limits.sites)
-                    .saturating_sub(self.visited.opened_count()),
-            },
-        );
-        let request = self
+        let asking = Asking {
+            asked: &self.asked,
+            plan: self.plan.as_ref(),
+            address: &tab,
+            tree: &tree,
+            steps: &self.steps,
+            left: usize::from(self.limits.actions).saturating_sub(self.verbs()),
+            sites_left: usize::from(self.limits.sites).saturating_sub(self.visited.opened_count()),
+        };
+        let stepped = self
             .agent
             .provider
-            .post(body, agent_protocol::LARGEST, &mut self.identities);
-        let fetched = pool.fetch(&request);
+            .step(pool, &mut self.identities, &asking);
         if self.is_halted() {
             // An answer in flight is thrown away — stopped, or the page
             // taken over while it was written.
             return Err(None);
         }
-        let response = fetched.map_err(|why| {
-            Some(stopped(format!(
-                "alo could not go on: {ANSWERER} could not be reached: {why}"
-            )))
-        })?;
-        if response.status.0 != 200 {
-            return Err(Some(stopped(format!(
-                "alo could not go on: {}",
-                why_unanswered(response.status.0, self.agent.provider.held())
-            ))));
-        }
-        let read = agent_protocol::read(&response.body).map_err(|why| {
-            Some(stopped(format!(
-                "alo could not go on: {ANSWERER}'s step could not be read: {why}."
-            )))
-        })?;
+        let read = stepped.map_err(|why| Some(stopped(format!("alo could not go on: {why}"))))?;
         if let Some(spent) = read.spent {
             self.spent.input += spent.input;
             self.spent.output += spent.output;
@@ -1016,7 +1002,7 @@ impl Running {
                     .to_owned(),
             );
         };
-        let answered = crate::brave_search::search(&provider, pool, &mut self.identities, words);
+        let answered = provider.search(pool, &mut self.identities, words);
         if self.is_halted() {
             return Err(None);
         }
@@ -1207,6 +1193,7 @@ fn lowered(asked: &str) -> String {
 mod tests {
     use super::*;
     use crate::inbox::{self, Arrival};
+    use crate::openai_answer::Provider;
     use crate::search_key::Key;
     use alo_box::{KnownRole, Role, States};
     use alo_layout::Rect;
@@ -1583,12 +1570,13 @@ mod tests {
         assert_eq!(
             said.last(),
             Some(&Said::Stopped {
-                why: "alo could not go on: OpenAI could not answer just now (500).".to_owned()
+                why: "alo could not go on: the AI service could not answer just now (500)."
+                    .to_owned()
             })
         );
         let (said, _, _) = run(vec![(200, "nonsense".to_owned())], |_, _| {});
         assert!(
-            matches!(said.last(), Some(Said::Stopped { why }) if why.starts_with("alo could not go on: OpenAI's step could not be read: it is not JSON")),
+            matches!(said.last(), Some(Said::Stopped { why }) if why.starts_with("alo could not go on: the AI service's step could not be read: it is not JSON")),
             "{said:?}"
         );
         let (said, acted, _) = run(vec![calling("click_at", r#"{"x":1,"y":2}"#)], |_, _| {});
@@ -1887,7 +1875,7 @@ mod tests {
         .unwrap();
         // Names resolve to a public address but this test's own.
         let agent = Agent::new(provider, orders)
-            .searching_with(Some(search))
+            .searching_with(Some(search.into()))
             .resolving_with(Arc::new(|_: &str, _: u16, _: Reach| {
                 Ok(vec![IpAddr::from([93, 184, 215, 14])])
             }));

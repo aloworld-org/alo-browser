@@ -51,7 +51,7 @@ type Paster = Box<dyn Fn() -> Result<String, String>>;
 /// What the window holds of its fields.
 pub(super) struct Fields {
     /// What reads the clipboard.
-    paste: Paster,
+    pub(super) paste: Paster,
     /// When the caret last moved.
     blink: Blink,
     /// Where each part's field was last laid out: the panel's, then the

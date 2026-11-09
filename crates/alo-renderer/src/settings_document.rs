@@ -18,7 +18,8 @@
 //! ([`InterfaceFace::ALL`]), each named by the face and checked when it is
 //! the one chosen ([`Start::face`]) — an `<input type=radio>`, drawn as
 //! Chrome draws one, in the ink — and, under it, **alo at work** (queue
-//! item 878, [`crate::settings_work_document`]).
+//! item 878, [`crate::settings_work_document`]) and **Search and answers**
+//! (ADR 0106, queue item 905, [`crate::settings_services_document`]).
 //!
 //! # Each face shown as it would be
 //!
@@ -141,6 +142,15 @@ pub fn put(document: &mut Document, start: &Start) -> Result<(), Unbuilt> {
     // *alo at work*, under *Font* (queue item 878).
     let work = crate::settings_work_document::make(document, start.limits, start.settings_keyed)?;
     append(document, page, work)?;
+    // *Search and answers*, under it (ADR 0106, queue item 905).
+    if let Some(services) = &start.services {
+        let keyed = match start.settings_keyed {
+            Some(SettingsKeyed::Service(on)) => Some(on),
+            _ => None,
+        };
+        let section = crate::settings_services_document::make(document, services, keyed)?;
+        append(document, page, section)?;
+    }
     Ok(())
 }
 

@@ -2,19 +2,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! The Brave Search API's key: carried inside a release of the application,
-//! or read from this Mac's login keychain at run time (ADR 0083 § 1, ADR
-//! 0091; queue items 708 and 748).
+//! A service's key, held and never said (ADR 0083 § 1, ADR 0091, ADR 0106
+//! § 4; queue items 708, 748 and 904).
 //!
-//! **In a release** the key is carried inside the application, in its
-//! search slot ([`crate::carried_keys`]), put there by `alo-bundle` from
-//! outside the repository as the application is made, and read by the
-//! browser process as the conversation opens
-//! ([`for_this_application`]). **Anywhere else** — a program built and run
-//! from a terminal, a test, an application made with no key — it is a
-//! generic password in this Mac's keychain: service [`SERVICE`], account
-//! the person's login name, read through [`crate::keychain`]. The key is
-//! never in the repository, and never compiled into a program.
+//! Which key a service is asked with — the person's own given in
+//! *Settings*, the one a release carries, or an older alo's keychain item
+//! such as [`SERVICE`] — is [`crate::service_keys`]'s to say; this is the
+//! [`Key`] it hands back, and where it was [`Held`], which is what a
+//! refusal tells a person to look at. The key is never in the repository,
+//! and never compiled into a program.
 //!
 //! # Never said
 //!
@@ -24,12 +20,10 @@
 //! anywhere — the tool's own complaints go nowhere, and a refusal says only
 //! which item was missing.
 
-use crate::bundle::Bundle;
-use crate::carried_keys::{self, Slot};
-use crate::keychain::{self, SECURITY, Unread};
 use core::fmt;
 
-/// The keychain item's service.
+/// The keychain item's service an older alo read the Brave Search API's
+/// key from, still read after a carried key ([`crate::services::Keyed::older`]).
 pub const SERVICE: &str = "alo-brave-search";
 
 /// The longest key taken: Brave's are about thirty characters.
@@ -43,6 +37,9 @@ pub enum Held {
     Keychain,
     /// Inside the application, put there as it was made (ADR 0091).
     Carried,
+    /// In this Mac's keychain, given by the person in *Settings*, under the
+    /// service's own item (ADR 0106 § 4): it wins over the others.
+    Settings,
 }
 
 /// A provider's key, held and never said.
@@ -74,6 +71,12 @@ impl Key {
         Self::held_as(written, Held::Carried)
     }
 
+    /// A key that is `written`, given by the person in *Settings* (ADR
+    /// 0106 § 4), if it is one a request header can carry, as [`Key::of`].
+    pub fn given(written: &str) -> Option<Self> {
+        Self::held_as(written, Held::Settings)
+    }
+
     fn held_as(written: &str, held: Held) -> Option<Self> {
         let written = written.trim();
         (!written.is_empty()
@@ -91,56 +94,10 @@ impl Key {
     }
 
     /// The key, for the one header that carries it, and for the one file
-    /// that carries it inside the application ([`carried_keys::masked`]).
+    /// that carries it inside the application ([`crate::carried_keys::masked`]).
     pub(crate) fn header_value(&self) -> &str {
         &self.written
     }
-}
-
-/// Read the key from this Mac's login keychain, for the account `account`.
-///
-/// # Errors
-///
-/// Why there is none, in words a person reads under the box's offer to
-/// search — never the key, and never what the tool printed.
-pub fn from_the_keychain(account: &str) -> Result<Key, String> {
-    let missing = || "no search key in this Mac's keychain".to_owned();
-    match keychain::generic_password(SERVICE, account) {
-        Ok(written) => Key::of(&written).ok_or_else(missing),
-        Err(Unread::NoTool) => Err(format!(
-            "this Mac's keychain could not be read ({SECURITY})"
-        )),
-        Err(Unread::Missing) => Err(missing()),
-    }
-}
-
-/// Read the key for the person running this: their login name, as `USER`
-/// says it.
-///
-/// # Errors
-///
-/// As [`from_the_keychain`].
-pub fn for_this_person() -> Result<Key, String> {
-    from_the_keychain(&keychain::this_person())
-}
-
-/// The key for the browser running inside `bundle`, or outside any
-/// application when [`None`]: the one the application carries in its
-/// search slot (ADR 0091), and otherwise this Mac's keychain's, as
-/// [`for_this_person`] reads it.
-///
-/// # Errors
-///
-/// A key carried that cannot be read is said, and the keychain is not then
-/// asked — an application's own key is never quietly swapped for another;
-/// with none carried, as [`from_the_keychain`].
-pub fn for_this_application(bundle: Option<&Bundle>) -> Result<Key, String> {
-    if let Some(bundle) = bundle
-        && let Some(carried) = carried_keys::read(bundle.resources(), Slot::Search)?
-    {
-        return Ok(carried);
-    }
-    for_this_person()
 }
 
 #[cfg(test)]
@@ -169,21 +126,5 @@ mod tests {
         assert_eq!(Key::of("é"), None);
         assert_eq!(Key::of(&"k".repeat(LONGEST + 1)), None);
         assert_eq!(Key::carried("two words"), None);
-    }
-
-    #[cfg(target_os = "macos")]
-    #[test]
-    fn an_item_nobody_made_is_missing_and_says_which() {
-        // An account no keychain holds an item for: the tool refuses, and
-        // what is said names what is missing, not anything the tool printed.
-        let refused = from_the_keychain("alo-no-such-account-for-a-test").err();
-        assert_eq!(
-            refused.as_deref(),
-            Some("no search key in this Mac's keychain")
-        );
-        assert_eq!(
-            from_the_keychain("").err().as_deref(),
-            Some("no search key in this Mac's keychain")
-        );
     }
 }

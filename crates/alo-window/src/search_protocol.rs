@@ -117,6 +117,7 @@
 //! [`MOST_STORIES`] are kept.
 
 use crate::json_depth;
+pub use crate::search_service::{ImageFound, StoryFound, VideoFound};
 use crate::search_text::plain;
 use alo_renderer::results::{Found, MOST_FOUND, MOST_IMAGES, Pictured};
 use alo_renderer::results_media::{MOST_STORIES, MOST_VIDEOS, Story, Video};
@@ -276,20 +277,6 @@ pub struct ReadImages {
     pub left_out: Vec<LeftOut>,
 }
 
-/// One image an image search found, as read: what is drawn of it, and
-/// where Brave says its thumbnail is — which the browser process alone
-/// fetches, and never sends to a renderer.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ImageFound {
-    /// The image, with no picture yet.
-    pub pictured: Pictured,
-    /// Its thumbnail's address, if Brave gave one that is a site's.
-    pub thumbnail: Option<Url>,
-    /// Its site's mark's address, if Brave gave one that is a site's
-    /// (`meta_url.favicon`, queue item 768).
-    pub mark: Option<Url>,
-}
-
 /// Read `answer`, the body of Brave's answer to an image search (queue item
 /// 743).
 ///
@@ -339,18 +326,6 @@ pub struct ReadVideos {
     pub left_out: Vec<LeftOut>,
 }
 
-/// One video a video search found, as read, and where Brave says its
-/// thumbnail is — which the browser process alone fetches.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct VideoFound {
-    /// The video, with no picture yet.
-    pub video: Video,
-    /// Its thumbnail's address, if Brave gave one that is a site's.
-    pub thumbnail: Option<Url>,
-    /// Its site's mark's address, if Brave gave one that is a site's.
-    pub mark: Option<Url>,
-}
-
 /// What was read of a news search's answer: the stories found, best first,
 /// and every one left out, with why (queue item 746).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -360,19 +335,6 @@ pub struct ReadNews {
     pub found: Vec<StoryFound>,
     /// The stories left out.
     pub left_out: Vec<LeftOut>,
-}
-
-/// One story a news search found, as read, and where Brave says its photo
-/// (queue item 765) and its site's mark are — which the browser process
-/// alone fetches.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct StoryFound {
-    /// The story, with no photo yet.
-    pub story: Story,
-    /// Its photo's address, if Brave gave one that is a site's.
-    pub thumbnail: Option<Url>,
-    /// Its site's mark's address, if Brave gave one that is a site's.
-    pub mark: Option<Url>,
 }
 
 /// The results of an answer of `kind`, once it is known to be one: refused

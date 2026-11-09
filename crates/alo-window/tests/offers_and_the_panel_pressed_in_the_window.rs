@@ -259,7 +259,7 @@ fn the_window_on(
     let key = SearchKey::of(NOT_A_KEY).ok_or("the test's key is not one a header carries")?;
     let provider = Provider::at(&format!("http://127.0.0.1:{port}/res/v1/web/search"), key)?;
     let searcher = Searcher::start(
-        Ok(provider),
+        Ok(provider.into()),
         Box::new(move |s| told.send(Heard::Searched(s)).is_ok()),
     )
     .map_err(|why| format!("no search thread: {why}"))?;

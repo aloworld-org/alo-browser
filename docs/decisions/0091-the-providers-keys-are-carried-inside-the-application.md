@@ -124,3 +124,13 @@ CEF_PATH=… target/release/alo-bundle --keys-from keychain
 - Developer ID signing and notarisation (735): the seal today is ad hoc.
 - Windows and Linux applications (728), which will carry their keys in
   their own packages.
+
+## Amended (9 November 2026, ADR 0106, queue items 904–906)
+
+What is decided above is now one connector's: the service is asked
+through an interface (`search_service.rs`, `ai_service.rs`) and chosen by
+configuration, Brave and OpenAI the defaults. A key is the person's own
+(given in *Settings*, keychain `alo-search-brave` / `alo-ai-openai`) before
+the one a release carries, before the older item this ADR named, which is
+still read. No sentence a person reads names the service, OpenAI included
+(*the AI service*); ADR 0106 is where that stands now.

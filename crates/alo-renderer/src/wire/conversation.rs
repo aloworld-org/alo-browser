@@ -82,6 +82,7 @@ impl Writer {
             Claim::LeaveSettings => (33, None),
             Claim::Limit { at } => (35, Some(at)),
             Claim::Asks { at } => (36, Some(at)),
+            Claim::Service { at } => (37, Some(at)),
             Claim::Continue => (34, None),
         };
         self.tag(tag);
@@ -157,6 +158,7 @@ impl Reader<'_> {
             33 => Claim::LeaveSettings,
             35 => Claim::Limit { at: self.place()? },
             36 => Claim::Asks { at: self.place()? },
+            37 => Claim::Service { at: self.place()? },
             34 => Claim::Continue,
             other => return Err(unreadable(format!("a claim tagged {other}"))),
         };

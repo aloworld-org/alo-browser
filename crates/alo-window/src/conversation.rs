@@ -247,6 +247,8 @@ pub struct Conversation {
     /// *Settings*: whether it is the page on screen, and the face the
     /// interface is set in (queue item 854).
     settings: Settings,
+    /// *Settings › Search and answers* (ADR 0106, queue item 905).
+    services: crate::conversation_services::ServicesPage,
     /// Where the keyboard was as *Settings* opened, given back as it
     /// closes (queue item 886).
     keyboard_before_settings: Keyboard,
@@ -326,6 +328,7 @@ impl Default for Conversation {
             switched: None,
             sheet: false,
             settings: Settings::default(),
+            services: crate::conversation_services::ServicesPage::default(),
             keyboard_before_settings: Keyboard::Nowhere,
             agent_opening: None,
         }
@@ -566,6 +569,7 @@ impl Conversation {
             faces: Vec::new(),
             limits: Vec::new(),
             asks: Vec::new(),
+            services: Vec::new(),
         };
         if !self.settings.is_open() {
             return shown;
@@ -582,6 +586,8 @@ impl Conversation {
             // *alo at work* (queue item 878).
             limits: self.settings.limits().presses(),
             asks: Asks::ALL.to_vec(),
+            // *Search and answers* (queue item 905), as it is drawn.
+            services: self.services.shown().pressables(),
             ..Shown::default()
         }
     }
@@ -633,7 +639,8 @@ impl Conversation {
             | Pressed::Face(_)
             | Pressed::LeaveSettings
             | Pressed::Stepped(_)
-            | Pressed::Asks(_) => self.in_settings(&pressed, keyboard) || changed,
+            | Pressed::Asks(_)
+            | Pressed::Service(_) => self.in_settings(&pressed, keyboard) || changed,
             Pressed::Found(url) => {
                 self.choose_found(url.clone());
                 changed
@@ -654,14 +661,7 @@ impl Conversation {
                 };
                 let shown = thread.show_tab(*turn, *tab);
                 if shown && let Some(words) = thread.ask_for(*turn, *tab) {
-                    self.further += 1;
-                    self.asked.push((self.further, *chat, *turn));
-                    self.to_ask.push(Further {
-                        number: self.further,
-                        words,
-                        tab: *tab,
-                        offset: 0,
-                    });
+                    self.ask_further((*chat, *turn), words, *tab, 0);
                 }
                 shown || changed
             }
@@ -675,19 +675,13 @@ impl Conversation {
                 let Some((words, offset)) = thread.ask_page(*turn) else {
                     return self.pressed(pressed, changed);
                 };
-                self.further += 1;
-                self.asked.push((self.further, *chat, *turn));
-                self.to_ask.push(Further {
-                    number: self.further,
-                    words,
-                    tab: results::Tab::Sites,
-                    offset,
-                });
+                self.ask_further((*chat, *turn), words, results::Tab::Sites, offset);
                 true
             }
             Pressed::NewChat => {
                 self.sheet = false;
                 let _ = self.settings.close();
+                self.services.leave();
                 self.new_chat();
                 true
             }
@@ -742,6 +736,25 @@ impl Conversation {
         search || unkeyed
     }
 
+    /// Ask `tab` of the turn `turn` of `chat` for `words`, at `offset`: a
+    /// tab opened for the first time, or a further page of sites.
+    fn ask_further(
+        &mut self,
+        (chat, turn): (ChatId, usize),
+        words: String,
+        tab: results::Tab,
+        offset: usize,
+    ) {
+        self.further += 1;
+        self.asked.push((self.further, chat, turn));
+        self.to_ask.push(Further {
+            number: self.further,
+            words,
+            tab,
+            offset,
+        });
+    }
+
     /// A chat chosen in the panel, or *Settings* pressed (queue item 854):
     /// a chat chosen is on screen, closing the sheet it was chosen in (776)
     /// and *Settings*; *Settings* opens over the chat on screen, closing
@@ -753,6 +766,7 @@ impl Conversation {
             Pressed::Chat(id) => {
                 let sheet = core::mem::replace(&mut self.sheet, false);
                 let settings = self.settings.close();
+                self.services.leave();
                 self.put_on_screen(*id) || sheet || settings
             }
             Pressed::Settings => {
@@ -763,10 +777,23 @@ impl Conversation {
                 }
                 opened || sheet
             }
-            Pressed::Face(face) => self.settings.choose(*face),
+            // A press anywhere in *Settings* but a field takes the keyboard
+            // out of *Search and answers*' field (905).
+            Pressed::Face(face) => self.services.type_in(None) | self.settings.choose(*face),
             // *alo at work* (queue item 878).
-            Pressed::Stepped(stepped) => self.settings.press(*stepped),
-            Pressed::Asks(asks) => self.settings.choose_asks(*asks),
+            Pressed::Stepped(stepped) => {
+                self.services.type_in(None) | self.settings.press(*stepped)
+            }
+            Pressed::Asks(asks) => self.services.type_in(None) | self.settings.choose_asks(*asks),
+            // *Search and answers* (queue item 905): a field pressed takes
+            // the keyboard; a press anywhere else leaves it.
+            Pressed::Service(pressed) => {
+                let left = match pressed {
+                    alo_renderer::settings_services::ServicePress::Field(_) => false,
+                    _ => self.services.type_in(None),
+                };
+                self.services.press(*pressed) || left
+            }
             Pressed::LeaveSettings => self.close_settings(),
             _ => false,
         }
@@ -1551,6 +1578,7 @@ impl Conversation {
             limits: self.settings.limits(),
             settings_down: 0.0,
             settings_bar: None,
+            services: None,
         }
         .at_scale(scale.factor());
         if !self.settings.is_open() {
@@ -1564,6 +1592,7 @@ impl Conversation {
             settings_keyed: self.settings.keyed(),
             settings_down: scrolled.down(),
             settings_bar: scrolled.bar(Room::settings(viewport).height, scale.factor()),
+            services: Some(self.services.shown()),
             ..start
         }
     }
@@ -1574,17 +1603,89 @@ impl Conversation {
     /// changed, to be drawn again.
     pub fn settings_key(&mut self, key: crate::settings_keys::SettingsKey) -> bool {
         use crate::settings_keys::SettingsKey;
+        use alo_renderer::settings_services::ServicePress;
         use alo_renderer::start::SettingsKeyed;
         if !self.settings.is_open() {
             return false;
         }
         match key {
-            SettingsKey::Tab { back } => self.settings.tab(back),
-            SettingsKey::Step { on } => self.settings.step(on),
-            SettingsKey::Press => {
-                self.settings.keyed() == Some(SettingsKeyed::Close) && self.close_settings()
+            SettingsKey::Tab { back } => {
+                // Through *Search and answers* too, as it is drawn (905):
+                // into a field it moves to, out of one it leaves.
+                let stops: Vec<SettingsKeyed> = self
+                    .services
+                    .shown()
+                    .stops()
+                    .into_iter()
+                    .map(SettingsKeyed::Service)
+                    .collect();
+                let moved = self.settings.tab_through(back, &stops);
+                let field = match self.settings.keyed() {
+                    Some(SettingsKeyed::Service(ServicePress::Field(entry))) => Some(entry),
+                    _ => None,
+                };
+                let _ = self.services.type_in(field);
+                moved
+            }
+            SettingsKey::Step { on } => match self.settings.keyed() {
+                // A chooser: the next service, or the one before (905).
+                Some(SettingsKeyed::Service(
+                    pressed @ (ServicePress::Search(_) | ServicePress::Answers(_)),
+                )) => {
+                    let (chosen, now) = self
+                        .services
+                        .step(matches!(pressed, ServicePress::Search(_)), on);
+                    self.settings.key_on(SettingsKeyed::Service(now));
+                    chosen || now != pressed
+                }
+                Some(SettingsKeyed::Service(_)) => false,
+                _ => self.settings.step(on),
+            },
+            SettingsKey::Press => match self.settings.keyed() {
+                Some(SettingsKeyed::Close) => self.close_settings(),
+                Some(SettingsKeyed::Service(pressed)) => {
+                    let changed = self.services.press(pressed);
+                    self.services_keyed_kept();
+                    changed
+                }
+                _ => false,
+            },
+        }
+    }
+
+    /// The keyboard kept on something of *Search and answers* still drawn,
+    /// after a press changed what is: else on its chooser of search.
+    fn services_keyed_kept(&mut self) {
+        use alo_renderer::start::SettingsKeyed;
+        if let Some(SettingsKeyed::Service(on)) = self.settings.keyed() {
+            let stops = self.services.shown().stops();
+            if !stops.contains(&on) {
+                let first = stops.first().copied();
+                if let Some(first) = first {
+                    self.settings.key_on(SettingsKeyed::Service(first));
+                }
             }
         }
+    }
+
+    /// *Settings › Search and answers* as it is now (queue item 905).
+    pub fn services(&self) -> &crate::conversation_services::ServicesPage {
+        &self.services
+    }
+
+    /// *Settings › Search and answers*, to be typed into or told what the
+    /// window did.
+    pub fn services_mut(&mut self) -> &mut crate::conversation_services::ServicesPage {
+        &mut self.services
+    }
+
+    /// The same conversation, its *Search and answers* `page` (queue item
+    /// 905): the services named and whose keys are used, as the window
+    /// opens.
+    #[must_use]
+    pub fn serving(mut self, page: crate::conversation_services::ServicesPage) -> Self {
+        self.services = page;
+        self
     }
 
     /// Show the page at `url` as a card, answering what the person last
@@ -2069,6 +2170,7 @@ impl Conversation {
         if !self.settings.close() {
             return false;
         }
+        self.services.leave();
         match core::mem::take(&mut self.keyboard_before_settings) {
             Keyboard::TheBox => {
                 let _ = self.the_box.focus();
@@ -4088,6 +4190,94 @@ mod tests {
             "a face read after keeps them"
         );
         assert!(!kept.take_limits_changed());
+    }
+
+    /// Queue item 905: Tab goes on from *alo at work* through *Search and
+    /// answers* as it is drawn — its chooser, the field and *Keep* — and
+    /// round to *Close*; the arrows on a chooser choose; Tab into a field
+    /// puts the keyboard in it, and out of it takes it out.
+    #[test]
+    fn tab_goes_on_through_search_and_answers_and_the_arrows_choose_a_service() {
+        use crate::settings_keys::SettingsKey;
+        use alo_renderer::settings_services::{Entry, ServicePress};
+        use alo_renderer::start::SettingsKeyed;
+        let mut conversation = Conversation::default();
+        let _ = conversation.act(Pressed::Settings);
+        let shown = conversation.showing();
+        assert_eq!(
+            shown.services,
+            vec![
+                ServicePress::Search(0),
+                ServicePress::Search(1),
+                ServicePress::Field(Entry::SearchKey),
+                ServicePress::Keep(Entry::SearchKey),
+                ServicePress::Answers(0),
+                ServicePress::Field(Entry::AiKey),
+                ServicePress::Keep(Entry::AiKey),
+            ]
+        );
+        let mut went = Vec::new();
+        for _ in 0..11 {
+            assert!(conversation.settings_key(SettingsKey::Tab { back: false }));
+            went.extend(conversation.settings().keyed());
+        }
+        let service = SettingsKeyed::Service;
+        assert_eq!(
+            went,
+            [
+                SettingsKeyed::Close,
+                SettingsKeyed::Font,
+                SettingsKeyed::Sites,
+                SettingsKeyed::Actions,
+                SettingsKeyed::Asks,
+                service(ServicePress::Search(0)),
+                service(ServicePress::Field(Entry::SearchKey)),
+                service(ServicePress::Keep(Entry::SearchKey)),
+                service(ServicePress::Answers(0)),
+                service(ServicePress::Field(Entry::AiKey)),
+                service(ServicePress::Keep(Entry::AiKey)),
+            ]
+        );
+        assert_eq!(conversation.services().typing(), None, "out of the field");
+        assert!(conversation.settings_key(SettingsKey::Tab { back: true }));
+        assert_eq!(
+            conversation.services().typing(),
+            Some(Entry::AiKey),
+            "into it"
+        );
+        // Back to the chooser of search: → chooses the next, the keyboard
+        // following it; the field it takes is drawn in place of the key's.
+        for _ in 0..4 {
+            assert!(conversation.settings_key(SettingsKey::Tab { back: true }));
+        }
+        assert_eq!(
+            conversation.settings().keyed(),
+            Some(service(ServicePress::Search(0)))
+        );
+        assert!(conversation.settings_key(SettingsKey::Step { on: true }));
+        assert_eq!(
+            conversation.settings().keyed(),
+            Some(service(ServicePress::Search(1)))
+        );
+        assert!(
+            conversation
+                .showing()
+                .services
+                .contains(&ServicePress::Field(Entry::Address))
+        );
+        assert_eq!(
+            conversation.services_mut().take_to_do(),
+            [crate::conversation_services::ToDo::KeepServices]
+        );
+        // Space on *Keep* of the address presses it; closing forgets.
+        assert!(conversation.settings_key(SettingsKey::Tab { back: false }));
+        assert_eq!(conversation.services().typing(), Some(Entry::Address));
+        assert!(conversation.services_mut().put("not an address"));
+        assert!(conversation.settings_key(SettingsKey::Tab { back: false }));
+        assert!(conversation.settings_key(SettingsKey::Press));
+        assert!(conversation.services().shown().said.is_some());
+        assert!(conversation.close_settings());
+        assert_eq!(conversation.services().shown().said, None);
     }
 
     #[test]

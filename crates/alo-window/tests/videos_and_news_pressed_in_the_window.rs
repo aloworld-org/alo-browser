@@ -347,7 +347,7 @@ fn the_window(port: u16) -> Result<Driven, String> {
         .with_videos(&format!("http://127.0.0.1:{port}/res/v1/videos/search"))?
         .with_news(&format!("http://127.0.0.1:{port}/res/v1/news/search"))?;
     let searcher = Searcher::start(
-        Ok(provider),
+        Ok(provider.into()),
         Box::new(move |s| told.send(Heard::Searched(s)).is_ok()),
     )
     .map_err(|why| format!("no search thread: {why}"))?;

@@ -333,7 +333,7 @@ mod tests {
             of_class(&document, "sent"),
             vec![
                 "Your question and what the search said of its first 4 sites were sent to \
-                 OpenAI to write this answer."
+                 the AI service chosen in Settings to write this answer."
             ]
         );
     }

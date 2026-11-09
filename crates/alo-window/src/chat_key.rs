@@ -31,7 +31,6 @@
 use crate::chat_seal::{KEY_BYTES, Key};
 use crate::keychain::SECURITY;
 use std::io::Write;
-use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
 /// The keychain item's service: what the person sees it called in
@@ -45,13 +44,7 @@ pub const LABEL: &str = "alo: the key the chats on this Mac are sealed under";
 const NOT_FOUND: i32 = 44;
 
 /// Which keychain the key is kept in.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Keychain {
-    /// The person's own: their default, the login keychain.
-    Theirs,
-    /// A keychain file of a test's own.
-    File(PathBuf),
-}
+pub use crate::keychain::Keychain;
 
 /// The key the chats are sealed under, and where it came from.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -252,7 +245,7 @@ mod tests {
 
     /// A keychain file of this test's own, made unlocked under the
     /// temporary directory, and deleted when dropped.
-    struct Scratch(PathBuf);
+    struct Scratch(std::path::PathBuf);
 
     impl Drop for Scratch {
         fn drop(&mut self) {

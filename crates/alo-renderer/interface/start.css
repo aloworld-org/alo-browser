@@ -2038,6 +2038,117 @@ ol.result {
   box-shadow: 0 0 0 3px rgba(27, 36, 51, 0.33);
 }
 
+/* *Search and answers* (ADR 0106, queue item 905, docs/design/shell.md,
+   *Settings*): *alo at work*'s white box and rows. A chooser's services are
+   drawn as its choices of asking are; a field's row holds the field, 28
+   tall as a stepper is, *Keep* and *Remove* beside it, and one quiet
+   sentence under them — its row wraps to take them. */
+.svc {
+  display: flex;
+  align-items: center;
+  column-gap: 6px;
+  height: 28px;
+  padding: 0 8px;
+  margin: 0 -8px;
+  border-radius: 8px;
+  color: var(--quiet);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.svc.on {
+  color: var(--ink);
+}
+
+.svc.on.keyed {
+  box-shadow: 0 0 0 3px rgba(27, 36, 51, 0.33);
+}
+
+.erow {
+  row-gap: 6px;
+  padding: 10px 0;
+}
+
+.ebox {
+  display: flex;
+  align-items: center;
+  column-gap: 8px;
+}
+
+/* A field: its words on one line, cut at its end; a key's are dots. */
+.efield {
+  display: flex;
+  align-items: center;
+  width: 240px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+.efield.on {
+  border-color: var(--ink);
+}
+
+.efield.keyed {
+  box-shadow: 0 0 0 3px rgba(27, 36, 51, 0.33);
+}
+
+.etext {
+  color: var(--ink);
+}
+
+.eplace {
+  color: var(--quiet);
+}
+
+/* The caret, one CSS pixel in the ink, as the box's is. */
+.ecaret {
+  flex-shrink: 0;
+  width: 1px;
+  height: 16px;
+  background: var(--ink);
+}
+
+.kbtn {
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 26px;
+  font-weight: 600;
+}
+
+.kbtn.keyed {
+  box-shadow: 0 0 0 3px rgba(27, 36, 51, 0.33);
+}
+
+/* Whose key is used, or the address kept: a line of its own under the
+   field, as the section's own line is quiet. */
+.estate {
+  flex-basis: 100%;
+  color: var(--quiet);
+  font-size: 12.5px;
+  line-height: 17px;
+}
+
+/* What the last *Keep* or *Remove* came to, under the box. */
+.psaid {
+  margin-top: 10px;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 18px;
+}
+
 /* alo asked with no page open (queue item 821): its column on a white box
    rounded 12 under what the person asked, as a run kept with a page is
    drawn — no page above it, so no rule over it and no outline. */

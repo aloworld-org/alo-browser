@@ -182,10 +182,17 @@ impl Settings {
     /// before, round from either end — from nothing, the first or the last.
     /// Whether it is open, and so moved.
     pub fn tab(&mut self, back: bool) -> bool {
+        self.tab_through(back, &[])
+    }
+
+    /// Tab, or ⇧Tab when `back`, as [`Settings::tab`], through `more` after
+    /// *alo at work*'s three: *Search and answers*' stops, as it is drawn
+    /// (queue item 905). Whether it is open, and so moved.
+    pub fn tab_through(&mut self, back: bool, more: &[SettingsKeyed]) -> bool {
         if !self.open {
             return false;
         }
-        let all = SettingsKeyed::ALL;
+        let all: Vec<SettingsKeyed> = SettingsKeyed::ALL.iter().chain(more).copied().collect();
         let at = self
             .keyed
             .and_then(|keyed| all.iter().position(|each| *each == keyed));
@@ -198,6 +205,16 @@ impl Settings {
         self.keyed = all.get(next).copied();
         self.reveal = self.keyed;
         true
+    }
+
+    /// The keyboard on `keyed`, as an arrow on a chooser of *Search and
+    /// answers* moves it to the choice made (queue item 905), scrolled into
+    /// view: while it is open.
+    pub fn key_on(&mut self, keyed: SettingsKeyed) {
+        if self.open {
+            self.keyed = Some(keyed);
+            self.reveal = Some(keyed);
+        }
     }
 
     /// How far it is scrolled (queue item 880).
@@ -253,7 +270,7 @@ impl Settings {
                 let other = self.limits.asks.stepped(on);
                 return self.choose_asks(other);
             }
-            Some(SettingsKeyed::Close) | None => return false,
+            Some(SettingsKeyed::Close | SettingsKeyed::Service(_)) | None => return false,
         }
         let faces = InterfaceFace::ALL;
         let at = faces

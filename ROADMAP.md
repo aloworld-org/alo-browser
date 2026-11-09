@@ -2613,7 +2613,13 @@ items where being right and being unusable are the same outcome.
       resized or the panel hidden, in layout assertions, a reference render
       and through both Chromiums; the panel folded to its rail in a window
       narrower than 760 and unfolded from it unless a person hid it, the
-      window at least 600 × 600 (775)
+      window at least 600 × 600 (775); search and answers through one
+      interface each, the service chosen by configuration — Brave or a
+      SearXNG of a person's own, OpenAI — a release's services and keys
+      chosen as it is made, and *Settings › Search and answers* choosing
+      them and keeping a person's own keys in their keychain (904–906, ADR
+      0106) · Owed: a SearXNG's pictures (907), a service changed used at
+      once (908), a Settings field edited as the box is (909)
 - [ ] A window, tabs, and a tab strip
       · Built: the window (296, `alo-window`, binary `alo`, decided in ADR
       0024). `winit` and `softbuffer` are rented through safe functions

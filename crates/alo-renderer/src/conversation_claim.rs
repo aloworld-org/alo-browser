@@ -263,6 +263,12 @@ pub enum Claim {
         /// Its place.
         at: usize,
     },
+    /// What *Search and answers* offers at this place — a service, a field
+    /// or a button — counting from zero (queue item 905).
+    Service {
+        /// Its place.
+        at: usize,
+    },
 }
 
 impl Claim {
@@ -305,6 +311,7 @@ impl Claim {
             | Claim::LeaveSettings
             | Claim::Limit { .. }
             | Claim::Asks { .. }
+            | Claim::Service { .. }
             | Claim::Shield => Part::Start,
         }
     }
@@ -350,6 +357,9 @@ impl fmt::Display for Claim {
             Claim::LeaveSettings => f.write_str("Settings' Close"),
             Claim::Limit { at } => write!(f, "the stepper's button Settings offers at place {at}"),
             Claim::Asks { at } => write!(f, "the choice of asking Settings offers at place {at}"),
+            Claim::Service { at } => {
+                write!(f, "what Settings' Search and answers offers at place {at}")
+            }
         }
     }
 }
@@ -465,6 +475,9 @@ fn pressables(part: Part) -> &'static [(&'static [&'static str], Pressable)] {
                 &["askopt", "askopt on"],
                 Pressable::Placed(|at| Claim::Asks { at }),
             ),
+            // *Search and answers* (queue item 905): every service, field
+            // and button by its place among them all, ringed or not.
+            (SERVICES, Pressable::Placed(|at| Claim::Service { at })),
             // An offer for what was typed, whichever is chosen and whether
             // it is set up (queue item 714).
             (
@@ -474,6 +487,20 @@ fn pressables(part: Part) -> &'static [(&'static [&'static str], Pressable)] {
         ],
     }
 }
+
+/// The classes of everything *Search and answers* lets a person press
+/// (queue item 905), in each state it is drawn in.
+const SERVICES: &[&str] = &[
+    "svc",
+    "svc on",
+    "svc on keyed",
+    "efield",
+    "efield on",
+    "efield keyed",
+    "efield on keyed",
+    "kbtn",
+    "kbtn keyed",
+];
 
 /// What a press at `at`, in the part's CSS pixels, claims in `drawing`, a
 /// drawing of `document`, which is `part`'s document: what it is on, or

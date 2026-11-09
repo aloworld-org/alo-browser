@@ -221,23 +221,41 @@ fn in_the_conversation(opening: &Opening, chromium: Chromium, bundle: Option<&Bu
         "alo: the browser's own interface is drawn by {}",
         RenderedBy::ThisEngine
     );
-    // The search provider's key, carried inside the application in a
-    // release (ADR 0091) or read from this Mac's keychain at run time (ADR
-    // 0083 § 1), and never said; with none, searching says why it is not
-    // set up. Read here, by the browser process alone.
-    let search = alo_window::search_key::for_this_application(bundle)
-        .and_then(alo_window::brave_search::Provider::brave);
-    // The model's key, read the same way, by the browser process alone (ADR
-    // 0091, queue item 773): with none, a search's answer says why it is
-    // not set up where the answer would be.
-    let answer = alo_window::answer_key::for_this_application(bundle)
-        .and_then(alo_window::openai_answer::Provider::openai);
     // Where its chats are kept (queue item 757, ADR 0092): the directory a
     // person named, or alo's own; said, so a hand run knows which it wrote.
     let chats = opening
         .chats
         .clone()
         .map_or_else(alo_window::chat_store::for_this_person, Ok);
+    // Which services it asks (ADR 0106 § 3): the person's lines in the
+    // settings beside the chats, over the application's own defaults, over
+    // Brave and OpenAI — each asked with the person's own key, the
+    // application's, or an older alo's keychain item (§ 4), read here by
+    // the browser process alone and never said; with none, a service says
+    // why it is not set up where it would answer.
+    let named =
+        chats
+            .as_deref()
+            .ok()
+            .map_or_else(alo_window::services::Named::default, |directory| {
+                alo_window::settings_file::read(&alo_window::settings_file::file_in(directory))
+                    .services
+            });
+    let defaults = bundle.map_or_else(alo_window::services::Named::default, |bundle| {
+        alo_window::services_made::defaults_in(bundle.resources()).unwrap_or_default()
+    });
+    let (services, unread) = alo_window::services_made::chosen(&named, bundle);
+    if let Some(unread) = unread {
+        eprintln!("alo: {unread}");
+    }
+    eprintln!(
+        "alo: searches with {} and answers with {}",
+        services.search.name(),
+        services.answers.name()
+    );
+    let keys = alo_window::service_keys::Keys::for_this_application(bundle);
+    let search = alo_window::services_made::search(&services, &keys);
+    let answer = alo_window::services_made::ai(&services, &keys);
     if let Ok(directory) = &chats {
         eprintln!("alo: chats are kept in {}", directory.display());
     }
@@ -276,7 +294,7 @@ fn in_the_conversation(opening: &Opening, chromium: Chromium, bundle: Option<&Bu
         opening.scale,
         renderers,
         chromium,
-        (search, answer),
+        (search, answer, defaults, keys),
         chats,
         (reaching, closing, agent),
     ) {

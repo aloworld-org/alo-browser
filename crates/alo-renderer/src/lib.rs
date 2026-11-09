@@ -139,6 +139,8 @@ pub mod scrolling_area;
 mod sent;
 pub mod serve;
 pub mod settings_document;
+pub mod settings_services;
+pub mod settings_services_document;
 pub mod settings_work_document;
 pub mod sheet;
 pub mod sheet_decide;

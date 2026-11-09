@@ -19,11 +19,13 @@
 //! nothing is made. No request is sent anywhere.
 
 use alo_net::cause::Identities;
-use alo_window::answer_key;
 use alo_window::brave_search::Provider;
 use alo_window::bundle::Bundle;
+use alo_window::keychain::Keychain;
 use alo_window::openai_answer;
-use alo_window::search_key::{Held, for_this_application};
+use alo_window::search_key::Held;
+use alo_window::service_keys::Keys;
+use alo_window::services::Keyed;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
@@ -44,6 +46,11 @@ fn directory(name: &str) -> Result<PathBuf, String> {
 /// `alo-bundle`, making the application into `into` from the programs this
 /// test was built with, its keys from `keys`, and no CEF distribution.
 fn assemble(into: &Path, keys: &Path) -> Result<Output, String> {
+    assemble_with(into, keys, &[])
+}
+
+/// `alo-bundle` as [`assemble`] runs it, with `more` words after.
+fn assemble_with(into: &Path, keys: &Path, more: &[&Path]) -> Result<Output, String> {
     let alo = Path::new(env!("CARGO_BIN_EXE_alo"));
     let programs = alo.parent().ok_or("alo is in no directory")?;
     Command::new(env!("CARGO_BIN_EXE_alo-bundle"))
@@ -53,6 +60,7 @@ fn assemble(into: &Path, keys: &Path) -> Result<Output, String> {
         .arg(into)
         .arg("--keys-from")
         .arg(keys)
+        .args(more)
         .env_remove("CEF_PATH")
         .output()
         .map_err(|why| format!("alo-bundle did not run: {why}"))
@@ -94,7 +102,7 @@ fn the_application_carries_its_keys_sealed_and_asks_with_them() -> Result<(), St
         format!(
             "alo-bundle: CEF_PATH is not set, so the application carries no Chromium: it draws \
              its page with this browser's own engine, and says so\n\
-             alo-bundle: carries the search key, the OpenAI key, taken from {}\n\
+             alo-bundle: carries the search key, the AI key, taken from {}\n\
              alo-bundle: made, sealed ad hoc and checked by codesign\n",
             keys.display()
         )
@@ -129,7 +137,10 @@ fn the_application_carries_its_keys_sealed_and_asks_with_them() -> Result<(), St
     // The browser inside it: the key it carries, in the one header.
     let bundle = Bundle::around(&contents.join("MacOS").join("alo"))
         .ok_or("alo does not know it is inside the application")?;
-    let key = for_this_application(Some(&bundle))?;
+    // No keychain is asked — an account the tool is never given — so the
+    // application's own keys are what is found (ADR 0106 § 4).
+    let keys = Keys::in_keychain(Keychain::Theirs, "", Some(bundle.resources().to_path_buf()));
+    let key = keys.key(Keyed::BraveSearch)?;
     assert_eq!(key.held(), Held::Carried);
     assert!(!format!("{key:?}").contains(NOT_A_KEY));
     let request = Provider::brave(key)?.request("words", &mut Identities::default())?;
@@ -142,7 +153,7 @@ fn the_application_carries_its_keys_sealed_and_asks_with_them() -> Result<(), St
     assert_eq!(tokens, [NOT_A_KEY]);
 
     // And the answer's key, in its own slot, in its one header (773).
-    let answering = answer_key::for_this_application(Some(&bundle))?;
+    let answering = keys.key(Keyed::OpenAi)?;
     assert_eq!(answering.held(), Held::Carried);
     assert!(!format!("{answering:?}").contains(NOT_AN_ANSWER_KEY));
     let request = openai_answer::Provider::openai(answering)?.request(
@@ -163,11 +174,74 @@ fn the_application_carries_its_keys_sealed_and_asks_with_them() -> Result<(), St
     std::fs::write(&carried, b"alo carried key 1\nchanged").map_err(|why| why.to_string())?;
     assert!(!sealed(&application)?, "a changed key was accepted");
     assert_eq!(
-        for_this_application(Some(&bundle)).err().as_deref(),
+        keys.key(Keyed::BraveSearch).err().as_deref(),
         Some("the search key this application carries could not be read (keys/search)"),
         "a damaged key is said, and never swapped for the keychain's"
     );
 
+    let _ = std::fs::remove_dir_all(&root);
+    Ok(())
+}
+
+/// ADR 0106 § 6 (queue item 906): `--services` names the services a
+/// release asks unless a person chooses others — carried, checked, as
+/// `services.txt` — and only their keys are carried: a `SearXNG`'s none.
+#[test]
+fn the_services_a_release_asks_are_carried_with_their_keys_alone() -> Result<(), String> {
+    let root = directory("services")?;
+    let keys = root.join("keys given");
+    std::fs::create_dir_all(&keys).map_err(|why| why.to_string())?;
+    std::fs::write(keys.join("answer"), NOT_AN_ANSWER_KEY).map_err(|why| why.to_string())?;
+    let services = root.join("services.txt");
+    std::fs::write(
+        &services,
+        "search searxng\nsearxng https://search.example.org\n",
+    )
+    .map_err(|why| why.to_string())?;
+    let into = root.join("into");
+    std::fs::create_dir_all(&into).map_err(|why| why.to_string())?;
+    let flag = Path::new("--services");
+    let made = assemble_with(&into, &keys, &[flag, &services])?;
+    let said = String::from_utf8_lossy(&made.stderr).into_owned();
+    assert!(made.status.success(), "{said}");
+    assert!(
+        said.contains(
+            "alo-bundle: asks SearXNG and OpenAI unless a person chooses others\n\
+             alo-bundle: carries the AI key, taken from"
+        ),
+        "{said}"
+    );
+    let resources = into.join("alo browser.app/Contents/Resources");
+    assert_eq!(
+        std::fs::read_to_string(resources.join("services.txt"))
+            .ok()
+            .as_deref(),
+        Some(
+            "# alo: the services this application asks unless a person chooses others\n\
+             search searxng\nsearxng https://search.example.org/\n"
+        )
+    );
+    assert!(
+        !resources.join("keys/search").exists(),
+        "a SearXNG takes no key"
+    );
+    assert!(resources.join("keys/answer").exists());
+    assert!(sealed(&into.join("alo browser.app"))?, "the seal covers it");
+    // A file naming a service alo has no connector for: refused, nothing
+    // made.
+    std::fs::write(&services, "search google\n").map_err(|why| why.to_string())?;
+    let elsewhere = root.join("elsewhere");
+    std::fs::create_dir_all(&elsewhere).map_err(|why| why.to_string())?;
+    let refused = assemble_with(&elsewhere, &keys, &[flag, &services])?;
+    assert_eq!(refused.status.code(), Some(2));
+    assert!(
+        String::from_utf8_lossy(&refused.stderr)
+            .contains("does not read: it names a search service alo does not have: \"google\"")
+    );
+    let left = std::fs::read_dir(&elsewhere)
+        .map_err(|why| why.to_string())?
+        .count();
+    assert_eq!(left, 0, "something was made");
     let _ = std::fs::remove_dir_all(&root);
     Ok(())
 }
@@ -201,7 +275,7 @@ fn a_key_not_given_is_refused_and_nothing_is_made() -> Result<(), String> {
         format!(
             "alo-bundle: CEF_PATH is not set, so the application carries no Chromium: it draws \
              its page with this browser's own engine, and says so\n\
-             alo-bundle: no OpenAI key at {} for the application to carry\n",
+             alo-bundle: no AI key at {} for the application to carry\n",
             keys.join("answer").display()
         )
     );

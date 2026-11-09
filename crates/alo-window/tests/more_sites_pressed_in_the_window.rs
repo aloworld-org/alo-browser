@@ -286,7 +286,7 @@ fn the_window(port: u16) -> Result<Driven, String> {
             &format!("http://127.0.0.1:{port}/"),
         )?;
     let searcher = Searcher::start(
-        Ok(provider),
+        Ok(provider.into()),
         Box::new(move |s| told.send(Heard::Searched(s)).is_ok()),
     )
     .map_err(|why| format!("no search thread: {why}"))?;

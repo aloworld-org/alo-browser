@@ -10,7 +10,7 @@
 //! "…"* ([`crate::conversation::Conversation::searching`]). The window
 //! hands the words to this thread ([`Searcher::search`]), which returns at
 //! once — the window's event loop calls nothing that waits (ADR 0024 § 2)
-//! — and the thread asks the provider ([`crate::brave_search`]) through
+//! — and the thread asks the search service ([`crate::search_service`]) through
 //! this repository's own HTTP stack, `alo-net`, and tells the window
 //! [`Searched`] as an event like any other. Never a renderer: a renderer
 //! has no network (ADR 0005), and is sent only the results, as data.
@@ -85,9 +85,9 @@
 //! one's connection. Nothing of it is written to a disk.
 
 use crate::answer_protocol::Spent;
-use crate::brave_search::{self, Provider};
 use crate::conversation_answer::Answerer;
 use crate::search_marks;
+use crate::search_service::{self, Answered, SearchService, Searched as Kind};
 use crate::search_thumbnails;
 use alo_net::Pool;
 use alo_net::cause::Identities;
@@ -206,6 +206,8 @@ pub struct Searcher {
     thread: Option<JoinHandle<()>>,
     /// How the window is told, while there is no thread to tell it.
     tell: Option<TellSearched>,
+    /// Who writes its answers, for the terminal alone, when anybody does.
+    answered_by: Option<String>,
 }
 
 impl core::fmt::Debug for Searcher {
@@ -224,7 +226,10 @@ impl Searcher {
     /// # Errors
     ///
     /// What the system said when no thread could be started.
-    pub fn start(provider: Result<Provider, String>, tell: TellSearched) -> std::io::Result<Self> {
+    pub fn start(
+        provider: Result<SearchService, String>,
+        tell: TellSearched,
+    ) -> std::io::Result<Self> {
         Self::answering(provider, None, tell)
     }
 
@@ -236,10 +241,14 @@ impl Searcher {
     ///
     /// What the system said when no thread could be started.
     pub fn answering(
-        provider: Result<Provider, String>,
+        provider: Result<SearchService, String>,
         answerer: Option<Answerer>,
         tell: TellSearched,
     ) -> std::io::Result<Self> {
+        let answered_by = answerer
+            .as_ref()
+            .and_then(Answerer::named)
+            .map(str::to_owned);
         let provider = match provider {
             Ok(provider) => provider,
             Err(why) => {
@@ -248,6 +257,7 @@ impl Searcher {
                     asked: None,
                     thread: None,
                     tell: Some(tell),
+                    answered_by,
                 });
             }
         };
@@ -260,7 +270,14 @@ impl Searcher {
             asked: Some(asked),
             thread: Some(thread),
             tell: None,
+            answered_by,
         })
+    }
+
+    /// Who writes its searches' answers, for the terminal alone: [`None`]
+    /// when nobody does.
+    pub fn answered_by(&self) -> Option<&str> {
+        self.answered_by.as_deref()
     }
 
     /// Whether searching can be done, and why not.
@@ -367,7 +384,7 @@ pub fn not_set_up(why: &str) -> String {
 /// the newest — telling the window what came of each, and handing each that
 /// found sites to `answerer` for its answer, until told to finish.
 fn ask(
-    provider: &Provider,
+    provider: &SearchService,
     asking: &Receiver<Work>,
     tell: &TellSearched,
     answers: Option<&Answerer>,
@@ -430,20 +447,20 @@ fn ask(
         let Some(pool) = pool.as_mut() else {
             continue;
         };
-        let answered = brave_search::search(provider, pool, &mut identities, &words);
+        let answered = provider.search(pool, &mut identities, &words);
         let marks = answered.marks.clone();
         let found_sites = matches!(&answered.showing, Showing::Found(found) if !found.is_empty());
         let images_follow = provider.asks_images() && found_sites;
         if !tell_sites(
             (number, &words),
             answered,
-            images_follow,
+            images_start(provider, found_sites),
             answers.filter(|_| found_sites),
             tell,
         ) {
             return;
         }
-        // No sites, no marks: `brave_search::search` names none then.
+        // No sites, no marks: a search not answered names none.
         if !tell_marks(
             (provider, pool, &mut identities),
             (asking, &mut pending),
@@ -483,8 +500,8 @@ fn ask(
 /// still hears.
 fn tell_sites(
     (number, words): (u64, &str),
-    answered: brave_search::Answered,
-    images_follow: bool,
+    answered: Answered,
+    images: Images,
     answers: Option<&Answerer>,
     tell: &TellSearched,
 ) -> bool {
@@ -497,7 +514,7 @@ fn tell_sites(
         words: words.to_owned(),
         came: Came::Sites {
             showing: answered.showing,
-            images: starting(images_follow),
+            images,
             more: answered.more,
             answer: if answers.is_some() {
                 Answer::Asking
@@ -516,10 +533,16 @@ fn tell_sites(
 }
 
 /// Where a search's images start, told with its sites: asking when they
-/// will follow, not asked when they will not.
-fn starting(images_follow: bool) -> Images {
-    if images_follow {
+/// will follow — sites were found and the service asks images — and not
+/// asked when no sites were; a service that searches no images says so on
+/// the Images tab, and All draws no row of them (ADR 0106 § 1).
+fn images_start(provider: &SearchService, found_sites: bool) -> Images {
+    if !found_sites {
+        Images::NotAsked
+    } else if provider.asks_images() {
         Images::Asking
+    } else if !provider.searches(Kind::Images) {
+        Images::Unanswered(search_service::unsupported(Kind::Images))
     } else {
         Images::NotAsked
     }
@@ -541,7 +564,7 @@ fn newer_waits(asking: &Receiver<Work>, pending: &mut VecDeque<Work>) -> bool {
 /// newer search waits (work arriving meanwhile is kept in `pending`).
 /// Whether the window still hears.
 fn tell_marks(
-    (provider, pool, identities): (&Provider, &mut Pool, &mut Identities),
+    (provider, pool, identities): (&SearchService, &mut Pool, &mut Identities),
     (asking, pending): (&Receiver<Work>, &mut VecDeque<Work>),
     (number, words, marks): (u64, &str, &[Option<alo_url::Url>]),
     tell: &TellSearched,
@@ -552,7 +575,7 @@ fn tell_marks(
     if newer_waits(asking, pending) {
         return true;
     }
-    let marked = search_marks::fetch(pool, identities, provider.thumbnails(), marks);
+    let marked = search_marks::fetch(pool, identities, provider.pictures(), marks);
     if !marked.marks.iter().any(Option::is_some) {
         return true;
     }
@@ -567,7 +590,7 @@ fn tell_marks(
 /// of `provider` through `pool` — made from this machine's certificates if
 /// it is not yet — or [`None`] for work that is neither.
 fn further_answer(
-    provider: &Provider,
+    provider: &SearchService,
     pool: &mut Option<Pool>,
     identities: &mut Identities,
     work: Work,
@@ -614,17 +637,16 @@ fn further_answer(
 /// Ask `provider` for videos of `words`, and fetch each thumbnail from its
 /// image proxy: the videos found, or why not.
 fn videos(
-    provider: &Provider,
+    provider: &SearchService,
     pool: &mut Pool,
     identities: &mut Identities,
     words: &str,
 ) -> Videos {
-    match brave_search::videos(provider, pool, identities, words) {
+    match provider.videos(pool, identities, words) {
         Ok(found) => {
             let fetched =
-                search_thumbnails::fetch_videos(pool, identities, provider.thumbnails(), found);
-            let marked =
-                search_marks::fetch(pool, identities, provider.thumbnails(), &fetched.marks);
+                search_thumbnails::fetch_videos(pool, identities, provider.pictures(), found);
+            let marked = search_marks::fetch(pool, identities, provider.pictures(), &fetched.marks);
             Videos::Found(
                 fetched
                     .videos
@@ -642,19 +664,19 @@ fn videos(
 /// fetch each site's mark from its image proxy, as a first page's are
 /// (queue item 761): the sites and whether more are offered, or why not.
 fn page(
-    provider: &Provider,
+    provider: &SearchService,
     pool: &mut Pool,
     identities: &mut Identities,
     words: &str,
     offset: usize,
 ) -> Page {
-    let answered = brave_search::page(provider, pool, identities, words, offset);
+    let answered = provider.page(pool, identities, words, offset);
     let found = match answered.showing {
         Showing::Found(found) => found,
         Showing::Unanswered(why) => return Err(why),
         Showing::Searching => Vec::new(),
     };
-    let marked = search_marks::fetch(pool, identities, provider.thumbnails(), &answered.marks);
+    let marked = search_marks::fetch(pool, identities, provider.pictures(), &answered.marks);
     Ok((
         found
             .into_iter()
@@ -668,13 +690,17 @@ fn page(
 /// Ask `provider` for news of `words`, and fetch each story's photo (queue
 /// item 765) and then each site's mark from its image proxy: the stories
 /// found, or why not.
-fn news(provider: &Provider, pool: &mut Pool, identities: &mut Identities, words: &str) -> Stories {
-    match brave_search::news(provider, pool, identities, words) {
+fn news(
+    provider: &SearchService,
+    pool: &mut Pool,
+    identities: &mut Identities,
+    words: &str,
+) -> Stories {
+    match provider.news(pool, identities, words) {
         Ok(found) => {
             let fetched =
-                search_thumbnails::fetch_stories(pool, identities, provider.thumbnails(), found);
-            let marked =
-                search_marks::fetch(pool, identities, provider.thumbnails(), &fetched.marks);
+                search_thumbnails::fetch_stories(pool, identities, provider.pictures(), found);
+            let marked = search_marks::fetch(pool, identities, provider.pictures(), &fetched.marks);
             Stories::Found(
                 fetched
                     .stories
@@ -691,15 +717,15 @@ fn news(provider: &Provider, pool: &mut Pool, identities: &mut Identities, words
 /// Ask `provider` for images of `words`, and fetch each thumbnail from its
 /// proxy: the images found, or why not.
 fn asked_images(
-    provider: &Provider,
+    provider: &SearchService,
     pool: &mut Pool,
     identities: &mut Identities,
     words: &str,
 ) -> Images {
-    let Some(from) = provider.thumbnails() else {
+    let Some(from) = provider.pictures() else {
         return Images::NotAsked;
     };
-    match brave_search::images(provider, pool, identities, words) {
+    match provider.images(pool, identities, words) {
         Ok(found) => {
             let fetched = search_thumbnails::fetch(pool, identities, from, found);
             // Each image's site's mark, from the proxy alone, as a site's

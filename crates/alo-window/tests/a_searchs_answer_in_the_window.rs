@@ -325,6 +325,7 @@ fn the_window(
         SearchKey::of(NOT_A_MODEL_KEY).ok_or("the test's key is not one a header carries")?;
     let model = model.and_then(|()| {
         openai_answer::Provider::at(&format!("http://127.0.0.1:{port}/v1/responses"), model_key)
+            .map(Into::into)
     });
     let answerer = Answerer::start(
         model,
@@ -332,7 +333,7 @@ fn the_window(
     )
     .map_err(|why| format!("no answer thread: {why}"))?;
     let searcher = Searcher::answering(
-        Ok(provider),
+        Ok(provider.into()),
         Some(answerer),
         Box::new(move |s| told.send(Heard::Searched(s)).is_ok()),
     )
@@ -497,8 +498,8 @@ fn a_searchs_answer_is_asked_once_its_sites_come_and_drawn_or_refused() -> Resul
     assert_eq!(
         answer,
         Answer::Unanswered(
-            "alo could not write an answer: OpenAI's answer could not be read: it was refused: \
-             the answer cites source 9, and it was given 3."
+            "alo could not write an answer: the AI service's answer could not be read: it was \
+             refused: the answer cites source 9, and it was given 3."
                 .to_owned()
         )
     );

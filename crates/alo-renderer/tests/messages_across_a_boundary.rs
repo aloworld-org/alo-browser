@@ -1327,9 +1327,10 @@ fn a_conversation_the_renderer_should_not_draw_is_refused() {
         refused(&far)
     );
     // A turn tagged as nothing this engine draws: the tag after the turns'
-    // count, rewritten — back past *Settings*' bar's flag and its offset
-    // (queue item 886), the bar's flag (none), the offset, the failure's
-    // two empty strings and the tag itself.
+    // count, rewritten — back past *Search and answers*' flag (queue item
+    // 905), *Settings*' bar's flag and its offset (queue item 886), the
+    // bar's flag (none), the offset, the failure's two empty strings and
+    // the tag itself.
     let mut bytes = write_to_renderer(&start(
         vec![Turn::Failed {
             said: String::new(),
@@ -1339,7 +1340,7 @@ fn a_conversation_the_renderer_should_not_draw_is_refused() {
     ));
     let tag = bytes
         .len()
-        .checked_sub(1 + 4 + 1 + 4 + 2 * 8 + 1)
+        .checked_sub(1 + 1 + 4 + 1 + 4 + 2 * 8 + 1)
         .unwrap_or_else(|| panic!("a turn was written"));
     let _ = bytes.get(tag).map(|written| assert_eq!(*written, 3));
     if let Some(written) = bytes.get_mut(tag) {
@@ -3218,7 +3219,7 @@ fn settings_and_where_the_keyboard_is_on_it_cross_and_nothing_else_does() {
     assert_eq!(differing.len(), 1, "{differing:?}");
     let at = differing.first().copied().unwrap_or_default();
     assert_eq!((back.get(at), font.get(at)), (Some(&2), Some(&3)));
-    for hostile in [7_u8, 9, 255] {
+    for hostile in [8_u8, 9, 255] {
         let mut bytes = font.clone();
         if let Some(byte) = bytes.get_mut(at) {
             *byte = hostile;
@@ -3231,6 +3232,60 @@ fn settings_and_where_the_keyboard_is_on_it_cross_and_nothing_else_does() {
             "{refused}"
         );
     }
+}
+
+/// Queue item 905: *Search and answers* crosses, the keyboard on it, and a
+/// key's field holding anything but dots is refused — a renderer is never
+/// sent a key.
+#[test]
+fn search_and_answers_crosses_and_a_key_never_does() {
+    // *Search and answers* (queue item 905) crosses, the keyboard on it,
+    // and a key's field holding anything but dots is refused.
+    let services = alo_renderer::settings_services::ServicesShown {
+        search: vec!["One".into(), "Two".into()],
+        search_on: 1,
+        answers: vec!["Three".into()],
+        answers_on: 0,
+        search_rows: Vec::new(),
+        answers_rows: vec![alo_renderer::settings_services::EntryRow {
+            entry: alo_renderer::settings_services::Entry::AiKey,
+            typed: alo_renderer::settings_services::Typed {
+                shown: alo_renderer::settings_services::dots(4),
+                focused: true,
+            },
+            state: "No key yet.".into(),
+            removable: false,
+        }],
+        said: Some("Kept.".into()),
+    };
+    let crossing = ToRenderer::Start(Box::new(Start {
+        settings: true,
+        settings_keyed: Some(SettingsKeyed::Service(
+            alo_renderer::settings_services::ServicePress::Keep(
+                alo_renderer::settings_services::Entry::AiKey,
+            ),
+        )),
+        services: Some(services.clone()),
+        ..Start::default()
+    }));
+    assert_eq!(
+        read_to_renderer(&write_to_renderer(&crossing)).ok(),
+        Some(crossing.clone())
+    );
+    let mut leaking = services;
+    leaking.answers_rows[0].typed.shown = "abcd".into();
+    let refused = read_to_renderer(&write_to_renderer(&ToRenderer::Start(Box::new(Start {
+        settings: true,
+        services: Some(leaking),
+        ..Start::default()
+    }))))
+    .expect_err("refused");
+    assert!(
+        refused
+            .to_string()
+            .contains("a field holding more than it can"),
+        "{refused}"
+    );
 }
 
 /// Queue item 886: over a conversation scrolled its own way, *Settings*

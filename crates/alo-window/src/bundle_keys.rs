@@ -5,12 +5,15 @@
 //! The keys a release carries, taken from outside the repository and put
 //! in the macOS application as it is made (ADR 0091, queue item 748).
 //!
-//! `alo-bundle --keys-from keychain` takes every slot's key
-//! ([`crate::carried_keys::Slot::ALL`]) from this Mac's login keychain —
-//! the item the slot names, for the person running it — before anything is
-//! made; `alo-bundle --keys-from DIRECTORY` takes each from the file in
-//! `DIRECTORY` named as the slot is (`search`, `answer`), which is how a test gives a
-//! fake key and how a release machine without the keychain item would.
+//! `alo-bundle --keys-from keychain` takes the key of every service the
+//! application is made to ask ([`crate::services_made::keyed`], ADR 0106 §
+//! 4: by `--services`, else Brave and `OpenAI`) from this Mac's login
+//! keychain — the service's own item first, an older alo's after, for the
+//! person running it — before anything is made; `alo-bundle --keys-from
+//! DIRECTORY` takes each from the file in `DIRECTORY` named as its slot is
+//! (`search`, `answer`), which is how a test gives a fake key and how a
+//! release machine without the keychain item would. A service that takes
+//! no key, such as a `SearXNG`, carries none.
 //! A slot with no key is refused, saying which, and nothing is made: a key
 //! asked for is never quietly left out. Without `--keys-from` the
 //! application carries none, and a browser in it reads the keychain at run
@@ -24,6 +27,7 @@
 use crate::carried_keys::{self, Slot};
 use crate::keychain::{self, Unread};
 use crate::search_key::Key;
+use crate::services::Keyed;
 use core::fmt;
 use std::path::{Path, PathBuf};
 
@@ -50,25 +54,32 @@ impl Source {
         }
     }
 
-    /// `slot`'s key, from here.
-    fn take(&self, slot: Slot) -> Result<Key, String> {
+    /// `keyed`'s key, from here.
+    fn take(&self, keyed: Keyed) -> Result<Key, String> {
+        let slot = keyed.slot();
         match self {
             Self::Keychain(account) => {
                 let missing = || {
                     format!(
-                        "no {} in this Mac's keychain ({}) for the application to carry",
+                        "no {} in this Mac's keychain ({} or {}) for the application to carry",
                         slot.what(),
-                        slot.service()
+                        keyed.service(),
+                        keyed.older()
                     )
                 };
-                match keychain::generic_password(slot.service(), account) {
-                    Ok(written) => Key::carried(&written).ok_or_else(missing),
+                let read = |service| match keychain::generic_password(service, account) {
+                    Ok(written) => Ok(Some(written)),
                     Err(Unread::NoTool) => Err(format!(
                         "this Mac's keychain could not be read ({})",
                         keychain::SECURITY
                     )),
-                    Err(Unread::Missing) => Err(missing()),
-                }
+                    Err(Unread::Missing) => Ok(None),
+                };
+                let written = match read(keyed.service())? {
+                    Some(written) => written,
+                    None => read(keyed.older())?.ok_or_else(missing)?,
+                };
+                Key::carried(&written).ok_or_else(missing)
             }
             Self::Directory(directory) => {
                 let file = directory.join(slot.name());
@@ -126,17 +137,23 @@ impl Taken {
     }
 }
 
-/// Every slot's key from `source`.
+/// The key of each of `keyed` from `source`, in its slot.
 ///
 /// # Errors
 ///
-/// The first slot with none, in a sentence naming it — never a key.
-pub fn taken(source: &Source) -> Result<Taken, String> {
-    Slot::ALL
+/// The first with none, in a sentence naming its slot — never a key.
+pub fn taken(source: &Source, keyed: &[Keyed]) -> Result<Taken, String> {
+    keyed
         .iter()
-        .map(|slot| source.take(*slot).map(|key| (*slot, key)))
+        .map(|keyed| source.take(*keyed).map(|key| (keyed.slot(), key)))
         .collect::<Result<_, _>>()
         .map(Taken)
+}
+
+/// The keys of the services every application asks unless made to ask
+/// others: Brave's and `OpenAI`'s.
+pub fn by_default() -> Vec<Keyed> {
+    crate::services_made::keyed(&crate::services::Services::default())
 }
 
 #[cfg(test)]
@@ -171,12 +188,12 @@ mod tests {
         let given = directory("given");
         std::fs::write(given.join("search"), format!("{NOT_A_KEY}\n")).unwrap();
         // The answer's slot is taken too (queue item 773): missing, refused.
-        let said = taken(&Source::Directory(given.clone())).unwrap_err();
-        assert!(said.starts_with("no OpenAI key at "), "{said}");
+        let said = taken(&Source::Directory(given.clone()), &by_default()).unwrap_err();
+        assert!(said.starts_with("no AI key at "), "{said}");
         std::fs::write(given.join("answer"), "not-a-real-answer-key-0987").unwrap();
-        let taken = taken(&Source::Directory(given.clone())).unwrap();
+        let taken = taken(&Source::Directory(given.clone()), &by_default()).unwrap();
         assert_eq!(format!("{taken:?}"), r#"["search", "answer"]"#);
-        assert_eq!(taken.said(), "the search key, the OpenAI key");
+        assert_eq!(taken.said(), "the search key, the AI key");
 
         let application = directory("made").join("alo browser.app");
         let resources = application.join("Contents").join("Resources");
@@ -208,7 +225,7 @@ mod tests {
     #[test]
     fn a_slot_with_no_key_is_refused_saying_which() {
         let empty = directory("empty");
-        let said = taken(&Source::Directory(empty.clone())).unwrap_err();
+        let said = taken(&Source::Directory(empty.clone()), &by_default()).unwrap_err();
         assert_eq!(
             said,
             format!(
@@ -217,7 +234,7 @@ mod tests {
             )
         );
         std::fs::write(empty.join("search"), "two words").unwrap();
-        let said = taken(&Source::Directory(empty.clone())).unwrap_err();
+        let said = taken(&Source::Directory(empty.clone()), &by_default()).unwrap_err();
         assert!(
             said.ends_with("holds no search key a request header can carry"),
             "{said}"
@@ -229,14 +246,15 @@ mod tests {
     #[cfg(target_os = "macos")]
     #[test]
     fn a_keychain_with_no_item_is_refused_saying_which() {
-        let said = taken(&Source::Keychain(
-            "alo-no-such-account-for-a-test".to_owned(),
-        ))
+        let said = taken(
+            &Source::Keychain("alo-no-such-account-for-a-test".to_owned()),
+            &by_default(),
+        )
         .unwrap_err();
         assert_eq!(
             said,
-            "no search key in this Mac's keychain (alo-brave-search) for the application to \
-             carry"
+            "no search key in this Mac's keychain (alo-search-brave or alo-brave-search) for the \
+             application to carry"
         );
     }
 }

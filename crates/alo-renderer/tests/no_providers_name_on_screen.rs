@@ -4,7 +4,13 @@
 
 //! Queue item 900, the owner's word of 9 November 2026: *"we do not need
 //! to show any brave words on the ui or to the users"*. alo still asks the
-//! Brave Search API; no word of its name reaches anything a person sees.
+//! Brave Search API; no word of its name reaches anything a person sees —
+//! and since ADR 0106 § 5 (queue items 904, 905) no service's name does,
+//! search or AI (`Brave`, `SearXNG`, `OpenAI`), **but in one place**:
+//! *Settings › Search and answers*' choosers, where a service is chosen by
+//! its own name. There a name is allowed inside a chooser's option (`class
+//! svc…`) and as the name of the radio in it, and only its own; anywhere
+//! else in that section — its heading, lines, fields, states — it is not.
 //!
 //! Every search a turn can be in — searching, nothing found, sites found,
 //! not answered — on every tab, with its images, videos, news and answer
@@ -18,14 +24,61 @@
 use alo_layout::Size;
 use alo_renderer::results::{Found, Images, Results, SetUp, Showing, Stories, Tab, Videos};
 use alo_renderer::results_answer::{Answer, Cited, Written};
+use alo_renderer::settings_services::{Entry, EntryRow, ServicesShown, Typed, dots};
 use alo_renderer::start::Start;
 use alo_renderer::turn::Turn;
 use alo_renderer::typed::Offer;
 use alo_renderer::{FromRenderer, Renderer, ToRenderer};
 use alo_text::{Font, FontDatabase, Slant, Weight};
 
-/// The provider's name, as a lower-case word.
-const NAME: &str = "brave";
+/// Every service's name, as a lower-case word.
+const NAMES: [&str; 3] = ["brave", "openai", "searxng"];
+
+/// The services' own names, as *Settings*' choosers say them: the one
+/// place they are drawn.
+const CHOSEN_BY: [&str; 3] = ["Brave Search", "SearXNG", "OpenAI"];
+
+/// Whether `said` names any service, in any case.
+fn names_one(said: &str) -> bool {
+    let said = said.to_lowercase();
+    NAMES.iter().any(|name| said.contains(name))
+}
+
+/// *Search and answers* as the browser process sends it, in each state a
+/// row can say: every service, a field of each kind, a key kept.
+fn services(on: usize, said: Option<&str>) -> ServicesShown {
+    ServicesShown {
+        search: vec![CHOSEN_BY[0].to_owned(), CHOSEN_BY[1].to_owned()],
+        search_on: on,
+        answers: vec![CHOSEN_BY[2].to_owned()],
+        answers_on: 0,
+        search_rows: vec![if on == 0 {
+            EntryRow {
+                entry: Entry::SearchKey,
+                typed: Typed {
+                    shown: dots(8),
+                    focused: true,
+                },
+                state: "The key this application carries is used.".to_owned(),
+                removable: false,
+            }
+        } else {
+            EntryRow {
+                entry: Entry::Address,
+                typed: Typed::default(),
+                state: "No address yet.".to_owned(),
+                removable: false,
+            }
+        }],
+        answers_rows: vec![EntryRow {
+            entry: Entry::AiKey,
+            typed: Typed::default(),
+            state: "Your own key is used, kept in this Mac\u{2019}s keychain.".to_owned(),
+            removable: true,
+        }],
+        said: said.map(str::to_owned),
+    }
+}
 
 fn fonts() -> FontDatabase {
     let mut database = FontDatabase::new();
@@ -115,6 +168,7 @@ fn screen(results: Results, search: SetUp, settings: bool) -> Start {
         turns: vec![Turn::Searched(results)],
         search,
         settings,
+        services: settings.then(|| services(0, None)),
         ..Start::default()
     }
 }
@@ -128,12 +182,7 @@ fn naming(start: Start) -> Vec<String> {
         said.push("nothing was painted".to_owned());
     }
     match renderer.document() {
-        Some(document) => {
-            let whole = document.serialize_children(document.root());
-            if whole.to_lowercase().contains(NAME) {
-                said.push(format!("the document: {whole}"));
-            }
-        }
+        Some(document) => said.extend(named_outside_a_chooser(document)),
         None => said.push("no document was drawn".to_owned()),
     }
     if let FromRenderer::Tree(tree) = renderer.handle(ToRenderer::ReadTree) {
@@ -142,7 +191,11 @@ fn naming(start: Start) -> Vec<String> {
                 .into_iter()
                 .flatten()
             {
-                if words.to_lowercase().contains(NAME) {
+                // A chooser's radio is named by its service, and that alone.
+                let chooser = node.role.as_str() == "radio"
+                    && node.name.as_deref() == Some(words.as_str())
+                    && CHOSEN_BY.contains(&words.as_str());
+                if names_one(words) && !chooser {
                     said.push(format!("{:?}: {words}", node.role));
                 }
             }
@@ -151,6 +204,81 @@ fn naming(start: Start) -> Vec<String> {
         said.push("no tree was read".to_owned());
     }
     said
+}
+
+/// Every place in `document` a service is named outside a chooser's
+/// option: a text, or an attribute's value. Inside one, only its own name.
+fn named_outside_a_chooser(document: &alo_dom::Document) -> Vec<String> {
+    let mut said = Vec::new();
+    for node in document.descendants(document.root()) {
+        let option =
+            core::iter::successors(Some(node), |&each| document.parent(each)).find(|&each| {
+                document
+                    .attribute_by_name(each, "class")
+                    .is_some_and(|class| class.split(' ').next() == Some("svc"))
+            });
+        let mut words: Vec<String> = Vec::new();
+        if let Some(alo_dom::NodeKind::Text(text)) = document.kind(node) {
+            words.push(text.clone());
+        }
+        if let Some(element) = document.element(node) {
+            words.extend(
+                element
+                    .attrs
+                    .iter()
+                    .map(|attribute| attribute.value.clone()),
+            );
+        }
+        for word in words.into_iter().filter(|word| names_one(word)) {
+            let own = option.is_some_and(|option| {
+                let named = document.text_content(option);
+                CHOSEN_BY.contains(&word.as_str()) && named.trim() == word
+            });
+            if !own {
+                said.push(format!("{word:?} outside its chooser"));
+            }
+        }
+    }
+    said
+}
+
+#[test]
+fn search_and_answers_names_a_service_in_its_chooser_alone() {
+    for on in [0, 1] {
+        for said in [
+            None,
+            Some("Your key for the search service is kept in this Mac\u{2019}s keychain."),
+            Some("That is not a site\u{2019}s address: it begins https:// or http://."),
+        ] {
+            let start = Start {
+                services: Some(services(on, said)),
+                ..screen(Results::searching("ev charger"), SetUp::Ready, true)
+            };
+            let found = naming(start.clone());
+            assert!(found.is_empty(), "{on} {said:?}: {found:?}");
+            // And the names are there, where a person chooses.
+            let mut renderer = Renderer::new(fonts());
+            let _ = renderer.handle(ToRenderer::Start(Box::new(start)));
+            let _ = renderer.handle(ToRenderer::Paint);
+            let text = renderer
+                .document()
+                .map(|document| document.text_content(document.root()))
+                .unwrap_or_default();
+            for name in CHOSEN_BY {
+                assert_eq!(text.matches(name).count(), 1, "{name} once: {text}");
+            }
+        }
+    }
+    // The exception is narrow: a name anywhere else in the section is
+    // found.
+    let mut leaked = services(0, Some("Kept in SearXNG."));
+    leaked.search_rows[0].state = "Brave Search's key is used.".to_owned();
+    let found = naming(Start {
+        services: Some(leaked),
+        ..screen(Results::searching("ev charger"), SetUp::Ready, true)
+    });
+    // Each found twice: in the document, and in what an agent reads.
+    assert_eq!(found.len(), 4, "{found:?}");
 }
 
 #[test]
@@ -202,19 +330,19 @@ fn what_the_tabs_say_instead_names_no_provider() {
             results.answer.note(),
         ];
         for note in notes.into_iter().flatten() {
-            assert!(!note.to_lowercase().contains(NAME), "{note}");
+            assert!(!names_one(&note), "{note}");
         }
     }
     for given in 1..=4 {
         let sent = alo_renderer::results_answer::sent(given);
-        assert!(!sent.to_lowercase().contains(NAME), "{sent}");
+        assert!(!names_one(&sent), "{sent}");
         assert!(
-            sent.contains("OpenAI"),
-            "who it was sent to is said: {sent}"
+            sent.contains("the AI service chosen in Settings"),
+            "who it was sent to is said, by where it is chosen: {sent}"
         );
     }
     for search in [SetUp::Ready, SetUp::Not(String::new())] {
         let under = alo_renderer::start_document::searched_with(&search);
-        assert!(!under.to_lowercase().contains(NAME), "{under}");
+        assert!(!names_one(&under), "{under}");
     }
 }

@@ -31,9 +31,9 @@
 //! is asked; each older one is told it was not asked, so its turn does not
 //! wait for ever.
 
+use crate::ai_service::{AI_SERVICE, AiService};
 use crate::answer_protocol::Spent;
 use crate::conversation_search::{Came, Searched, TellSearched};
-use crate::openai_answer::{self, ANSWERER, Provider};
 use alo_net::Pool;
 use alo_net::cause::Identities;
 use alo_renderer::results::Found;
@@ -57,6 +57,8 @@ enum Work {
 pub struct Answerer {
     /// Why answers are not set up, if they are not.
     not_set_up: Option<String>,
+    /// Who answers, for the terminal alone, when they are.
+    named: Option<String>,
     /// Where work is sent; [`None`] with no provider, or once finished.
     asked: Option<Sender<Work>>,
     thread: Option<JoinHandle<()>>,
@@ -80,28 +82,37 @@ impl Answerer {
     /// # Errors
     ///
     /// What the system said when no thread could be started.
-    pub fn start(provider: Result<Provider, String>, tell: TellSearched) -> std::io::Result<Self> {
+    pub fn start(provider: Result<AiService, String>, tell: TellSearched) -> std::io::Result<Self> {
         let provider = match provider {
             Ok(provider) => provider,
             Err(why) => {
                 return Ok(Self {
                     not_set_up: Some(why),
+                    named: None,
                     asked: None,
                     thread: None,
                     tell: Some(tell),
                 });
             }
         };
+        let named = Some(provider.named());
         let (asked, asking) = channel();
         let thread = std::thread::Builder::new()
             .name("alo-conversation-answer".to_owned())
             .spawn(move || answer(&provider, &asking, &tell))?;
         Ok(Self {
             not_set_up: None,
+            named,
             asked: Some(asked),
             thread: Some(thread),
             tell: None,
         })
+    }
+
+    /// Who answers, for the terminal alone: [`None`] when answers are not
+    /// set up.
+    pub fn named(&self) -> Option<&str> {
+        self.named.as_deref()
     }
 
     /// Ask for the answer to `words`, the search numbered `number`, from
@@ -160,22 +171,21 @@ pub fn not_set_up(why: &str) -> String {
     format!("alo\u{2019}s answers are not set up yet: {why}.")
 }
 
-/// What the terminal is told of the answer to `words`, which cost `spent`:
-/// who wrote it from how many sites, that none reliable was found, or why
-/// not — nothing while it is asked, or never was.
-pub fn said(words: &str, answer: &Answer, spent: Option<Spent>) -> Option<String> {
+/// What the terminal is told of the answer to `words`, written `by` (*`OpenAI`'s
+/// gpt-6.1-terra*, [`Answerer::named`]), which cost `spent`: who wrote it
+/// from how many sites, that none reliable was found, or why not — nothing
+/// while it is asked, or never was.
+pub fn said(by: &str, words: &str, answer: &Answer, spent: Option<Spent>) -> Option<String> {
     let cost = spent.map_or_else(String::new, |spent| {
         format!(" ({} tokens in, {} out)", spent.input, spent.output)
     });
-    let model = openai_answer::MODEL;
     match answer {
         Answer::Written(written) => Some(format!(
-            "{ANSWERER}'s {model} answered \u{201c}{words}\u{201d} from {}{cost}",
+            "{by} answered \u{201c}{words}\u{201d} from {}{cost}",
             alo_renderer::results_answer::sites(written.used().len())
         )),
         Answer::NotFound => Some(format!(
-            "{ANSWERER}'s {model} found no reliable answer to \u{201c}{words}\u{201d} in its \
-             sites{cost}"
+            "{by} found no reliable answer to \u{201c}{words}\u{201d} in its sites{cost}"
         )),
         Answer::Unanswered(why) => Some(why.clone()),
         Answer::NotAsked | Answer::Asking => None,
@@ -194,7 +204,7 @@ fn told(number: u64, words: &str, answer: Answer, spent: Option<Spent>) -> Searc
 
 /// Ask `provider` for each answer `asking` sends — of those waiting, only
 /// the newest — telling the window what came of each, until told to finish.
-fn answer(provider: &Provider, asking: &Receiver<Work>, tell: &TellSearched) {
+fn answer(provider: &AiService, asking: &Receiver<Work>, tell: &TellSearched) {
     let mut pool: Option<Pool> = None;
     let mut identities = Identities::default();
     loop {
@@ -217,7 +227,7 @@ fn answer(provider: &Provider, asking: &Receiver<Work>, tell: &TellSearched) {
         };
         for (older, words, _) in asks {
             let passed = Answer::Unanswered(format!(
-                "alo did not ask {ANSWERER} to answer \u{201c}{words}\u{201d}: a newer search \
+                "alo did not ask {AI_SERVICE} to answer \u{201c}{words}\u{201d}: a newer search \
                  came first."
             ));
             if !tell(told(older, &words, passed, None)) {
@@ -229,7 +239,7 @@ fn answer(provider: &Provider, asking: &Receiver<Work>, tell: &TellSearched) {
                 Ok(made) => pool = Some(made.patient_for(PATIENCE)),
                 Err(why) => {
                     let why = format!(
-                        "alo could not write an answer: {ANSWERER} could not be reached: this \
+                        "alo could not write an answer: {AI_SERVICE} could not be reached: this \
                          Mac's certificates could not be read ({why})"
                     );
                     if !tell(told(number, &words, Answer::Unanswered(why), None)) {
@@ -242,7 +252,7 @@ fn answer(provider: &Provider, asking: &Receiver<Work>, tell: &TellSearched) {
         let Some(pool) = pool.as_mut() else {
             continue;
         };
-        let asked = openai_answer::ask(provider, pool, &mut identities, &words, &sources);
+        let asked = provider.answer(pool, &mut identities, &words, &sources);
         if !tell(told(number, &words, asked.answer, asked.spent)) {
             return;
         }
@@ -270,7 +280,7 @@ mod tests {
     fn with_no_key_an_answer_asked_for_says_why_at_once() {
         let (tell, told) = channel();
         let answerer = Answerer::start(
-            Err("no OpenAI key in this Mac's keychain (alo-openai)".to_owned()),
+            Err("add a key for the AI service in Settings".to_owned()),
             Box::new(move |searched| tell.send(searched).is_ok()),
         )
         .unwrap();
@@ -282,8 +292,8 @@ mod tests {
                 words: "x".to_owned(),
                 came: Came::Answer {
                     answer: Answer::Unanswered(
-                        "alo\u{2019}s answers are not set up yet: no OpenAI key in this Mac's \
-                         keychain (alo-openai)."
+                        "alo\u{2019}s answers are not set up yet: add a key for the AI \
+                         service in Settings."
                             .to_owned()
                     ),
                     spent: None,
@@ -296,13 +306,13 @@ mod tests {
     #[test]
     fn a_thread_set_up_ends_when_told_to() {
         let (tell, _told) = channel();
-        let provider = Provider::at(
+        let provider = crate::openai_answer::Provider::at(
             "http://127.0.0.1:9/v1/responses",
             crate::search_key::Key::of("not-a-real-key").unwrap(),
         )
         .unwrap();
         let answerer = Answerer::start(
-            Ok(provider),
+            Ok(provider.into()),
             Box::new(move |searched| tell.send(searched).is_ok()),
         )
         .unwrap();

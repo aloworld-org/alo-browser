@@ -129,6 +129,10 @@ pub struct Start {
     /// *Settings*' sign that it goes on above or below its panel's room,
     /// placed by the browser process: none while it fits.
     pub settings_bar: Option<Bar>,
+    /// *Settings*' section *Search and answers* (ADR 0106, queue item 905),
+    /// as the browser process sends it — never a key, only its dots: none
+    /// draws no section.
+    pub services: Option<crate::settings_services::ServicesShown>,
 }
 
 /// What of *Settings* the keyboard is on (queue item 856,
@@ -150,10 +154,15 @@ pub enum SettingsKeyed {
     /// The radio group *Ask before opening*, at the choice made: the
     /// arrows choose the next or the one before, round (queue item 884).
     Asks,
+    /// Something of *Search and answers* (queue item 905): a radio group
+    /// at its choice made, a field or a button.
+    Service(crate::settings_services::ServicePress),
 }
 
 impl SettingsKeyed {
-    /// Each, in the order Tab moves the keyboard through them.
+    /// Each before *Search and answers*, in the order Tab moves the
+    /// keyboard through them; that section's own follow, as it is drawn
+    /// ([`crate::settings_services::ServicesShown::stops`]).
     pub const ALL: [SettingsKeyed; 5] = [
         SettingsKeyed::Close,
         SettingsKeyed::Font,
@@ -209,6 +218,7 @@ impl Default for Start {
             limits: Limits::default(),
             settings_down: 0.0,
             settings_bar: None,
+            services: None,
         }
     }
 }

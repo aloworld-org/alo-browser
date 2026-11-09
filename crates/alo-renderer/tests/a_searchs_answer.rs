@@ -552,7 +552,7 @@ fn an_agent_reads_the_answer_and_its_sources_by_name() {
         "text \"grants.example\"",
         "text \"Do I need a new circuit for a charger?\"",
         "text \"Your question and what the search said of its first 4 sites were sent to \
-         OpenAI to write this answer.\"",
+         the AI service chosen in Settings to write this answer.\"",
     ] {
         assert!(outline.contains(said), "{said}: {outline}");
     }

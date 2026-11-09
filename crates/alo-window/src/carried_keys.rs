@@ -11,7 +11,7 @@
 //! ([`crate::bundle_keys`]), as one file per slot at
 //! `Contents/Resources/keys/SLOT`, sealed with the rest of the application
 //! by `codesign`. The browser process alone reads it, when the conversation
-//! opens ([`crate::search_key::for_this_application`]); no renderer is ever
+//! opens ([`crate::service_keys::Keys::key`]); no renderer is ever
 //! sent it.
 //!
 //! # A slot
@@ -73,11 +73,12 @@ impl Slot {
         }
     }
 
-    /// What its key is, in words a person reads.
+    /// What its key is, in words a person reads: never its service's name
+    /// (ADR 0106 § 5).
     pub fn what(self) -> &'static str {
         match self {
             Self::Search => "search key",
-            Self::Answer => "OpenAI key",
+            Self::Answer => "AI key",
         }
     }
 }
@@ -275,7 +276,7 @@ mod tests {
         assert_eq!(Slot::Search.name(), "search");
         assert_eq!(Slot::Answer.service(), "alo-openai");
         assert_eq!(Slot::Answer.name(), "answer");
-        assert_eq!(Slot::Answer.what(), "OpenAI key");
+        assert_eq!(Slot::Answer.what(), "AI key");
     }
 
     #[test]
@@ -308,7 +309,7 @@ mod tests {
         std::fs::write(path(&resources, Slot::Answer), b"damaged").unwrap();
         assert_eq!(
             read(&resources, Slot::Answer),
-            Err("the OpenAI key this application carries could not be read (keys/answer)".into())
+            Err("the AI key this application carries could not be read (keys/answer)".into())
         );
         let _ = std::fs::remove_dir_all(&resources);
     }

@@ -1119,7 +1119,7 @@ fn its_limits_are_said(driven: &mut Driven, model: &Model, asked: &Asked) -> Res
     })?;
     assert_eq!(
         stopped_saying(driven.now()),
-        "alo could not go on: OpenAI could not answer just now (503).",
+        "alo could not go on: the AI service could not answer just now (503).",
         "{who}"
     );
     Ok(())
@@ -1299,7 +1299,7 @@ fn second_page_kept(second: &[Ran], who: &str) {
     );
     assert_eq!(
         ended.get(6).map(String::as_str),
-        Some("stopped: alo could not go on: OpenAI could not answer just now (503)."),
+        Some("stopped: alo could not go on: the AI service could not answer just now (503)."),
         "{who}"
     );
 }

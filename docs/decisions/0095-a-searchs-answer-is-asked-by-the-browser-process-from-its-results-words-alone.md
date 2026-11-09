@@ -187,3 +187,13 @@ reads: none names the provider. The note under an answer is *Your question and w
 they were decided; what is said now is in `crates/alo-renderer/src/results.rs`
 and `crates/alo-window/src/brave_search.rs`, and
 `crates/alo-renderer/tests/no_providers_name_on_screen.rs` holds it.
+
+## Amended (9 November 2026, ADR 0106, queue items 904–906)
+
+What is decided above is now one connector's: the service is asked
+through an interface (`search_service.rs`, `ai_service.rs`) and chosen by
+configuration, Brave and OpenAI the defaults. A key is the person's own
+(given in *Settings*, keychain `alo-search-brave` / `alo-ai-openai`) before
+the one a release carries, before the older item this ADR named, which is
+still read. No sentence a person reads names the service, OpenAI included
+(*the AI service*); ADR 0106 is where that stands now.

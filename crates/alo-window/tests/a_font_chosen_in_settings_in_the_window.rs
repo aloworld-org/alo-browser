@@ -266,7 +266,8 @@ fn a_font_chosen_applies_at_once_is_kept_across_launches_and_a_damaged_file_is_i
         Some(
             settings_file::text_of(
                 InterfaceFace::Geist,
-                alo_renderer::agent_limits::Limits::default()
+                alo_renderer::agent_limits::Limits::default(),
+                &alo_window::services::Named::default()
             )
             .as_str()
         )
@@ -371,7 +372,8 @@ fn settings_is_walked_by_keys_a_face_chosen_by_an_arrow_and_back_by_return() -> 
         Some(
             settings_file::text_of(
                 InterfaceFace::Geist,
-                alo_renderer::agent_limits::Limits::default()
+                alo_renderer::agent_limits::Limits::default(),
+                &alo_window::services::Named::default()
             )
             .as_str()
         )

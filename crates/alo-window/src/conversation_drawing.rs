@@ -512,6 +512,13 @@ impl Holding {
                 // (queue item 854). Left out at first, every face pressed
                 // was refused through the window's own road.
                 self.painted.faces.clone_from(&asked.showing.faces);
+                // And *alo at work*'s buttons and choices (queue item 878),
+                // and what *Search and answers* offers (905), each claimed
+                // by place. Left out at first, a press on any was refused
+                // by hand as *0 were shown* (found by 905's hand run).
+                self.painted.limits.clone_from(&asked.showing.limits);
+                self.painted.asks.clone_from(&asked.showing.asks);
+                self.painted.services.clone_from(&asked.showing.services);
                 // How far the turns painted reach, for a person's wheel, and
                 // how far they were scrolled (queue item 703) — told before
                 // the frame, so the window aims a press on it by the offset

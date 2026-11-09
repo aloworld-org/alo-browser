@@ -43,12 +43,14 @@ pub const FULL_ANSWER: &str = "Full answer \u{203a}";
 /// What a site the answer drew on says.
 pub const USED: &str = "alo used this";
 
-/// Who writes the answer, in words a person reads.
-pub const ANSWERER: &str = "OpenAI";
+/// Who writes the answer, in words a person reads: the service chosen,
+/// never by name (ADR 0106 § 5).
+pub const ANSWERER: &str = "the AI service chosen in Settings";
 
 /// What the Answer tab says was sent to write it (ADR 0081 § 5: an answer
 /// says what it sent): the person's question and what the search provider
-/// said of the first `given` sites — the provider unnamed (queue item 900).
+/// said of the first `given` sites — the provider unnamed (queue item 900),
+/// and the AI service named by where it is chosen (ADR 0106 § 5).
 pub fn sent(given: usize) -> String {
     format!(
         "Your question and what the search said of its first {} were sent to {ANSWERER} to \

@@ -49,7 +49,10 @@
 //! item 900).
 
 use crate::search_key::{Held, Key};
-use crate::search_protocol::{self, ImageFound, StoryFound, VideoFound};
+use crate::search_protocol;
+use crate::search_service::{
+    ImageFound, SearchConnector, SearchService, Searched, StoryFound, VideoFound,
+};
 use alo_net::cause::{Cause, Identities};
 use alo_net::{Pool, Request};
 use alo_renderer::results::{MOST_PAGES, SEARCH_SERVICE, Showing};
@@ -286,58 +289,87 @@ impl Provider {
     }
 }
 
-/// What a web search's answer came to: the sites found, or why not; where
-/// Brave says each site's mark is, by the site's place (queue item 747);
-/// and whether it offers a further page (queue item 761).
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Answered {
-    /// The sites found, or why the search was not answered.
-    pub showing: Showing,
-    /// Where each site's mark is, by its place.
-    pub marks: Vec<Option<Url>>,
-    /// Whether Brave says more are there to ask for.
-    pub more: bool,
-}
+pub use crate::search_service::Answered;
 
-impl Answered {
-    /// Not answered, and `why`.
-    fn not(why: String) -> Self {
-        Self {
-            showing: Showing::Unanswered(why),
-            marks: Vec::new(),
-            more: false,
+impl SearchConnector for Provider {
+    /// The web and its further pages always; images, videos and news where
+    /// their addresses are named — all of them for [`Provider::brave`].
+    fn searches(&self, what: Searched) -> bool {
+        match what {
+            Searched::Web | Searched::Pages => true,
+            Searched::Images => self.images.is_some(),
+            Searched::Videos => self.videos.is_some(),
+            Searched::News => self.news.is_some(),
         }
     }
-}
 
-/// Ask `provider` for `words` through `pool`: what came of it
-/// ([`Answered`]), a search not answered saying why in a sentence a person
-/// reads.
-pub fn search(
-    provider: &Provider,
-    pool: &mut Pool,
-    identities: &mut Identities,
-    words: &str,
-) -> Answered {
-    match provider.request(words, identities) {
-        Ok(request) => asked(provider, pool, &request),
-        Err(why) => Answered::not(why),
+    /// Brave's own image proxy, where images are asked.
+    fn pictures(&self) -> Option<&Url> {
+        self.thumbnails()
+    }
+
+    fn search(&self, pool: &mut Pool, identities: &mut Identities, words: &str) -> Answered {
+        match self.request(words, identities) {
+            Ok(request) => asked(self, pool, &request),
+            Err(why) => Answered::not(why),
+        }
+    }
+
+    /// A paid request, made only for a person's press on *Show more sites*
+    /// (queue item 761).
+    fn page(
+        &self,
+        pool: &mut Pool,
+        identities: &mut Identities,
+        words: &str,
+        offset: usize,
+    ) -> Answered {
+        match self.page_request(words, offset, identities) {
+            Ok(request) => asked(self, pool, &request),
+            Err(why) => Answered::not(why),
+        }
+    }
+
+    fn images(
+        &self,
+        pool: &mut Pool,
+        identities: &mut Identities,
+        words: &str,
+    ) -> Result<Vec<ImageFound>, String> {
+        let request = self.images_request(words, identities)?;
+        answer_of(pool, &request, self.key.held(), |body| {
+            search_protocol::read_images(body).map(|read| read.found)
+        })
+    }
+
+    fn videos(
+        &self,
+        pool: &mut Pool,
+        identities: &mut Identities,
+        words: &str,
+    ) -> Result<Vec<VideoFound>, String> {
+        let request = self.videos_request(words, identities)?;
+        answer_of(pool, &request, self.key.held(), |body| {
+            search_protocol::read_videos(body).map(|read| read.found)
+        })
+    }
+
+    fn news(
+        &self,
+        pool: &mut Pool,
+        identities: &mut Identities,
+        words: &str,
+    ) -> Result<Vec<StoryFound>, String> {
+        let request = self.news_request(words, identities)?;
+        answer_of(pool, &request, self.key.held(), |body| {
+            search_protocol::read_news(body).map(|read| read.found)
+        })
     }
 }
 
-/// Ask `provider` for the further page at `offset` of `words` through
-/// `pool` (queue item 761): a paid request, made only for a person's press
-/// on *Show more sites*. What came of it, as a first page's.
-pub fn page(
-    provider: &Provider,
-    pool: &mut Pool,
-    identities: &mut Identities,
-    words: &str,
-    offset: usize,
-) -> Answered {
-    match provider.page_request(words, offset, identities) {
-        Ok(request) => asked(provider, pool, &request),
-        Err(why) => Answered::not(why),
+impl From<Provider> for SearchService {
+    fn from(provider: Provider) -> Self {
+        Self::of(provider)
     }
 }
 
@@ -348,70 +380,6 @@ fn asked(provider: &Provider, pool: &mut Pool, request: &Request) -> Answered {
         Ok(response) => Answered::not(unanswered(response.status.0, provider.key.held())),
         Err(why) => Answered::not(format!("{SEARCH_SERVICE} could not be reached: {why}")),
     }
-}
-
-/// Ask `provider` for images of `words` through `pool`: the images found,
-/// each with its thumbnail's address, or why they were not, in a sentence a
-/// person reads.
-///
-/// # Errors
-///
-/// That sentence: not asked here, a status that is not 200, no connection,
-/// or an answer that could not be read.
-pub fn images(
-    provider: &Provider,
-    pool: &mut Pool,
-    identities: &mut Identities,
-    words: &str,
-) -> Result<Vec<ImageFound>, String> {
-    let request = provider.images_request(words, identities)?;
-    match pool.fetch(&request) {
-        Ok(response) if response.status.0 == 200 => search_protocol::read_images(&response.body)
-            .map(|read| read.found)
-            .map_err(|why| format!("{SEARCH_SERVICE}'s answer could not be read: {why}")),
-        Ok(response) => Err(unanswered(response.status.0, provider.key.held())),
-        Err(why) => Err(format!("{SEARCH_SERVICE} could not be reached: {why}")),
-    }
-}
-
-/// Ask `provider` for videos of `words` through `pool`: the videos found,
-/// each with its thumbnail's address, or why they were not, in a sentence a
-/// person reads.
-///
-/// # Errors
-///
-/// That sentence: not asked here, a status that is not 200, no connection,
-/// or an answer that could not be read.
-pub fn videos(
-    provider: &Provider,
-    pool: &mut Pool,
-    identities: &mut Identities,
-    words: &str,
-) -> Result<Vec<VideoFound>, String> {
-    let request = provider.videos_request(words, identities)?;
-    answer_of(pool, &request, provider.key.held(), |body| {
-        search_protocol::read_videos(body).map(|read| read.found)
-    })
-}
-
-/// Ask `provider` for news of `words` through `pool`: the stories found,
-/// each with where Brave says its photo and its site's mark are, or why
-/// they were not, in a sentence a person reads.
-///
-/// # Errors
-///
-/// That sentence: not asked here, a status that is not 200, no connection,
-/// or an answer that could not be read.
-pub fn news(
-    provider: &Provider,
-    pool: &mut Pool,
-    identities: &mut Identities,
-    words: &str,
-) -> Result<Vec<StoryFound>, String> {
-    let request = provider.news_request(words, identities)?;
-    answer_of(pool, &request, provider.key.held(), |body| {
-        search_protocol::read_news(body).map(|read| read.found)
-    })
 }
 
 /// `request` fetched through `pool`, and its body of 200 read by `read`:
@@ -471,6 +439,10 @@ pub fn unanswered(status: u16, held: Held) -> String {
         (401 | 403, Held::Carried) => format!(
             "{SEARCH_SERVICE} refused alo's key ({status}). The key this application carries may have \
              been revoked: a newer alo carries a new one."
+        ),
+        (401 | 403, Held::Settings) => format!(
+            "{SEARCH_SERVICE} refused alo's key ({status}). The key you gave in Settings may be wrong \
+             or revoked."
         ),
         (429, _) => format!(
             "{SEARCH_SERVICE} says alo has searched too often, or its allowance is used up ({status}). \
@@ -674,7 +646,7 @@ mod tests {
             (422, "answered 422, which alo does not read"),
             (302, "answered 302"),
         ] {
-            for held in [Held::Keychain, Held::Carried] {
+            for held in [Held::Keychain, Held::Carried, Held::Settings] {
                 let said = unanswered(status, held);
                 assert!(said.contains(says), "{status}: {said}");
                 assert!(said.starts_with(SEARCH_SERVICE), "{said}");

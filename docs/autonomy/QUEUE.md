@@ -25081,6 +25081,86 @@ What stage 2's exit gate actually measures: a person using it.
   after, with a test that counts the work done on the event loop.
   *Depends on 873.*
 
+- [x] **904. Search and answers through one interface each, the service
+  chosen by configuration, and SearXNG beside Brave (the owner's word, 9
+  November 2026).** Verbatim: *"since it will be open source we should not
+  be brave hardcoded because the others may need to use google or other
+  apis"*, and *"yes please"* to Brave staying as one option. ADR 0106.
+  *Depends on nothing.*
+  ***Done (batch 31, 9 November 2026).*** **Interfaces:**
+  `search_service.rs` (`SearchService` over a `SearchConnector` that
+  declares what it searches — web, further pages, images, videos, news —
+  and is refused the rest before anything is asked: *The search service
+  chosen in Settings does not search for videos.*; the interface's own
+  `Answered`, `ImageFound`, `VideoFound`, `StoryFound`) and `ai_service.rs`
+  (`AiService` over an `AiConnector`: a search's answer and the agent's
+  step). The box's search, the agent, the answer's thread and the window
+  hold only these. **Connectors:** `brave_search.rs` (Brave, all five) and
+  `openai_answer.rs` (OpenAI) behind them; **SearXNG**
+  (`searxng_search.rs`, `searxng_protocol.rs`, a seventh file `serde_json`
+  is named in): `GET <base>/search?q=…&format=json`, `categories=news`,
+  `pageno` 2–10, no key, web, pages and news — not images or videos, whose
+  pictures it names at the sites. **Configuration** (`services.rs`,
+  `services_made.rs`, `settings_file.rs`): `search brave|searxng`,
+  `searxng URL`, `answers openai` in `settings.txt`, over an application's
+  own `services.txt`, over Brave and OpenAI. **Keys** (`service_keys.rs`,
+  `keychain.rs`): the person's own (`alo-search-brave`, `alo-ai-openai`) →
+  the carried slot → the older item (`alo-brave-search`, `alo-openai`);
+  kept through `security -i` on its input, as hexadecimal. **No name on
+  screen:** every answer, agent and refusal sentence says *the AI service*;
+  the note under an answer says *… were sent to the AI service chosen in
+  Settings to write this answer.* **Tests:** fixtures in each service's
+  shape, no network: `searxng_protocol` (sites, news, every refusal,
+  truncations), `searxng_search` (requests, statuses, what it searches),
+  `search_service` (refusal before asking), `services`, `services_made`,
+  `service_keys` (precedence, keep, remove, every sign a header carries,
+  a damaged carried key — a keychain file of the test's own), the window's
+  and the agent's sentences.
+
+- [x] **905. *Settings › Search and answers* (the owner's word, 9 November
+  2026: "both" keys).** ADR 0106 §§ 4–5. *Depends on 904.*
+  ***Done (batch 31, 9 November 2026).*** Under *alo at work*: **Search
+  with** (*Brave Search*, *SearXNG*) and **Answers by** (*OpenAI*), radio
+  groups named by the services' own names — the one place a name is drawn;
+  under the search chooser its **Address** (SearXNG) or **Search key**,
+  under the AI chooser its **AI key**, each a field 240 × 28 with *Keep*
+  and, for a person's own key, *Remove*, and one quiet sentence: whose key
+  is used (*Your own key is used, kept in this Mac’s keychain.* / *The key
+  this application carries is used.* / *A key in this Mac’s keychain is
+  used.* / *No key yet.*) or *Searches go to …*. A key is held in the
+  browser process alone; the renderer is sent its dots. Tab, ⇧Tab, the
+  arrows on a chooser, Space and Return as the rest of *Settings*; typing,
+  ⌘V, ⌫, Escape and Return in a field. Used from alo's next start, said.
+  **Layout in numbers, reference** (`settings_search_and_answers.rs`,
+  `settings-search-and-answers.png`), claims by place, what an agent reads
+  (never a dot); `no_providers_name_on_screen.rs` allows a name in a
+  chooser's option alone and finds one anywhere else; the window's test
+  (a choice and an address in the file, a pasted key in a keychain of the
+  test's own, never in the file or a line, removed).
+
+- [x] **906. A release's services and keys chosen as it is made.** ADR 0106
+  § 6. *Depends on 904.* ***Done (batch 31, 9 November 2026).***
+  `alo-bundle --services FILE` (the three lines, checked) carried as
+  `Contents/Resources/services.txt`; `--keys-from` takes the keys of the
+  services the application asks — the service's own keychain item first —
+  and none for a service that takes none. Nothing of a release is in a
+  program or this repository.
+
+- [ ] **907. A SearXNG's images and videos (cut from 904).** Its JSON names
+  every picture at the site holding it; its own image proxy needs the
+  instance's secret. Opened when a picture can be asked of the instance
+  itself (ADR 0086). *Depends on 904.*
+
+- [ ] **908. A service chosen in Settings used at once (cut from 905).**
+  Today it is used from alo's next start, and said. The search's and the
+  answer's threads and the agent made again with the new service, no
+  search in flight lost. *Depends on 905.*
+
+- [ ] **909. A Settings field as the box is (cut from 905).** The caret
+  stands at a field's end: moving it by the arrows, selecting, a press
+  placing it, and the field's words scrolled to the caret, as
+  `field_line` does for the box. *Depends on 905.*
+
 ## K. ★ The agent, on somebody else's pages
 
 The reason this exists rather than a faster fork. ADR 0002 holds here or it does

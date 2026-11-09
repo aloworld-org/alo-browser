@@ -58,12 +58,24 @@ Two things follow that no existing engine offers:
 
 ## Your own services
 
-alo does not tie anyone to one search engine or one AI. Search and written
-answers come from services reached over their APIs, and the keys for them
-never live in this repository: a development build reads them from the Mac's
-keychain, and a release build carries the keys it is given when it is made.
-Choosing the services by configuration, and adding your own keys in Settings,
-is in progress.
+alo does not tie anyone to one search engine or one AI. Searching, a
+search's written answer and alo's agent each go through one interface, and
+which service answers is configuration, not code: each service is a
+connector beside the others, and adding one is two files and a line where
+it is chosen (ADR 0106). A self-hosted, open source search service that
+needs no key is one of them.
+
+- **Choosing.** In *Settings › Search and answers*, or by the `search` and
+  `answers` lines of `settings.txt` beside the chats, with an address line
+  for a service that needs one (ADR 0106 § 3). A change is used from alo's
+  next start.
+- **Keys.** Your own key, typed or pasted in *Settings*, is kept only in
+  this Mac's keychain — never in a file of alo's, a log or a chat — and wins
+  over a key the application carries. A development build also reads the
+  keychain items earlier builds used. Keys never live in this repository.
+- **A release** carries the keys it is given when it is made, and may name
+  the services it asks unless a person chooses others:
+  `alo-bundle --keys-from keychain|DIRECTORY --services FILE`.
 
 ## Building it
 

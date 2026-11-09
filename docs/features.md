@@ -1057,6 +1057,27 @@ The reason this exists rather than a faster fork of somebody else's engine.
   hover (812), a source opened as a card at the line (813), the answer kept
   in a chat (814), streaming (815), richer grounding (816), an evaluation
   (817), zero data retention (818).
+  **Search and answers by configuration** (904–906, ADR 0106; the owner's
+  word of 9 November 2026): the box's search, the agent's and the answer's
+  thread hold one interface each — `SearchService`, whose connectors
+  declare what they search, and `AiService` — and which service is asked
+  is configuration: `settings.txt`'s `search brave|searxng`, `searxng
+  ADDRESS` and `answers openai`, over an application's own `services.txt`
+  (`alo-bundle --services FILE`), over Brave and OpenAI. **SearXNG** (no
+  key): `GET ADDRESS/search?q=…&format=json`, news by `categories=news`,
+  further pages by `pageno`; its Images and Videos tabs say *The search
+  service chosen in Settings does not search for images.* (its pictures
+  are the sites' own, never fetched). A key is the person's own (keychain
+  `alo-search-brave`, `alo-ai-openai`, entered in *Settings › Search and
+  answers*), else the application's carried slot, else the older items
+  `alo-brave-search` and `alo-openai`. Nothing a person reads names a
+  service but *Settings*' chooser. Tests: each connector's parsing against
+  answers in its own shape, the key store against a keychain file of its
+  own, the section's layout in numbers and reference
+  (`settings_search_and_answers.rs`), `no_providers_name_on_screen.rs`.
+  Owed: a SearXNG's pictures (907), a change used at once (908), a field
+  edited as the box is (909); no Google — its Custom Search JSON API is
+  closed to new customers.
   *(A site's own mark since built, 747.)* **The key in release** (748, ADR
   0091 — the owner: *"The ai and search apis will be shipped inside the
   app"*): `alo-bundle --keys-from keychain` puts the search key, taken from

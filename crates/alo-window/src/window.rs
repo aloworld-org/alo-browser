@@ -168,9 +168,9 @@
 //! `applicationWillTerminate:` (item 688).
 
 use crate::agent_lines::AgentLines;
+use crate::ai_service::AiService;
 use crate::aim::{Aimed, aim, on_page};
 use crate::beside::Chromium;
-use crate::brave_search::Provider;
 use crate::card_aim::Turned;
 use crate::chat_store::ChatStore;
 use crate::chrome_follow::Follow;
@@ -197,6 +197,7 @@ use crate::place::{Placement, STRIP_HEIGHT, screen};
 use crate::present::Presenter;
 use crate::present_chosen::{How, Screen};
 use crate::scale::Scale;
+use crate::search_service::SearchService;
 use crate::showing::Showing;
 use alo_renderer::host::Renderers;
 use alo_renderer::{Frame, Visibility};
@@ -867,7 +868,9 @@ impl ApplicationHandler<ToFrame> for Framing<'_> {
 /// named a scale and at its screen's otherwise. An address chosen in it
 /// opens in the Chromium `chromium` names (queue items 713 and 719), and
 /// words chosen are searched with `search`, or said not set up and why
-/// (queue item 708). Its chats are kept in the directory `chats` names,
+/// (queue item 708), and answered with `answer`; *Settings › Search and
+/// answers* shows the application's `defaults` under the person's choices
+/// and keeps a person's own keys with `keys` (ADR 0106). Its chats are kept in the directory `chats` names,
 /// read from it as the window opens (queue item 757, ADR 0092), or, with
 /// none or one that cannot be opened, not kept, and said so. The card live
 /// is reached by agents as `reaching` says (queue item 716), and `closing`
@@ -883,9 +886,11 @@ pub fn conversation(
     forced: Option<Scale>,
     renderers: Renderers,
     chromium: Chromium,
-    (search, answer): (
-        Result<Provider, String>,
-        Result<crate::openai_answer::Provider, String>,
+    (search, answer, defaults, keys): (
+        Result<SearchService, String>,
+        Result<AiService, String>,
+        crate::services::Named,
+        crate::service_keys::Keys,
     ),
     chats: Result<PathBuf, String>,
     (reaching, closing, agent): (
@@ -940,6 +945,7 @@ pub fn conversation(
         crate::settings_file::Read {
             face: alo_renderer::interface_face::InterfaceFace::Inter,
             limits: alo_renderer::agent_limits::Limits::default(),
+            services: crate::services::Named::default(),
             said: None,
         },
         crate::settings_file::read,
@@ -947,7 +953,8 @@ pub fn conversation(
     let state = ConversationWindow::new(forced, drawing, chrome)
         .with_search(searcher)
         .with_agent(agent, tell_agent)
-        .with_settings(read, settings);
+        .with_settings(read, settings)
+        .with_services(defaults, keys);
     // Where the chats are kept across launches (queue item 757, ADR 0092),
     // sealed under the key in the person's keychain (queue item 790, ADR
     // 0098), read before the window opens; with nowhere, or no key, said,

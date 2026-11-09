@@ -6,7 +6,7 @@
 //! 687 and 720; ADR 0067 § 6, ADR 0077, ADR 0079).
 //!
 //! `alo-bundle [--programs DIRECTORY] [--into DIRECTORY] [--host PROGRAM]
-//! [--keys-from keychain|DIRECTORY]` puts `alo`, `alo-render` and `alo-ask` from the programs' directory into
+//! [--keys-from keychain|DIRECTORY] [--services FILE]` puts `alo`, `alo-render` and `alo-ask` from the programs' directory into
 //! a new `alo browser.app` in the other, with the application's two pages
 //! and its `Info.plist` ([`alo_window::bundle_made`]); carries the Chromium
 //! the application draws the web with — alo's CEF host and CEF's framework
@@ -31,15 +31,26 @@
 //! directory, under `alo-cef-host`, in the directory of the programs' own
 //! name — unless `--host` names it.
 //!
-//! **The keys** (ADR 0091): `--keys-from keychain` takes each key the
-//! application carries from this Mac's login keychain — the search key from
-//! the item `alo-brave-search`, for the person running it — and
-//! `--keys-from DIRECTORY` from the file in `DIRECTORY` named as its slot
-//! (`search`). They go in `Contents/Resources/keys`, masked, before the
-//! seal; a slot with no key refuses, and nothing is made. Without
-//! `--keys-from` the application carries no key, says so, and searches
-//! with this Mac's keychain's when it runs, as a development build does. A
-//! key is never printed, and never comes from the repository.
+//! **The services** (ADR 0106 §§ 3, 6): `--services FILE` names the
+//! search and AI services the application asks unless a person chooses
+//! others in *Settings* — the `search`, `searxng` and `answers` lines of a
+//! settings file, and nothing else — checked, and carried as
+//! `Contents/Resources/services.txt`. Without it the application asks
+//! Brave and `OpenAI`, as every build before. This is how a release made
+//! elsewhere chooses its services without changing this repository.
+//!
+//! **The keys** (ADR 0091, ADR 0106 § 4): `--keys-from keychain` takes the
+//! key of each service the application asks — by `--services`, else Brave
+//! and `OpenAI`; a `SearXNG` takes none — from this Mac's login keychain, the
+//! service's own item first (`alo-search-brave`, `alo-ai-openai`) and an
+//! older alo's after (`alo-brave-search`, `alo-openai`), for the person
+//! running it; `--keys-from DIRECTORY` from the file in `DIRECTORY` named
+//! as its slot (`search`, `answer`). They go in `Contents/Resources/keys`,
+//! masked, before the seal; a key missing refuses, and nothing is made.
+//! Without `--keys-from` the application carries no key, says so, and asks
+//! with a person's own or this Mac's keychain's when it runs, as a
+//! development build does. A key is never printed, and never comes from
+//! the repository.
 //!
 //! **Without `CEF_PATH`** (unset or empty) it makes the application with no
 //! Chromium, and says so: that application draws its page with this
@@ -58,6 +69,8 @@ use alo_window::bundle_keys::{self, Source, Taken};
 use alo_window::bundle_made::{PROGRAMS, make};
 use alo_window::bundle_seal::{seal, seal_carried};
 use alo_window::cef_pin;
+use alo_window::services::Named as ServicesNamed;
+use alo_window::services_made;
 use std::ffi::OsString;
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -72,6 +85,8 @@ struct Named {
     host: Option<PathBuf>,
     /// Where the keys it carries are taken from, if named.
     keys: Option<Source>,
+    /// The file naming the services it asks by default, if named.
+    services: Option<PathBuf>,
 }
 
 /// The directories and the host named, or where they are by default.
@@ -80,6 +95,7 @@ fn named() -> Result<Named, String> {
     let mut into = None;
     let mut host = None;
     let mut keys = None;
+    let mut services = None;
     let mut words = std::env::args_os().skip(1);
     while let Some(word) = words.next() {
         let slot = match word.to_str() {
@@ -87,6 +103,7 @@ fn named() -> Result<Named, String> {
             Some("--into") => &mut into,
             Some("--host") => &mut host,
             Some("--keys-from") => &mut keys,
+            Some("--services") => &mut services,
             _ => {
                 return Err(format!(
                     "{} is not an option of this",
@@ -118,6 +135,7 @@ fn named() -> Result<Named, String> {
         into,
         host,
         keys: keys.map(|named: PathBuf| Source::named(&named)),
+        services,
     })
 }
 
@@ -159,9 +177,29 @@ fn chromium(named: &Named) -> Result<Option<Carried>, String> {
     Ok(Some(carried))
 }
 
-/// The keys to carry: none when `--keys-from` names nothing, or every
-/// slot's, taken from where it names — said by slot, never by key.
-fn keys(named: &Named) -> Result<Option<Taken>, String> {
+/// The services the application asks by default: none named when
+/// `--services` names nothing, or what its file names, checked.
+fn services(named: &Named) -> Result<Option<ServicesNamed>, String> {
+    let Some(file) = &named.services else {
+        return Ok(None);
+    };
+    let text = std::fs::read_to_string(file)
+        .map_err(|why| format!("{} could not be read: {why}", file.display()))?;
+    let services = services_made::read_defaults(&text)
+        .map_err(|why| format!("{} does not read: {why}", file.display()))?;
+    let resolved = services.services();
+    eprintln!(
+        "alo-bundle: asks {} and {} unless a person chooses others",
+        resolved.search.name(),
+        resolved.answers.name()
+    );
+    Ok(Some(services))
+}
+
+/// The keys to carry: none when `--keys-from` names nothing, or the key of
+/// every service the application asks by default, taken from where it
+/// names — said by slot, never by key.
+fn keys(named: &Named, services: Option<&ServicesNamed>) -> Result<Option<Taken>, String> {
     let Some(source) = &named.keys else {
         eprintln!(
             "alo-bundle: --keys-from is not named, so the application carries no keys: it \
@@ -169,7 +207,8 @@ fn keys(named: &Named) -> Result<Option<Taken>, String> {
         );
         return Ok(None);
     };
-    let taken = bundle_keys::taken(source)?;
+    let resolved = services.cloned().unwrap_or_default().services();
+    let taken = bundle_keys::taken(source, &services_made::keyed(&resolved))?;
     let from = match source {
         Source::Keychain(_) => "this Mac's keychain".to_owned(),
         Source::Directory(directory) => directory.display().to_string(),
@@ -185,7 +224,7 @@ fn main() -> ExitCode {
             eprintln!("alo-bundle: {why}");
             eprintln!(
                 "alo-bundle: alo-bundle [--programs DIRECTORY] [--into DIRECTORY] [--host PROGRAM] \
-                 [--keys-from keychain|DIRECTORY]"
+                 [--keys-from keychain|DIRECTORY] [--services FILE]"
             );
             return ExitCode::from(2);
         }
@@ -197,7 +236,14 @@ fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     };
-    let keys = match keys(&named) {
+    let services = match services(&named) {
+        Ok(services) => services,
+        Err(why) => {
+            eprintln!("alo-bundle: {why}");
+            return ExitCode::from(2);
+        }
+    };
+    let keys = match keys(&named, services.as_ref()) {
         Ok(keys) => keys,
         Err(why) => {
             eprintln!("alo-bundle: {why}");
@@ -216,6 +262,21 @@ fn main() -> ExitCode {
     {
         eprintln!("alo-bundle: {why}");
         return ExitCode::FAILURE;
+    }
+    if let Some(services) = &services {
+        let file = made
+            .application()
+            .join("Contents")
+            .join("Resources")
+            .join(services_made::DEFAULTS);
+        let written = file
+            .parent()
+            .map_or(Ok(()), std::fs::create_dir_all)
+            .and_then(|()| std::fs::write(&file, services_made::text_of(services)));
+        if let Err(why) = written {
+            eprintln!("alo-bundle: {} could not be written: {why}", file.display());
+            return ExitCode::FAILURE;
+        }
     }
     if let Some(carried) = carried {
         let application = made.application();

@@ -31,14 +31,25 @@
 //! nothing else: no page, renderer, agent, argument or environment variable
 //! can change where an answer is asked, or which model.
 //!
+//! # One connector of the AI service (ADR 0106)
+//!
+//! [`Provider`] is an [`AiConnector`]: the answer's thread and the agent
+//! hold it as an [`AiService`] and never name it. Its wire formats are its
+//! own — an answer's ([`crate::answer_protocol`]) and the agent's step
+//! ([`crate::agent_protocol`]).
+//!
 //! # What the person is told
 //!
 //! Where the answer would be, in one sentence ([`unanswered`]): the key
 //! refused (401, 403), too many requests or the allowance used up (429),
-//! the model not offered (404), `OpenAI` unable to answer (5xx), unreachable,
-//! or its answer unreadable or refused. None says the key.
+//! the model not offered (404), the service unable to answer (5xx),
+//! unreachable, or its answer unreadable or refused. None says the key, and
+//! none names `OpenAI`: each calls it [`AI_SERVICE`] (ADR 0106 § 5).
 
-use crate::answer_protocol::{self, Spent};
+use crate::agent_protocol::{self, Asking};
+pub use crate::ai_service::Asked;
+use crate::ai_service::{AI_SERVICE, AiConnector, AiService};
+use crate::answer_protocol;
 use crate::search_key::{Held, Key};
 use alo_net::cause::{Cause, Identities};
 use alo_net::{Pool, Request};
@@ -53,8 +64,8 @@ pub const MODEL: &str = "gpt-6.1-terra";
 /// Where an answer is asked: `OpenAI`'s Responses API.
 pub const ENDPOINT: &str = "https://api.openai.com/v1/responses";
 
-/// Who answers, in words a person reads.
-pub const ANSWERER: &str = "OpenAI";
+/// Who answers, for the terminal alone: never on screen (ADR 0106 § 5).
+pub const NAME: &str = "OpenAI";
 
 /// Where answers are asked, of which model, and with what key.
 #[derive(Debug, Clone)]
@@ -146,16 +157,6 @@ impl Provider {
     }
 }
 
-/// What came of asking for an answer: the answer, or why not in its
-/// [`Answer::Unanswered`]; and what it cost, if `OpenAI` said.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Asked {
-    /// The answer, or why there is none.
-    pub answer: Answer,
-    /// What it cost.
-    pub spent: Option<Spent>,
-}
-
 /// Ask `provider` through `pool` to answer `question` from `sources`: what
 /// came of it, an answer not had saying why in a sentence a person reads.
 pub fn ask(
@@ -178,18 +179,74 @@ pub fn ask(
                     spent: read.spent,
                 },
                 Err(why) => not(format!(
-                    "alo could not write an answer: {ANSWERER}'s answer could not be read: {why}."
+                    "alo could not write an answer: {AI_SERVICE}'s answer could not be read: \
+                     {why}."
                 )),
             }
         }
         Ok(response) => not(unanswered(response.status.0, provider.key.held())),
         Err(why) => not(format!(
-            "alo could not write an answer: {ANSWERER} could not be reached: {why}"
+            "alo could not write an answer: {AI_SERVICE} could not be reached: {why}"
         )),
     }
 }
 
-/// What a person is told when `OpenAI`'s answer has the status `status`, not
+/// The agent's next step for `asking`, asked of `provider` through `pool`
+/// (queue item 704, ADR 0096).
+///
+/// # Errors
+///
+/// Why there is none, in the words said after *alo could not go on:*.
+pub fn step(
+    provider: &Provider,
+    pool: &mut Pool,
+    identities: &mut Identities,
+    asking: &Asking<'_>,
+) -> Result<agent_protocol::Read, String> {
+    let body = agent_protocol::request_body(provider.model(), asking);
+    let request = provider.post(body, agent_protocol::LARGEST, identities);
+    let response = pool
+        .fetch(&request)
+        .map_err(|why| format!("{AI_SERVICE} could not be reached: {why}"))?;
+    if response.status.0 != 200 {
+        return Err(why_unanswered(response.status.0, provider.held()));
+    }
+    agent_protocol::read(&response.body)
+        .map_err(|why| format!("{AI_SERVICE}'s step could not be read: {why}."))
+}
+
+impl AiConnector for Provider {
+    fn named(&self) -> String {
+        format!("{NAME}'s {}", self.model)
+    }
+
+    fn answer(
+        &self,
+        pool: &mut Pool,
+        identities: &mut Identities,
+        question: &str,
+        sources: &[Found],
+    ) -> Asked {
+        ask(self, pool, identities, question, sources)
+    }
+
+    fn step(
+        &self,
+        pool: &mut Pool,
+        identities: &mut Identities,
+        asking: &Asking<'_>,
+    ) -> Result<agent_protocol::Read, String> {
+        step(self, pool, identities, asking)
+    }
+}
+
+impl From<Provider> for AiService {
+    fn from(provider: Provider) -> Self {
+        Self::of(provider)
+    }
+}
+
+/// What a person is told when the AI service's answer has the status `status`, not
 /// 200, to a request asked with a key `held` there.
 pub fn unanswered(status: u16, held: Held) -> String {
     format!(
@@ -198,26 +255,30 @@ pub fn unanswered(status: u16, held: Held) -> String {
     )
 }
 
-/// Why `OpenAI` did not answer with the status `status`, not 200, to a
+/// Why the AI service did not answer with the status `status`, not 200, to a
 /// request asked with a key `held` there: the sentence an answer and the
 /// agent (queue item 704) both say after their own words.
 pub fn why_unanswered(status: u16, held: Held) -> String {
     match (status, held) {
         (401 | 403, Held::Keychain) => format!(
-            "{ANSWERER} refused alo's key ({status}). The key in this Mac's keychain may be \
+            "{AI_SERVICE} refused alo's key ({status}). The key in this Mac's keychain may be \
              wrong or revoked."
         ),
         (401 | 403, Held::Carried) => format!(
-            "{ANSWERER} refused alo's key ({status}). The key this application carries may \
+            "{AI_SERVICE} refused alo's key ({status}). The key this application carries may \
              have been revoked: a newer alo carries a new one."
         ),
-        (404, _) => format!("{ANSWERER} does not offer alo's model, {MODEL}, to its key (404)."),
+        (401 | 403, Held::Settings) => format!(
+            "{AI_SERVICE} refused alo's key ({status}). The key you gave in Settings may be \
+             wrong or revoked."
+        ),
+        (404, _) => format!("{AI_SERVICE} does not offer the model alo asks for to its key (404)."),
         (429, _) => format!(
-            "{ANSWERER} says alo has asked too often, or its allowance is used up ({status}). \
+            "{AI_SERVICE} says alo has asked too often, or its allowance is used up ({status}). \
              Try again later."
         ),
-        (500..=599, _) => format!("{ANSWERER} could not answer just now ({status})."),
-        _ => format!("{ANSWERER} answered {status}, which alo does not read."),
+        (500..=599, _) => format!("{AI_SERVICE} could not answer just now ({status})."),
+        _ => format!("{AI_SERVICE} answered {status}, which alo does not read."),
     }
 }
 
@@ -284,24 +345,26 @@ mod tests {
             (403, "refused alo's key (403)"),
             (
                 404,
-                "does not offer alo's model, gpt-6.1-terra, to its key (404)",
+                "does not offer the model alo asks for to its key (404)",
             ),
             (429, "allowance is used up (429)"),
             (500, "could not answer just now (500)"),
             (503, "could not answer just now (503)"),
             (400, "answered 400, which alo does not read"),
         ] {
-            for held in [Held::Keychain, Held::Carried] {
+            for held in [Held::Keychain, Held::Carried, Held::Settings] {
                 let said = unanswered(status, held);
                 assert!(said.contains(says), "{status}: {said}");
                 assert!(
-                    said.starts_with("alo could not write an answer: OpenAI"),
+                    said.starts_with("alo could not write an answer: the AI service"),
                     "{said}"
                 );
+                assert!(!said.to_lowercase().contains("openai"), "{said}");
                 assert!(!said.contains("test-key"), "{said}");
             }
         }
         assert!(unanswered(401, Held::Keychain).ends_with("keychain may be wrong or revoked."));
         assert!(unanswered(403, Held::Carried).ends_with("a newer alo carries a new one."));
+        assert!(unanswered(401, Held::Settings).ends_with("Settings may be wrong or revoked."));
     }
 }
