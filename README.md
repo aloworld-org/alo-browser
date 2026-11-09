@@ -1,19 +1,40 @@
 # alo browser
 
-**A browser in Rust, whose first job is to render alo.**
+**A browser built as a conversation, with an engine written in Rust.**
 
-A browser is where this goes. It starts as the engine behind alo — the alo OS
-shell and the alo workspace — because that is the only way a project like this
-is ever usable before year seven: something real depends on it from the first
-month, and the compatibility burden arrives last rather than first. It is written in Rust, it is memory-safe by
-construction, and its layout tree is the same tree an agent reads, so an
-agent operates on what the interface *is* rather than on a photograph of it.
+alo replaces the address bar, the tab strip and the search page with one
+conversation. You type into a single box — a question, a search or an address
+— and alo answers, searches or opens the site, right there in the chat. Web
+pages arrive as cards inside the conversation. And when a task takes more than
+reading, you ask alo to do it: it plans a few short steps, finds the sites,
+and works on the pages while you watch.
 
-**Status: stage 1 is complete; stage 2 is in progress.** The engine renders
-alo’s sign-in and Settings screens against committed references. Networking,
-process isolation and a JavaScript interpreter are partly built. It is not yet
-a general-purpose browser. See `ROADMAP.md` and the
-[remaining-work audit](docs/autonomy/REMAINING.md).
+Its own engine — the DOM, style, layout, painting and the interface — is
+written in Rust, memory-safe by construction, and built so that an agent reads
+what an interface *is* rather than a photograph of it.
+
+**Status: in active development, on macOS.** It runs as a Mac application
+today; it is not yet released, signed or notarised. Windows and Linux are
+planned. See [`ROADMAP.md`](ROADMAP.md), [`docs/features.md`](docs/features.md)
+and, for what renders correctly today, [`docs/conformance.md`](docs/conformance.md).
+
+## What it does today
+
+- **One box for everything.** Ask, search or type an address; as you type, it
+  offers to search, to open the site, or to ask alo to do it.
+- **Answers with their sources.** A short written answer from the top search
+  results, with the sites it came from, and the results sorted into All,
+  Answer, Sites, Images, Videos and News. When there is no reliable answer, it
+  says so and shows the sites instead.
+- **Pages as cards.** A site opens as a card in the conversation, running
+  Chromium, so the everyday web works as it should.
+- **Ask alo to do it.** The agent plans, searches, opens sites and acts on
+  pages by name. It asks before it pays, sends, deletes or submits a form;
+  never types a password or card details; hands a sign-in page to you; and
+  stays within the sites and actions you allow in Settings.
+- **Ads and trackers refused** by EasyList and EasyPrivacy, carried in the
+  application.
+- **Chats kept on your Mac**, searchable, with their pages.
 
 ## Why build this
 
@@ -24,39 +45,78 @@ recovery, quirks mode, floats and table layout, the accreted DOM surface.
 
 What a modern interface needs is a shorter list — a box model, flexbox and
 grid, custom properties, text, transforms, compositing, input, and a retained
-tree. That is a serious project, not an impossible one. And **stage 1 needs no
-JavaScript engine at all**, which is the largest single component of a browser.
+tree. That is a serious project, not an impossible one. So alo draws its own
+interface with its own engine, and rents Chromium only for the pages people
+open — until its own engine can draw those too.
 
 Two things follow that no existing engine offers:
 
 - **Memory safety**, in a product whose other half is sold on auditability.
 - **An agent that reads the interface as a tree** — "invoice list, twelve rows,
   row three selected" — and acts on it through typed verbs, never coordinates.
-  Every AI browser shipping today scrapes or photographs somebody else's page,
-  because none of them owns the engine.
+  Most AI browsers photograph somebody else's page and guess where to click.
+
+## Your own services
+
+alo does not tie anyone to one search engine or one AI. Search and written
+answers come from services reached over their APIs, and the keys for them
+never live in this repository: a development build reads them from the Mac's
+keychain, and a release build carries the keys it is given when it is made.
+Choosing the services by configuration, and adding your own keys in Settings,
+is in progress.
+
+## Building it
+
+alo is built and verified on macOS, with Rust 1.89 or newer.
+
+```sh
+cargo build --release
+```
+
+builds `alo`, the renderer and the other programs. To make the application,
+`alo browser.app`, with the Chromium it carries, download the CEF distribution
+the repository pins — the macOS arm64 minimal build of CEF 156.0.14 from
+cef-builds.spotifycdn.com, checked against `crates/alo-window/src/cef_pin.rs`
+— unpack it, then:
+
+```sh
+CEF_PATH=… cargo build --release --locked \
+  --manifest-path crates/alo-cef-host/Cargo.toml --target-dir target/alo-cef-host
+CEF_PATH=… target/release/alo-bundle
+```
+
+Without `CEF_PATH` the application is made with no Chromium, and says so. Pass
+`--keys-from DIRECTORY` to carry keys from files outside the repository; with
+none, the application carries no key and says so.
+
+## Contributing
+
+Read [`CLAUDE.md`](CLAUDE.md) first: it is the project's constitution, and
+everything in it is absolute. Settled decisions live in
+[`docs/decisions/`](docs/decisions/) — read the ADR before proposing an
+alternative. Nothing is done until [`scripts/gate.sh`](scripts/gate.sh)
+passes: formatting, clippy with zero warnings, every test, and a reference
+render for anything visual.
 
 ## What it is not
 
-- **Not a web browser yet**, and possibly not for years. Stage 1 renders alo.
-- **Not a Chromium fork**, and not a Ladybird fork — that one is C++ moving to
-  a memory-safe language that is not Rust.
+- **Not a Chromium fork**, and not a Ladybird fork. Chromium runs only the
+  pages inside cards; the interface around them, and the engine that draws
+  it, are ours.
 - **Not a shaper, a codec or a TLS stack.** We rent the physics. Nobody writes
   their own text shaper, and not out of timidity.
-- **Not a dependency of alo OS.** Its ADR 0002 makes the shell native whether or
-  not this is ever finished.
-- **And alo OS is not a dependency of this.** The independence runs both ways —
-  easy to write down once and then quietly lose, which is what happened to the
-  stage 1 exit gate until it was corrected. Stage 1 needs no compositor, no
-  certified machine, no GPU and no network: HTML and CSS in, a PNG and a box
-  tree out, both files. Anybody who clones this repository can build *and verify*
-  all of it on an ordinary laptop — which is how most of it was built.
+- **Not a compatibility project.** No quirks mode, no floats-as-layout, no
+  `document.write`. The legacy web is scheduled by real pages failing, never by
+  a specification listing a property.
+- **Not a dependency of alo OS, and alo OS is not a dependency of this.** The
+  independence runs both ways.
 
 ## The stages
 
 | | |
 |---|---|
-| **1** | Renders alo. No scripting, no hostile pages, no compatibility burden. Ships as alo OS's renderer. |
-| **2** | Renders the modern web. A JavaScript engine, the network stack, and a process/sandbox model designed **before** it ever loads a hostile page. |
+| **1** | Renders alo's own interface. No scripting, no hostile pages, no compatibility burden. Complete. |
+| **2** | The modern web: a JavaScript engine, the network stack, and a process and sandbox model designed **before** it ever loads a hostile page. In progress; pages in cards run on the Chromium alo carries meanwhile. |
 | **3** | The legacy tail, scheduled by real pages failing rather than by a specification. |
 | **4** | Product adoption: extensions, sync, updates, mobile and local AI; gated on stage 2. |
 
