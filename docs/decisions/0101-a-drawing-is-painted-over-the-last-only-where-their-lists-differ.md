@@ -1,6 +1,6 @@
 # ADR 0101 — A drawing is painted over the last only where their lists differ
 
-**Status:** accepted — built by queue item 870 (7 November 2026); § 2 extended and what was left answered by ADR 0102 (queue items 871, 872); § 3 amended by ADR 0104 (queue item 885, a backdrop reads pixels of its own crop)
+**Status:** accepted — built by queue item 870 (7 November 2026); § 2 extended and what was left answered by ADR 0102 (queue items 871, 872); § 3 amended by ADR 0104 (queue item 885, a backdrop reads pixels of its own crop) and for queue item 888 (a run of text passed over)
 **Date:** 2026-11-07
 **Context:** ADR 0100 (a card's page drawn beneath the first screen by a
 renderer of its own, which left an edit's own paint at 137–143 ms with a
@@ -229,3 +229,23 @@ reaches its crop: if one does, its whole crop is damaged, so a repaint
 draws every pixel it reads afresh first; if none does, its blur is the
 last drawing's, kept (`Kept::backdrop`) and taken as kept. ADR 0104 § 2
 says why that is right.
+
+## Amended (9 November 2026, queue item 888)
+
+§ 3's list of what a confined `render` passes over now holds **a run of
+text that cannot reach the region**, or what the clips in force let
+through of it. Measured in the first screen's renderer at two (release,
+this Mac), a run costs about 0.05 ms to shape and outline and about
+0.59 ms to fill, and every run of the screen was filled on every drawing:
+a Tab in *Settings* over a card spent 29 of its 30 ms of paint filling 41
+runs that the rings' region did not see. A run is outlined first — what
+is filled and what bounds it are the same outlines — and its reach is
+§ 2's, `extent::letters_reach`: each glyph's whole pixels and one more,
+and each shadow's moved by its offset and grown by its blur's whole reach.
+So the bound is the shape that would be filled, never smaller; a test
+draws runs of three faces, two sizes, three scales, three spacings and
+leans, three sets of shadows and three transforms alone and finds no
+pixel inked outside it. A run's letters are not kept between drawings
+(ADR 0102 § 1's `Kept`): opening *Settings*, 37 of the 41 runs filled were
+the panel's own, new to that drawing. A Tab is answered in 37.6 ms at
+the median where it took 64.1; a drawing painted whole is unchanged.

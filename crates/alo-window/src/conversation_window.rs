@@ -679,10 +679,16 @@ impl ConversationWindow {
         // A page it opens (queue item 821): chosen as a person's address
         // is, and opened as a card the run is moved onto — the road a
         // person's address takes, never another.
-        if let Said::Opening { url, said: bubble } = &said.said
-            && self
-                .conversation
-                .agent_opens(said.run, (**url).clone(), bubble.clone())
+        if let Said::Opening {
+            url,
+            said: bubble,
+            pinned,
+        } = &said.said
+            && self.conversation.agent_opens(
+                said.run,
+                ((**url).clone(), pinned.clone()),
+                bubble.clone(),
+            )
         {
             self.go();
             self.redraw = true;
@@ -1974,6 +1980,10 @@ impl ConversationWindow {
         let Some(url) = self.conversation.going().cloned() else {
             return;
         };
+        // A page alo's agent asked for is loaded as the address its name
+        // was resolved to before it was let open, never resolved again by
+        // the card's Chromium (queue item 881); a person's never is.
+        let pinned = self.conversation.pinned_for_the_run().cloned();
         // Another page replaces the card, and the agent at work on it stops
         // before the new page is open to any agent (queue item 704) — unless
         // the agent itself asked for it (queue item 821), when it is moved
@@ -1991,7 +2001,7 @@ impl ConversationWindow {
         };
         self.front.owed = self.front.focused;
         if let Some(chrome) = &self.chrome {
-            chrome.open(url, streamed);
+            chrome.open_pinned(url, streamed, pinned);
             self.streaming = Some(streamed);
         }
     }

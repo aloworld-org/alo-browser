@@ -74,6 +74,7 @@
 use crate::beside::{Chromium, NotCarried, NotInstalled, chrome_on_this_machine, is_program};
 use crate::chrome_held::{Taker, Untaken, held};
 use crate::chrome_hold::Unheld;
+use crate::chrome_pin::Pinned;
 use crate::chrome_profile::{Profile, Swept, new_profile};
 use crate::chrome_protocol::{self, Command, Declined, Malformed, Message, Version};
 use crate::chrome_record::Record;
@@ -359,13 +360,21 @@ impl Chrome {
     /// chooses (queue item 738); the Chromium alo carries unseen until the
     /// card is expanded ([`CARD`], queue item 771) and drawn at the scale of
     /// the display it is parked by, which is chosen for `scale` once it is
-    /// shown (queue item 772).
+    /// shown (queue item 772). With `pinned`, it takes that name as the
+    /// address it holds and never resolves it (queue item 881,
+    /// [`crate::chrome_pin`]).
     ///
     /// # Errors
     ///
     /// As [`Chrome::start_from`].
-    pub fn start_shown_at(chromium: &Chromium, scale: Scale) -> Result<Self, Unstarted> {
-        Self::launch(&Self::program(chromium)?, true, &as_a_card(chromium, scale))
+    pub fn start_shown_at(
+        chromium: &Chromium,
+        scale: Scale,
+        pinned: Option<&Pinned>,
+    ) -> Result<Self, Unstarted> {
+        let mut added = as_a_card(chromium, scale);
+        added.extend(pinned.map(Pinned::switch));
+        Self::launch(&Self::program(chromium)?, true, &added)
     }
 
     /// Start the Chromium `chromium` names, headless or `shown`: the

@@ -71,6 +71,7 @@ pub mod decoration;
 pub mod display;
 pub mod drawing;
 pub mod drawn_picture;
+mod drawn_text;
 pub mod encode;
 pub mod extent;
 pub mod face;

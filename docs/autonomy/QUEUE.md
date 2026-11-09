@@ -24394,7 +24394,7 @@ What stage 2's exit gate actually measures: a person using it.
   the bar, Tab to *Ask before opening* scrolled it into view, a press
   held on the bar paged to the foot.
 
-- [ ] **881. A private answer refused by Chrome itself for a page alo's
+- [x] **881. A private answer refused by Chrome itself for a page alo's
   agent opens (cut from 821, ADR 0103 § 2).** The open gate resolves a
   public name with the rebinding rule before the agent opens it, and
   Chrome resolves it again as it loads: a name whose answer changes
@@ -24403,6 +24403,38 @@ What stage 2's exit gate actually measures: a person using it.
   for a navigation the agent started, through both Chromiums; a test with
   a name that answers public, then private. *Needs ADR 0103 amended.*
   *Depends on 821.*
+  ***Done (batch 26, 9 November 2026; ADR 0103 § 7).*** **Measured first**
+  (scratchpad `m881/`), each Chromium started as a card through a stand-in
+  adding the switch: in Chrome 157.0.8103.38 and the carried CEF 156,
+  `--host-resolver-rules=MAP pinned.invalid 127.0.0.1` loads
+  `http://pinned.invalid:P/` from 127.0.0.1 with its own `Host`, where with
+  none it is `ERR_NAME_NOT_RESOLVED`; the first of two rules wins; a rule
+  overrides `localhost`; IPv6 in brackets. No hook into a navigation's own
+  lookup was found (CEF's headers read: `ResolveHost` is a lookup beside it,
+  no response carries its address). **Built:** the gate keeps the first
+  public address it resolved (`Judged::{Open, Ask}::pinned`,
+  `chrome_pin::Pinned`), carried by `Said::Opening` and the conversation's
+  opening to `ChromeOpener::open_pinned`; the card's Chromium alone is
+  started with `MAP host address` (`Chrome::start_shown_at`,
+  `ChromeServing::start_as_a_pinned_card`). A host with anything but
+  letters, digits, `.`, `-`, `_` is not opened (`a,b.example` parses as a
+  host, and would have been a second rule). Never pinned: a person's
+  page, their typed local address (874), a site they named, an address.
+  **Tests:** units (the switch; names refused; public-then-private pinned
+  to its first answer and resolved once; only the agent's open pinned,
+  only until carded); `an_agents_card_takes_its_name_as_alo_resolved_it_through_chrome.rs`
+  through both Chromiums (pinned, `rebind.invalid` asked of the address
+  given; unpinned, not resolved); `the_agent_begins_with_no_page_through_chrome.rs`
+  now opens `rebind.invalid` from its resolver's answer along the window's
+  whole road, then signs in there. **Mutations**, each caught: the switch
+  not added (4 tests, both Chromiums); the window's `go()` dropping the
+  pin (the road's test, both Chromiums); the gate never pinning; any
+  character pinned; the pin offered after the card is up. **By hand** at
+  two (`handrun46/881-*`): asked with no page to go to the Wikipedia
+  article on the Uganda Museum, done in one step; the card's `alo Chromium`
+  started with `--host-resolver-rules=MAP en.wikipedia.org 185.15.59.224`,
+  the machine resolver's answer. **Its limit:** a redirect or link to
+  another host is resolved by Chrome, as every page's is.
 
 - [x] **882. A button pressed whose middle is its own icon (found by
   879).** Measuring Figma, `activate` was refused `NotCarriedOut` three
@@ -24583,14 +24615,42 @@ What stage 2's exit gate actually measures: a person using it.
   place — only alo's own *Settings* asks for one, and draws the frame in.
   *Depends on 885.*
 
-- [ ] **888. Text passed over on a confined canvas (found by 886).** Every
+- [x] **888. Text passed over on a confined canvas (found by 886).** Every
   run of text is outlined and drawn on each repaint, whatever the region:
   about 28 ms of a 60 ms Tab in *Settings* at two. Pass a run over when a
   cheap bound of its ink misses the region, proved never too small.
   *Depends on nothing.*
+  ***Done (batch 26, 9 November 2026; ADR 0101 amended).*** **Measured**
+  (release, renderer alone, at two): a run 0.05 ms to shape and outline,
+  0.59 ms to fill — the fill is the cost. So a run is outlined, and its
+  reach asked of those outlines (`extent::letters_reach`, the damage's own
+  bound: whole pixels and one more, shadows by offset and blur's reach);
+  missing what the clips leave open of the region, it is not filled
+  (`alo_paint::drawn_text`). `Making::letters` counts runs filled.
+  **Tests:** a run in 3 faces × 2 sizes × 3 scales × 3 spacings/leans × 3
+  shadow sets × 3 transforms (486) drawn alone, no pixel inked outside
+  its bound; a repaint around a mark filling only the run whose shadow
+  falls on it, every pixel as drawn whole; `settings_over_the_conversation.rs`
+  (Tab to × fills 1 run of 41, others under three quarters). **No
+  reference moved.** **Mutations**, each caught: never passed over;
+  shadows left out of the bound; a shadow's blur left out. **Before →
+  after** (same harness, two runs each, medians): Tab 64.1/64.7 →
+  37.6/37.8 ms; a letter with *Settings* closed 15.5/15.7 → 15.1/14.6 ms;
+  opening over a card 297/301 → 302/303 ms; a face 236/234 → 237/236 ms.
+  **Opening's ≈300 ms broken down** (scratchpad `m888/`): style 3.6,
+  layout 19.4, display list 2.6, paint 275, frame 4.4. Paint: the veil's
+  blur 51 (new under it), the panel's two shadows 54 (new), the card's
+  picture 54 (a 1.8 M pixel mix, 7 of it the upload), fills 58 (the
+  ground 13, the veil's tint 12, the panel 10), text 29 (37 of 41 runs the
+  panel's own, so keeping letters between drawings was measured, built
+  and taken out: ~2 ms), clips 13. **Nothing found avoidable without a
+  larger change**; queued 890–892. A face is a whole repaint — every
+  word under the veil changes face — so ≈235 ms, not 60–105 as 886 had
+  it. **By hand** at two (`handrun46/888-*`): ⌘, over a card, three Tabs,
+  rings moved, every word whole.
 
 
-- [ ] **889. A letter lost on a card under the gate's load (found by 886's
+- [x] **889. A letter lost on a card under the gate's load (found by 886's
   first gate run).** `a_persons_keys_on_a_card_through_chrome` read
   `typed?ne` where `new` was typed: one key never reached the page. That
   path was not changed by 885/886; the test passed 3 of 3 alone and in the
@@ -24598,6 +24658,50 @@ What stage 2's exit gate actually measures: a person using it.
   flakes says), find where the key is lost — alo's queue, the host's
   pipe, or Chrome's input — and fix the cause; a person typing on a busy
   Mac must not lose letters either. *Depends on nothing.*
+  ***Done (batch 26, 9 November 2026).*** **No key was lost: the test
+  misread.** The failure was at line 425 — `heard("typed?new")` at 424 had
+  passed, so the page's field held `new`; the *last report kept* was
+  `typed?ne`. Each report is a fetch of its own, two connections that
+  reach the server in either order (item 828 fixed the same in a sibling).
+  Reproduced under yes×96 with a probe numbering reports: run 8 of 20 kept
+  report 12 before 11. **Fixed** in the tests: `tests/numbered/mod.rs`
+  numbers each report and reads them in the page's order, and **holds back
+  every even-numbered one** 150 ms, so the server's order is never the
+  page's in any run; the keys test asserts every value the field passed
+  through once (`a, ab, abc, aXbc, aXc, n, ne, new`, then `newnew`), and
+  the hover test its last selection in order. **Mutation** (read in the
+  order kept, as before): the keys test fails 3 of 3 through both
+  Chromiums; the hover test survives it — its two reports are not
+  reordered by the hold — and is order-proof regardless. **By hand** at two
+  (`handrun46/889-*`): 43 letters typed into a card's field through
+  System Events under yes×96, all 43 arrived.
+
+- [ ] **890. A drawing whose boxes did not change is laid out again (found
+  by 888).** Every drawing of the first screen styles and lays out the
+  whole document — about 23 ms of a Tab's 38 at two, now the most of it.
+  Keep the layout when the document changed only in what paints (a ring's
+  class), proved by the tree laid out alike. *Depends on nothing.*
+
+- [ ] **891. Two far rings painted again as one rectangle (found by 888).**
+  Tab from *Close* to *Font* damages the rectangle holding both rings, so
+  the card's picture, the veil's blur and 14–26 runs inside it are drawn
+  again (up to 125 ms). Damage as a few rectangles, each painted on its
+  own, every pixel as drawn whole. *Depends on nothing.*
+
+- [ ] **892. Opening *Settings* over a card (found by 888).** Of ≈300 ms
+  at two: the panel's two shadows 54 ms made anew on each opening, the
+  card's frame mixed pixel by pixel at its own size 54 ms. Keep a closed
+  panel's shadows for its next opening, and draw a picture at its own size
+  by a path proved byte-identical to the mix. *Depends on nothing.*
+
+- [ ] **893. A mailto card test's first screen not painted again under load
+  (found by batch 26's first gate).** `a_mailto_link_in_a_card_through_chrome`
+  (the machine's Chrome) waited 90 s for the first screen to be painted
+  twice more and was not; it passed 3 of 3 alone. Under yes×96 it fails
+  every run at HEAD (155fce3) and with batch 26 alike, differently —
+  the debug first-screen renderer said nothing for 10 s and was stopped.
+  Find why a paint asked is not answered, and whether 10 s is a bound a
+  loaded debug renderer can meet. *Depends on nothing.*
 
 ## K. ★ The agent, on somebody else's pages
 

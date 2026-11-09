@@ -13,16 +13,23 @@
 //! machine, so opened only because they wrote it) through the window, the
 //! turn becomes that page's card, and the model is sent the page read
 //! through the relay. Proposing `localhost`, which the person did not
-//! write, it is refused and the server never asked. Following the page's
-//! *Sign in* link to a page with a password field, the page is handed to
-//! the person — *This site needs you to sign in* — and the model is not
-//! asked again.
+//! write, it is refused and the server never asked. Proposing
+//! `rebind.invalid`, a name the person did not write, it is opened from the
+//! address the browser process resolved it to — here this machine's own
+//! server, answered by the agent's resolver as a public address would be —
+//! and the card's Chromium never resolves the name again (queue item 881):
+//! no resolver answers a `.invalid` name, so the page opens only if the
+//! card took the name as alo resolved it, all along the window's road.
+//! Following that page's *Sign in* link to a page with a password field,
+//! the page is handed to the person — *This site needs you to sign in* —
+//! and the model is not asked again.
 
 #![cfg(target_os = "macos")]
 
 mod carried;
 
 use alo_layout::Size;
+use alo_net::resolve::{Reach, Unresolved};
 use alo_renderer::agent_work::Now;
 use alo_renderer::host::Renderers;
 use alo_renderer::turn::Turn;
@@ -38,7 +45,7 @@ use alo_window::openai_answer::Provider;
 use alo_window::scale::Scale;
 use alo_window::search_key;
 use std::io::{Read, Write};
-use std::net::{TcpListener, TcpStream};
+use std::net::{IpAddr, TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{Receiver, channel};
@@ -213,7 +220,13 @@ fn model(port: u16) -> Result<(String, Model), String> {
                         r#"{{"result":null,"address":"localhost:{port}/other.html","step":"Opening another page","why":"","plan":null,"on":1}}"#
                     ),
                 ),
-                2 => {
+                2 => calling(
+                    "open",
+                    &format!(
+                        r#"{{"result":null,"address":"http://{PINNED}:{port}/start.html","step":"Opening it by its name","why":"","plan":null,"on":1}}"#
+                    ),
+                ),
+                3 => {
                     let node = node_of(&body, "link", "Sign in").unwrap_or(0);
                     calling(
                         "activate",
@@ -345,6 +358,23 @@ impl Driven {
     }
 }
 
+/// A name no resolver answers (RFC 6761), which the agent's own resolver
+/// answers with this machine's address, standing for a public one.
+const PINNED: &str = "rebind.invalid";
+
+/// The agent's resolver: [`PINNED`] answered with this machine's address,
+/// as the machine's resolver answers a public name with a public one; no
+/// other name is found.
+fn resolving(name: &str, _: u16, _: Reach) -> Result<Vec<IpAddr>, Unresolved> {
+    if name == PINNED {
+        return Ok(vec![IpAddr::from([127, 0, 0, 1])]);
+    }
+    Err(Unresolved::NoSuchName {
+        host: name.to_owned(),
+        why: "not this test's".to_owned(),
+    })
+}
+
 fn the_window(chromium: Chromium, endpoint: &str, who: &'static str) -> Result<Driven, String> {
     let renderers = Renderers::running(renderer()?, &[]).with_machine(alo_window::fonts::frozen());
     let (tell, heard) = channel();
@@ -366,8 +396,10 @@ fn the_window(chromium: Chromium, endpoint: &str, who: &'static str) -> Result<D
     let provider = Provider::at(endpoint, key)?;
     let told = tell;
     let tell_agent: TellAgent = Arc::new(move |said| told.send(Heard::Agent(said)).is_ok());
-    let mut window = ConversationWindow::new(Some(Scale::ONE), drawing, chrome)
-        .with_agent(Ok(Agent::new(provider, orders)), tell_agent);
+    let mut window = ConversationWindow::new(Some(Scale::ONE), drawing, chrome).with_agent(
+        Ok(Agent::new(provider, orders).resolving_with(Arc::new(resolving))),
+        tell_agent,
+    );
     window.measured_as(Measured {
         size: WINDOW,
         scale_factor: 1.0,
@@ -394,6 +426,37 @@ fn count(asked: &Asked, path: &str) -> usize {
     asked.lock().map_or(0, |asked| {
         asked.iter().filter(|each| each.as_str() == path).count()
     })
+}
+
+/// The fourth step (queue item 881): a name the person did not write,
+/// opened from the address it was resolved to — the start page again, by
+/// that name, asked of this machine's server.
+fn opened_by_the_name_resolved(
+    driven: &mut Driven,
+    model: &Model,
+    asked: &Asked,
+    port: u16,
+) -> Result<(), String> {
+    let who = driven.who;
+    driven.until("the page opened by the name resolved", |driven| {
+        driven.window.conversation().card().is_some_and(|card| {
+            card.url.to_string() == format!("http://{PINNED}:{port}/start.html")
+        })
+    })?;
+    driven.until("the model sent the page by its name", |_| {
+        model.asked() >= 4
+    })?;
+    assert!(
+        model.body(3).contains("The start page"),
+        "{who}: {}",
+        model.body(3)
+    );
+    assert_eq!(
+        count(asked, "/start.html"),
+        2,
+        "{who}: the start page asked by its name"
+    );
+    Ok(())
 }
 
 fn through(chromium: Chromium, who: &'static str) -> Result<(), String> {
@@ -467,6 +530,7 @@ fn through(chromium: Chromium, who: &'static str) -> Result<(), String> {
         "{who}: {}",
         model.body(2)
     );
+    opened_by_the_name_resolved(&mut driven, &model, &asked, port)?;
     // Its link to a sign-in page: the page handed to the person.
     driven.until("the page handed over to sign in", |driven| {
         matches!(driven.now(), Some(Now::SignIn))
@@ -474,7 +538,7 @@ fn through(chromium: Chromium, who: &'static str) -> Result<(), String> {
     driven.hear_for(Duration::from_secs(2))?;
     assert_eq!(
         model.asked(),
-        3,
+        4,
         "{who}: the model asked while the page was the person's"
     );
     assert_eq!(

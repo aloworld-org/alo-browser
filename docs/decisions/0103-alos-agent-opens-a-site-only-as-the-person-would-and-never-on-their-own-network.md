@@ -1,7 +1,8 @@
 # ADR 0103 — alo's agent opens a site only as the person would, and never on their own network
 
 **Status:** accepted — built by queue items 821 and 878 (8 November 2026);
-amended by the owner's decision of 8 November 2026 (queue item 884, § 6)
+amended by the owner's decision of 8 November 2026 (queue item 884, § 6);
+§ 2's limit closed by queue item 881 (9 November 2026, § 7)
 **Date:** 2026-11-08
 **Context:** ADR 0096 (alo's own agent runs in the browser process through
 the same road as any agent; § 8 left *an agent that opens its own page* to
@@ -112,15 +113,12 @@ turn becomes that page's card.
 A refusal is the step's outcome, told to the model in words (*Not opened:
 …*); the run goes on and may try another site or finish.
 
-**Its limit, said plainly:** the name is resolved here, and Chrome
-resolves it again as it loads the page. A name whose answers change
+**Its limit, as first built:** the name was resolved here, and Chrome
+resolved it again as it loaded the page. A name whose answers change
 between the two — a public address to us, a private one to Chrome a moment
-later — is not caught by step 3. That is the rebinding ADR 0008 names, and
-closing it needs Chrome to load the page from the address we resolved, or
-to refuse a private answer for a navigation alo's agent started; neither
-is built (queue item 881). Until then this check is what stops the plain
-case — a result or a model naming an address on the person's network —
-and says so.
+later — was not caught by step 3: the rebinding ADR 0008 names. § 7 closes
+it for the page the agent opens: its card's Chromium loads it from the
+address resolved here.
 
 ## 3. A sign-in page hands the page over (ADR 0096 § 6, amended)
 
@@ -200,11 +198,75 @@ nothing; a person who wants to be asked chooses so again.
   the web cannot otherwise reach and where a press does real harm. Asking
   before a public site guards the person's attention; refusing their
   network guards their network, and only the second is a security
-  boundary. The rebinding gap of § 2 (queue item 881) is unchanged by
-  this.
+  boundary. The rebinding gap of § 2 is unchanged by this, and closed
+  by § 7.
 - Asking before paying, sending, deleting or sending a form; never typing
   a password or a card's details (ADR 0096 §§ 5–6, ADR 0099).
 - The limits on sites and actions (§ 4), and `--agent-site`.
+
+## 7. Amended: the page the agent opens is loaded from the address resolved here (item 881)
+
+**Decided:** a name § 2.3 resolves is opened from **the first public
+address the resolver answered**, and the card's Chromium never resolves it
+again. The address is handed on with the verdict (`agent_opening::Judged`,
+`chrome_pin::Pinned`), through the run's `Said::Opening` and the
+conversation's opening, to the window's opener
+(`ChromeOpener::open_pinned`), and the Chromium the card is started in is
+given Chromium's own switch for it: `--host-resolver-rules=MAP host
+address`.
+
+**Measured before choosing**, on this Mac in Google Chrome 157.0.8103.38
+and in the Chromium alo carries (CEF 156), each started as a card through a
+stand-in that added the switch (the session scratchpad's `m881/`):
+
+- with no rule, `http://pinned.invalid:P/` is `ERR_NAME_NOT_RESOLVED`;
+  with `MAP pinned.invalid 127.0.0.1` the page is asked of 127.0.0.1:P
+  with `Host: pinned.invalid:P` — both Chromiums;
+- of two rules for one name the first is taken; a rule overrides a name
+  the machine resolves itself (`localhost` mapped elsewhere did not reach
+  the server); an IPv6 address is written in brackets;
+- the CEF host hands every switch but its own `--alo-card` to Chromium
+  (`switches.rs`), so the carried Chromium reads it as Chrome does.
+
+**Why this, and not refusing a private answer as Chrome resolves it.**
+That needs a hook into the lookup a navigation makes, and none was found
+to hold: read in CEF 156's headers, `CefRequestContext::ResolveHost` makes
+a lookup of its own beside the navigation's, and neither a request
+handler nor `CefResponse` carries the address a request went to; over
+CDP a response's remote address is told only once it has been answered,
+after the request reached that address. Not measured: whether Chrome's
+Local Network Access would question such a navigation — it is a
+permission asked of a person, not a refusal. Pinning closes the gap
+rather than catching it after the request has left: Chrome asks no
+resolver for the name at all. It
+needs no new road to the page — each card is a Chromium of its own, started
+as it opens (`conversation_chrome.rs`), so the rule holds for the agent's
+card and no other.
+
+**What it does not change.** A page the person opens — their own typed
+local address among them (queue item 874) — is never pinned; nor is a site
+the person named, which § 2.3 does not resolve, nor an address written as
+numbers. A name that cannot be written into the rule plainly — anything but
+letters, digits, `.`, `-` and `_`; a URL's host may hold a comma, which in
+the switch would be a second rule — is not opened at all, rather than
+opened for Chrome to resolve.
+
+**Its limit now.** Only the name the agent opened is pinned. The page's
+own navigations — a redirect to another host, a link to one, a subresource
+of one — are resolved by Chrome, as every page's are, judged as § 2.5
+judges a link: the page's own, and the person's gate judges every press.
+
+**Tests:** `chrome_pin`'s units (the switch, a name that would be a second
+rule refused); `agent_opening`'s (a name answering public and then private
+pinned to its first answer and resolved once; a name that cannot be pinned
+not opened; an address, a named site and a local one never pinned);
+`conversation_chrome`'s and `conversation`'s (only the agent's open starts
+its Chromium pinned, and only until its card is up);
+`an_agents_card_takes_its_name_as_alo_resolved_it_through_chrome.rs` (both
+Chromiums: pinned, a `.invalid` name — one no resolver answers — is asked
+of the address given; unpinned, `ERR_NAME_NOT_RESOLVED`); and
+`the_agent_begins_with_no_page_through_chrome.rs`, whose run now opens
+`rebind.invalid` from its resolver's answer along the window's whole road.
 
 ## What is not here
 

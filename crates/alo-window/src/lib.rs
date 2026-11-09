@@ -201,6 +201,7 @@ pub mod chrome_named;
 pub mod chrome_owed;
 pub mod chrome_pages;
 pub mod chrome_park;
+pub mod chrome_pin;
 pub mod chrome_profile;
 pub mod chrome_protocol;
 pub mod chrome_reading;

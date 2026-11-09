@@ -109,6 +109,7 @@ use crate::chrome_mark::{Marker, Marking};
 use crate::chrome_named::{self, Naming};
 use crate::chrome_pages::ChromePages;
 use crate::chrome_park;
+use crate::chrome_pin::Pinned;
 use crate::chrome_profile::Swept;
 use crate::chrome_protocol::Named;
 use crate::chrome_tab::{Tab, Unopened};
@@ -380,8 +381,26 @@ impl ChromeServing {
         sites: AgentSites,
         told: TellFrame,
     ) -> Result<Self, Unserved> {
+        Self::start_as_a_pinned_card(chromium, opening, (size, scale), sites, None, told)
+    }
+
+    /// [`ChromeServing::start_as_a_card`], its Chromium taking the name
+    /// `pinned` holds as the address it holds, never asking a resolver for
+    /// it (queue item 881, [`crate::chrome_pin`]): a page alo's agent opens.
+    ///
+    /// # Errors
+    ///
+    /// As [`ChromeServing::start_shown`].
+    pub fn start_as_a_pinned_card(
+        chromium: Chromium,
+        opening: Opening,
+        (size, scale): ((u32, u32), Scale),
+        sites: AgentSites,
+        pinned: Option<Pinned>,
+        told: TellFrame,
+    ) -> Result<Self, Unserved> {
         let (left, top) = chrome_window::PARKED;
-        Self::begin(
+        Self::begin_pinned(
             opening,
             size,
             (
@@ -394,7 +413,7 @@ impl ChromeServing {
                     scale: Some(scale),
                 },
             ),
-            sites,
+            (sites, pinned),
             Some(told),
         )
     }
@@ -404,8 +423,20 @@ impl ChromeServing {
     fn begin(
         opening: Opening,
         size: (u32, u32),
-        (chromium, drawn): (Chromium, Drawn),
+        named: (Chromium, Drawn),
         sites: AgentSites,
+        frame: Option<TellFrame>,
+    ) -> Result<Self, Unserved> {
+        Self::begin_pinned(opening, size, named, (sites, None), frame)
+    }
+
+    /// [`ChromeServing::begin`], the Chromium taking the name `pinned`
+    /// holds as its address (queue item 881).
+    fn begin_pinned(
+        opening: Opening,
+        size: (u32, u32),
+        (chromium, drawn): (Chromium, Drawn),
+        (sites, pinned): (AgentSites, Option<Pinned>),
         frame: Option<TellFrame>,
     ) -> Result<Self, Unserved> {
         let (orders, results, inbox) = inbox::inbox();
@@ -419,7 +450,7 @@ impl ChromeServing {
                 serve_in_chrome(
                     opening,
                     size,
-                    (&chromium, drawn),
+                    (&chromium, drawn, pinned.as_ref()),
                     &sites,
                     frame.as_deref(),
                     &inbox,
@@ -515,14 +546,19 @@ struct Started {
     swept: Swept,
 }
 
-/// Start the Chromium `chromium` names drawing as `drawn` says, and ask it
-/// which it is: its product, as it says itself, and whose it is — the
-/// machine's Chrome, or the application's own (ADR 0077).
-fn named_chrome(chromium: &Chromium, drawn: Drawn) -> Result<(Chrome, RenderedBy), Unserved> {
+/// Start the Chromium `chromium` names drawing as `drawn` says — a card's
+/// taking the name `pinned` holds as its address — and ask it which it is:
+/// its product, as it says itself, and whose it is — the machine's Chrome,
+/// or the application's own (ADR 0077).
+fn named_chrome(
+    chromium: &Chromium,
+    drawn: Drawn,
+    pinned: Option<&Pinned>,
+) -> Result<(Chrome, RenderedBy), Unserved> {
     let chrome = match drawn {
         Drawn::Shown {
             scale: Some(scale), ..
-        } => Chrome::start_shown_at(chromium, scale),
+        } => Chrome::start_shown_at(chromium, scale, pinned),
         Drawn::Shown { .. } => Chrome::start_from(chromium, true),
         Drawn::Headless => Chrome::start_from(chromium, false),
     };
@@ -541,14 +577,14 @@ fn named_chrome(chromium: &Chromium, drawn: Drawn) -> Result<(Chrome, RenderedBy
 fn serve_in_chrome(
     opening: Opening,
     size: (u32, u32),
-    (chromium, drawn): (&Chromium, Drawn),
+    (chromium, drawn, pinned): (&Chromium, Drawn, Option<&Pinned>),
     sites: &AgentSites,
     frame: Option<&(dyn Fn(ToFrame) -> bool + Send)>,
     inbox: &Receiver<Arrival>,
     tell: &Sender<Result<Started, Unserved>>,
 ) -> AgentRecord {
     let mut record = AgentRecord::new();
-    let (mut chrome, rendered_by) = match named_chrome(chromium, drawn) {
+    let (mut chrome, rendered_by) = match named_chrome(chromium, drawn, pinned) {
         Ok(named) => named,
         Err(why) => {
             let _ = tell.send(Err(why));

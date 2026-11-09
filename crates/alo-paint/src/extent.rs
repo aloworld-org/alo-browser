@@ -16,11 +16,10 @@
 //! is [`Reach::Unknown`], which every caller takes as the whole canvas.
 
 use crate::blur::reach;
-use crate::display::DisplayItem;
+use crate::display::{DisplayItem, TextShadow};
+use crate::drawn_text::{Set, run_glyphs};
 use crate::path::{Path, Point};
 use crate::region::Region;
-use crate::render::outlined_glyphs_at;
-use crate::synthesis::leaned;
 use alo_value::Matrix;
 
 /// What an item can change on a canvas.
@@ -91,23 +90,16 @@ pub fn reach_of(item: &DisplayItem, current: Matrix, scale: f32, size: (u32, u32
             shadows,
             ..
         } => {
-            // The letters exactly as `render` outlines them, and each shadow
-            // as it casts them: moved by its offset, softened by its blur.
-            let glyphs: Vec<Path> =
-                outlined_glyphs_at(text, font, *font_size, scale, *letter_spacing, *origin)
-                    .iter()
-                    .filter(|glyph| !glyph.is_empty())
-                    .map(|glyph| leaned(glyph, *oblique, origin.1))
-                    .collect();
-            let letters = glyphs.iter().map(|glyph| shape(glyph, 0.0));
-            let cast = shadows.iter().flat_map(|shadow| {
-                let by = Point::new(shadow.offset.0, shadow.offset.1);
-                let grown = reach(shadow.blur * current.scale_factor());
-                glyphs
-                    .iter()
-                    .map(move |glyph| (glyph.translated(by), grown))
-            });
-            joined(letters.chain(cast.map(|(glyph, grown)| shape(&glyph, grown))))
+            // The letters exactly as `render` outlines them.
+            let set = Set {
+                text,
+                font,
+                size: *font_size,
+                letter_spacing: *letter_spacing,
+                origin: *origin,
+                oblique: *oblique,
+            };
+            letters_reach(&run_glyphs(&set, scale), shadows, current, size)
         }
         // A picture, a colour glyph drawn by its program or its shadow: each
         // drawn by a path of its own, and none of them what an edit changes.
@@ -116,6 +108,31 @@ pub fn reach_of(item: &DisplayItem, current: Matrix, scale: f32, size: (u32, u32
         | DisplayItem::GlyphShadow { .. }
         | DisplayItem::PopGroup => Reach::Unknown,
     }
+}
+
+/// Where a run's glyphs, outlined as they are drawn
+/// ([`crate::drawn_text::run_glyphs`]), and each shadow it casts can change
+/// pixels under `current` on a canvas of `size`: each glyph's whole pixels
+/// and one more, and each shadow's moved by its offset and softened by the
+/// whole reach of its blur. Both what a changed run damages
+/// ([`crate::damage`]) and what a run passed over on a confined canvas is
+/// judged by (queue item 888).
+pub(crate) fn letters_reach(
+    glyphs: &[Path],
+    shadows: &[TextShadow],
+    current: Matrix,
+    size: (u32, u32),
+) -> Reach {
+    let shape = |path: &Path, grown: f32| within(&moved(path, current), grown, size);
+    let letters = glyphs.iter().map(|glyph| shape(glyph, 0.0));
+    let cast = shadows.iter().flat_map(|shadow| {
+        let by = Point::new(shadow.offset.0, shadow.offset.1);
+        let grown = reach(shadow.blur * current.scale_factor());
+        glyphs
+            .iter()
+            .map(move |glyph| (glyph.translated(by), grown))
+    });
+    joined(letters.chain(cast.map(|(glyph, grown)| shape(&glyph, grown))))
 }
 
 /// The crop a backdrop of the border box `rect` reads and draws in, under

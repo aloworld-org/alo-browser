@@ -17,7 +17,10 @@
 //! - Tab moving the keyboard's ring paints again only around the rings,
 //!   never the whole frame, and blurs nothing again (ADR 0104): the
 //!   veil's blur is taken as the last drawing kept it, and the card's
-//!   frame, the same bytes, as the last drawing decoded it;
+//!   frame, the same bytes, as the last drawing decoded it; and fills only
+//!   the runs of text that can reach what it paints (queue item 888) — the
+//!   ×'s own word alone, or fewer than three quarters of the screen's runs
+//!   where the rectangle holding two rings far apart is large;
 //! - *Settings* opened over the screen, and a new frame of the page under
 //!   the veil — anything under it — paint the veil again, every pixel
 //!   exactly as a renderer that never drew the screen paints it, at one and
@@ -215,6 +218,9 @@ fn a_tab_paints_again_only_around_the_ring_and_blurs_nothing_again() -> Result<(
     let frame = stripes(24);
     let mut renderer = Renderer::new(fonts());
     painted(&mut renderer, screen(2.0, frame.clone(), true, None))?;
+    let every_run = renderer
+        .rendered()
+        .map_or(0, |drawing| drawing.kept.made().letters);
     for keyed in [
         Some(SettingsKeyed::Close),
         Some(SettingsKeyed::Font),
@@ -237,6 +243,22 @@ fn a_tab_paints_again_only_around_the_ring_and_blurs_nothing_again() -> Result<(
             .map_or(u32::MAX, |drawing| drawing.kept.made().backdrops);
         if blurred != 0 {
             return Err(format!("{keyed:?} blurred the veil again"));
+        }
+        // Only the runs of text that can reach what is painted again are
+        // filled (queue item 888): around the × alone, its own; never every
+        // run on the screen, as each Tab filled before.
+        let filled = renderer
+            .rendered()
+            .map_or(u32::MAX, |drawing| drawing.kept.made().letters);
+        let most = if keyed == Some(SettingsKeyed::Close) {
+            1
+        } else {
+            every_run / 2 + every_run / 4
+        };
+        if filled > most {
+            return Err(format!(
+                "{keyed:?} filled {filled} runs of {every_run}, more than {most}"
+            ));
         }
         if let Some(at) = first_difference(&drawn, &drawn_whole(start)?) {
             return Err(format!("{keyed:?}: not as drawn whole at {at:?}"));

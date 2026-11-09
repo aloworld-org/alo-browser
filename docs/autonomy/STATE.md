@@ -50273,3 +50273,73 @@ passed three times of three alone, then in the second gate.
 `scripts/gate.sh` not edited. The release bundle rebuilt after it.
 
 The next unused queue number is **890** and the next ADR is **0105**.
+
+---
+
+## 2026-11-09 — batch 26: items 889, 888 and 881
+
+**Contracts read:** `CLAUDE.md`, this loop, ADRs 0101–0104, the items'
+own text, the memory on gate-only flakes and on measuring Chrome.
+
+**889 — no letter was lost; the test misread.** The gate's failure was
+the assertion after `heard("typed?new")` had passed: the field held `new`
+and its `ne` report arrived later. Reports are fetches on connections of
+their own; reproduced under yes×96 (one run in 20 kept report 12 before
+11). The two card tests that read the last report kept now read numbered
+reports in the page's order through `tests/numbered/mod.rs`, which holds
+back every even-numbered report so the race is in every run, not one in
+many. The keys test checks every value once. By hand under yes×96: 43
+letters of 43.
+
+**888 — text passed over.** A run's fill, not its outline, is its cost; a
+run whose outlines' reach misses what a confined canvas leaves open is not
+filled (`alo_paint::drawn_text`, `extent::letters_reach`). Tab in
+*Settings* over a card 64 → 38 ms at two; typing with *Settings* closed
+unchanged (15.5 → 15.1); no reference moved. Opening (≈300 ms) broken
+down in the item: nothing avoidable without a larger change, queued
+890–892. A face is a whole repaint (≈235 ms), which 886's note had wrong.
+
+**881 — the agent's page loaded from the address its gate resolved.**
+Measured both Chromiums first (`--host-resolver-rules` honoured by Chrome
+157 and the carried CEF 156); the card's Chromium alone is started with
+`MAP host address` for a name the gate resolved; a host that cannot be
+written plainly is not opened. ADR 0103 § 7. By hand: the carried
+Chromium started with `MAP en.wikipedia.org 185.15.59.224`.
+
+Tests, mutations (all caught but one survivor named: the hover test
+against the old reading, order-proof anyway) and numbers are in each
+item's entry. **Layout assertions:** none moved; 888 asserts runs filled
+in numbers. **References:** none moved (byte-identical, the paint tests
+and the Settings tests compare repaints to whole drawings).
+
+**By hand** (screen unlocked; release, CEF host and bundle rebuilt, no
+keys carried; the Retina at two, the window at 120, 60, 1280 × 852;
+`--conversation --chats handrun46/chats`; a local page on
+127.0.0.1:8739; keys through System Events; scratchpad `handrun46/`):
+`889-01`–`02`, `888-01`–`04`, `881-01`–`02`, `881-rules.txt`. **Not seen
+by hand:** scale one; a rebinding name for real (unit and Chromium tests
+only); a redirect to another host. **Spend:** OpenAI about 13,000 tokens
+in, 91 out (under $0.02); Brave none.
+
+**Cut and queued:** 890 (layout kept when only paint changed), 891 (two
+far rings damaged as one rectangle), 892 (opening *Settings*: the panel's
+shadows and the card's picture at its own size); 893 (a mailto card
+test's first screen not painted again under the first gate's load —
+passing alone, and failing under yes×96 at HEAD as with this batch). Docs: ADR 0103 § 7, ADR
+0101 amended, CHANGELOG, conformance, ROADMAP (*Built since*), QUEUE
+(881, 888, 889 ticked; 890–892 added); `.config/nextest.toml` (the new
+shown-Chrome test in the override).
+
+**Gate: met, second run** (CEF_PATH set, the pointer at 1400, 1000;
+detached through `perl -MPOSIX=setsid` and waited on by its PID;
+`gate-batch26.log`). **Summary [1314.875s] 6818 tests run: 6818 passed (7
+slow, 1 leaky), 0 skipped** — *"The gate is met." (11 of 11 steps)*. The
+first run (`gate-batch26-first.log`) failed one test,
+`a_mailto_link_in_a_card_through_chrome` (the machine's Chrome): the first
+screen not painted again within 90 s. It passed 3 of 3 alone; under
+yes×96 it fails every run at HEAD in a worktree and with this batch
+alike (a debug renderer silent 10 s), so queued as 893. Between the runs a
+run's reach was made lazy, so a drawing painted whole bounds no text.
+`scripts/gate.sh` not edited. The release bundle rebuilt after it.
+
+The next unused queue number is **894** and the next ADR is **0105**.

@@ -37,24 +37,31 @@
 //!    named by the person is asked first — *alo wants to open …* — and,
 //!    when the person chose to be asked before any site, every one is.
 //!
-//! # Its limit
+//! # Resolved once
 //!
-//! The resolver is asked here, and Chrome resolves the name again as it
-//! opens the page: a name whose answers change between the two — a public
-//! address here, a private one a moment later — is not caught by step 3
-//! (ADR 0103 § 2, queue item 881).
+//! A name resolved in step 3 is opened **from the address found there**:
+//! the first public answer is handed on with the verdict ([`Pinned`]) and
+//! the card's Chromium is started taking the name as that address
+//! (`crate::chrome_pin`), never resolving it again — so a name whose
+//! answers change between the two, public here and private a moment later,
+//! is loaded from the public one (ADR 0103 § 7, queue item 881). A name
+//! that cannot be written as such a rule is not opened. A site the person
+//! named is not resolved here, and is not pinned: their word lets it be on
+//! their own network.
 
 use crate::agent_found::FoundSites;
 use crate::agent_protocol::Begin;
 use crate::agent_sites::AgentSites;
+use crate::chrome_pin::Pinned;
 use alo_net::resolve::{Reach, Unresolved, is_public};
 use alo_renderer::agent_limits::{Asks, Limits};
 use alo_url::{Host, Url};
 use std::collections::BTreeSet;
 use std::net::IpAddr;
 
-/// How a name is resolved: the machine's resolver, or a test's.
-pub type Resolve<'a> = &'a mut dyn FnMut(&str, u16, Reach) -> Result<(), Unresolved>;
+/// How a name is resolved: the machine's resolver, or a test's — the
+/// addresses it may be reached at, in the resolver's order.
+pub type Resolve<'a> = &'a mut dyn FnMut(&str, u16, Reach) -> Result<Vec<IpAddr>, Unresolved>;
 
 /// The sites a run has been on, and how many of them it opened.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -108,6 +115,10 @@ pub enum Judged {
         url: Url,
         /// What the card's bubble says: a result's title, or the host.
         said: String,
+        /// Its name, as the address it was resolved to here, which its card
+        /// takes rather than resolving it again (queue item 881); none for
+        /// an address, or a site the person named.
+        pinned: Option<Pinned>,
     },
     /// Asked of the person first.
     Ask {
@@ -117,6 +128,8 @@ pub enum Judged {
         said: String,
         /// The question, in a person's words.
         what: String,
+        /// As [`Judged::Open`]'s.
+        pinned: Option<Pinned>,
     },
     /// Not opened: why, which the model is told and the step says.
     Refused(String),
@@ -173,6 +186,7 @@ pub fn judge(begin: &Begin, against: &Against<'_>, resolve: Resolve<'_>) -> Judg
     };
     let shown = alo_url::reading::host(&url);
     let named = named_by(against.asked, &url);
+    let mut pinned = None;
     // Never this machine or its network, unless the person named it.
     if !named {
         if on_this_network(&host) {
@@ -181,7 +195,17 @@ pub fn judge(begin: &Begin, against: &Against<'_>, resolve: Resolve<'_>) -> Judg
         if let Host::Domain(name) = &host {
             let port = url.effective_port().unwrap_or(443);
             match resolve(name, port, Reach::PublicOnly) {
-                Ok(()) => {}
+                // Opened from the first address found, and no other.
+                Ok(found) => {
+                    let Some(pin) = found.first().and_then(|first| Pinned::new(name, *first))
+                    else {
+                        return Judged::Refused(format!(
+                            "alo could not hold {shown} to the address it found for it, so it \
+                             did not open it"
+                        ));
+                    };
+                    pinned = Some(pin);
+                }
                 Err(Unresolved::RefusedTheAnswer { .. }) => {
                     return Judged::Refused(local(&shown));
                 }
@@ -221,9 +245,14 @@ pub fn judge(begin: &Begin, against: &Against<'_>, resolve: Resolve<'_>) -> Judg
         } else {
             format!("alo wants to open {shown}.")
         };
-        return Judged::Ask { url, said, what };
+        return Judged::Ask {
+            url,
+            said,
+            what,
+            pinned,
+        };
     }
-    Judged::Open { url, said }
+    Judged::Open { url, said, pinned }
 }
 
 /// What the run is told when a site is on this machine or its network.
@@ -337,7 +366,7 @@ mod tests {
     /// named in `private`, which answer only a private one.
     fn resolver(
         private: &'static [&'static str],
-    ) -> impl FnMut(&str, u16, Reach) -> Result<(), Unresolved> {
+    ) -> impl FnMut(&str, u16, Reach) -> Result<Vec<IpAddr>, Unresolved> {
         move |name, _, reach| {
             if name == "nowhere.example" {
                 return Err(Unresolved::NoSuchName {
@@ -351,8 +380,16 @@ mod tests {
                     address: IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
                 });
             }
-            Ok(())
+            Ok(vec![PUBLIC, IpAddr::V4(Ipv4Addr::new(93, 184, 215, 15))])
         }
+    }
+
+    /// The first public address the test's resolver answers.
+    const PUBLIC: IpAddr = IpAddr::V4(Ipv4Addr::new(93, 184, 215, 14));
+
+    /// `host` pinned to [`PUBLIC`].
+    fn pinned(host: &str) -> Option<Pinned> {
+        Pinned::new(host, PUBLIC)
     }
 
     fn judged(
@@ -391,6 +428,7 @@ mod tests {
             Judged::Open {
                 url: url("https://ugandamuseum.go.ug/"),
                 said: "Title of https://ugandamuseum.go.ug/".to_owned(),
+                pinned: pinned("ugandamuseum.go.ug"),
             }
         );
         // Named: by its address, or another page of the same registrable
@@ -461,6 +499,7 @@ mod tests {
                 what: "alo wants to open wikipedia.org. It is not a site a search found or one \
                        you named."
                     .to_owned(),
+                pinned: pinned("wikipedia.org"),
             }
         );
         // Another registrable domain under one public suffix is not named.
@@ -486,6 +525,7 @@ mod tests {
                 url: url("https://ugandamuseum.go.ug/"),
                 said: "Title of https://ugandamuseum.go.ug/".to_owned(),
                 what: "alo wants to open ugandamuseum.go.ug.".to_owned(),
+                pinned: pinned("ugandamuseum.go.ug"),
             }
         );
         // An address the model wrote that a search found is a result.
@@ -653,6 +693,91 @@ mod tests {
             judged(&Begin::Result(2), "x", &found, &visited, one),
             Judged::Refused(why) if why.starts_with("alo has opened the 1 site one task")
         ));
+    }
+
+    /// Queue item 881: a name that answers public and then private is
+    /// opened from its public answer — handed on with the verdict for the
+    /// card's Chromium to take — and asked of the resolver once, so the
+    /// private answer is never asked for, here or by Chrome.
+    #[test]
+    fn a_name_answering_public_then_private_is_held_to_its_first_answer() {
+        let first = IpAddr::V4(Ipv4Addr::new(93, 184, 215, 14));
+        let asked = std::cell::Cell::new(0);
+        let mut rebinding = |name: &str, _: u16, reach: Reach| {
+            asked.set(asked.get() + 1);
+            if asked.get() == 1 {
+                Ok(vec![first])
+            } else if reach == Reach::PublicOnly {
+                Err(Unresolved::RefusedTheAnswer {
+                    host: name.to_owned(),
+                    address: IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
+                })
+            } else {
+                Ok(vec![IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1))])
+            }
+        };
+        let judged = judge(
+            &Begin::Address("https://rebind.example/".to_owned()),
+            &Against {
+                asked: "what is new",
+                found: &FoundSites::default(),
+                visited: &Visited::default(),
+                limits: Limits::default(),
+                agent_sites: &AgentSites::Every,
+            },
+            &mut rebinding,
+        );
+        let Judged::Open { pinned, .. } = &judged else {
+            panic!("{judged:?}");
+        };
+        assert_eq!(pinned, &Pinned::new("rebind.example", first));
+        assert_eq!(
+            pinned.as_ref().map(Pinned::switch).as_deref(),
+            Some("--host-resolver-rules=MAP rebind.example 93.184.215.14")
+        );
+        assert_eq!(asked.get(), 1, "resolved once");
+    }
+
+    /// A name that cannot be written as Chromium's rule is not opened at
+    /// all, rather than opened for Chrome to resolve; an address, and a
+    /// site the person named, are never pinned.
+    #[test]
+    fn only_a_name_resolved_here_is_pinned_and_one_that_cannot_be_is_not_opened() {
+        let found = found(&["https://a,b.example/"]);
+        let judged_comma = judged(
+            &Begin::Result(1),
+            "news",
+            &found,
+            &Visited::default(),
+            Limits::default(),
+        );
+        assert!(
+            matches!(&judged_comma, Judged::Refused(why) if why.contains("could not hold")),
+            "{judged_comma:?}"
+        );
+        for (begin, asked) in [
+            (Begin::Address("https://93.184.215.14/".to_owned()), "news"),
+            (
+                Begin::Address("https://www.bbc.co.uk/news".to_owned()),
+                "read bbc.co.uk",
+            ),
+            (
+                Begin::Address("http://127.0.0.1:8739/".to_owned()),
+                "open http://127.0.0.1:8739/",
+            ),
+        ] {
+            let judged = judged(
+                &begin,
+                asked,
+                &FoundSites::default(),
+                &Visited::default(),
+                Limits::default(),
+            );
+            assert!(
+                matches!(&judged, Judged::Open { pinned: None, .. }),
+                "{begin:?}: {judged:?}"
+            );
+        }
     }
 
     #[test]

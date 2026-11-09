@@ -111,6 +111,7 @@ use crate::chat_delete::Deleting;
 use crate::chat_name;
 use crate::chat_store::Kept;
 use crate::chrome_history::Travel;
+use crate::chrome_pin::Pinned;
 use crate::conversation_agent::AgentSaid;
 use crate::conversation_box::{TheBox, Typed};
 use crate::conversation_find::FindChats;
@@ -273,6 +274,9 @@ struct AgentOpening {
     url: Url,
     /// Whether its card has opened, the run moved onto it.
     carded: bool,
+    /// Its name as the address it was resolved to, which its card takes
+    /// (queue item 881).
+    pinned: Option<Pinned>,
 }
 
 /// A tab opened whose results are to be asked of the provider — Videos or
@@ -979,8 +983,14 @@ impl Conversation {
     /// The run of alo's agent numbered `run` asks to open `url` (queue item
     /// 821), its card's bubble `said`: chosen as a site is, to be opened by
     /// the window as a card the run is moved onto — never stopping the run,
-    /// as another page a person opens does. Whether it is the run at work.
-    pub fn agent_opens(&mut self, run: u64, url: Url, said: String) -> bool {
+    /// as another page a person opens does — its name taken as `pinned`
+    /// holds, when one is (queue item 881). Whether it is the run at work.
+    pub fn agent_opens(
+        &mut self,
+        run: u64,
+        (url, pinned): (Url, Option<Pinned>),
+        said: String,
+    ) -> bool {
         if self.work.working(self.holder()) != Some(run) {
             return false;
         }
@@ -988,6 +998,7 @@ impl Conversation {
             run,
             url: url.clone(),
             carded: false,
+            pinned,
         });
         self.said = said;
         self.chosen = Some(Offer::Go(url));
@@ -1001,6 +1012,19 @@ impl Conversation {
         self.agent_opening
             .as_ref()
             .is_some_and(|opening| !opening.carded && self.going() == Some(&opening.url))
+    }
+
+    /// The name the page about to be opened is to be loaded as, when it is
+    /// the one the run of alo's agent asked for and the browser process
+    /// resolved its name (queue item 881): never for a page a person
+    /// chose.
+    pub fn pinned_for_the_run(&self) -> Option<&Pinned> {
+        if !self.opening_for_the_run() {
+            return None;
+        }
+        self.agent_opening
+            .as_ref()
+            .and_then(|opening| opening.pinned.as_ref())
     }
 
     /// The card the run of alo's agent asked for is up, or could not be
@@ -3994,16 +4018,24 @@ mod tests {
         // Another run's open is nothing; its own is chosen as an address,
         // and the card opened for it holds the run.
         let museum = alo_url::parse("https://ugandamuseum.go.ug/").unwrap();
-        assert!(!conversation.agent_opens(run + 1, museum.clone(), "Uganda Museum".to_owned()));
-        assert!(conversation.agent_opens(run, museum.clone(), "Uganda Museum".to_owned()));
+        let pinned = Pinned::new(
+            "ugandamuseum.go.ug",
+            std::net::IpAddr::from([93, 184, 215, 14]),
+        );
+        let asked = (museum.clone(), pinned.clone());
+        assert!(!conversation.agent_opens(run + 1, asked.clone(), "Uganda Museum".to_owned()));
+        assert!(conversation.agent_opens(run, asked, "Uganda Museum".to_owned()));
         assert!(
             conversation.opening_for_the_run(),
             "the window does not stop it"
         );
         assert_eq!(conversation.going(), Some(&museum));
+        // Opened as the address the browser process resolved (881).
+        assert_eq!(conversation.pinned_for_the_run(), pinned.as_ref());
         assert_eq!(conversation.take_agent_opened(), None, "not yet carded");
         conversation.open_card(museum.clone());
         assert!(!conversation.opening_for_the_run());
+        assert_eq!(conversation.pinned_for_the_run(), None, "carded");
         let card = conversation.card().expect("a card");
         assert_eq!(card.said, "find the Uganda Museum's hours");
         assert!(card.agent.is_some());

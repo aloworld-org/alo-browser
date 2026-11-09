@@ -20,7 +20,9 @@
 //!    the colour where the box is; moved off the page box onto the card's
 //!    bar, the page hears `mouseleave` and a frame shows the box white.
 //! 2. **A double click selects a word**: two presses in quick succession on
-//!    `bravo` select it, and the page hears `dblclick`.
+//!    `bravo` select it, and the page hears `dblclick`; the last selection
+//!    it reports, in the order it reported them ([`numbered`], queue item
+//!    889), is `bravo`.
 //! 3. **How long a person waits** — said, not asserted: from the hover, a
 //!    press and a key handed to the opener to the first frame told to the
 //!    window that shows what each did.
@@ -31,6 +33,7 @@
 #![cfg(target_os = "macos")]
 
 mod carried;
+mod numbered;
 
 use alo_window::beside::Chromium;
 use alo_window::card_aim::{self, Aimed};
@@ -44,10 +47,10 @@ use alo_window::conversation_place::{ConversationPlacement, Parts, start_viewpor
 use alo_window::keys::{Key, Press};
 use alo_window::scale::Scale;
 use alo_window::typing::edit;
+use numbered::Said;
 use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::sync::mpsc::{Receiver, channel};
-use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 /// How long Chrome is waited for to open a page.
@@ -62,7 +65,7 @@ const WINDOW: (u32, u32) = (1280, 820);
 
 /// The page: a box coloured while hovered, blue once pressed and green
 /// once a key goes down in it, and a line of words; it tells the server
-/// what it hears.
+/// what it hears, each report numbered ([`numbered`]).
 const CARD_PAGE: &str = "<!doctype html><title>Card</title>\
     <style>body{margin:0;background:#fff}\
     #hot{position:absolute;left:100px;top:60px;width:300px;height:100px;background:#fff;outline:none}\
@@ -71,7 +74,8 @@ const CARD_PAGE: &str = "<!doctype html><title>Card</title>\
     #hot.keyed{background:#2a9d8f}\
     #words{position:absolute;left:100px;top:240px;margin:0;font:40px/48px sans-serif}</style>\
     <div id=hot tabindex=0></div><p id=words>bravo charlie</p>\
-    <script>const said = (what) => fetch('/said/' + what, {cache: 'no-store'});\
+    <script>let told = 0;\
+      const said = (what) => fetch('/said/' + (told += 1) + '/' + what, {cache: 'no-store'});\
       const hot = document.getElementById('hot');\
       hot.addEventListener('mouseenter', () => said('entered'));\
       hot.addEventListener('mouseleave', () => said('left'));\
@@ -94,22 +98,19 @@ const HOT_AT: (f64, f64) = (250.0, 110.0);
 /// On the first letters of `bravo`.
 const WORD_AT: (f64, f64) = (130.0, 264.0);
 
-/// Every `/said/…` the page told the server, in order, without `/said/`.
-type Said = Arc<Mutex<Vec<String>>>;
-
 /// A server on this machine answering the page and every `/said/…`: its
 /// port, and what the page said.
 fn serve() -> Result<(u16, Said), String> {
     let listener = TcpListener::bind("127.0.0.1:0").map_err(|why| why.to_string())?;
     let port = listener.local_addr().map_err(|why| why.to_string())?.port();
-    let said = Arc::new(Mutex::new(Vec::new()));
-    let heard = Arc::clone(&said);
+    let said = Said::default();
+    let heard = said.clone();
     std::thread::spawn(move || {
         for socket in listener.incoming() {
             let Ok(mut socket) = socket else {
                 return;
             };
-            let heard = Arc::clone(&heard);
+            let heard = heard.clone();
             std::thread::spawn(move || {
                 let _ = socket.set_read_timeout(Some(Duration::from_secs(5)));
                 let mut asked = Vec::new();
@@ -128,9 +129,7 @@ fn serve() -> Result<(u16, Said), String> {
                     "/card.html" => ("200 OK", CARD_PAGE),
                     _ => match path.strip_prefix("/said/") {
                         Some(what) => {
-                            if let Ok(mut heard) = heard.lock() {
-                                heard.push(what.to_owned());
-                            }
+                            heard.keep(what);
                             ("200 OK", "")
                         }
                         None => ("404 Not Found", ""),
@@ -289,35 +288,23 @@ impl Card<'_> {
     fn heard(&self, wanted: &str) -> Result<(), String> {
         let until = Instant::now() + SAID_WITHIN;
         loop {
-            let so_far = self
-                .said
-                .lock()
-                .map(|said| said.clone())
-                .unwrap_or_default();
-            if so_far.iter().any(|each| each == wanted) {
+            if self.said.has(wanted) {
                 return Ok(());
             }
             if Instant::now() > until {
                 return Err(format!(
-                    "{}'s page never said {wanted}; it said {so_far:?}",
-                    self.who
+                    "{}'s page never said {wanted}; it said {:?}",
+                    self.who,
+                    self.said.in_order()
                 ));
             }
             std::thread::sleep(Duration::from_millis(20));
         }
     }
 
-    /// What the page said that begins `kind`, in order.
+    /// What the page said that begins `kind`, in the order it said it.
     fn said_of(&self, kind: &str) -> Vec<String> {
-        self.said
-            .lock()
-            .map(|said| {
-                said.iter()
-                    .filter(|each| each.starts_with(kind))
-                    .cloned()
-                    .collect()
-            })
-            .unwrap_or_default()
+        self.said.of(kind)
     }
 }
 

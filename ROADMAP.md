@@ -2571,7 +2571,12 @@ items where being right and being unusable are the same outcome.
       a button pressed on its own icon through both Chromiums (882);
       *Settings* a panel over the conversation blurred and dimmed behind
       it, ⌘, opening it, the keyboard given back as it closes — the owner's
-      design of 8 November 2026 (886, ADR 0104);
+      design of 8 November 2026 (886, ADR 0104); the page alo's agent
+      opens loaded from the address its gate resolved, through both
+      Chromiums (881, ADR 0103 § 7); a Tab in *Settings* filling only the
+      runs of text it can reach (888, ADR 0101 amended); a card's typing
+      test reading the page's numbered reports in its order, a key lost
+      never having been one (889);
       the pointer following a card's page, a link's strip on an
       expanded card, alo's own menu and a link opened as the next turn, a
       closed list's normal dropdown and the agent's list in its column, and

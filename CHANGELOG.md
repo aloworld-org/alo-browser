@@ -6,6 +6,21 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A site alo's agent opens is loaded from the address alo checked.**
+  alo looks a name up before its agent opens it, and refuses one that
+  points into your own machine or network; the page is now loaded from
+  that very address, so a name whose answer changes a moment later —
+  public to alo, private to the page's load — can no longer reach your
+  network. Pages you open yourself, your own local addresses among them,
+  are loaded as before.
+- **Tab in *Settings* is quicker**: words nowhere near what changed are no
+  longer drawn again — about 38 ms a step at two where it took 64. Nothing
+  drawn looks any different.
+- **A test that seemed to lose a letter typed on a card under load lost
+  none**: the page's reports of what it held reached the test out of
+  order. The reports are now numbered and read in the page's order, and
+  every key's value is checked once, none lost and none twice.
+
 - ***Settings* opens as a panel over the conversation**, which is blurred
   and dimmed behind it — a live card's page with it. ⌘, opens it, as in
   any Mac application; Escape, its × or a click beside the panel closes

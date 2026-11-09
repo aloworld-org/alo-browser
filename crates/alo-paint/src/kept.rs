@@ -52,6 +52,9 @@ pub(crate) enum Made {
     /// as it was blurred, and taken only while what it was blurred from
     /// cannot have changed ([`Kept::stand`]).
     Backdrop,
+    /// A run of text's letters filled ([`crate::drawn_text`], queue item
+    /// 888): counted, never kept, so never a key.
+    Letters,
 }
 
 impl Key {
@@ -133,6 +136,10 @@ pub struct Making {
     pub combined: u32,
     /// Backdrops blurred (queue item 885).
     pub backdrops: u32,
+    /// Runs of text whose letters were filled, never kept (queue item
+    /// 888): on a confined canvas, only the runs that could reach what was
+    /// painted again.
+    pub letters: u32,
 }
 
 impl core::fmt::Debug for Kept {
@@ -270,13 +277,15 @@ impl Kept {
         fresh
     }
 
-    fn count(&mut self, kind: Made) {
+    /// One more of `kind` made.
+    pub(crate) fn count(&mut self, kind: Made) {
         let count = match kind {
             Made::Filled => &mut self.made.filled,
             Made::Blurred => &mut self.made.blurred,
             Made::Mask => &mut self.made.masks,
             Made::Within => &mut self.made.combined,
             Made::Backdrop => &mut self.made.backdrops,
+            Made::Letters => &mut self.made.letters,
         };
         *count = count.saturating_add(1);
     }

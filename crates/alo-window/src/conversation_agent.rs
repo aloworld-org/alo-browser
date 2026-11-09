@@ -116,6 +116,7 @@ use crate::agent_record::Caller;
 use crate::agent_sites::AgentSites;
 use crate::answer_protocol::Spent;
 use crate::asking::{Answer, Ask, Refused};
+use crate::chrome_pin::Pinned;
 use crate::inbox::Orders;
 use crate::message::Order;
 use crate::openai_answer::{ANSWERER, Provider, why_unanswered};
@@ -129,6 +130,7 @@ use alo_renderer::agent_limits::Limits;
 use alo_renderer::agent_paying::Paying;
 use alo_renderer::agent_plan::Plan;
 use alo_url::Url;
+use std::net::IpAddr;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender, channel};
@@ -241,6 +243,11 @@ pub enum Said {
         url: Box<Url>,
         /// What the card's bubble says.
         said: String,
+        /// Its name as the address the browser process resolved it to,
+        /// which the card's Chromium takes rather than resolving it again
+        /// (queue item 881, ADR 0103 § 7); none for an address or a site
+        /// the person named.
+        pinned: Option<Pinned>,
     },
     /// The page it reached asks the person to sign in (queue item 821): it
     /// is handed over, and the run held, until *Let alo continue*.
@@ -275,14 +282,17 @@ enum Person {
     Unopened(String),
 }
 
-/// How a name is resolved before a site is opened: the machine's resolver
-/// unless a test says otherwise (queue item 821).
-pub type Resolving = Arc<dyn Fn(&str, u16, Reach) -> Result<(), Unresolved> + Send + Sync>;
+/// How a name is resolved before a site is opened — the addresses it may
+/// be reached at — the machine's resolver unless a test says otherwise
+/// (queue item 821).
+pub type Resolving = Arc<dyn Fn(&str, u16, Reach) -> Result<Vec<IpAddr>, Unresolved> + Send + Sync>;
 
 /// The machine's resolver, as every request's names are resolved (ADR
 /// 0008).
-fn the_machines(host: &str, port: u16, reach: Reach) -> Result<(), Unresolved> {
-    Resolver::new().resolve(host, port, reach).map(|_| ())
+fn the_machines(host: &str, port: u16, reach: Reach) -> Result<Vec<IpAddr>, Unresolved> {
+    Resolver::new()
+        .resolve(host, port, reach)
+        .map(|found| found.iter().map(std::net::SocketAddr::ip).collect())
 }
 
 /// The agent, as the window holds it: the model it asks, and the orders it
@@ -1030,15 +1040,20 @@ impl Running {
             },
             &mut resolving,
         );
-        let (url, said) = match judged {
+        let (url, said, pinned) = match judged {
             Judged::Refused(why) => return Ok(format!("Not opened: {why}.")),
-            Judged::Ask { url, said, what } => {
+            Judged::Ask {
+                url,
+                said,
+                what,
+                pinned,
+            } => {
                 let host = alo_url::reading::host(&url);
                 self.wait_for_the_person(&what, None, &format!("alo did not open {host}."))?;
                 let _ = self.say(Said::Allowed);
-                (url, said)
+                (url, said, pinned)
             }
-            Judged::Open { url, said } => (url, said),
+            Judged::Open { url, said, pinned } => (url, said, pinned),
         };
         if self.is_halted() {
             return Err(None);
@@ -1046,6 +1061,7 @@ impl Running {
         if !self.say(Said::Opening {
             url: Box::new(url.clone()),
             said,
+            pinned,
         }) {
             return Err(None);
         }
@@ -1872,7 +1888,9 @@ mod tests {
         // Names resolve to a public address but this test's own.
         let agent = Agent::new(provider, orders)
             .searching_with(Some(search))
-            .resolving_with(Arc::new(|_: &str, _: u16, _: Reach| Ok(())));
+            .resolving_with(Arc::new(|_: &str, _: u16, _: Reach| {
+                Ok(vec![IpAddr::from([93, 184, 215, 14])])
+            }));
         let (tell, heard) = channel();
         let tell: TellAgent = Arc::new(move |said: AgentSaid| tell.send(said).is_ok());
         let running = agent.start(1, asked.to_owned(), tell, limits).unwrap();

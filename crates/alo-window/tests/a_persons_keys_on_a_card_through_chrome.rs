@@ -19,6 +19,11 @@
 //!    `aXbc`; the forward delete then leaves `aXc`.
 //! 2. **⌘A then typing replaces a field's text**: `new`.
 //! 3. **A pasted text arrives**: ⌘A, ⌘C, → and ⌘V leave `newnew`.
+//!
+//! Every value the field passes through is read in the order the page
+//! heard it — each key's once, none lost and none twice — from reports the
+//! page numbers, since each is a fetch that may reach the server out of
+//! order ([`numbered`], queue item 889).
 //! 4. **A function key reaches the page's script**: F5 heard as `keydown`.
 //! 5. **The paging keys scroll the page**: pressed outside the field, Page
 //!    Down scrolls it down and Home back to its top.
@@ -33,6 +38,7 @@
 #![cfg(target_os = "macos")]
 
 mod carried;
+mod numbered;
 
 use alo_window::beside::Chromium;
 use alo_window::card_aim::{self, Aimed};
@@ -46,10 +52,10 @@ use alo_window::conversation_place::{ConversationPlacement, Parts, start_viewpor
 use alo_window::keys::{Arrow, Key, Modifier, Press};
 use alo_window::scale::Scale;
 use alo_window::typing::edit;
+use numbered::Said;
 use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::sync::mpsc::{Receiver, channel};
-use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 /// How long Chrome is waited for to open a page.
@@ -64,17 +70,23 @@ const WINDOW: (u32, u32) = (1280, 820);
 
 /// The page: a field, and under it a page tall enough to scroll; it tells
 /// the server its field's value as it changes, each key that goes down
-/// with no text, and how far it is scrolled.
+/// with no text, and how far it is scrolled, each report numbered
+/// ([`numbered`]).
 const CARD_PAGE: &str = "<!doctype html><title>Card</title>\
     <style>body{margin:0;height:4000px;background:#fff}\
     #field{position:absolute;left:100px;top:60px;width:300px;height:40px;font-size:20px}</style>\
     <input id=field aria-label=Field>\
-    <script>const said = (what) => fetch('/said/' + what, {cache: 'no-store'});\
+    <script>let told = 0;\
+      const said = (what) => fetch('/said/' + (told += 1) + '/' + what, {cache: 'no-store'});\
       const field = document.getElementById('field');\
       field.addEventListener('input', () => said('typed?' + encodeURIComponent(field.value)));\
       addEventListener('keydown', (event) => { if (event.key.length > 1) said('key?' + event.key); });\
       addEventListener('scroll', () => said('scrolled?' + Math.round(scrollY)));\
       said('ready');</script>";
+
+/// The values the field passes through, in order, as `abc`, ← twice, `X`,
+/// ⌦, ⌘A and `new` are typed: one for each key that changes it.
+const TYPED: [&str; 8] = ["a", "ab", "abc", "aXbc", "aXc", "n", "ne", "new"];
 
 /// The middle of the field, in the page's CSS pixels.
 const FIELD_AT: (f64, f64) = (250.0, 80.0);
@@ -82,22 +94,19 @@ const FIELD_AT: (f64, f64) = (250.0, 80.0);
 /// Somewhere on the page with nothing on it.
 const EMPTY_AT: (f64, f64) = (600.0, 300.0);
 
-/// Every `/said/…` the page told the server, in order, without `/said/`.
-type Said = Arc<Mutex<Vec<String>>>;
-
 /// A server on this machine answering the page and every `/said/…`: its
 /// port, and what the page said.
 fn serve() -> Result<(u16, Said), String> {
     let listener = TcpListener::bind("127.0.0.1:0").map_err(|why| why.to_string())?;
     let port = listener.local_addr().map_err(|why| why.to_string())?.port();
-    let said = Arc::new(Mutex::new(Vec::new()));
-    let heard = Arc::clone(&said);
+    let said = Said::default();
+    let heard = said.clone();
     std::thread::spawn(move || {
         for socket in listener.incoming() {
             let Ok(mut socket) = socket else {
                 return;
             };
-            let heard = Arc::clone(&heard);
+            let heard = heard.clone();
             std::thread::spawn(move || {
                 let _ = socket.set_read_timeout(Some(Duration::from_secs(5)));
                 let mut asked = Vec::new();
@@ -116,9 +125,7 @@ fn serve() -> Result<(u16, Said), String> {
                     "/card.html" => ("200 OK", CARD_PAGE),
                     _ => match path.strip_prefix("/said/") {
                         Some(what) => {
-                            if let Ok(mut heard) = heard.lock() {
-                                heard.push(what.to_owned());
-                            }
+                            heard.keep(what);
                             ("200 OK", "")
                         }
                         None => ("404 Not Found", ""),
@@ -224,35 +231,23 @@ impl Card<'_> {
     fn heard(&self, wanted: &str) -> Result<(), String> {
         let until = Instant::now() + SAID_WITHIN;
         loop {
-            let so_far = self
-                .said
-                .lock()
-                .map(|said| said.clone())
-                .unwrap_or_default();
-            if so_far.iter().any(|each| each == wanted) {
+            if self.said.has(wanted) {
                 return Ok(());
             }
             if Instant::now() > until {
                 return Err(format!(
-                    "{}'s page never said {wanted}; it said {so_far:?}",
-                    self.who
+                    "{}'s page never said {wanted}; it said {:?}",
+                    self.who,
+                    self.said.in_order()
                 ));
             }
             std::thread::sleep(Duration::from_millis(20));
         }
     }
 
-    /// What the page said that begins `kind`, in order.
+    /// What the page said that begins `kind`, in the order it said it.
     fn said_of(&self, kind: &str) -> Vec<String> {
-        self.said
-            .lock()
-            .map(|said| {
-                said.iter()
-                    .filter(|each| each.starts_with(kind))
-                    .cloned()
-                    .collect()
-            })
-            .unwrap_or_default()
+        self.said.of(kind)
     }
 }
 
@@ -359,9 +354,28 @@ impl Card<'_> {
         }
     }
 
-    /// The last value the page said its field holds.
-    fn field(&self) -> Option<String> {
-        self.said_of("typed?").last().cloned()
+    /// Every value the page said its field held, in the order it said
+    /// them, once it has said `count` of them; or why not.
+    fn field_went(&self, count: usize) -> Result<Vec<String>, String> {
+        let until = Instant::now() + SAID_WITHIN;
+        loop {
+            let values = self.said_of("typed?");
+            if values.len() >= count {
+                return Ok(values
+                    .iter()
+                    .map(|value| value.trim_start_matches("typed?").to_owned())
+                    .collect());
+            }
+            if Instant::now() > until {
+                return Err(format!(
+                    "{}'s page said its field changed {} times of {count}: {:?}",
+                    self.who,
+                    values.len(),
+                    self.said.in_order()
+                ));
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
     }
 }
 
@@ -418,11 +432,16 @@ fn arrows_and_select_all(card: &mut Card<'_>) -> Result<(), String> {
     card.heard("typed?aXbc")?;
     assert!(card.key(&Press::of(Key::Delete), None), "{who}: ⌦ not sent");
     card.heard("typed?aXc")?;
-    assert_eq!(card.field().as_deref(), Some("typed?aXc"), "{who}");
     card.command("a")?;
     card.type_text("new");
     card.heard("typed?new")?;
-    assert_eq!(card.field().as_deref(), Some("typed?new"), "{who}");
+    // Each key's value once, in the order the page heard them: a key lost,
+    // or sent twice, moves every value after it.
+    assert_eq!(
+        card.field_went(TYPED.len())?,
+        TYPED,
+        "{who}: the field's values, in the order the page heard them"
+    );
     eprintln!("{who}: the field said {:?}", card.said_of("typed?"));
     Ok(())
 }
@@ -437,10 +456,11 @@ fn copied_and_pasted(card: &Card<'_>) -> Result<(), String> {
     );
     card.command("v")?;
     card.heard("typed?newnew")?;
+    let went = card.field_went(TYPED.len() + 1)?;
     assert_eq!(
-        card.field().as_deref(),
-        Some("typed?newnew"),
-        "{}",
+        went.get(TYPED.len()..),
+        Some(&["newnew".to_owned()][..]),
+        "{}: the field's values after the paste: {went:?}",
         card.who
     );
     eprintln!("{}: pasted, the field said newnew", card.who);

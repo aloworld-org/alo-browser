@@ -77,6 +77,7 @@ use crate::blocking::Blocked;
 use crate::card_input::CardInput;
 use crate::chrome_follow::Follow;
 use crate::chrome_history::{Travel, Way};
+use crate::chrome_pin::Pinned;
 use crate::chrome_protocol::Bounds;
 use crate::chrome_screencast::Frame as CastFrame;
 use crate::chrome_serving::{ChromeServing, Opening, TellFrame};
@@ -278,8 +279,10 @@ struct Held {
 }
 
 /// How a Chrome is started at an address, its page laid out at a card's
-/// page box and drawn at a scale: the machine's, or a test's.
-type Starter = Box<dyn FnMut(&Url, Streamed, TellFrame) -> Result<Held, String> + Send>;
+/// page box and drawn at a scale, taking a name as alo resolved it when the
+/// agent opened it (queue item 881): the machine's, or a test's.
+type Starter =
+    Box<dyn FnMut(&Url, Streamed, Option<&Pinned>, TellFrame) -> Result<Held, String> + Send>;
 
 /// The largest each frame of a card's page is streamed at, in device
 /// pixels: the card's page box at the window's scale (ADR 0076 B) — and that
@@ -325,8 +328,9 @@ impl Streamed {
 
 /// What the window hands the thread.
 enum Work {
-    /// Open this address as a card, streamed at this size.
-    Open(Url, Streamed),
+    /// Open this address as a card, streamed at this size, its name taken
+    /// as alo resolved it when one is pinned.
+    Open(Url, Streamed, Option<Pinned>),
     /// Show the page in Chrome's own window, put as this says.
     Expand(Placing),
     /// Stream the card again at this size — it is back on the screen, or
@@ -391,8 +395,8 @@ impl ChromeOpener {
         tell: TellWent,
     ) -> std::io::Result<Self> {
         Self::starting_with(
-            Box::new(move |url, streamed, told| {
-                in_chrome(&chromium, &reaching, url, streamed, told)
+            Box::new(move |url, streamed, pinned, told| {
+                in_chrome(&chromium, &reaching, (url, pinned), streamed, told)
             }),
             tell,
         )
@@ -415,7 +419,15 @@ impl ChromeOpener {
     /// `streamed`, replacing whatever was open. Returns at once: what became
     /// of it, and each frame, is told to the window.
     pub fn open(&self, url: Url, streamed: Streamed) {
-        self.send(Work::Open(url, streamed));
+        self.send(Work::Open(url, streamed, None));
+    }
+
+    /// [`ChromeOpener::open`], the card's Chromium taking the name `pinned`
+    /// holds as the address alo resolved and never resolving it again
+    /// (queue item 881, [`crate::chrome_pin`]): a page alo's agent opens.
+    /// With none, as [`ChromeOpener::open`].
+    pub fn open_pinned(&self, url: Url, streamed: Streamed, pinned: Option<Pinned>) {
+        self.send(Work::Open(url, streamed, pinned));
     }
 
     /// Show the page open as a card in Chrome's own window, put as
@@ -581,14 +593,15 @@ fn hold(
                         let _ = tell(went);
                     }
                 }
-                Work::Open(url, streamed) if Some(place) == newest => {
+                Work::Open(url, streamed, pinned) if Some(place) == newest => {
                     if let Some(replaced) = open.take() {
                         finished &= (replaced.held.close)();
                     }
                     opened += 1;
                     let _ = tell(Went::Opening(url.clone()));
                     let number = opened;
-                    match starter(&url, streamed, heard_from(again.clone(), number)) {
+                    let heard = heard_from(again.clone(), number);
+                    match starter(&url, streamed, pinned.as_ref(), heard) {
                         Ok(held) => {
                             let _ = tell(Went::Opened {
                                 url: url.clone(),
@@ -652,18 +665,18 @@ fn ask_of(open: Option<&Open>, order: CardOrder) {
 fn in_chrome(
     chromium: &Chromium,
     reaching: &Reaching,
-    url: &Url,
+    (url, pinned): (&Url, Option<&Pinned>),
     streamed: Streamed,
     told: TellFrame,
 ) -> Result<Held, String> {
-    let serving = ChromeServing::start_as_a_card(
+    let serving = ChromeServing::start_as_a_pinned_card(
         chromium.clone(),
         Opening::Network(url.clone()),
-        streamed.page,
-        streamed.scale,
+        (streamed.page, streamed.scale),
         // Agents reach the live card through the conversation's socket,
         // kept to the sites a person named (queue item 716).
         reaching.sites.clone(),
+        pinned.cloned(),
         told,
     )
     .map_err(|why| why.to_string())?;
@@ -720,42 +733,47 @@ mod tests {
         scales: Vec<Scale>,
         /// The page box each was laid out at.
         pages: Vec<(u32, u32)>,
+        /// The name each took as alo resolved it, if one.
+        pinned: Vec<Option<Pinned>>,
     }
 
     /// A starter that refuses `refused` and starts anything else, writing
     /// down what it did in `did`.
     fn starter(did: &Arc<Mutex<Did>>, refused: &'static str) -> Starter {
         let did = Arc::clone(did);
-        Box::new(move |url, streamed: Streamed, told| {
-            let address = url.to_string();
-            if address == refused {
-                return Err("Chrome is not installed on this machine".to_owned());
-            }
-            let mut doing = did.lock().unwrap();
-            doing.started.push(address.clone());
-            doing.scales.push(streamed.scale);
-            doing.pages.push(streamed.page);
-            doing.told.push(told);
-            let closing = Arc::clone(&did);
-            let asking = Arc::clone(&did);
-            let asked_of = address.clone();
-            Ok(Held {
-                shown: Shown {
-                    by: "Chrome/156.0.0.0, driven by this browser".to_owned(),
-                    process: 7,
-                    profile: PathBuf::from("/nowhere"),
-                    window: None,
-                    tells: false,
-                },
-                close: Box::new(move || {
-                    closing.lock().unwrap().closed.push(address);
-                    true
-                }),
-                card: Box::new(move |order| {
-                    asking.lock().unwrap().asked.push((asked_of.clone(), order));
-                }),
-            })
-        })
+        Box::new(
+            move |url, streamed: Streamed, pinned: Option<&Pinned>, told| {
+                let address = url.to_string();
+                if address == refused {
+                    return Err("Chrome is not installed on this machine".to_owned());
+                }
+                let mut doing = did.lock().unwrap();
+                doing.started.push(address.clone());
+                doing.scales.push(streamed.scale);
+                doing.pages.push(streamed.page);
+                doing.pinned.push(pinned.cloned());
+                doing.told.push(told);
+                let closing = Arc::clone(&did);
+                let asking = Arc::clone(&did);
+                let asked_of = address.clone();
+                Ok(Held {
+                    shown: Shown {
+                        by: "Chrome/156.0.0.0, driven by this browser".to_owned(),
+                        process: 7,
+                        profile: PathBuf::from("/nowhere"),
+                        window: None,
+                        tells: false,
+                    },
+                    close: Box::new(move || {
+                        closing.lock().unwrap().closed.push(address);
+                        true
+                    }),
+                    card: Box::new(move |order| {
+                        asking.lock().unwrap().asked.push((asked_of.clone(), order));
+                    }),
+                })
+            },
+        )
     }
 
     /// An opener with a test's starter, and what it tells the window.
@@ -779,6 +797,31 @@ mod tests {
 
     fn next(told: &Receiver<Went>) -> Went {
         told.recv_timeout(Duration::from_secs(10)).unwrap()
+    }
+
+    /// Queue item 881: a page the agent opens is started with its name
+    /// pinned to the address alo resolved; a person's own address — a
+    /// local one among them (874) — never is.
+    #[test]
+    fn only_the_agents_open_starts_its_chromium_with_the_name_pinned() {
+        let did = Arc::new(Mutex::new(Did::default()));
+        let (opener, told) = opener(&did, "");
+        let pinned = Pinned::new("news.example", std::net::IpAddr::from([93, 184, 215, 14]));
+        opener.open_pinned(url("https://news.example/"), STREAMED, pinned.clone());
+        for _ in 0..2 {
+            next(&told);
+        }
+        opener.open(url("http://127.0.0.1:8739/"), STREAMED);
+        for _ in 0..2 {
+            next(&told);
+        }
+        assert!(opener.finish());
+        let did = did.lock().unwrap();
+        assert_eq!(
+            did.started,
+            vec!["https://news.example/", "http://127.0.0.1:8739/"]
+        );
+        assert_eq!(did.pinned, vec![pinned, None]);
     }
 
     #[test]
@@ -889,7 +932,7 @@ mod tests {
             "https://b.example/",
             "https://c.example/",
         ] {
-            asked.send(Work::Open(url(each), STREAMED)).unwrap();
+            asked.send(Work::Open(url(each), STREAMED, None)).unwrap();
         }
         asked.send(Work::Finish).unwrap();
         let tell: TellWent = Box::new(move |went| tell.send(went).is_ok());

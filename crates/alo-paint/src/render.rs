@@ -28,7 +28,8 @@ use crate::clipped_picture::draw_clipped_picture;
 use crate::coverage::Coverage;
 use crate::display::{DisplayItem, DisplayList};
 use crate::drawn_picture::draw_faded_picture;
-use crate::extent::reach_of;
+use crate::drawn_text::draw_text;
+use crate::extent::{Reach, reach_of};
 use crate::fill_rule::FillRule;
 use crate::glyph::outline_at;
 use crate::kept::{Kept, Key, Made};
@@ -37,7 +38,6 @@ use crate::path::{Path, Point};
 use crate::picture_filter::Uploads;
 use crate::raster::{fill, fill_on_page};
 use crate::region::Region;
-use crate::synthesis::leaned;
 use alo_text::{Direction, Font, shape_at};
 use alo_value::{Matrix, Rgba};
 use std::sync::Arc;
@@ -177,7 +177,15 @@ pub(crate) fn draw(list: &DisplayList, canvas: &mut Canvas, mut kept: Option<&mu
             }
             DisplayItem::Text { .. } => {
                 let target = groups.last_mut().map_or(&mut *canvas, |(_, group)| group);
-                draw_text(target, item, current, innermost(&clips), list.scale());
+                let misses = |reach: &dyn Fn() -> Reach| seen.misses_by(reach);
+                draw_text(
+                    target,
+                    item,
+                    (current, list.scale()),
+                    innermost(&clips),
+                    &misses,
+                    kept.as_deref_mut(),
+                );
             }
         }
     }
@@ -441,24 +449,29 @@ impl Seen {
     /// Whether `item`, drawn under `current` on a screen of `scale`, can be
     /// passed over: it changes no pixel the clips let through of the
     /// region. Only a shape, a shadow and a place left clear are asked —
-    /// what is costly to make and plain to bound ([`crate::extent`]);
-    /// anything else is drawn, and its pixels outside the region are passed
-    /// over by the canvas itself.
+    /// what is costly to make and plain to bound ([`crate::extent`]); a run
+    /// of text asks once it is outlined ([`crate::drawn_text`], queue item
+    /// 888); anything else is drawn, and its pixels outside the region are
+    /// passed over by the canvas itself.
     fn passes_over(&self, item: &DisplayItem, current: Matrix, scale: f32) -> bool {
-        if !matches!(
+        matches!(
             item,
             DisplayItem::Fill { .. }
                 | DisplayItem::Shadow { .. }
                 | DisplayItem::LettersShadow { .. }
                 | DisplayItem::Beneath { .. }
                 | DisplayItem::Backdrop { .. }
-        ) {
-            return false;
-        }
+        ) && self.misses_by(|| reach_of(item, current, scale, self.size))
+    }
+
+    /// Whether what `reach` says can be changed misses every pixel the
+    /// clips let through of the region — never on a canvas not confined —
+    /// the reach asked only when the region is open somewhere.
+    fn misses_by(&self, reach: impl FnOnce() -> Reach) -> bool {
         match self.open() {
             Open::Everywhere => false,
             Open::Nowhere => true,
-            Open::Within(open) => reach_of(item, current, scale, self.size)
+            Open::Within(open) => reach()
                 .region(self.size)
                 .and_then(|reach| reach.meeting(open))
                 .is_none(),
@@ -532,60 +545,6 @@ fn draw_picture_item(
     }
 }
 
-/// A text item and the shadows it casts, under the transform in force, its
-/// letters set as they are on a screen at `scale`. Anything that is not a
-/// text item draws nothing.
-fn draw_text(
-    target: &mut Canvas,
-    item: &DisplayItem,
-    current: Matrix,
-    clip: Option<&Clip>,
-    scale: f32,
-) {
-    let DisplayItem::Text {
-        text,
-        origin,
-        font,
-        oblique,
-        size,
-        letter_spacing,
-        color,
-        shadows,
-        ..
-    } = item
-    else {
-        return;
-    };
-    // The run is outlined once and drawn once per shadow plus once for
-    // itself: shaping and outlining are the expensive part, and a shadow is
-    // the same letters somewhere else. A lean is part of the letters, so a
-    // shadow leans with them. Each glyph casts its own shadow, softened on
-    // its own (queue item 831); the letters are filled as one shape.
-    let glyphs: Vec<Path> = outlined_glyphs_at(text, font, *size, scale, *letter_spacing, *origin)
-        .iter()
-        .filter(|glyph| !glyph.is_empty())
-        .map(|glyph| leaned(glyph, *oblique, origin.1))
-        .collect();
-    // Furthest back first, so the first shadow written ends up on top — which
-    // is the order CSS draws them in.
-    for shadow in shadows.iter().rev() {
-        let by = Point::new(shadow.offset.0, shadow.offset.1);
-        let placed: Vec<Path> = glyphs.iter().map(|glyph| glyph.translated(by)).collect();
-        draw_letters_shadow(target, &placed, (shadow.blur, shadow.color), current, clip);
-    }
-    let mut outlined = Path::new();
-    for glyph in &glyphs {
-        outlined.extend(glyph);
-    }
-    draw_coverage(
-        target,
-        &fill(&moved(&outlined, current)),
-        &Paint::Solid(*color),
-        current,
-        clip,
-    );
-}
-
 /// A shadow item: a box's or a line's shape, a run's letters glyph by
 /// glyph, or a colour glyph as it is drawn — each softened, coverage rather
 /// than colour so that what is behind it is not blurred along with it, the
@@ -636,7 +595,7 @@ fn draw_shadow_item(
 /// in the shadow's colour over the glyphs before it — as Chrome 157 draws
 /// one, so two letters' soft edges add where they meet and a translucent
 /// shadow is darker where two letters overlap.
-fn draw_letters_shadow(
+pub(crate) fn draw_letters_shadow(
     target: &mut Canvas,
     glyphs: &[Path],
     (blur, color): (f32, Rgba),
@@ -772,7 +731,7 @@ pub fn run_width_at(text: &str, font: &Font, size: f32, scale: f32, letter_spaci
 
 /// Put a coverage mask onto the canvas, filled, inside whatever clip is in
 /// force.
-fn draw_coverage(
+pub(crate) fn draw_coverage(
     canvas: &mut Canvas,
     coverage: &Coverage,
     paint: &Paint,
