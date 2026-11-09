@@ -56,7 +56,7 @@
 //! inverse transform, one texel at a time (queue item 613). Nor
 //! `image-rendering` (601).
 
-use crate::bilinear::{Mix, PARTS, Tap, mixed, taps};
+use crate::bilinear::{Mix, PARTS, Tap, mixed, premultiplied, taps};
 use crate::canvas::Canvas;
 use crate::mip_level::Level;
 use std::sync::Arc;
@@ -65,8 +65,21 @@ use std::sync::Arc;
 /// takes from it.
 #[derive(Debug, Clone)]
 pub struct Filtered {
-    near: Sampled,
-    far: Option<(Sampled, u32)>,
+    how: How,
+}
+
+/// How a box's pixels take from the picture.
+#[derive(Debug, Clone)]
+enum How {
+    /// Drawn at its own size (queue item 892): every pixel takes its own
+    /// texel alone, so the picture is read where it is, never copied into a
+    /// level first.
+    Own(Arc<Canvas>),
+    /// Sampled from one level, or mixed from two.
+    Sampled {
+        near: Sampled,
+        far: Option<(Sampled, u32)>,
+    },
 }
 
 /// One level and where each column and row of the box samples it.
@@ -123,15 +136,34 @@ impl Uploads {
     /// smaller than it on both axes — and so, from then on, is every later
     /// draw of the same copy, by its larger ratio, however it is drawn.
     pub fn filtered(&mut self, picture: &Arc<Canvas>, across: u32, down: u32) -> Filtered {
+        // At its own size the picture itself is uploaded, and nothing of it
+        // shrinks: it is remembered as drawn, unlevelled by this draw, and
+        // read where it is (queue item 892). Whatever an earlier draw made
+        // of the copy, a box its own size has no level of detail, so it is
+        // bilinear, and bilinear at its own size is each texel alone —
+        // `taps` gives every pixel its own texel at no weight beside it.
+        if (across, down) == (picture.width(), picture.height()) {
+            self.remember(picture, 0, false);
+            return Filtered {
+                how: How::Own(Arc::clone(picture)),
+            };
+        }
         // A box no smaller than the picture on an axis uploads the picture
         // itself: no halving of it covers that axis.
         let (steps, copy) = Level::of(picture).uploaded(across, down);
         let needs = across < copy.width() && down < copy.height();
+        let levelled = self.remember(picture, steps, needs);
+        Filtered::new(copy, across, down, levelled)
+    }
+
+    /// The copy `steps` halvings down of `picture` drawn, levelled by this
+    /// draw when it `needs` to be: whether it has levels from now on.
+    fn remember(&mut self, picture: &Arc<Canvas>, steps: u32, needs: bool) -> bool {
         let earlier = self
             .copies
             .iter_mut()
             .find(|upload| Arc::ptr_eq(&upload.picture, picture) && upload.steps == steps);
-        let levelled = if let Some(upload) = earlier {
+        if let Some(upload) = earlier {
             upload.levelled |= needs;
             upload.levelled
         } else {
@@ -141,8 +173,7 @@ impl Uploads {
                 levelled: needs,
             });
             needs
-        };
-        Filtered::new(copy, across, down, levelled)
+        }
     }
 }
 
@@ -179,23 +210,34 @@ impl Filtered {
             return Self::bilinear(near, across, down);
         }
         Self {
-            near: Sampled::new(near, across, down),
-            far: Some((Sampled::new(far, across, down), share)),
+            how: How::Sampled {
+                near: Sampled::new(near, across, down),
+                far: Some((Sampled::new(far, across, down), share)),
+            },
         }
     }
 
     fn bilinear(level: Level, across: u32, down: u32) -> Self {
         Self {
-            near: Sampled::new(level, across, down),
-            far: None,
+            how: How::Sampled {
+                near: Sampled::new(level, across, down),
+                far: None,
+            },
         }
     }
 
     /// What the box's pixel `x` across and `y` down takes, or [`None`] off
     /// the box.
     pub fn mix(&self, x: u32, y: u32) -> Option<Mix> {
-        let near = self.near.parts(x, y)?;
-        let Some((far, share)) = &self.far else {
+        let (near, far) = match &self.how {
+            How::Own(picture) => {
+                let texel = premultiplied(picture.at(x, y)?.to_rgba8());
+                return Some(Mix::of_texel(texel));
+            }
+            How::Sampled { near, far } => (near, far),
+        };
+        let near = near.parts(x, y)?;
+        let Some((far, share)) = far else {
             return Some(Mix::held(near, PARTS));
         };
         let far = far.parts(x, y)?;
@@ -245,6 +287,24 @@ mod tests {
     use super::*;
     use crate::mix_onto::onto;
     use alo_value::Rgba;
+
+    impl Filtered {
+        /// The farther level's share, when two are mixed.
+        fn share(&self) -> Option<u32> {
+            match &self.how {
+                How::Sampled { far, .. } => far.as_ref().map(|(_, share)| *share),
+                How::Own(_) => None,
+            }
+        }
+
+        /// The size of the level sampled, or of the picture at its own size.
+        fn near_size(&self) -> (u32, u32) {
+            match &self.how {
+                How::Sampled { near, .. } => (near.level.width(), near.level.height()),
+                How::Own(picture) => (picture.width(), picture.height()),
+            }
+        }
+    }
 
     #[test]
     fn the_logarithm_is_straight_between_quarters() {
@@ -362,14 +422,67 @@ mod tests {
             }
         }
         let filtered = Filtered::alone(&Arc::new(picture), 2, 3);
-        let (near, share) = (&filtered.near, filtered.far.as_ref().map(|(_, s)| *s));
-        assert_eq!((near.level.width(), near.level.height()), (4, 4));
+        let (near, share) = (filtered.near_size(), filtered.share());
+        assert_eq!(near, (4, 4));
         assert_eq!(share, Some(136));
         // The left column is black at both levels, and the mix is black.
         assert_eq!(
             onto(filtered.mix(0, 1).expect("in it"), Rgba::WHITE).to_rgba8(),
             (0, 0, 0, 255)
         );
+    }
+
+    /// The filter `taps` and [`mixed`] give a copy drawn into a box its own
+    /// size: what every own-size draw was before queue item 892.
+    fn sampled_at_own_size(picture: &Canvas, levelled: bool) -> Filtered {
+        let level = Level::of(picture);
+        let (width, height) = (level.width(), level.height());
+        Filtered::new(level, width, height, levelled)
+    }
+
+    #[test]
+    fn at_its_own_size_each_texel_is_taken_alone_every_bit() {
+        // Queue item 892: a picture of every channel at every alpha — its
+        // red, green and blue each a level and its alpha another, 65,536
+        // texels — read where it is gives every pixel the very mix the taps
+        // gave it from a level, whether or not the copy had levels.
+        let mut picture = Canvas::new(256, 256, Rgba::TRANSPARENT);
+        for alpha in 0..=u8::MAX {
+            for channel in 0..=u8::MAX {
+                let colour = Rgba::from_rgba8(channel, u8::MAX - channel, channel / 3, alpha);
+                picture.replace(u32::from(channel), u32::from(alpha), |_| colour);
+            }
+        }
+        let picture = Arc::new(picture);
+        let own = Uploads::default().filtered(&picture, 256, 256);
+        assert!(matches!(own.how, How::Own(_)), "read where it is");
+        for levelled in [false, true] {
+            let sampled = sampled_at_own_size(&picture, levelled);
+            for y in 0..256 {
+                for x in 0..256 {
+                    assert_eq!(own.mix(x, y), sampled.mix(x, y), "({x}, {y}), {levelled}");
+                }
+            }
+        }
+        assert_eq!(own.mix(256, 0), None);
+        assert_eq!(own.mix(0, 256), None);
+    }
+
+    #[test]
+    fn a_draw_at_its_own_size_is_remembered_and_levels_nothing() {
+        // Drawn at its own size after a draw through levels, the copy is
+        // still read where it is; and a draw through levels after it is
+        // levelled as if the own-size draw had not been, as before.
+        let picture = noise(32, 32);
+        let mut uploads = Uploads::default();
+        let _ = uploads.filtered(&picture, 20, 20);
+        let own = uploads.filtered(&picture, 32, 32);
+        assert_eq!(pixels(&own, 32, 32), bilinear(&picture, 32, 32));
+        let mut first = Uploads::default();
+        let _ = first.filtered(&picture, 32, 32);
+        assert_eq!(first.copies.len(), 1, "remembered as drawn");
+        let later = first.filtered(&picture, 40, 20);
+        assert!(later.share().is_none(), "nothing levelled by it");
     }
 
     #[test]
@@ -389,7 +502,7 @@ mod tests {
         let mut uploads = Uploads::default();
         let _ = uploads.filtered(&picture, 20, 20);
         let later = uploads.filtered(&picture, 40, 20);
-        assert_eq!(later.far.as_ref().map(|(_, share)| *share), Some(53));
+        assert_eq!(later.share(), Some(53));
         assert_ne!(pixels(&later, 40, 20), bilinear(&picture, 40, 20));
         // Another picture of the same texels is a file of its own.
         let other = Arc::new(Canvas::clone(&picture));
@@ -403,12 +516,12 @@ mod tests {
         let picture = noise(32, 32);
         let mut uploads = Uploads::default();
         let first = uploads.filtered(&picture, 40, 20);
-        assert!(first.far.is_none());
+        assert!(first.share().is_none());
         let second = uploads.filtered(&picture, 20, 20);
-        assert_eq!(second.far.as_ref().map(|(_, share)| *share), Some(53));
+        assert_eq!(second.share(), Some(53));
         // Page I: and every draw of it after that is levelled too.
         let third = uploads.filtered(&picture, 20, 40);
-        assert_eq!(third.far.as_ref().map(|(_, share)| *share), Some(53));
+        assert_eq!(third.share(), Some(53));
     }
 
     #[test]
@@ -418,8 +531,8 @@ mod tests {
         let picture = noise(32, 32);
         let mut uploads = Uploads::default();
         let first = uploads.filtered(&picture, 16, 16);
-        assert!(first.far.is_none());
-        assert_eq!(first.near.level.width(), 16);
+        assert!(first.share().is_none());
+        assert_eq!(first.near_size(), (16, 16));
         let later = uploads.filtered(&picture, 40, 20);
         assert_eq!(pixels(&later, 40, 20), bilinear(&picture, 40, 20));
     }

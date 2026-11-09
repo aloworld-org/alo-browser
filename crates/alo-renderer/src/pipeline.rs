@@ -29,7 +29,7 @@ use alo_dom::Document;
 use alo_layout::{LayoutTree, Size};
 use alo_paint::{Canvas, DisplayList, PaintContext};
 use alo_style::{Origin, SourcedSheet, StyleTree, USER_AGENT_STYLE_SHEET};
-use alo_text::{FontDatabase, TextMeasurer};
+use alo_text::FontDatabase;
 use std::fmt;
 use std::rc::Rc;
 
@@ -59,6 +59,13 @@ pub struct Drawing {
     pub boxes: BoxTree,
     /// Where every box ended up.
     pub layout: LayoutTree,
+    /// Whether that layout was the drawing before's, kept because nothing
+    /// it is made from changed ([`crate::kept_layout`], queue item 890),
+    /// rather than laid out again.
+    pub layout_kept: bool,
+    /// The faces it was laid out with, which the next drawing's layout is
+    /// kept only for ([`alo_text::FontDatabase::is`]).
+    pub fonts: FontDatabase,
     /// What was drawn, in order.
     pub display: DisplayList,
     /// The picture.
@@ -382,8 +389,9 @@ pub fn draw_over(
     let drawn_in = pictures.by_box(&boxes);
     let decoded = pictures.decoded.clone();
 
-    let measurer = TextMeasurer::new(fonts);
-    let layout = alo_layout::compute(&boxes, &styles, size, &measurer);
+    // Laid out again only if what layout is made of changed (queue item 890).
+    let (layout, layout_kept) =
+        crate::kept_layout::laid_out(before.as_deref(), (&boxes, &styles), size, fonts);
 
     // What every `<svg>` holds, after layout because its viewport is its box
     // (ADR 0022 § 2), and handed to paint by box beside the pictures.
@@ -429,6 +437,8 @@ pub fn draw_over(
         styles,
         boxes,
         layout,
+        layout_kept,
+        fonts: fonts.clone(),
         display,
         canvas,
         ground,

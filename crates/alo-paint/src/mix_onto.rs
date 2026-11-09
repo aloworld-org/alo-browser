@@ -70,10 +70,24 @@ pub fn faded_onto(mix: Mix, under: Rgba, fade: u8) -> Rgba {
     if mix.alpha == 0 || fade == 0 {
         return under;
     }
-    let (red, green, blue, alpha) = under.to_rgba8();
-    if (mix.alpha < Mix::OPAQUE || fade < u8::MAX) && alpha < u8::MAX {
+    // An opaque mix at full strength keeps none of what is beneath: its `1 −
+    // a` is exactly nothing, so the multiply-add below is its colour alone,
+    // whatever the pixel beneath holds (queue item 892). Written out without
+    // reading that pixel; `an_opaque_mix_is_its_colour_alone_every_bit`
+    // holds the two the same for every colour over every level.
+    if mix.alpha == Mix::OPAQUE && fade == u8::MAX {
+        return whole_strength(mix);
+    }
+    if (mix.alpha < Mix::OPAQUE || fade < u8::MAX) && under.to_rgba8().3 < u8::MAX {
         return in_floats(mix, under, fade);
     }
+    in_bytes(mix, under, fade)
+}
+
+/// A mix onto an opaque pixel, or an opaque mix onto any: in one fused
+/// multiply-add per channel onto the level beneath, as measured.
+fn in_bytes(mix: Mix, under: Rgba, fade: u8) -> Rgba {
+    let (red, green, blue, _) = under.to_rgba8();
     let strength = f32::from(fade) / 255.0;
     let keep = 1.0 - level(mix.alpha) * strength;
     let channel = |colour: u16, beneath: u8| {
@@ -84,6 +98,29 @@ pub fn faded_onto(mix: Mix, under: Rgba, fade: u8) -> Rgba {
         channel(mix.red, red),
         channel(mix.green, green),
         channel(mix.blue, blue),
+        u8::MAX,
+    )
+}
+
+/// An opaque mix at full strength on the page: each channel its sixteenths
+/// written out as a level, the alpha whole.
+fn whole_strength(mix: Mix) -> Rgba {
+    static WRITTEN: std::sync::OnceLock<Vec<u8>> = std::sync::OnceLock::new();
+    let table = WRITTEN.get_or_init(|| {
+        (0..=Mix::OPAQUE)
+            .map(|colour| written(level(colour)))
+            .collect()
+    });
+    let channel = |colour: u16| {
+        table
+            .get(usize::from(colour))
+            .copied()
+            .unwrap_or_else(|| written(level(colour)))
+    };
+    Rgba::from_rgba8(
+        channel(mix.red),
+        channel(mix.green),
+        channel(mix.blue),
         u8::MAX,
     )
 }
@@ -166,6 +203,31 @@ mod tests {
         let mix = grey(100 * 16 + 3);
         assert_eq!(onto(mix, Rgba::BLACK), onto(mix, Rgba::TRANSPARENT));
         assert_eq!(onto(mix, Rgba::BLACK).to_rgba8(), (100, 100, 100, 255));
+    }
+
+    #[test]
+    fn an_opaque_mix_is_its_colour_alone_every_bit() {
+        // Queue item 892: every colour an opaque mix can hold, in
+        // sixteenths, over every level beneath — the shortcut writes what the
+        // multiply-add would, so not reading the pixel beneath moves none.
+        for colour in 0..=Mix::OPAQUE {
+            let mix = Mix {
+                red: colour,
+                green: colour,
+                blue: colour,
+                alpha: Mix::OPAQUE,
+            };
+            for beneath in 0..=u8::MAX {
+                for alpha in [0, 1, 128, 254, 255] {
+                    let under = Rgba::from_rgba8(beneath, 255 - beneath, beneath / 2, alpha);
+                    assert_eq!(
+                        whole_strength(mix),
+                        in_bytes(mix, under, u8::MAX),
+                        "{colour} over {beneath} at {alpha}"
+                    );
+                }
+            }
+        }
     }
 
     #[test]

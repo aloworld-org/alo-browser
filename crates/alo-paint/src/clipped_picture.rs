@@ -50,6 +50,34 @@ pub fn draw_clipped_picture(
     inside: &dyn Fn(u32, u32) -> u8,
     fade: u8,
 ) {
+    // Upright, each pixel is drawn once from what it held and kept of as the
+    // clip says as it is drawn (queue item 892): what drawing it whole and
+    // putting each pixel back part of the way does, with no copy of what was
+    // there first. `an_upright_picture_clipped_as_drawn_is_clipped_after`
+    // holds the two the same.
+    if crate::drawn_picture::draw_upright_clipped(
+        target,
+        picture,
+        (rect, transform),
+        uploads,
+        (fade, inside),
+    ) {
+        return;
+    }
+    after_drawn(target, picture, (rect, transform), uploads, inside, fade);
+}
+
+/// [`draw_clipped_picture`] by drawing the picture whole and then putting
+/// back each pixel it could have touched by as much as `inside` leaves out:
+/// how a turned picture is clipped.
+fn after_drawn(
+    target: &mut Canvas,
+    picture: &Arc<Canvas>,
+    (rect, transform): (Rect, Matrix),
+    uploads: &mut Uploads,
+    inside: &dyn Fn(u32, u32) -> u8,
+    fade: u8,
+) {
     let Some(touched) = touched(target, rect, transform) else {
         return;
     };
@@ -140,7 +168,7 @@ fn pixel_at(value: f32, limit: u32) -> u32 {
 }
 
 /// `was`, moved towards `drawn` by `kept` of 255.
-fn between(was: Rgba, drawn: Rgba, kept: u8) -> Rgba {
+pub(crate) fn between(was: Rgba, drawn: Rgba, kept: u8) -> Rgba {
     let part = f32::from(kept) / 255.0;
     let mix = |from: f32, to: f32| (to - from).mul_add(part, from);
     Rgba {
@@ -212,6 +240,82 @@ mod tests {
         let mut filled = Canvas::new(1, 1, Rgba::WHITE);
         filled.blend(0, 0, Rgba::from_rgba8(255, 0, 0, 255), 128);
         assert_eq!(at(&filled, 0, 0), at(&canvas, 3, 3));
+    }
+
+    /// A picture of `width` by `height` random texels, a third of them
+    /// translucent, and a canvas of random pixels, some translucent.
+    fn noisy(width: u32, height: u32, seed: u32) -> Canvas {
+        let mut state = seed;
+        let mut next = move || {
+            state = state.wrapping_mul(1_103_515_245).wrapping_add(12_345);
+            u8::try_from((state >> 16) & 0xff).unwrap_or(0)
+        };
+        let mut canvas = Canvas::new(width, height, Rgba::TRANSPARENT);
+        for y in 0..height {
+            for x in 0..width {
+                let alpha = match next() % 3 {
+                    0 => next(),
+                    _ => u8::MAX,
+                };
+                let colour = Rgba::from_rgba8(next(), next(), next(), alpha);
+                canvas.replace(x, y, |_| colour);
+            }
+        }
+        canvas
+    }
+
+    #[test]
+    fn an_upright_picture_clipped_as_drawn_is_clipped_after() {
+        // Queue item 892: drawn and kept of pixel by pixel in one pass, an
+        // upright picture comes out every bit as drawn whole and put back —
+        // at its own size, grown, shrunk on both axes and on one, at a
+        // fraction, partly off the page, faded and not, under a clip that
+        // keeps all, none and parts, onto a canvas confined and not.
+        let picture = Arc::new(noisy(24, 16, 892));
+        let clip = |x: u32, y: u32| match (x * 7 + y * 3) % 5 {
+            0 => 0,
+            1 => u8::MAX,
+            other => u8::try_from(other * 50).unwrap_or(0),
+        };
+        let rects = [
+            Rect::new(3.0, 2.0, 24.0, 16.0),
+            Rect::new(-4.0, -3.0, 24.0, 16.0),
+            Rect::new(1.0, 1.0, 40.0, 30.0),
+            Rect::new(2.0, 3.0, 10.0, 7.0),
+            Rect::new(2.0, 3.0, 30.0, 7.0),
+            Rect::new(2.5, 3.25, 17.0, 11.0),
+        ];
+        for (rect, scale) in rects.iter().flat_map(|rect| [(*rect, 1.0), (*rect, 2.0)]) {
+            for fade in [u8::MAX, 140] {
+                for confined in [None, crate::region::Region::new(5, 4, 30, 21)] {
+                    let mut ground = noisy(48, 36, 17);
+                    ground.confine(confined);
+                    let (mut once, mut after) = (ground.clone(), ground);
+                    let transform = Matrix::scaling(scale);
+                    draw_clipped_picture(
+                        &mut once,
+                        &picture,
+                        rect,
+                        transform,
+                        &mut Uploads::default(),
+                        &clip,
+                        fade,
+                    );
+                    after_drawn(
+                        &mut after,
+                        &picture,
+                        (rect, transform),
+                        &mut Uploads::default(),
+                        &clip,
+                        fade,
+                    );
+                    assert_eq!(
+                        once, after,
+                        "{rect:?} at {scale}, faded {fade}, {confined:?}"
+                    );
+                }
+            }
+        }
     }
 
     #[test]

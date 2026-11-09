@@ -88,11 +88,42 @@ pub fn draw_faded_picture(
         return;
     }
     if keeps_upright(transform) {
-        upright(target, picture, rect, transform, uploads, fade);
+        upright(target, picture, rect, transform, uploads, (fade, None));
     } else {
         turned(target, picture, rect, transform, fade);
     }
 }
+
+/// The same inside a clip, for an upright picture: each pixel it draws
+/// moved from what it was towards what the picture makes of it by as much
+/// as `inside` lets through, as it is drawn ([`crate::clipped_picture`],
+/// queue item 892). `false`, drawing nothing, for a turned picture, which
+/// is clipped after it is drawn.
+pub(crate) fn draw_upright_clipped(
+    target: &mut Canvas,
+    picture: &Arc<Canvas>,
+    (rect, transform): (Rect, Matrix),
+    uploads: &mut Uploads,
+    (fade, inside): (u8, &dyn Fn(u32, u32) -> u8),
+) -> bool {
+    if !keeps_upright(transform) {
+        return false;
+    }
+    if picture.width() > 0 && picture.height() > 0 && fade > 0 {
+        upright(
+            target,
+            picture,
+            rect,
+            transform,
+            uploads,
+            (fade, Some(inside)),
+        );
+    }
+    true
+}
+
+/// How much of each canvas pixel a clip lets through, 255 all of it.
+type Inside<'a> = &'a dyn Fn(u32, u32) -> u8;
 
 /// Whether a transform leaves a rectangle a rectangle the same way round:
 /// nothing from one axis reaches the other, and neither axis is reversed.
@@ -108,7 +139,7 @@ fn upright(
     rect: Rect,
     transform: Matrix,
     uploads: &mut Uploads,
-    fade: u8,
+    (fade, inside): (u8, Option<Inside<'_>>),
 ) {
     // The corners, transformed once. Everything after this is integers, so that
     // the per-pixel arithmetic cannot lose anything and does not need a cast
@@ -143,15 +174,22 @@ fn upright(
         columns = within(columns, at_x, off_x, (region.left, region.right));
         rows = within(rows, at_y, off_y, (region.top, region.bottom));
     }
+    let count = columns.end.saturating_sub(columns.start);
     for y in rows {
-        for x in columns.clone() {
-            let Some(mix) = filtered.mix(x, y) else {
-                continue;
+        let down = at_y + y - off_y;
+        // A row at a time (queue item 892). Each pixel is drawn once, from
+        // what it held: inside a clip, kept of as much as the clip lets
+        // through there.
+        target.replace_run((at_x + columns.start - off_x, down), count, |at, under| {
+            let Some(mix) = filtered.mix(at + off_x - at_x, y) else {
+                return under;
             };
-            target.replace(at_x + x - off_x, at_y + y - off_y, |under| {
-                faded_onto(mix, under, fade)
-            });
-        }
+            let drawn = faded_onto(mix, under, fade);
+            match inside.map(|inside| inside(at, down)) {
+                None | Some(u8::MAX) => drawn,
+                Some(kept) => crate::clipped_picture::between(under, drawn, kept),
+            }
+        });
     }
 }
 
@@ -509,6 +547,85 @@ mod tests {
         );
         assert_eq!(canvas.at(4, 0), Some(GREEN));
         assert_eq!(canvas.at(5, 0), Some(Rgba::WHITE));
+    }
+
+    /// The upright path as it was before queue item 892: each pixel of the
+    /// box asked for its mix and put through `Canvas::replace` on its own.
+    fn pixel_by_pixel(
+        target: &mut Canvas,
+        picture: &Arc<Canvas>,
+        rect: Rect,
+        transform: Matrix,
+        fade: u8,
+    ) {
+        let (left, top) = transform.apply(rect.left(), rect.top());
+        let (right, bottom) = transform.apply(rect.right(), rect.bottom());
+        let (across, down) = (whole(right - left), whole(bottom - top));
+        let (at_x, off_x, at_y, off_y) = (
+            whole(left),
+            off_the_page(left),
+            whole(top),
+            off_the_page(top),
+        );
+        let filtered = Uploads::default().filtered(picture, across, down);
+        for y in off_y..down {
+            for x in off_x..across {
+                let Some(mix) = filtered.mix(x, y) else {
+                    continue;
+                };
+                target.replace(at_x + x - off_x, at_y + y - off_y, |under| {
+                    faded_onto(mix, under, fade)
+                });
+            }
+        }
+    }
+
+    #[test]
+    fn an_upright_picture_a_row_at_a_time_is_drawn_pixel_by_pixel() {
+        // Queue item 892: random texels, a third translucent, at their own
+        // size, grown, shrunk, at fractions and partly off the page, faded
+        // and not, onto random pixels confined and not.
+        let mut state = 892_u32;
+        let mut next = move || {
+            state = state.wrapping_mul(1_103_515_245).wrapping_add(12_345);
+            u8::try_from((state >> 16) & 0xff).unwrap_or(0)
+        };
+        let mut texels = Canvas::new(21, 13, Rgba::TRANSPARENT);
+        let mut ground = Canvas::new(40, 30, Rgba::TRANSPARENT);
+        for canvas in [&mut texels, &mut ground] {
+            for y in 0..canvas.height() {
+                for x in 0..canvas.width() {
+                    let alpha = if next() % 3 == 0 { next() } else { u8::MAX };
+                    let colour = Rgba::from_rgba8(next(), next(), next(), alpha);
+                    canvas.replace(x, y, |_| colour);
+                }
+            }
+        }
+        let picture = Arc::new(texels);
+        for rect in [
+            Rect::new(2.0, 3.0, 21.0, 13.0),
+            Rect::new(-5.0, -4.0, 21.0, 13.0),
+            Rect::new(1.5, 2.25, 30.0, 20.0),
+            Rect::new(4.0, 4.0, 9.0, 6.0),
+        ] {
+            for fade in [u8::MAX, 77] {
+                for confined in [None, crate::region::Region::new(3, 6, 25, 19)] {
+                    let mut rows = ground.clone();
+                    rows.confine(confined);
+                    let mut pixels = rows.clone();
+                    draw_faded_picture(
+                        &mut rows,
+                        &picture,
+                        rect,
+                        Matrix::IDENTITY,
+                        &mut Uploads::default(),
+                        fade,
+                    );
+                    pixel_by_pixel(&mut pixels, &picture, rect, Matrix::IDENTITY, fade);
+                    assert_eq!(rows, pixels, "{rect:?} faded {fade}, {confined:?}");
+                }
+            }
+        }
     }
 
     #[test]

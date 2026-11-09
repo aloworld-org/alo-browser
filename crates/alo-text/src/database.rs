@@ -64,6 +64,20 @@ impl FontDatabase {
         Self::default()
     }
 
+    /// Whether `other` holds these very faces in the same order, with the
+    /// same generics mapped (queue item 890): every face [`Font::is`] its
+    /// own. Equal bytes loaded twice are not the same face here, which
+    /// costs a layout, never a wrong one.
+    pub fn is(&self, other: &Self) -> bool {
+        self.generic == other.generic
+            && self.fonts.len() == other.fonts.len()
+            && self
+                .fonts
+                .iter()
+                .zip(&other.fonts)
+                .all(|(one, two)| one.is(two))
+    }
+
     /// Add a font. Later fonts are tried after earlier ones.
     pub fn add(&mut self, font: Font) {
         self.fonts.push(font);

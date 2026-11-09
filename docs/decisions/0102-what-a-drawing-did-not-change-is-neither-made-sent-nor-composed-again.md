@@ -1,6 +1,6 @@
 # ADR 0102 — What a drawing did not change is neither made, sent nor composed again
 
-**Status:** accepted — built by queue items 871 and 872 (7 November 2026)
+**Status:** accepted — built by queue items 871 and 872 (7 November 2026); § 2 amended for queue item 892 (what a drawing does not use laid aside)
 **Date:** 2026-11-07
 **Context:** ADR 0101 (a drawing painted over the last only where their
 lists differ, which left the first letter beside a card painted whole and
@@ -253,3 +253,20 @@ every truncation refused); units in `clip` (3), `kept` (3), `damage` (the
 clip that differs, now only where its mask does), `repaint` (a clip's foot
 moved, every pixel as drawn whole, no shadow blurred again), `frame_patch`
 (3) and `conversation_composed` (3, each every word as composed whole).
+
+## Amended (9 November 2026, queue item 892)
+
+§ 2 let go of every coverage the last drawing did not use. *Settings*
+closed then lost its panel's two shadows, and every opening blurred them
+again: 42 of opening's 54 ms of shadow at two. Now, as a drawing ends,
+what it did not use is **laid aside**, the most recently used first, up to
+`ASIDE_BYTES` (24 MiB) inside the 64 MiB cap; what a drawing makes is
+given room by letting the oldest laid aside go first. A coverage is a
+function of its key alone, so what was made under a key many drawings ago
+is what this one would make: the next opening takes the panel's shadows,
+fills and clips as they were (`Making::aside` counts them), and paints
+every pixel as drawn whole (`settings_opened_again_takes_what_it_made.rs`,
+at one and two). A backdrop's blur is never laid aside: it is a function
+of the pixels under it too (ADR 0104 § 2). **What it costs:** the first
+screen at two keeps about 56 MB with *Settings* closed where it kept
+about 31 — still under the cap, which bounds it.

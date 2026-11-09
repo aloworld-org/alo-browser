@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- ***Settings* is quicker to open and to use.** Over a page in a card at
+  two, it opens in about 220 ms where it took 300, and again in about
+  160; Tab moves in about 17 ms where it took 37, and from its × to the
+  fonts in 28 where it took 88; choosing a face takes about 160 ms where
+  it took 235. The page's layout is kept when only a ring moved, two far
+  changes are drawn as two small pieces, the panel's shadows are kept
+  between openings, and a page's picture, fills and colours are drawn
+  with less arithmetic. Nothing drawn looks any different — every pixel
+  is checked against a drawing made from nothing.
 - **A site alo's agent opens is loaded from the address alo checked.**
   alo looks a name up before its agent opens it, and refuses one that
   points into your own machine or network; the page is now loaded from

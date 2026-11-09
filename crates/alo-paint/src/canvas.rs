@@ -118,15 +118,95 @@ impl Canvas {
         let Some(index) = self.writable(x, y) else {
             return;
         };
-        let Some(under) = self.pixels.get(index).copied() else {
+        let Some(pixel) = self.pixels.get_mut(index) else {
             return;
         };
-        let over = Rgba {
-            alpha: color.alpha * (f32::from(coverage) / 255.0),
-            ..color
+        *pixel = blended(color, coverage, *pixel);
+    }
+
+    /// Draw a colour over a run of pixels of row `y` from column `left`, one
+    /// coverage each, each also multiplied by what `inside` lets through at
+    /// its column: [`Self::blend`] at each pixel of the run, in one pass
+    /// along the row rather than a lookup per pixel (queue item 892). A
+    /// pixel off the canvas, or outside its confinement, is passed over.
+    pub(crate) fn blend_run(
+        &mut self,
+        (left, y): (u32, u32),
+        coverages: &[u8],
+        color: Rgba,
+        inside: impl Fn(u32) -> u8,
+    ) {
+        if y >= self.height
+            || self
+                .confined
+                .is_some_and(|region| !(region.top..region.bottom).contains(&y))
+        {
+            return;
+        }
+        let (from, to) = self
+            .confined
+            .map_or((0, self.width), |region| (region.left, region.right));
+        let length = u32::try_from(coverages.len()).unwrap_or(u32::MAX);
+        let start = left.max(from);
+        let end = left.saturating_add(length).min(to).min(self.width);
+        if start >= end {
+            return;
+        }
+        let row = (y as usize) * (self.width as usize);
+        let (Some(pixels), Some(values)) = (
+            self.pixels
+                .get_mut(row + start as usize..row + end as usize),
+            coverages.get((start - left) as usize..(end - left) as usize),
+        ) else {
+            return;
         };
-        if let Some(pixel) = self.pixels.get_mut(index) {
-            *pixel = over.over(under);
+        for ((pixel, &value), x) in pixels.iter_mut().zip(values).zip(start..end) {
+            if value == 0 {
+                continue;
+            }
+            let through = inside(x);
+            if through == 0 {
+                continue;
+            }
+            let combined = crate::clip::multiply(value, through);
+            if combined == 0 {
+                continue;
+            }
+            *pixel = blended(color, combined, *pixel);
+        }
+    }
+
+    /// [`Self::replace`] at each of `length` pixels of row `y` from column
+    /// `left`, along the row (queue item 892): `made` is told each pixel's
+    /// column and what it holds. A pixel off the canvas, or outside its
+    /// confinement, is passed over.
+    pub(crate) fn replace_run(
+        &mut self,
+        (left, y): (u32, u32),
+        length: u32,
+        mut made: impl FnMut(u32, Rgba) -> Rgba,
+    ) {
+        if y >= self.height
+            || self
+                .confined
+                .is_some_and(|region| !(region.top..region.bottom).contains(&y))
+        {
+            return;
+        }
+        let (from, to) = self
+            .confined
+            .map_or((0, self.width), |region| (region.left, region.right));
+        let start = left.max(from);
+        let end = left.saturating_add(length).min(to).min(self.width);
+        let row = (y as usize) * (self.width as usize);
+        let Some(pixels) = self
+            .pixels
+            .get_mut(row + start as usize..row + end.max(start) as usize)
+        else {
+            return;
+        };
+        for (pixel, x) in pixels.iter_mut().zip(start..end) {
+            *pixel = made(x, *pixel);
         }
     }
 
@@ -234,6 +314,38 @@ impl Canvas {
     }
 }
 
+/// `color` drawn over `under` at `coverage`, as [`Canvas::blend`] draws it.
+///
+/// An opaque colour wholly covering a pixel is that colour (queue item
+/// 892): [`Rgba::over`] keeps `under` at `1 − 1`, which is nothing, so its
+/// alpha is `1 + a·0` and each channel `(c·1 + b·a·0) / 1`, the colour's own
+/// — for every `under` whose alpha and each `b·a` are numbers, which every
+/// pixel a drawing makes is. Written without the arithmetic: a page's background,
+/// its cards and its panel are mostly such pixels.
+/// `an_opaque_colour_wholly_covering_is_itself_every_bit` holds the two
+/// alike.
+fn blended(color: Rgba, coverage: u8, under: Rgba) -> Rgba {
+    if coverage == u8::MAX
+        && color.alpha.to_bits() == 1.0_f32.to_bits()
+        && under.alpha.is_finite()
+        && [under.red, under.green, under.blue]
+            .iter()
+            .all(|channel| (channel * under.alpha).is_finite())
+    {
+        return color;
+    }
+    over_at(color, coverage, under)
+}
+
+/// `color` over `under` at `coverage`, by [`Rgba::over`].
+fn over_at(color: Rgba, coverage: u8, under: Rgba) -> Rgba {
+    let over = Rgba {
+        alpha: color.alpha * (f32::from(coverage) / 255.0),
+        ..color
+    };
+    over.over(under)
+}
+
 /// A position on the canvas, or [`None`] when it is off the left or top edge.
 fn offset(base: i32, step: u32) -> Option<u32> {
     let step = i32::try_from(step).ok()?;
@@ -253,6 +365,100 @@ fn steps(base: i32, length: u32, (from, to): (u32, u32)) -> core::ops::Range<u32
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_run_is_blended_pixel_by_pixel_and_only_where_the_canvas_is_confined() {
+        // Queue item 892: a run along a row is `blend` at each of its pixels,
+        // and a confined canvas refuses the run's pixels outside, as it
+        // refuses `blend`'s.
+        let values: Vec<u8> = (0..30).map(|k| [0, 40, 128, 255, 255][k % 5]).collect();
+        let colour = Rgba::from_rgba8(200, 30, 30, 255);
+        let through = |x: u32| [255, 255, 90, 0][(x % 4) as usize];
+        for confined in [None, Region::new(6, 2, 19, 5)] {
+            for (left, y) in [(0, 3), (4, 3), (10, 1), (25, 3), (3, 9)] {
+                let mut run = Canvas::new(32, 8, Rgba::from_rgba8(10, 120, 40, 200));
+                run.confine(confined);
+                let mut each = run.clone();
+                run.blend_run((left, y), &values, colour, through);
+                for (offset, value) in (0_u32..).zip(&values) {
+                    let x = left + offset;
+                    each.blend(x, y, colour, crate::clip::multiply(*value, through(x)));
+                }
+                assert_eq!(run, each, "{confined:?} from ({left}, {y})");
+            }
+        }
+    }
+
+    #[test]
+    fn a_run_replaced_is_each_pixel_replaced_and_only_where_confined() {
+        let made = |x: u32, under: Rgba| Rgba {
+            red: under.red * 0.5,
+            green: f32::from(u8::try_from(x % 7).unwrap_or(0)) / 7.0,
+            ..under
+        };
+        for confined in [None, Region::new(6, 2, 19, 5)] {
+            for (left, y) in [(0, 3), (4, 3), (10, 1), (25, 3), (3, 9)] {
+                let mut run = Canvas::new(32, 8, Rgba::from_rgba8(10, 120, 40, 200));
+                run.confine(confined);
+                let mut each = run.clone();
+                run.replace_run((left, y), 12, made);
+                for x in left..left + 12 {
+                    each.replace(x, y, |under| made(x, under));
+                }
+                assert_eq!(run, each, "{confined:?} from ({left}, {y})");
+            }
+        }
+    }
+
+    #[test]
+    fn an_opaque_colour_wholly_covering_is_itself_every_bit() {
+        // Queue item 892: over every level of every channel beneath, at
+        // every alpha beneath, and over floats no level is — what `over`
+        // makes of an opaque colour at full coverage is the colour.
+        let mut state = 892_u32;
+        let mut next = move || {
+            state = state.wrapping_mul(1_103_515_245).wrapping_add(12_345);
+            f32::from(u16::try_from((state >> 8) & 0xffff).unwrap_or(0)) / 65_535.0
+        };
+        for level in 0..=u8::MAX {
+            for alpha in 0..=u8::MAX {
+                let colour = Rgba::from_rgba8(level, u8::MAX - level, alpha, u8::MAX);
+                let under = Rgba::from_rgba8(alpha, level, level / 2, alpha);
+                assert_eq!(
+                    blended(colour, u8::MAX, under),
+                    over_at(colour, u8::MAX, under)
+                );
+                let odd = Rgba {
+                    red: next(),
+                    green: next(),
+                    blue: next(),
+                    alpha: next(),
+                };
+                let made = blended(colour, u8::MAX, odd);
+                let worked = over_at(colour, u8::MAX, odd);
+                assert_eq!(made, worked, "{colour} over {odd:?}");
+                assert_eq!(
+                    [made.red, made.green, made.blue, made.alpha].map(f32::to_bits),
+                    [worked.red, worked.green, worked.blue, worked.alpha].map(f32::to_bits),
+                );
+            }
+        }
+        // Not a number beneath, or not wholly covered, or not opaque: worked
+        // out as before.
+        let opaque = Rgba::from_rgba8(10, 20, 30, 255);
+        let broken = Rgba {
+            alpha: f32::NAN,
+            ..Rgba::WHITE
+        };
+        assert!(blended(opaque, u8::MAX, broken).alpha.is_nan());
+        let under = Rgba::from_rgba8(200, 100, 50, 255);
+        assert_eq!(blended(opaque, 254, under), over_at(opaque, 254, under));
+        let clear = Rgba::from_rgba8(10, 20, 30, 254);
+        assert_eq!(
+            blended(clear, u8::MAX, under),
+            over_at(clear, u8::MAX, under)
+        );
+    }
 
     fn close(left: Rgba, right: Rgba) -> bool {
         (left.red - right.red).abs() < 0.01

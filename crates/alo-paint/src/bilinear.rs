@@ -132,6 +132,18 @@ pub struct Mix {
 impl Mix {
     /// A whole level of 255, in sixteenths.
     pub const OPAQUE: u16 = 255 * 16;
+
+    /// One texel alone, as a mix of it at no weight beside it is held: each
+    /// level its sixteen sixteenths (queue item 892).
+    pub fn of_texel([red, green, blue, alpha]: Texel) -> Self {
+        let held = |channel: u8| u16::from(channel) * 16;
+        Self {
+            red: held(red),
+            green: held(green),
+            blue: held(blue),
+            alpha: held(alpha),
+        }
+    }
 }
 
 /// A texel premultiplied by its alpha, each channel a level: red, green,

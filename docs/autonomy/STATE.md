@@ -50343,3 +50343,69 @@ run's reach was made lazy, so a drawing painted whole bounds no text.
 `scripts/gate.sh` not edited. The release bundle rebuilt after it.
 
 The next unused queue number is **894** and the next ADR is **0105**.
+
+---
+
+## 2026-11-09 — batch 27: *Settings* quicker to open and use (890, 891, 892)
+
+**Contracts read:** `CLAUDE.md`, this loop, ADRs 0101–0104, the items'
+own text, the memory on gate timing, concurrent sessions and editing
+scripts under a running loop.
+
+**Measured** (release, renderer alone, this Mac, at two, *Settings* over a
+live card whose frame is drawn at its own size; one harness, five rounds,
+medians, HEAD in a worktree and this tree alternated, two runs each;
+scratchpad `m890/`, the harness and every stage probe removed before the
+gate):
+
+| | HEAD (e3a97e0) | after |
+|---|---|---|
+| opened over the card | 301.6, 302.8 ms | 224.2, 220.2 ms |
+| opened again after closing | 303.3, 303.7 | 160.2, 157.7 |
+| Tab between near stops | 37.2, 36.9 (at most 152) | 16.5, 16.6 (at most 29) |
+| Tab *Close* → *Font*, two far rings | 88.6, 87.8 | 27.6, 27.5 |
+| a face chosen | 236.1, 234.1 | 162.0, 159.4 |
+| a letter, *Settings* closed | 14.5, 14.7 | 14.3, 14.2 |
+| 2.5 M pictures test (debug, alone) | 387.8, 386.5 s | 383.1, 383.2 s |
+
+**890 — a layout kept** (`alo_renderer::kept_layout`): Tab's style and
+layout 23 → 4 ms. **891 — damage in pieces** (`alo_paint::pieces`).
+**892 — what opening costs:** shadows, fills and clips laid aside by
+`Kept` (24 MiB inside 64); a picture at its own size read where it is,
+opaque mixes from a table, clipped in one pass; fills and pictures a row
+at a time; an opaque colour wholly covering written as itself. The card's
+picture 54 → 17 ms. Details, tests and mutations in each item.
+
+**A face is not avoidable further:** every word under the veil changes
+face, so layout (18 ms), the veil's blur (45 ms) and a whole repaint
+follow; what is left of it is faster only by 892's arithmetic. Opening's
+first veil blur (45 ms) is new under it; reusing it across openings is
+894.
+
+**References:** none moved (`alo-corpus` and every renderer test pass;
+each new path proved against the old arithmetic, and every Settings
+frame against one drawn whole, at one and two). **Layout in numbers:** a
+kept layout compared, every number, with one made afresh.
+
+**By hand** (screen unlocked; release, CEF host and `.app` rebuilt by
+`alo-bundle` with no keys; the Retina at two, the window at 120, 60, 1280
+× 852; `--conversation --chats handrun47/chats`; a local page on
+127.0.0.1:8739; keys through System Events; scratchpad `handrun47/`):
+the card (`47-01`), ⌘, over it blurred (`02`), Tab to × (`03`) and to
+*Font* — the ×'s ring gone, the face ringed (`04`), → choosing Geist,
+every word re-set (`05`), Escape (`06`), ⌘, again (`07`). **Not seen by
+hand:** scale one; times on screen (renderer timings only). **Spend:**
+none.
+
+**Cut and queued:** 894 (the veil's blur on every opening, and the blur
+itself), 895 (a piece's fixed cost), 896 (a frame sent as its pieces).
+Docs: ADR 0101 and 0102 amended, CHANGELOG, conformance, ROADMAP
+(*Built since*), QUEUE (890–892 ticked; 894–896 added).
+
+**Gate: met, first run** (CEF_PATH set, the pointer at 1400, 1000;
+detached through `perl -MPOSIX=setsid` and waited on by its PID;
+`gate-batch27.log`). **Summary [1357.016s] 6846 tests run: 6846 passed (10
+slow, 1 leaky), 0 skipped** — *"The gate is met." (11 of 11 steps)*.
+`scripts/gate.sh` not edited. The release bundle rebuilt after it.
+
+The next unused queue number is **897** and the next ADR is **0105**.

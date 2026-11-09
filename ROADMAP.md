@@ -2577,6 +2577,11 @@ items where being right and being unusable are the same outcome.
       runs of text it can reach (888, ADR 0101 amended); a card's typing
       test reading the page's numbered reports in its order, a key lost
       never having been one (889);
+      *Settings* quicker to open and use — a layout kept where only paint
+      changed, damage painted as pieces, a closed panel's shadows laid
+      aside, a picture at its own size and flat fills drawn with less
+      arithmetic, every pixel as drawn whole (890–892, ADRs 0101 and 0102
+      amended);
       the pointer following a card's page, a link's strip on an
       expanded card, alo's own menu and a link opened as the next turn, a
       closed list's normal dropdown and the agent's list in its column, and

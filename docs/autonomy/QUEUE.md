@@ -24676,23 +24676,75 @@ What stage 2's exit gate actually measures: a person using it.
   (`handrun46/889-*`): 43 letters typed into a card's field through
   System Events under yes×96, all 43 arrived.
 
-- [ ] **890. A drawing whose boxes did not change is laid out again (found
+- [x] **890. A drawing whose boxes did not change is laid out again (found
   by 888).** Every drawing of the first screen styles and lays out the
   whole document — about 23 ms of a Tab's 38 at two, now the most of it.
   Keep the layout when the document changed only in what paints (a ring's
   class), proved by the tree laid out alike. *Depends on nothing.*
+  ***Done (batch 27, 9 November 2026; ADR 0101 amended).*** The drawing
+  before's layout is kept when its box tree is equal (`BoxTree` now
+  `PartialEq`), every style and pseudo-element's style alike but for
+  properties only paint, SVG and the renderer's fonts read
+  (`alo_css::properties::read_only_by`, `StyleTree::alike_but_for`), the
+  viewport the same to the bit and the faces the very same
+  (`FontDatabase::is`): `alo_renderer::kept_layout`, `Drawing::layout_kept`.
+  Layout 19.5 → 0.5 ms on a Tab at two. **Tests:** units (paint-only
+  properties alike; width, padding, weight, colour, `display`, a custom
+  property, a marker's size, another viewport each way and other faces
+  not); `a_kept_layout_is_the_layout_made.rs` at one and two — opened,
+  every Tab stop, a face, a window a pixel narrower, closed, opened again,
+  letters typed: kept exactly at the Tabs and a letter typed twice, every
+  layout every number of one made afresh, every frame with a kept layout
+  as drawn whole. **Mutations** (restored from a copy): every property
+  ignored, boxes, width, height, faces, styles, pseudo-elements not
+  compared — each caught; custom properties' second comparison removed
+  survives, as they are in the property map compared already.
 
-- [ ] **891. Two far rings painted again as one rectangle (found by 888).**
+- [x] **891. Two far rings painted again as one rectangle (found by 888).**
   Tab from *Close* to *Font* damages the rectangle holding both rings, so
   the card's picture, the veil's blur and 14–26 runs inside it are drawn
   again (up to 125 ms). Damage as a few rectangles, each painted on its
   own, every pixel as drawn whole. *Depends on nothing.*
+  ***Done (batch 27, 9 November 2026; ADR 0101 amended).*** Damage is cut
+  into pieces (`alo_paint::pieces`): places joined only where that wastes
+  fewer than 2¹⁷ pixels, at most eight, every piece meeting a backdrop's
+  damaged crop joined with it; `repaint` paints each on its own;
+  `Making::pieces`, `painted`. Close → Font at two: two pieces of 198,000
+  pixels in a bounding 725,000; 88 → 28 ms. **Tests:** `pieces` units;
+  `repaint` units (two far marks two pieces, the blur taken; a crop read
+  afresh held whole by one piece; every pixel as drawn whole); `damage`
+  (pieces holding half the canvas are the whole);
+  `far_changes_are_painted_as_pieces.rs` at one and two, every Tab as
+  drawn whole. **Mutations:** crops not joined, only the first piece
+  painted, never whole by area — each caught.
 
-- [ ] **892. Opening *Settings* over a card (found by 888).** Of ≈300 ms
+- [x] **892. Opening *Settings* over a card (found by 888).** Of ≈300 ms
   at two: the panel's two shadows 54 ms made anew on each opening, the
   card's frame mixed pixel by pixel at its own size 54 ms. Keep a closed
   panel's shadows for its next opening, and draw a picture at its own size
   by a path proved byte-identical to the mix. *Depends on nothing.*
+  ***Done (batch 27, 9 November 2026; ADRs 0101 and 0102 amended).***
+  What a drawing does not use is laid aside, newest first, up to 24 MiB
+  inside `Kept`'s 64 (never a backdrop's blur), and makes room first;
+  `Making::aside`. A picture at its own size is read where it is, no level
+  made (`picture_filter`'s `How::Own`, `Mix::of_texel`); an opaque mix at
+  full strength written from a table of its levels without reading the
+  pixel beneath; an upright clipped picture kept of as drawn, in one pass;
+  pictures and flat fills a row at a time (`Canvas::replace_run`,
+  `blend_run`); an opaque colour wholly covering written as itself
+  (`Canvas::blend`). The card's picture 54 → 17 ms, fills about halved.
+  **Tests:** every channel at every alpha read alone as the taps read it;
+  every opaque colour over every level beneath; random pictures at their
+  own size, grown, shrunk, faded, off the page, confined, clipped, each
+  pixel as before; runs as pixel by pixel, confined; Kept units (laid
+  aside and taken; oldest let go; room made; no backdrop);
+  `settings_opened_again_takes_what_it_made.rs` at one and two (opened
+  again: no shadow blurred, no fill or mask made, every frame as drawn
+  whole). **Mutations:** a texel held wrong, own size always, the shortcut
+  at any fade, opaque at any coverage, a run past its confinement (both
+  kinds), the clip ignored as drawn, the table off by one, nothing laid
+  aside, never making room, a backdrop laid aside — each caught. **No
+  reference moved.**
 
 - [ ] **893. A mailto card test's first screen not painted again under load
   (found by batch 26's first gate).** `a_mailto_link_in_a_card_through_chrome`
@@ -24702,6 +24754,27 @@ What stage 2's exit gate actually measures: a person using it.
   the debug first-screen renderer said nothing for 10 s and was stopped.
   Find why a paint asked is not answered, and whether 10 s is a bound a
   loaded debug renderer can meet. *Depends on nothing.*
+
+- [ ] **894. The veil's blur on every opening of *Settings* (found by
+  892).** Opening *Settings* over a card blurs the whole screen under the
+  veil, about 45 ms at two, on every opening, though nothing under it may
+  have changed since the last. Keep the blur with the list drawn before it,
+  and take it when the new list's items before the veil draw alike, every
+  one (ADR 0101 § 2's own comparison); and make the blur itself cheaper —
+  the crop premultiplied whole, halved, blurred and grown back pixel by
+  pixel — by a path proved bit for bit the same. *Depends on nothing.*
+
+- [ ] **895. What a piece of damage costs however small (found by 891).**
+  Each piece painted again draws the whole list confined to it: at two,
+  about 3 ms for *Settings*, most of it every run of text outlined to be
+  passed over. Outline a run once for every piece of a drawing, and
+  measure what is left. *Depends on nothing.*
+
+- [ ] **896. A frame sent as the rectangle holding its pieces (found by
+  891).** Two rings far apart cross to the window as the rectangle holding
+  both — about 725,000 pixels where 200,000 were painted — and the window
+  composes all of it again. Send a patch per piece, each read as hostile.
+  *Depends on nothing.*
 
 ## K. ★ The agent, on somebody else's pages
 

@@ -100,6 +100,7 @@ pub mod host;
 pub mod images_document;
 pub mod inline_style;
 pub mod interface_face;
+pub mod kept_layout;
 pub mod linked;
 pub mod marks_document;
 pub mod menu_fit;

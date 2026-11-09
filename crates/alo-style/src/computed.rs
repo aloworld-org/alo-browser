@@ -201,6 +201,32 @@ impl ComputedStyle {
         self.current_color
     }
 
+    /// Whether `other` is this style but for properties `ignored` names:
+    /// every other property and every authored winner the same, and the
+    /// same custom properties, font, `currentColor` and how its size was
+    /// reached (queue item 890). A style that differs only in what paint
+    /// reads — a ring's `box-shadow` — lays its box out alike.
+    pub fn alike_but_for(&self, other: &Self, ignored: &dyn Fn(&str) -> bool) -> bool {
+        fn alike<'a, T: PartialEq + 'a>(
+            one: impl Iterator<Item = (&'a PropertyName, T)>,
+            two: impl Iterator<Item = (&'a PropertyName, T)>,
+            ignored: &dyn Fn(&str) -> bool,
+        ) -> bool {
+            let kept = |(name, _): &(&PropertyName, T)| !ignored(name.as_str());
+            one.filter(kept).eq(two.filter(kept))
+        }
+        self.metrics == other.metrics
+            && self.size_origin == other.size_origin
+            && self.current_color == other.current_color
+            && self.variables == other.variables
+            && alike(self.properties.iter(), other.properties.iter(), ignored)
+            && alike(
+                self.authored.iter().map(|name| (name, ())),
+                other.authored.iter().map(|name| (name, ())),
+                ignored,
+            )
+    }
+
     fn take_inherited_from(parent: &ComputedStyle) -> Self {
         Self {
             // Not `font-size`: it arrives in `metrics` and `size_origin`, so
@@ -281,6 +307,32 @@ impl StyleTree {
     /// How many elements were styled.
     pub fn len(&self) -> usize {
         self.styles.len()
+    }
+
+    /// Whether `other` styles the same elements and pseudo-elements, at the
+    /// same scale, with the same markers, each style alike but for the
+    /// properties `ignored` names ([`ComputedStyle::alike_but_for`], queue
+    /// item 890). The issues are not compared: nothing after the cascade
+    /// reads them to place a box.
+    pub fn alike_but_for(&self, other: &Self, ignored: &dyn Fn(&str) -> bool) -> bool {
+        self.scale.to_bits() == other.scale.to_bits()
+            && self.markers == other.markers
+            && self.styles.len() == other.styles.len()
+            && self.pseudo.len() == other.pseudo.len()
+            && self
+                .styles
+                .iter()
+                .zip(&other.styles)
+                .all(|((one, style), (two, theirs))| {
+                    one == two && style.alike_but_for(theirs, ignored)
+                })
+            && self
+                .pseudo
+                .iter()
+                .zip(&other.pseudo)
+                .all(|((one, style), (two, theirs))| {
+                    one == two && style.alike_but_for(theirs, ignored)
+                })
     }
 
     /// Whether the document had no elements at all.

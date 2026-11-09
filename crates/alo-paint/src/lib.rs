@@ -95,6 +95,7 @@ pub mod path;
 pub mod pattern;
 pub mod picture;
 pub mod picture_filter;
+pub mod pieces;
 pub mod raster;
 mod refine;
 pub mod region;

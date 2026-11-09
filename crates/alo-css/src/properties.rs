@@ -200,6 +200,19 @@ pub fn read_by(reader: Reader) -> impl Iterator<Item = &'static str> {
         .map(|(name, _)| *name)
 }
 
+/// Whether `name` is listed, and every crate listed as reading it is one of
+/// `readers`: a property no other stage acts on. A layout kept from the
+/// drawing before (queue item 890) asks it of the stages that run after
+/// layout. A name not listed is never: nothing acts on it, and an answer
+/// that cannot be said is taken to matter.
+pub fn read_only_by(name: &str, readers: &[Reader]) -> bool {
+    SUPPORTED
+        .binary_search_by(|(listed, _)| (*listed).cmp(name))
+        .ok()
+        .and_then(|at| SUPPORTED.get(at))
+        .is_some_and(|(_, by)| !by.is_empty() && by.iter().all(|reader| readers.contains(reader)))
+}
+
 /// The four sides a `{side}` in a name a reader builds stands for.
 const SIDES: [&str; 4] = ["top", "right", "bottom", "left"];
 
@@ -337,6 +350,14 @@ mod tests {
         assert!(is_supported("accent-color"));
         assert!(is_supported("z-index"));
         assert!(!is_supported("cursor"));
+        // Read after layout alone, or by layout too (queue item 890).
+        let after = [Reader::Paint, Reader::Svg, Reader::Renderer];
+        assert!(read_only_by("box-shadow", &after));
+        assert!(read_only_by("opacity", &after));
+        assert!(!read_only_by("color", &after), "style settles currentColor");
+        assert!(!read_only_by("width", &after));
+        assert!(!read_only_by("transform", &after));
+        assert!(!read_only_by("cursor", &after), "nothing listed is never");
         assert!(!is_supported("pointer-events"));
         assert!(
             !is_supported("font"),

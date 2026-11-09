@@ -764,6 +764,32 @@ pub(crate) fn draw_coverage(
         ),
         None => (0..coverage.height(), 0..coverage.width()),
     };
+    // A flat colour, which is most boxes, a row at a time (queue item 892):
+    // the same blend at every pixel, without asking where each one is.
+    if let Some(color) = flat {
+        // The first column that lands on the page, left of which nothing is.
+        let on_page = u32::try_from(-i64::from(left)).unwrap_or(0);
+        let first = columns.start.max(on_page);
+        let width = coverage.width() as usize;
+        for row in rows {
+            let Some(y) = place(top, row) else {
+                continue;
+            };
+            let (Some(x), Some(line)) = (
+                place(left, first),
+                coverage.data().get(
+                    row as usize * width + first as usize
+                        ..row as usize * width + columns.end as usize,
+                ),
+            ) else {
+                continue;
+            };
+            canvas.blend_run((x, y), line, color, |x| {
+                clip.map_or(255, |clip| clip.at(x, y))
+            });
+        }
+        return;
+    }
     for row in rows {
         for column in columns.clone() {
             let value = coverage.at(column, row);
@@ -848,6 +874,72 @@ mod tests {
         let mut canvas = Canvas::new(2, 2, Rgba::WHITE);
         render(&DisplayList::default(), &mut canvas);
         assert_eq!(canvas.at(0, 0), Some(Rgba::WHITE));
+    }
+
+    /// `coverage` blended pixel by pixel through `clip` in `color`: what
+    /// every flat fill was before queue item 892.
+    fn pixel_by_pixel(canvas: &mut Canvas, coverage: &Coverage, color: Rgba, clip: Option<&Clip>) {
+        let (left, top) = coverage.origin();
+        for row in 0..coverage.height() {
+            for column in 0..coverage.width() {
+                let value = coverage.at(column, row);
+                let (Some(x), Some(y)) = (place(left, column), place(top, row)) else {
+                    continue;
+                };
+                let inside = clip.map_or(255, |clip| clip.at(x, y));
+                canvas.blend(x, y, color, crate::clip::multiply(value, inside));
+            }
+        }
+    }
+
+    #[test]
+    fn a_flat_fill_a_row_at_a_time_is_blended_pixel_by_pixel() {
+        // Queue item 892: coverage of every value, hanging off each edge of
+        // the canvas, through a clip and none, onto a canvas confined and
+        // not, opaque and translucent — every pixel as blended one by one.
+        let mut state = 892_u32;
+        let mut next = move || {
+            state = state.wrapping_mul(1_103_515_245).wrapping_add(12_345);
+            u8::try_from((state >> 16) & 0xff).unwrap_or(0)
+        };
+        let values: Vec<u8> = (0..30 * 20)
+            .map(|k| match k % 4 {
+                0 => 0,
+                1 => u8::MAX,
+                _ => next(),
+            })
+            .collect();
+        let clip = Clip::from(&Coverage::new(
+            16,
+            12,
+            (4, 3),
+            (0..16 * 12).map(|k| [0, 90, u8::MAX][k % 3]).collect(),
+        ));
+        let ground = Rgba::from_rgba8(30, 160, 90, 200);
+        for origin in [(-6, -4), (3, 2), (10, 9), (-40, 0)] {
+            let coverage = Coverage::new(30, 20, origin, values.clone());
+            for color in [
+                Rgba::from_rgba8(200, 30, 30, 255),
+                Rgba::from_rgba8(20, 30, 200, 120),
+            ] {
+                for through in [None, Some(&clip)] {
+                    for confined in [None, Region::new(2, 5, 17, 14)] {
+                        let mut rows = Canvas::new(24, 18, ground);
+                        rows.confine(confined);
+                        let mut pixels = rows.clone();
+                        draw_coverage(
+                            &mut rows,
+                            &coverage,
+                            &Paint::Solid(color),
+                            Matrix::IDENTITY,
+                            through,
+                        );
+                        pixel_by_pixel(&mut pixels, &coverage, color, through);
+                        assert_eq!(rows, pixels, "{origin:?} {color} {confined:?}");
+                    }
+                }
+            }
+        }
     }
 
     #[test]

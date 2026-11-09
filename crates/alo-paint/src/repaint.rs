@@ -31,7 +31,8 @@ use alo_value::Rgba;
 pub enum Repainted {
     /// No pixel: the list draws exactly what the canvas holds.
     Nothing,
-    /// The pixels of this region, and no others.
+    /// The pixels of this region, and no others: the smallest holding every
+    /// piece painted again ([`crate::pieces`]), which is what changed.
     Within(Region),
     /// Every pixel: drawn from nothing.
     Whole,
@@ -84,16 +85,26 @@ pub fn repaint(
         // Nothing drawn, and what is kept is kept as it was: the two lists
         // draw alike, so it is all still this list's.
         Damage::None => return Repainted::Nothing,
-        Damage::Within(region) => {
+        Damage::Within(pieces) => {
             // A backdrop whose crop nothing under it changed is drawn from
             // the blur the last drawing kept (queue item 885): the region
             // need not hold all of the crop it reads.
             kept.stand(standing);
-            canvas.reset(region, ground);
-            canvas.confine(Some(region));
-            draw(after, canvas, Some(kept));
+            // Each piece on its own (queue item 891), as one region was:
+            // every pixel in it as drawn whole, whichever piece is first.
+            let mut bounds: Option<Region> = None;
+            for &piece in &pieces {
+                canvas.reset(piece, ground);
+                canvas.confine(Some(piece));
+                draw(after, canvas, Some(kept));
+                kept.painted(piece.area());
+                bounds = Some(bounds.map_or(piece, |was| was.joined(piece)));
+            }
             canvas.confine(None);
-            Repainted::Within(region)
+            match bounds {
+                Some(bounds) => Repainted::Within(bounds),
+                None => return Repainted::Nothing,
+            }
         }
         Damage::Whole => {
             *canvas = Canvas::new(size.0, size.1, ground);
@@ -389,6 +400,100 @@ mod tests {
             };
             assert!(region.area() < 2000, "only the changes: {region:?}");
             assert_eq!(kept.made().backdrops, 0, "the blur taken as kept");
+        }
+    }
+
+    /// A page 1200 by 900 of stripes, a blurred box in its middle, and
+    /// marks: `under` drawn before the box, `over` after it at its foot,
+    /// `far` in the top corner — each at its x — for queue item 891.
+    fn marked(under: f32, over: f32, far: f32) -> DisplayList {
+        let mut items = vec![fill(
+            0.0,
+            0.0,
+            1200.0,
+            900.0,
+            Rgba::from_rgba8(240, 238, 230, 255),
+        )];
+        for at in (0..12).map(|k| 40.0 + 100.0 * f32::from(u8::try_from(k).unwrap_or(0))) {
+            items.push(fill(
+                at,
+                0.0,
+                30.0,
+                900.0,
+                Rgba::from_rgba8(30, 60, 160, 255),
+            ));
+        }
+        items.push(fill(
+            under,
+            400.0,
+            20.0,
+            20.0,
+            Rgba::from_rgba8(200, 30, 30, 255),
+        ));
+        let rect = alo_layout::Rect::new(400.0, 300.0, 400.0, 300.0);
+        let shape = crate::corner::rounded_rectangle(rect, crate::corner::Corners::all(16.0));
+        items.push(DisplayItem::Backdrop {
+            box_id: BoxId::from_index_for_tests(1),
+            rect,
+            path: shape.clone(),
+            blur: 6.0,
+        });
+        items.push(DisplayItem::Fill {
+            box_id: BoxId::from_index_for_tests(1),
+            path: shape,
+            paint: Paint::Solid(Rgba::from_rgba8(255, 255, 255, 178)),
+            rule: FillRule::NonZero,
+        });
+        items.push(fill(over, 590.0, 30.0, 20.0, Rgba::BLACK));
+        items.push(fill(
+            far,
+            40.0,
+            12.0,
+            12.0,
+            Rgba::from_rgba8(20, 140, 40, 255),
+        ));
+        list(items)
+    }
+
+    #[test]
+    fn far_changes_are_painted_as_pieces_each_as_drawn_whole() {
+        // Queue item 891: a mark moved over the box's foot and one moved in
+        // the far corner are two pieces, not the rectangle holding both;
+        // nothing under the box changed, so its blur is taken as kept.
+        let size = (1200, 900);
+        let first = marked(100.0, 500.0, 1100.0);
+        let mut kept = Kept::new();
+        let mut canvas = Canvas::new(size.0, size.1, Rgba::WHITE);
+        crate::render::render_keeping(&first, &mut canvas, &mut kept);
+        let moved = marked(100.0, 520.0, 1130.0);
+        let repainted = repaint(&first, &moved, &mut canvas, Rgba::WHITE, &mut kept);
+        assert_eq!(canvas, drawn(&moved, size), "every pixel as drawn whole");
+        assert!(matches!(repainted, Repainted::Within(_)), "{repainted:?}");
+        let made = kept.made();
+        assert_eq!((made.pieces, made.backdrops), (2, 0), "{made:?}");
+        assert!(made.painted < 20_000, "only around the marks: {made:?}");
+    }
+
+    #[test]
+    fn a_piece_that_meets_a_crop_read_afresh_holds_all_of_it() {
+        // A mark moved under the box damages its whole crop; a mark over
+        // its foot reaching past its edge is joined with it, and the far
+        // one is a piece of its own — every pixel as drawn whole.
+        let size = (1200, 900);
+        let first = marked(100.0, 500.0, 1100.0);
+        let mut kept = Kept::new();
+        let mut canvas = Canvas::new(size.0, size.1, Rgba::WHITE);
+        crate::render::render_keeping(&first, &mut canvas, &mut kept);
+        let moved = marked(450.0, 785.0, 1130.0);
+        for (was, after) in [(&first, &moved), (&moved, &first)] {
+            repaint(was, after, &mut canvas, Rgba::WHITE, &mut kept);
+            assert_eq!(canvas, drawn(after, size), "every pixel as drawn whole");
+            let made = kept.made();
+            assert_eq!((made.pieces, made.backdrops), (2, 1), "{made:?}");
+            assert!(
+                made.painted >= 400 * 2 * 300 * 2 / 4,
+                "the whole crop and the far mark: {made:?}"
+            );
         }
     }
 

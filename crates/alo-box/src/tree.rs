@@ -280,7 +280,10 @@ impl BoxNode {
 }
 
 /// Every box of one document.
-#[derive(Debug, Clone)]
+///
+/// Two trees are equal when every box, every side map and every issue is:
+/// what layout is given, compared whole (queue item 890).
+#[derive(Debug, Clone, PartialEq)]
 pub struct BoxTree {
     boxes: Vec<BoxNode>,
     root: Option<BoxId>,

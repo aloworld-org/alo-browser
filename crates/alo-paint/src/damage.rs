@@ -79,14 +79,26 @@ const DEEPEST: usize = 64;
 
 /// What has to be painted again to make a canvas holding one list drawn
 /// hold another.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Damage {
     /// Nothing: the two draw every pixel alike.
     None,
-    /// The pixels of this region, and no others.
-    Within(Region),
+    /// The pixels of these regions, and no others: a few pieces, each to be
+    /// painted on its own ([`crate::pieces`], queue item 891), every one
+    /// that meets a crop a backdrop reads whole holding all of it.
+    Within(Vec<Region>),
     /// Every pixel.
     Whole,
+}
+
+impl Damage {
+    /// The smallest region holding every piece, for a damage within some.
+    pub fn bounds(&self) -> Option<Region> {
+        match self {
+            Damage::Within(pieces) => pieces.iter().copied().reduce(Region::joined),
+            Damage::None | Damage::Whole => None,
+        }
+    }
 }
 
 /// Where `before` and `after`, each drawn onto a canvas of `size` at its
@@ -250,7 +262,7 @@ fn stood(
         // kept under it is one crop's blur.
         if changed || !kept.holds_backdrop(&key) || twice(&old_keys, &key) || twice(&new_keys, &key)
         {
-            found.add_region((false, j), crop);
+            found.add_crop((false, j), crop);
         } else {
             standing.insert(key);
         }
@@ -540,27 +552,29 @@ fn inside_alike(
 /// The damage found so far.
 struct Found {
     size: (u32, u32),
-    region: Option<Region>,
     whole: bool,
     /// Each region added, and the item it was added for: whether of the
     /// list before, and its place there — so that a backdrop can be asked
     /// whether anything drawn before it changed under it (queue item 885).
     log: Vec<((bool, usize), Region)>,
+    /// The crops of backdrops whose blur reads every pixel of them afresh:
+    /// each held whole by the one piece that meets it (queue item 891).
+    crops: Vec<Region>,
 }
 
 impl Found {
     fn new(size: (u32, u32)) -> Self {
         Self {
             size,
-            region: None,
             whole: false,
             log: Vec::new(),
+            crops: Vec::new(),
         }
     }
 
     /// What `item`, at `place` — of the list before or not, and where in
     /// it — can reach, drawn under `current`, added; a reach that cannot be
-    /// said, or a damage of half the canvas or more, is the whole.
+    /// said is the whole.
     fn add(
         &mut self,
         place: (bool, usize),
@@ -601,20 +615,36 @@ impl Found {
     /// `region` added, for the item at `place`.
     fn add_region(&mut self, place: (bool, usize), region: Region) {
         self.log.push((place, region));
-        let joined = self.region.map_or(region, |was| was.joined(region));
-        self.region = Some(joined);
-        let canvas = u64::from(self.size.0) * u64::from(self.size.1);
-        if joined.area().saturating_mul(2) >= canvas {
+        // The whole canvas is the whole canvas, however it is cut.
+        if region.area() >= u64::from(self.size.0) * u64::from(self.size.1) {
             self.whole = true;
         }
     }
 
+    /// A backdrop's whole crop added, for the backdrop at `place`.
+    fn add_crop(&mut self, place: (bool, usize), crop: Region) {
+        self.crops.push(crop);
+        self.add_region(place, crop);
+    }
+
+    /// The damage: the places found cut into pieces ([`crate::pieces`]), or
+    /// the whole canvas once they hold half of it, which costs less to
+    /// paint whole than to keep finding out.
     fn damage(&self) -> Damage {
-        match (self.whole, self.region) {
-            (true, _) => Damage::Whole,
-            (false, Some(region)) => Damage::Within(region),
-            (false, None) => Damage::None,
+        if self.whole {
+            return Damage::Whole;
         }
+        let places: Vec<Region> = self.log.iter().map(|(_, region)| *region).collect();
+        let pieces = crate::pieces::cut(&places, &self.crops);
+        if pieces.is_empty() {
+            return Damage::None;
+        }
+        let canvas = u64::from(self.size.0) * u64::from(self.size.1);
+        let painted: u64 = pieces.iter().map(|piece| piece.area()).sum();
+        if painted.saturating_mul(2) >= canvas {
+            return Damage::Whole;
+        }
+        Damage::Within(pieces)
     }
 }
 
@@ -871,12 +901,12 @@ mod tests {
         ]);
         assert_eq!(
             damage(&before, &after, (200, 100), &mut Kept::new()),
-            Damage::Within(Region {
+            Damage::Within(vec![Region {
                 left: 9,
                 top: 9,
                 right: 36,
                 bottom: 21
-            })
+            }])
         );
     }
 
@@ -895,12 +925,12 @@ mod tests {
         ]);
         assert_eq!(
             damage(&before, &after, (200, 100), &mut Kept::new()),
-            Damage::Within(Region {
+            Damage::Within(vec![Region {
                 left: 9,
                 top: 9,
                 right: 16,
                 bottom: 21
-            })
+            }])
         );
     }
 
@@ -928,12 +958,12 @@ mod tests {
         ]);
         assert_eq!(
             damage(&before, &after, (200, 100), &mut Kept::new()),
-            Damage::Within(Region {
+            Damage::Within(vec![Region {
                 left: 19,
                 top: 9,
                 right: 46,
                 bottom: 21
-            })
+            }])
         );
     }
 
@@ -948,12 +978,12 @@ mod tests {
         ]);
         assert_eq!(
             damage(&before, &after, (200, 100), &mut Kept::new()),
-            Damage::Within(Region {
+            Damage::Within(vec![Region {
                 left: 9,
                 top: 9,
                 right: 16,
                 bottom: 21
-            })
+            }])
         );
         let crossed = list(vec![
             fill(0.0, 200.0, Rgba::WHITE),
@@ -994,12 +1024,12 @@ mod tests {
                 (200, 100),
                 &mut Kept::new()
             ),
-            Damage::Within(Region {
+            Damage::Within(vec![Region {
                 left: 2,
                 top: 9,
                 right: 6,
                 bottom: 21
-            }),
+            }]),
             "the fill inside is drawn inside another clip, and differs only where that \
              clip's mask does; the one after it is not",
         );
@@ -1064,5 +1094,41 @@ mod tests {
             damage(&wide, &tall, (200, 100), &mut Kept::new()),
             Damage::Whole
         );
+        // Pieces holding half the canvas between them, though none is the
+        // whole of it, cost less painted whole (queue item 891).
+        let band = |color| {
+            list(vec![DisplayItem::Fill {
+                box_id: BoxId::from_index_for_tests(0),
+                path: Path::rectangle(0.0, 0.0, 200.0, 55.0),
+                paint: Paint::Solid(color),
+                rule: FillRule::NonZero,
+            }])
+        };
+        assert_eq!(
+            damage(
+                &band(Rgba::BLACK),
+                &band(Rgba::WHITE),
+                (200, 100),
+                &mut Kept::new()
+            ),
+            Damage::Whole
+        );
+        let small = |color| {
+            list(vec![DisplayItem::Fill {
+                box_id: BoxId::from_index_for_tests(0),
+                path: Path::rectangle(0.0, 0.0, 200.0, 40.0),
+                paint: Paint::Solid(color),
+                rule: FillRule::NonZero,
+            }])
+        };
+        assert!(matches!(
+            damage(
+                &small(Rgba::BLACK),
+                &small(Rgba::WHITE),
+                (200, 100),
+                &mut Kept::new()
+            ),
+            Damage::Within(_)
+        ));
     }
 }

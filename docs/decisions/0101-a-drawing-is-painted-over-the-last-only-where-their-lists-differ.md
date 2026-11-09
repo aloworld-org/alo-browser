@@ -1,6 +1,6 @@
 # ADR 0101 — A drawing is painted over the last only where their lists differ
 
-**Status:** accepted — built by queue item 870 (7 November 2026); § 2 extended and what was left answered by ADR 0102 (queue items 871, 872); § 3 amended by ADR 0104 (queue item 885, a backdrop reads pixels of its own crop) and for queue item 888 (a run of text passed over)
+**Status:** accepted — built by queue item 870 (7 November 2026); § 2 extended and what was left answered by ADR 0102 (queue items 871, 872); § 3 amended by ADR 0104 (queue item 885, a backdrop reads pixels of its own crop) for queue item 888 (a run of text passed over), and for queue items 890–892 (a layout kept, damage cut into pieces, less arithmetic per pixel)
 **Date:** 2026-11-07
 **Context:** ADR 0100 (a card's page drawn beneath the first screen by a
 renderer of its own, which left an edit's own paint at 137–143 ms with a
@@ -249,3 +249,74 @@ pixel inked outside it. A run's letters are not kept between drawings
 (ADR 0102 § 1's `Kept`): opening *Settings*, 37 of the 41 runs filled were
 the panel's own, new to that drawing. A Tab is answered in 37.6 ms at
 the median where it took 64.1; a drawing painted whole is unchanged.
+
+## Amended (9 November 2026, queue items 890, 891 and 892)
+
+Measured in the first screen's renderer alone (release, this Mac, at two,
+*Settings* over a live card whose frame is drawn at its own size, 1756 ×
+1040; a harness of five rounds, medians, two runs each before and after;
+`m890/` in the session's scratchpad):
+
+| | before | after |
+|---|---|---|
+| *Settings* opened over the card | 301.6, 302.8 ms | **224.2, 220.2** |
+| opened again, after it was closed | RE301.6, 302.8 ms | RE**224.2, 220.2** |
+| a Tab between near stops | 37.2, 36.9 (at most 152) | **16.5, 16.6** (at most 29) |
+| Tab from *Close* to *Font*, two rings far apart | 88.6, 87.8 | **27.6, 27.5** |
+| a face chosen | 236.1, 234.1 | **162.0, 159.4** |
+| a letter typed with *Settings* closed | 14.5, 14.7 | 14.3, 14.2 |
+| `what_a_pages_markup_says`' 2.5 million pictures (debug, alone) | 387.8, 386.5 s | 383.1, 383.2 s |
+
+**A layout is kept (890).** This ADR rejected avoiding layout for an
+edit: 1.9 ms then. *Settings*' document lays out in about 19 ms at two,
+and a Tab changes only a ring's class — a `box-shadow`. Layout is a
+function of nothing but the boxes, their styles, the viewport and the
+faces text is measured in, so the drawing before's layout is this
+drawing's when the box tree is equal, every style is alike but for
+properties only stages after layout read (`alo-css`' list of what each
+crate reads, held to each crate's source by a test there), the viewport is
+the same to the bit and the faces are the very same
+(`alo_renderer::kept_layout`): a Tab's layout and style together take
+4 ms where they took 23. A test lays every drawing out again and compares
+every number.
+
+**Damage is cut into pieces (891).** § 3 painted the one region holding
+every change. Two rings far apart held the card's picture, the veil's blur
+and a score of runs between them. Now the places § 2 finds are joined only
+where joining wastes fewer pixels than a piece costs (2¹⁷, about what a
+confined drawing of *Settings* costs however small), at most eight, and
+each piece is painted as § 3 paints a region (`alo_paint::pieces`). A
+piece's pixels come out as drawn whole for § 3's reason; the one item that
+reads other pixels, a backdrop whose crop changed, reads its whole crop,
+so every piece meeting such a crop is joined into the one holding it and
+no other piece meets it. A pixel two pieces share is painted twice, each
+time as drawn whole. `Repainted::Within` is the rectangle holding the
+pieces, which is what crosses to the window (ADR 0102 § 3).
+
+**What every drawing does, done with less arithmetic (892)**, each proved
+to give every pixel the very value it gave before:
+
+- an opaque colour wholly covering a pixel is written as itself
+  (`Canvas::blend`): `Rgba::over` keeps nothing of what is beneath at
+  `1 − 1`, for every pixel whose numbers are numbers;
+- a flat fill is blended a row at a time (`Canvas::blend_run`), the same
+  blend at each pixel;
+- a picture drawn at its own size is read where it is, never copied into a
+  level (`picture_filter`), since the taps there give each pixel its own
+  texel at no weight beside it — every channel at every alpha compared; an
+  opaque mix at full strength is written from a table of its levels
+  without reading the pixel beneath (`mix_onto`), every colour over every
+  level compared; an upright picture inside a clip is kept of by the clip
+  as it is drawn, in one pass, where it was drawn whole over a copy of
+  what was there and put back.
+
+ADR 0102 § 2 is amended too: what a drawing does not use is laid aside.
+
+**What is not avoidable, and why.** Choosing a face changes the face of
+every word under the veil, so the layout is made again (18 ms), the veil's
+crop is damaged whole and blurred again (45 ms), and the screen painted
+whole. *Settings* opened for the first time blurs its veil and its panel's
+two shadows for the first time. Queued: the veil's blur kept for an
+opening whose screen under it is the list it was blurred from (894), the
+blur itself (894), a piece's fixed cost (895) and a frame crossing as its
+pieces (896).
