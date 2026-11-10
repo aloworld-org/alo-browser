@@ -21,7 +21,9 @@
 //! - **`activate`** is a click at the middle of the box an agent named, after
 //!   the box is scrolled into the window. The point is **found from the node,
 //!   never given** (ADR 0002): no verb takes a coordinate, and before the
-//!   click Chrome is asked what a person pressing that point would press. If
+//!   click Chrome is asked what a person pressing that point would press
+//!   ([`crate::chrome_hit`], which moves the window's point by the page's
+//!   scroll as Chrome takes it, queue item 922). If
 //!   it is not the node or something inside it — an overlay over it, a box
 //!   moved over it — nothing is pressed and the answer is
 //!   [`Unacted::Covered`]. Inside it is read from Chrome's tree, and, for
@@ -126,6 +128,7 @@ use crate::chrome::Failed;
 use crate::chrome_bubble;
 use crate::chrome_choose::{Choosing, Unwalked};
 use crate::chrome_date::{self, Digits, Part};
+use crate::chrome_hit;
 use crate::chrome_protocol::{self, AxNode, Chord, Command, Digit, Mouse, Within};
 use crate::chrome_reading::ChromeReading;
 use crate::chrome_tab::Tab;
@@ -553,11 +556,9 @@ impl Tab<'_> {
             .ok_or(Unacted::Undrawn { node })?;
         let (x, y) = middle(rect.left(), rect.top(), rect.size.width, rect.size.height)
             .ok_or(Unacted::Undrawn { node })?;
-        let hit = match self.ask(&Command::NodeAt { x, y }) {
-            Ok(result) => Some(chrome_protocol::node_at(&result)?),
-            Err(Failed::Declined(_)) => None,
-            Err(why) => return Err(why.into()),
-        };
+        // Asked where the click goes, the window's point, which Chrome
+        // takes as the page's once moved by its scroll (queue item 922).
+        let hit = chrome_hit::node_at(self, x, y)?;
         let inside = match hit {
             Some(hit) if within(nodes, dom).contains(&hit) => true,
             // Something Chrome's tree of what the page is leaves out — a

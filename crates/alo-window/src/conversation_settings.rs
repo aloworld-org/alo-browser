@@ -33,6 +33,14 @@
 //! and on the group → ↑ choose the next and ← ↓ the one before, round. Kept beside the face, and
 //! read by the window as each run starts.
 //!
+//! Its fourth, **Privacy** (ADR 0108, queue item 920), holds what sites'
+//! cookies are kept and whether alo answers their cookie banners
+//! ([`Privacy`]): a choice made by a press on it; by keys, Tab goes on
+//! after *Search and answers* to the radio groups *Cookies* and *Cookie
+//! banners*, where → ↑ choose the next and ← ↓ the one before, round. Kept
+//! beside the face, and told to the whole process as it is made
+//! ([`crate::privacy_chosen`]).
+//!
 //! **Scrolled** (queue item 880) as the conversation is ([`Scrolled`]): in
 //! a window too short for the whole page, by the wheel, the paging keys
 //! and the bar, from its top each time it opens; and as Tab moves the
@@ -44,6 +52,7 @@ use crate::scrolled::Scrolled;
 use alo_renderer::agent_limits::{Asks, Limit, Limits, Stepped};
 use alo_renderer::conversation_scroll::Reach;
 use alo_renderer::interface_face::InterfaceFace;
+use alo_renderer::settings_privacy::{Privacy, PrivacyPress};
 use alo_renderer::start::SettingsKeyed;
 
 /// *Settings*: open or not, and the face chosen.
@@ -68,6 +77,11 @@ pub struct Settings {
     /// What Tab moved the keyboard to, to be scrolled into view once its
     /// renderer says where it was drawn.
     reveal: Option<SettingsKeyed>,
+    /// *Privacy*'s choices (ADR 0108, queue item 920).
+    privacy: Privacy,
+    /// Whether a person changed them since this was last asked, so that
+    /// they are to be kept.
+    privacy_changed: bool,
 }
 
 /// Where the keyboard was as *Settings* opened: what it is given back to as
@@ -110,6 +124,37 @@ impl Settings {
     /// How far alo's agent may go, as set now.
     pub fn limits(self) -> Limits {
         self.limits
+    }
+
+    /// The same, *Privacy*'s choices `privacy`, as read back (queue item
+    /// 920).
+    #[must_use]
+    pub fn with_privacy(mut self, privacy: Privacy) -> Self {
+        self.privacy = privacy;
+        self
+    }
+
+    /// *Privacy*'s choices, as made now.
+    pub fn privacy(self) -> Privacy {
+        self.privacy
+    }
+
+    /// A choice of *Privacy* made: whether it is another, and so is to be
+    /// kept.
+    pub fn choose_privacy(&mut self, pressed: PrivacyPress) -> bool {
+        let made = self.privacy.choosing(pressed);
+        if made == self.privacy {
+            return false;
+        }
+        self.privacy = made;
+        self.privacy_changed = true;
+        true
+    }
+
+    /// Whether a person changed *Privacy*'s choices since this was last
+    /// asked, once.
+    pub fn take_privacy_changed(&mut self) -> bool {
+        core::mem::replace(&mut self.privacy_changed, false)
     }
 
     /// A press of *Fewer* or *More* (queue item 878): its number moved,
@@ -269,6 +314,16 @@ impl Settings {
             Some(SettingsKeyed::Asks) => {
                 let other = self.limits.asks.stepped(on);
                 return self.choose_asks(other);
+            }
+            // *Privacy*'s two groups (queue item 920): → ↑ the next, ← ↓
+            // the one before, round.
+            Some(SettingsKeyed::Cookies) => {
+                let other = self.privacy.cookies.stepped(on);
+                return self.choose_privacy(PrivacyPress::Cookies(other));
+            }
+            Some(SettingsKeyed::Banners) => {
+                let other = self.privacy.banners.stepped(on);
+                return self.choose_privacy(PrivacyPress::Banners(other));
             }
             Some(SettingsKeyed::Close | SettingsKeyed::Service(_)) | None => return false,
         }

@@ -27,7 +27,10 @@
 //! `switch`, whose `aria-checked` this engine draws a tick for — holding
 //! how many requests they refused, or *Off*; and,
 //! while the page is still loading, the bar's [`LOADING`] after the address
-//! (queue item 751), a paragraph a person and an agent read alike; and,
+//! (queue item 751), a paragraph a person and an agent read alike; once
+//! alo answered a cookie banner on the page, or left one to the person,
+//! the bar's quiet words saying which ([`crate::card::Consent`], ADR 0108
+//! § 4, queue item 920), after the address and before the shield; and,
 //! once a person asked alo to work on the page, the agent's column under
 //! it ([`crate::agent_document`], queue item 704) — or, in the split view,
 //! beside it ([`crate::split_document`], queue item 819). The
@@ -171,6 +174,31 @@ fn fill(document: &mut Document, made: NodeId, card: &Card, column: Column) -> R
         let button = of_class(document, made, class)?;
         attribute(document, button, "class", &format!("{class} off"))?;
         attribute(document, button, "disabled", "")?;
+    }
+    if let Some(consent) = card.consent {
+        // What alo did with the page's cookie banner (queue item 920):
+        // quiet words after the address, before the shield.
+        let bar = of_class(document, made, "bar")?;
+        let before = document
+            .descendants(made)
+            .find(|&node| {
+                matches!(
+                    document.attribute_by_name(node, "class"),
+                    Some("shield" | "shield off" | "ibtn expand")
+                )
+            })
+            .ok_or_else(|| Unbuilt {
+                why: "the card's template has no Expand".to_owned(),
+            })?;
+        let line = element(document, "p")?;
+        attribute(document, line, "class", "consent")?;
+        let words = document.create_text_node(consent.said());
+        append(document, line, words)?;
+        document
+            .insert_before(bar, line, Some(before))
+            .map_err(|refused| Unbuilt {
+                why: format!("the card's cookie line could not be put in its bar: {refused}"),
+            })?;
     }
     if card.loading {
         // After the address, before *Expand*.

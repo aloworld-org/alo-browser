@@ -133,6 +133,10 @@ pub struct Start {
     /// as the browser process sends it — never a key, only its dots: none
     /// draws no section.
     pub services: Option<crate::settings_services::ServicesShown>,
+    /// *Settings*' section *Privacy* (ADR 0108, queue item 920): the
+    /// choices of cookies and of cookie banners, as made — none draws no
+    /// section.
+    pub privacy: Option<crate::settings_privacy::Privacy>,
 }
 
 /// What of *Settings* the keyboard is on (queue item 856,
@@ -157,6 +161,11 @@ pub enum SettingsKeyed {
     /// Something of *Search and answers* (queue item 905): a radio group
     /// at its choice made, a field or a button.
     Service(crate::settings_services::ServicePress),
+    /// The radio group *Cookies* of *Privacy* (queue item 920), at the
+    /// choice made: the arrows choose the next or the one before, round.
+    Cookies,
+    /// The radio group *Cookie banners*, at the choice made.
+    Banners,
 }
 
 impl SettingsKeyed {
@@ -219,6 +228,7 @@ impl Default for Start {
             settings_down: 0.0,
             settings_bar: None,
             services: None,
+            privacy: None,
         }
     }
 }

@@ -100,6 +100,17 @@
 //! hands the page over ([`Said::SignIn`]), as taking it over does, until
 //! *Let alo continue*.
 //!
+//! # Asked on a card still opening
+//!
+//! A run asked on a card ([`Begins::OnACard`]) reads that card's page. A
+//! card the person chose a moment before may not be up yet — its Chromium
+//! starting, its page loading — and the relay then answers no tab. That is
+//! not a run with no page: the run waits for the card's page, at most
+//! [`VERB_PATIENCE`], and stops saying so if it never comes (queue item
+//! 915). Measured on 10 November 2026: a run asked twelve seconds after an
+//! address was chosen was answered no tab, told the model no page was open,
+//! and said it could see none.
+//!
 //! # Its limits, the person's
 //!
 //! How many actions a run takes and how many sites it opens, and whether
@@ -167,6 +178,19 @@ pub const MOST_PAUSE: Duration = Duration::from_secs(10 * 60);
 
 /// How often a thread waiting on the person looks whether it was stopped.
 const LOOK: Duration = Duration::from_millis(50);
+
+/// How often a run asked on a card still opening asks again for its tab.
+const CARD_LOOK: Duration = Duration::from_millis(200);
+
+/// Where a run begins (queue item 915).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Begins {
+    /// On the card the person asked it on: its page is waited for while
+    /// the card is still opening.
+    OnACard,
+    /// With no page open (queue item 821): it finds the site itself.
+    WithNoPage,
+}
 
 /// What the window is told of a run.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -378,9 +402,10 @@ impl Agent {
         self
     }
 
-    /// Start run `run` of the agent on what the person `asked`, telling the
-    /// window with `tell`, kept for the whole run to `limits` — the
-    /// person's, read as it starts (queue item 878). Returns at once.
+    /// Start run `run` of the agent on what the person `asked`, beginning
+    /// where `begins` says, telling the window with `tell`, kept for the
+    /// whole run to `limits` — the person's, read as it starts (queue item
+    /// 878). Returns at once.
     ///
     /// # Errors
     ///
@@ -389,6 +414,7 @@ impl Agent {
         &self,
         run: u64,
         asked: String,
+        begins: Begins,
         tell: TellAgent,
         limits: Limits,
     ) -> std::io::Result<Run> {
@@ -413,6 +439,7 @@ impl Agent {
             found: FoundSites::default(),
             visited: Visited::default(),
             had_page: false,
+            begins,
             signing_in: false,
         };
         let thread = std::thread::Builder::new()
@@ -530,6 +557,9 @@ struct Running {
     /// Whether it has read a page: once it has, no page open is a page
     /// gone.
     had_page: bool,
+    /// Where it began: on a card, whose page it waits for while the card
+    /// opens, or with no page (queue item 915).
+    begins: Begins,
     /// Whether it is held because a page asked the person to sign in.
     signing_in: bool,
 }
@@ -734,6 +764,7 @@ impl Running {
         };
         self.steps.push(Taken {
             step: step.to_owned(),
+            why: String::new(),
             came_to: changed.clone(),
             person: true,
         });
@@ -803,10 +834,22 @@ impl Running {
     /// the run has read any (queue item 821), [`None`] when no page is open.
     fn read_if_open(&mut self) -> Result<Option<(String, Box<Snapshot>)>, Ended> {
         if !self.had_page {
-            match self.ask(Ask::Tabs)? {
-                Answer::Tabs(tabs) if tabs.is_empty() => return Ok(None),
-                Answer::Tabs(_) => {}
-                _ => return Ok(None),
+            let since = Instant::now();
+            loop {
+                match self.ask(Ask::Tabs)? {
+                    Answer::Tabs(tabs) if !tabs.is_empty() => break,
+                    Answer::Tabs(_) if self.begins == Begins::OnACard => {}
+                    _ => return Ok(None),
+                }
+                // Asked on a card still opening (queue item 915): its page
+                // is waited for, never read as none.
+                if since.elapsed() >= VERB_PATIENCE {
+                    return Err(Some(stopped(format!(
+                        "alo stopped: the card's page did not open within {} seconds.",
+                        VERB_PATIENCE.as_secs()
+                    ))));
+                }
+                std::thread::sleep(CARD_LOOK);
             }
         }
         self.read().map(Some)
@@ -869,7 +912,7 @@ impl Running {
         };
         if !self.say(Said::Step {
             line: line.clone(),
-            why,
+            why: why.clone(),
             typed,
         }) {
             return Err(None);
@@ -912,6 +955,7 @@ impl Running {
             Answer::Refused(Refused::Password { .. }) => {
                 self.steps.push(Taken {
                     step: line,
+                    why,
                     came_to: "The page asked for a password, which alo never types: alo handed \
                               the page to the person to sign in."
                         .to_owned(),
@@ -930,6 +974,7 @@ impl Running {
         };
         self.steps.push(Taken {
             step: line,
+            why,
             came_to,
             person: false,
         });
@@ -972,7 +1017,7 @@ impl Running {
         };
         if !self.say(Said::Step {
             line: line.clone(),
-            why,
+            why: why.clone(),
             typed: None,
         }) {
             return Err(None);
@@ -983,6 +1028,7 @@ impl Running {
         };
         self.steps.push(Taken {
             step: line,
+            why,
             came_to,
             person: false,
         });
@@ -1398,7 +1444,13 @@ mod tests {
         let (tell, heard) = channel();
         let tell: TellAgent = Arc::new(move |said: AgentSaid| tell.send(said).is_ok());
         let running = agent
-            .start(1, "send my name".to_owned(), tell, Limits::default())
+            .start(
+                1,
+                "send my name".to_owned(),
+                Begins::OnACard,
+                tell,
+                Limits::default(),
+            )
             .unwrap();
         let mut said: Vec<Said> = Vec::new();
         let by = Instant::now() + Duration::from_secs(30);
@@ -1881,7 +1933,9 @@ mod tests {
             }));
         let (tell, heard) = channel();
         let tell: TellAgent = Arc::new(move |said: AgentSaid| tell.send(said).is_ok());
-        let running = agent.start(1, asked.to_owned(), tell, limits).unwrap();
+        let running = agent
+            .start(1, asked.to_owned(), Begins::WithNoPage, tell, limits)
+            .unwrap();
         let mut said: Vec<Said> = Vec::new();
         let mut opened = Vec::new();
         let by = Instant::now() + Duration::from_secs(40);
@@ -2007,6 +2061,77 @@ mod tests {
             "{:?}",
             ran.said
         );
+    }
+
+    /// A run asked on a card that is still opening, the card's page up
+    /// `after` it starts, the model answering `done`: what it said, and
+    /// every body the model was sent.
+    fn asked_on_a_card_opening(begins: Begins, after: Duration) -> (Vec<Said>, Vec<String>) {
+        let open_at: OpenAt = Arc::new(Mutex::new(None));
+        let (orders, _acted) = world_of(Arc::new(Mutex::new(page())), Arc::clone(&open_at));
+        let (endpoint, bodies) = model(vec![calling("done", r#"{"result":"Read."}"#)]);
+        let provider = Provider::at(&endpoint, Key::of("test-key-not-real").unwrap()).unwrap();
+        let (tell, heard) = channel();
+        let tell: TellAgent = Arc::new(move |said: AgentSaid| tell.send(said).is_ok());
+        let _running = Agent::new(provider, orders)
+            .start(1, "read it".to_owned(), begins, tell, Limits::default())
+            .unwrap();
+        let up = Arc::clone(&open_at);
+        std::thread::spawn(move || {
+            std::thread::sleep(after);
+            if let Ok(mut at) = up.lock() {
+                *at = Some(TAB.to_owned());
+            }
+        });
+        let mut said = Vec::new();
+        let by = Instant::now() + Duration::from_secs(20);
+        while Instant::now() < by {
+            if let Ok(heard) = heard.recv_timeout(Duration::from_millis(200)) {
+                let ended = matches!(
+                    heard.said,
+                    Said::Done { .. } | Said::Stuck { .. } | Said::Stopped { .. }
+                );
+                said.push(heard.said);
+                if ended {
+                    break;
+                }
+            }
+        }
+        let bodies = bodies
+            .lock()
+            .map(|bodies| bodies.clone())
+            .unwrap_or_default();
+        (said, bodies)
+    }
+
+    #[test]
+    fn a_run_asked_on_a_card_still_opening_reads_its_page_once_it_is_up() {
+        // Queue item 915, measured by hand: a card chosen a moment before
+        // was not up when the run first asked for its tab.
+        let (said, bodies) = asked_on_a_card_opening(Begins::OnACard, Duration::from_millis(700));
+        assert_eq!(
+            said.last(),
+            Some(&Said::Done {
+                result: "Read.".to_owned()
+            }),
+            "{said:?}"
+        );
+        assert_eq!(bodies.len(), 1, "{bodies:?}");
+        // The model was sent the card's page — its address and its tree —
+        // and not told that no page is open.
+        assert!(bodies[0].contains(TAB), "{}", bodies[0]);
+        assert!(bodies[0].contains("Say hello"), "{}", bodies[0]);
+    }
+
+    #[test]
+    fn a_run_asked_with_no_page_does_not_wait_for_one() {
+        // The same world, begun with no page (queue item 821): the model is
+        // asked at once with none, the card coming up later unread.
+        let (said, bodies) = asked_on_a_card_opening(Begins::WithNoPage, Duration::from_secs(3));
+        assert!(matches!(said.last(), Some(Said::Done { .. })), "{said:?}");
+        assert_eq!(bodies.len(), 1, "{bodies:?}");
+        assert!(!bodies[0].contains(TAB), "{}", bodies[0]);
+        assert!(!bodies[0].contains("Say hello"), "{}", bodies[0]);
     }
 
     #[test]

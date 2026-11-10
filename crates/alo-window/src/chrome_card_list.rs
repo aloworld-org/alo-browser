@@ -24,6 +24,7 @@
 //! Chromium at the point (`DOM.getNodeForLocation`, `DOM.describeNode`),
 //! never decided from a picture.
 
+use crate::chrome_hit;
 use crate::chrome_protocol::{self, Command, Described, Mouse};
 use crate::chrome_tab::Tab;
 
@@ -52,7 +53,8 @@ pub fn closed_list_at(tab: &mut Tab<'_>, x: f64, y: f64) -> Option<u64> {
         reason = "a point of a card's page, rounded to Chrome's whole CSS pixels, far inside an i64"
     )]
     let (x, y) = (x.round() as i64, y.round() as i64);
-    let node = chrome_protocol::node_at(&tab.ask(&Command::NodeAt { x, y }).ok()?).ok()?;
+    // The window's point, moved by the page's scroll (queue item 922).
+    let node = chrome_hit::node_at(tab, x, y).ok().flatten()?;
     let described = chrome_protocol::described(&tab.ask(&Command::Describe { node }).ok()?).ok()?;
     is_closed_list(&described).then_some(node)
 }

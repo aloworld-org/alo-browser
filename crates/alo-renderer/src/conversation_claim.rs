@@ -269,6 +269,12 @@ pub enum Claim {
         /// Its place.
         at: usize,
     },
+    /// The choice *Privacy* offers at this place — of cookies, then of
+    /// cookie banners — counting from zero (queue item 920).
+    Privacy {
+        /// Its place.
+        at: usize,
+    },
 }
 
 impl Claim {
@@ -312,6 +318,7 @@ impl Claim {
             | Claim::Limit { .. }
             | Claim::Asks { .. }
             | Claim::Service { .. }
+            | Claim::Privacy { .. }
             | Claim::Shield => Part::Start,
         }
     }
@@ -360,6 +367,7 @@ impl fmt::Display for Claim {
             Claim::Service { at } => {
                 write!(f, "what Settings' Search and answers offers at place {at}")
             }
+            Claim::Privacy { at } => write!(f, "the choice Settings' Privacy offers at place {at}"),
         }
     }
 }
@@ -478,6 +486,12 @@ fn pressables(part: Part) -> &'static [(&'static [&'static str], Pressable)] {
             // *Search and answers* (queue item 905): every service, field
             // and button by its place among them all, ringed or not.
             (SERVICES, Pressable::Placed(|at| Claim::Service { at })),
+            // *Privacy* (queue item 920): each choice by its place among
+            // them all, ringed or not.
+            (
+                &["privopt", "privopt on", "privopt on keyed"],
+                Pressable::Placed(|at| Claim::Privacy { at }),
+            ),
             // An offer for what was typed, whichever is chosen and whether
             // it is set up (queue item 714).
             (

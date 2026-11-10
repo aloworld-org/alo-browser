@@ -808,7 +808,8 @@ impl ApplicationHandler<ToFrame> for Framing<'_> {
             | ToFrame::Blocked { .. }
             | ToFrame::Told(_)
             | ToFrame::ListPressed
-            | ToFrame::Caret(_) => {
+            | ToFrame::Caret(_)
+            | ToFrame::Consent(_) => {
                 return;
             }
         };
@@ -946,6 +947,7 @@ pub fn conversation(
             face: alo_renderer::interface_face::InterfaceFace::Inter,
             limits: alo_renderer::agent_limits::Limits::default(),
             services: crate::services::Named::default(),
+            privacy: alo_renderer::settings_privacy::Privacy::default(),
             said: None,
         },
         crate::settings_file::read,

@@ -1,0 +1,37 @@
+Frozen cookie banners for queue item 920 (ADR 0108), read by
+tests/cookie_banners_answered_through_chrome.rs.
+
+Each banner was taken on 10 November 2026 by loading the consent
+platform's own site in headless Chrome 157.0.8103.50 on this Mac, a new
+empty profile each time, with
+
+  "Google Chrome" --headless --user-data-dir=NEW --no-first-run
+    --virtual-time-budget=15000 --window-size=1280,900 --dump-dom ADDRESS
+
+and copying the banner's element, as Chrome's DOM held it after the
+platform's script had drawn it, into a page of the test's own. Nothing was
+pressed, accepted or refused on the live site.
+
+  onetrust.html    https://www.cookiepro.com/      div#onetrust-banner-sdk, whole
+  cookiebot.html   https://www.cookiebot.com/en/   div#CybotCookiebotDialog: its
+                   first layer only — the opening tag, #CybotCookiebotDialogBodyContentTitle,
+                   #CybotCookiebotDialogBodyContentText and #CybotCookiebotDialogFooter;
+                   its 212 KB details layer, never shown before Customize, left out
+  trustarc.html    https://trustarc.com/           div#truste-consent-track, whole
+  quantcast.html   https://www.quantcast.com/      div#qc-cmp2-container, whole
+
+What was changed, and nothing else:
+
+- every <img>'s src emptied and every <link> taken out, so no frozen page
+  names anything on the network to fetch;
+- the platform's own style sheet is not carried: the page's own lines put
+  the banner fixed at the foot of the page, and for Cookiebot hide its
+  class CybotCookiebotDialogHide, as its sheet does, so the controls it
+  hides (Allow selection, a switch) are hidden here too;
+- the page around the banner — a heading, a paragraph, a link — and a
+  script of the test's own, which writes which control was pressed into a
+  status line and takes the banner away, as the platform's script would
+  once answered.
+
+no-banner.html is the test's own: an invitation's Accept and Decline, a
+form and a footer saying "privacy" and "tracking" — no banner.

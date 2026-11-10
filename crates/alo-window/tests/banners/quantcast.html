@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>A page with a Quantcast Choice banner</title>
+<style>
+body { margin: 0; font: 16px/1.4 sans-serif; }
+main { padding: 24px; }
+.frozen-banner { position: fixed; left: 0; right: 0; bottom: 0; max-height: 60%; overflow: auto; padding: 12px 16px; background: #fff; border-top: 1px solid #888; }
+.frozen-banner button { margin: 4px 8px 4px 0; }
+
+</style>
+</head>
+<body>
+<main>
+<h1>A story on a site</h1>
+<p>The story itself, which the banner stands over.</p>
+<p><a href="#more">Read more</a></p>
+</main>
+<div class="frozen-banner"><div class="qc-cmp2-container" id="qc-cmp2-container" data-nosnippet=""><div class="qc-cmp2-main" id="qc-cmp2-main" data-nosnippet=""><div height="813" class="qc-cmp-cleanslate css-19rkqmd"><div id="qc-cmp2-ui" role="dialog" aria-label="Privacy" aria-modal="true" tabindex="0" class="css-1f2ir9n"><div class="qc-cmp2-summary-section"><div class="qc-cmp2-consent-info"><div class="qc-cmp2-publisher-logo-container"><div style="display: flex; align-items: center; padding: 5px 0px; width: 100%; margin-top: 10px; justify-content: space-between;"><figure style="width: 100%; text-align: center;"><div height="89" width="300" class="logo-container css-4pd0y0"><img alt="Publisher Logo" src=""></div><span role="heading" aria-level="2" class="span-heading">We value your privacy</span></figure></div><div class="qc-cmp2-summary-info qc-cmp2-logo-displayed"><div class="">We and our <a target="_blank" rel="noopener noreferrer" onclick="event.preventDefault(); (window).__tcfapiui &amp;&amp; (window).__tcfapiui('goToPage', 2);">partners</a> store or access information on devices, such as cookies and process personal data, such as unique identifiers and standard information sent by a device for the purposes described below. You may click to consent to our and our partners’ processing for such purposes. Alternatively, you may click to refuse to consent, or access more detailed information and change your preferences before consenting. Please note that some processing of your personal data may not require your consent, but you have a right to object to such processing. Your preferences will apply to this website only and will be stored in Browser Cookies for 13 months. You can change your preferences or withdraw your consent at any time by returning to this site and clicking the "persistant_label" button at the bottom of the webpage.<br>Please note that this website/app uses one or more Google services and may gather and store information including but not limited to your visit or usage behaviour. You may click to grant or deny consent to Google and its third-party tags to use your data for below specified purposes in below Google consent section.</div></div></div></div></div><div class="qc-cmp2-footer qc-cmp2-footer-overlay qc-cmp2-footer-scrolled"><div class="qc-cmp2-summary-buttons"><button mode="secondary" id="more-options-btn" size="large" class=" css-7uwyga"><span>MORE OPTIONS</span></button><button mode="primary" id="accept-btn" size="large" class=" css-132nvhm"><span>AGREE</span></button></div></div></div></div></div></div>
+</div>
+<p id="pressed" role="status"></p>
+<script>
+// The test's own: says which control was pressed, and takes the banner
+// away as its own script would once it is answered.
+document.addEventListener("click", function (event) {
+  var pressed = event.target.closest("button, a, [role=button]");
+  if (!pressed) { return; }
+  document.getElementById("pressed").textContent = "Pressed " + (pressed.id || pressed.textContent.trim());
+  var banner = document.querySelector(".frozen-banner");
+  if (banner) { banner.remove(); }
+  event.preventDefault();
+}, true);
+</script>
+</body>
+</html>

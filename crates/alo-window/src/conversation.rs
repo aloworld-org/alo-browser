@@ -570,6 +570,7 @@ impl Conversation {
             limits: Vec::new(),
             asks: Vec::new(),
             services: Vec::new(),
+            privacy: Vec::new(),
         };
         if !self.settings.is_open() {
             return shown;
@@ -588,6 +589,8 @@ impl Conversation {
             asks: Asks::ALL.to_vec(),
             // *Search and answers* (queue item 905), as it is drawn.
             services: self.services.shown().pressables(),
+            // *Privacy* (queue item 920), as it is drawn.
+            privacy: alo_renderer::settings_privacy::Privacy::pressables(),
             ..Shown::default()
         }
     }
@@ -640,7 +643,8 @@ impl Conversation {
             | Pressed::LeaveSettings
             | Pressed::Stepped(_)
             | Pressed::Asks(_)
-            | Pressed::Service(_) => self.in_settings(&pressed, keyboard) || changed,
+            | Pressed::Service(_)
+            | Pressed::Privacy(_) => self.in_settings(&pressed, keyboard) || changed,
             Pressed::Found(url) => {
                 self.choose_found(url.clone());
                 changed
@@ -785,6 +789,10 @@ impl Conversation {
                 self.services.type_in(None) | self.settings.press(*stepped)
             }
             Pressed::Asks(asks) => self.services.type_in(None) | self.settings.choose_asks(*asks),
+            // *Privacy* (queue item 920).
+            Pressed::Privacy(pressed) => {
+                self.services.type_in(None) | self.settings.choose_privacy(*pressed)
+            }
             // *Search and answers* (queue item 905): a field pressed takes
             // the keyboard; a press anywhere else leaves it.
             Pressed::Service(pressed) => {
@@ -1579,6 +1587,7 @@ impl Conversation {
             settings_down: 0.0,
             settings_bar: None,
             services: None,
+            privacy: None,
         }
         .at_scale(scale.factor());
         if !self.settings.is_open() {
@@ -1593,6 +1602,7 @@ impl Conversation {
             settings_down: scrolled.down(),
             settings_bar: scrolled.bar(Room::settings(viewport).height, scale.factor()),
             services: Some(self.services.shown()),
+            privacy: Some(self.settings.privacy()),
             ..start
         }
     }
@@ -1612,12 +1622,14 @@ impl Conversation {
             SettingsKey::Tab { back } => {
                 // Through *Search and answers* too, as it is drawn (905):
                 // into a field it moves to, out of one it leaves.
+                // Then *Privacy*'s two groups (queue item 920).
                 let stops: Vec<SettingsKeyed> = self
                     .services
                     .shown()
                     .stops()
                     .into_iter()
                     .map(SettingsKeyed::Service)
+                    .chain([SettingsKeyed::Cookies, SettingsKeyed::Banners])
                     .collect();
                 let moved = self.settings.tab_through(back, &stops);
                 let field = match self.settings.keyed() {
@@ -1786,10 +1798,25 @@ impl Conversation {
         match self.thread_mut().and_then(Thread::card_mut) {
             Some(card) if card.url != url => {
                 card.url = url;
-                // Another page: nothing refused on it yet (queue item 807).
+                // Another page: nothing refused on it yet (queue item 807),
+                // and no cookie banner answered on it (920).
                 if card.shield.is_some() {
                     card.shield = Some(shield);
                 }
+                card.consent = None;
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// What alo did with a cookie banner on the card's page (ADR 0108 § 4,
+    /// queue item 920), said in its bar: whether the card shows something
+    /// else for it.
+    pub fn card_consent(&mut self, consent: alo_renderer::card::Consent) -> bool {
+        match self.thread_mut().and_then(Thread::card_mut) {
+            Some(card) if card.consent != Some(consent) => {
+                card.consent = Some(consent);
                 true
             }
             _ => false,
@@ -2145,7 +2172,9 @@ impl Conversation {
     /// kept as the window opens (queue item 854).
     #[must_use]
     pub fn set_in(mut self, face: InterfaceFace) -> Self {
-        self.settings = Settings::set_in(face).with_limits(self.settings.limits());
+        self.settings = Settings::set_in(face)
+            .with_limits(self.settings.limits())
+            .with_privacy(self.settings.privacy());
         self
     }
 
@@ -2155,6 +2184,20 @@ impl Conversation {
     pub fn limited_to(mut self, limits: Limits) -> Self {
         self.settings = self.settings.with_limits(limits);
         self
+    }
+
+    /// The same conversation, *Privacy*'s choices `privacy` — read back
+    /// from where they were kept as the window opens (queue item 920).
+    #[must_use]
+    pub fn private_as(mut self, privacy: alo_renderer::settings_privacy::Privacy) -> Self {
+        self.settings = self.settings.with_privacy(privacy);
+        self
+    }
+
+    /// Whether a person changed *Privacy*'s choices since this was last
+    /// asked, once: they are then to be kept, and told to the process.
+    pub fn take_privacy_changed(&mut self) -> bool {
+        self.settings.take_privacy_changed()
     }
 
     /// Whether a person changed alo's agent's limits in *Settings* since
@@ -2341,6 +2384,31 @@ mod tests {
         assert!(conversation.undo(other));
         assert!(conversation.card().is_none());
         assert_eq!(conversation.on_screen(), Some(fresh));
+    }
+
+    /// Queue item 920: what alo did with the card's page's cookie banner,
+    /// said in its bar until the page goes somewhere else.
+    #[test]
+    fn a_cards_cookie_banner_answered_is_said_until_its_page_moves() {
+        use alo_renderer::card::Consent;
+        let mut conversation = Conversation::default();
+        assert!(!conversation.card_consent(Consent::Refused), "no card");
+        let _ = conversation.act(Pressed::TheBox);
+        let _ = conversation.edit(Edit::Put("www.theguardian.com".to_owned()));
+        assert!(matches!(conversation.edit(Edit::Choose), Typed::Chose(_)));
+        let url = conversation.going().cloned().unwrap();
+        conversation.open_card(url);
+        let consent =
+            |conversation: &Conversation| conversation.card().and_then(|card| card.consent);
+        assert_eq!(consent(&conversation), None);
+        assert!(conversation.card_consent(Consent::Refused));
+        assert!(!conversation.card_consent(Consent::Refused), "the same");
+        assert_eq!(consent(&conversation), Some(Consent::Refused));
+        // Another page: nothing answered on it yet.
+        assert!(conversation.moved_card(alo_url::parse("https://www.bbc.com/news").unwrap()));
+        assert_eq!(consent(&conversation), None);
+        assert!(conversation.card_consent(Consent::LeftToYou));
+        assert_eq!(consent(&conversation), Some(Consent::LeftToYou));
     }
 
     #[test]
@@ -4190,6 +4258,86 @@ mod tests {
             "a face read after keeps them"
         );
         assert!(!kept.take_limits_changed());
+    }
+
+    /// Queue item 920: *Privacy*'s choices drawn while *Settings* is, a
+    /// press making one — kept once — and Tab going on after *Search and
+    /// answers* to its two radio groups and round to *Close*, where the
+    /// arrows choose the next or the one before, round.
+    #[test]
+    fn privacys_choices_are_made_by_a_press_or_the_arrows_and_kept_once() {
+        use crate::settings_keys::SettingsKey;
+        use alo_renderer::settings_privacy::{Banners, Cookies, Privacy, PrivacyPress};
+        use alo_renderer::start::SettingsKeyed;
+        let mut conversation = Conversation::default();
+        assert!(conversation.showing().privacy.is_empty(), "not drawn");
+        let room = Size::new(1040.0, 820.0);
+        assert_eq!(conversation.start(room, Scale::ONE).privacy, None);
+        let _ = conversation.act(Pressed::Settings);
+        assert_eq!(conversation.showing().privacy, Privacy::pressables());
+        assert_eq!(
+            conversation.start(room, Scale::ONE).privacy,
+            Some(Privacy::default())
+        );
+        assert!(conversation.act(Pressed::Privacy(PrivacyPress::Cookies(Cookies::RefuseAll))));
+        assert!(
+            !conversation.act(Pressed::Privacy(PrivacyPress::Cookies(Cookies::RefuseAll))),
+            "the same"
+        );
+        assert_eq!(
+            conversation.settings().privacy().cookies,
+            Cookies::RefuseAll
+        );
+        assert!(conversation.take_privacy_changed());
+        assert!(!conversation.take_privacy_changed());
+        // Tab: after the services' last stop, *Cookies*, *Cookie banners*,
+        // then round to *Close*.
+        let mut went = Vec::new();
+        for _ in 0..14 {
+            assert!(conversation.settings_key(SettingsKey::Tab { back: false }));
+            went.extend(conversation.settings().keyed());
+        }
+        assert_eq!(
+            went.get(11..),
+            Some(
+                &[
+                    SettingsKeyed::Cookies,
+                    SettingsKeyed::Banners,
+                    SettingsKeyed::Close
+                ][..]
+            ),
+            "{went:?}"
+        );
+        // ⇧Tab back to *Cookie banners*: → chooses *Leave them to me*, and
+        // → again round to the first.
+        assert!(conversation.settings_key(SettingsKey::Tab { back: true }));
+        assert_eq!(
+            conversation.settings().keyed(),
+            Some(SettingsKeyed::Banners)
+        );
+        assert!(conversation.settings_key(SettingsKey::Step { on: true }));
+        assert_eq!(conversation.settings().privacy().banners, Banners::Leave);
+        assert!(conversation.settings_key(SettingsKey::Step { on: true }));
+        assert_eq!(conversation.settings().privacy().banners, Banners::Answer);
+        // On *Cookies*, ← chooses the one before *Refuse all cookies*.
+        assert!(conversation.settings_key(SettingsKey::Tab { back: true }));
+        assert!(conversation.settings_key(SettingsKey::Step { on: false }));
+        assert_eq!(
+            conversation.settings().privacy().cookies,
+            Cookies::RefuseOthers
+        );
+        assert!(conversation.take_privacy_changed());
+        // Read back as the window opens, nothing to keep, and kept through
+        // a face read after.
+        let made = Privacy {
+            cookies: Cookies::KeepAll,
+            banners: Banners::Leave,
+        };
+        let mut kept = Conversation::default()
+            .private_as(made)
+            .set_in(InterfaceFace::Geist);
+        assert_eq!(kept.settings().privacy(), made);
+        assert!(!kept.take_privacy_changed());
     }
 
     /// Queue item 905: Tab goes on from *alo at work* through *Search and

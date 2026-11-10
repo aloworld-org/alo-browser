@@ -15,6 +15,12 @@
 //! `{"v":1,"ask":"renderer","tab":ADDRESS}` is the line a person sends to
 //! ask the running browser which renderer draws a tab (queue item 622).
 //!
+//! `alo-ask --plain [SOCKET]` prints each answer for a person instead
+//! (queue item 915, [`alo_window::socket_plain`]): a tree as one node a
+//! line, indented, each its number, its role, its name and its states, and
+//! no position; a verb's outcome and a refusal as the browser's sentence.
+//! What it sends is the same.
+//!
 //! A blank line is sent and not waited on, as the browser answers none. It
 //! stops when its input ends or the browser closes the connection.
 
@@ -25,7 +31,9 @@ fn main() -> std::process::ExitCode {
     use std::path::PathBuf;
     use std::process::ExitCode;
 
-    let socket = if let Some(named) = std::env::args_os().nth(1) {
+    let mut named = std::env::args_os().skip(1).peekable();
+    let plain = named.next_if(|first| first == "--plain").is_some();
+    let socket = if let Some(named) = named.next() {
         PathBuf::from(named)
     } else {
         let Some(runtime) = alo_window::socket_place::runtime_directory() else {
@@ -63,7 +71,7 @@ fn main() -> std::process::ExitCode {
             // 2026-10-25. A failed write says nothing about what was read.
             let mut answer = String::new();
             if answers.read_line(&mut answer).is_ok_and(|read| read > 0) {
-                let _ = printed.write_all(answer.as_bytes());
+                let _ = printed.write_all(shown(&answer, plain).as_bytes());
                 let _ = printed.flush();
             }
             return ExitCode::SUCCESS;
@@ -76,11 +84,22 @@ fn main() -> std::process::ExitCode {
             Ok(0) | Err(_) => return ExitCode::SUCCESS,
             Ok(_) => {}
         }
-        if printed.write_all(answer.as_bytes()).is_err() || printed.flush().is_err() {
+        if printed.write_all(shown(&answer, plain).as_bytes()).is_err() || printed.flush().is_err()
+        {
             return ExitCode::FAILURE;
         }
     }
     ExitCode::SUCCESS
+}
+
+/// `answer` as it is printed: as it came, or written for a person.
+#[cfg(unix)]
+fn shown(answer: &str, plain: bool) -> std::borrow::Cow<'_, str> {
+    if plain {
+        std::borrow::Cow::Owned(alo_window::socket_plain::written(answer))
+    } else {
+        std::borrow::Cow::Borrowed(answer)
+    }
 }
 
 #[cfg(not(unix))]

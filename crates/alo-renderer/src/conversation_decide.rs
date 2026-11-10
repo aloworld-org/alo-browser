@@ -117,6 +117,9 @@ pub struct Shown<C, S> {
     /// What *Search and answers* lets a person press, in order, while
     /// *Settings* is drawn (queue item 905).
     pub services: Vec<crate::settings_services::ServicePress>,
+    /// The choices *Privacy* offers, in order, while *Settings* is drawn
+    /// (queue item 920).
+    pub privacy: Vec<crate::settings_privacy::PrivacyPress>,
 }
 
 impl<C, S> Default for Shown<C, S> {
@@ -149,6 +152,7 @@ impl<C, S> Default for Shown<C, S> {
             limits: Vec::new(),
             asks: Vec::new(),
             services: Vec::new(),
+            privacy: Vec::new(),
         }
     }
 }
@@ -246,6 +250,8 @@ pub enum Decided<C, S> {
     Asks(Asks),
     /// This, pressed in *Search and answers* (queue item 905).
     Service(crate::settings_services::ServicePress),
+    /// This choice, made in *Privacy* (queue item 920).
+    Privacy(crate::settings_privacy::PrivacyPress),
     /// *Settings*' × — or a press on the veil around it (queue item 886),
     /// which presses nothing under it.
     LeaveSettings,
@@ -294,6 +300,8 @@ pub enum Listed {
     Asks,
     /// What *Search and answers* offers (queue item 905).
     Services,
+    /// The choices *Privacy* offers (queue item 920).
+    Privacy,
 }
 
 impl fmt::Display for Listed {
@@ -316,6 +324,7 @@ impl fmt::Display for Listed {
             Listed::Limits => "stepper's button Settings offers",
             Listed::Asks => "choice of asking Settings offers",
             Listed::Services => "thing Search and answers offers",
+            Listed::Privacy => "choice Privacy offers",
         })
     }
 }
@@ -480,7 +489,8 @@ where
         | Claim::LeaveSettings
         | Claim::Limit { .. }
         | Claim::Asks { .. }
-        | Claim::Service { .. } => in_settings(claim, painted, now),
+        | Claim::Service { .. }
+        | Claim::Privacy { .. } => in_settings(claim, painted, now),
         Claim::Expand => Decided::Expand,
         Claim::CloseTheCard => Decided::CloseTheCard,
         Claim::DeleteChat | Claim::CloseChat | Claim::Undo | Claim::Shield => {
@@ -576,6 +586,10 @@ fn in_settings<C, S>(claim: Claim, painted: &Shown<C, S>, now: &Shown<C, S>) -> 
         // place, still offered there.
         Claim::Service { at } => held(Listed::Services, at, &painted.services, &now.services)
             .map_or_else(Decided::Refused, Decided::Service),
+        // *Privacy* (queue item 920): the choice painted at that place,
+        // still offered there.
+        Claim::Privacy { at } => held(Listed::Privacy, at, &painted.privacy, &now.privacy)
+            .map_or_else(Decided::Refused, Decided::Privacy),
         _ if painted.faces.is_empty() || now.faces.is_empty() => {
             Decided::Refused(Refusal::NotAsked { claim })
         }

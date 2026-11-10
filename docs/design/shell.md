@@ -660,6 +660,15 @@ shield and its word **Off** are grey; pressed again, on. Either way the
 page loads again. What the lists name as an advert's box is hidden in the
 page (item 806) — nothing of it is drawn by alo.
 
+**A cookie banner answered** (item 920, ADR 0108 § 4): after the address
+and before the shield, in the bar's quiet 13 px words as *Loading* is, 8
+either side: **Cookies refused** once alo pressed the page's banner's most
+private choice, or **Cookie banner left to you** when the banner offered
+none alo would press (or its refusal could not be pressed). Nothing to
+press; an agent reads it as a paragraph of the bar. The terminal says the
+whole of it, the choice's own words quoted. Gone when the card's page goes
+somewhere else.
+
 ### A person on a card's page (items 799, 811, 798, 810, 802)
 
 Five designs the owner approved on 6 November 2026 (*"I agree"*),
@@ -1342,6 +1351,35 @@ Settled here, as the design left them open:
   brave|searxng`, `searxng ADDRESS` and `answers openai` after the limits
   in `settings.txt`, only those a person chose. In the design's window the
   panel holds 1095 in a room of 692 with SearXNG chosen.
+- **Privacy** (item 920, ADR 0108; the owner's word of 10 November 2026),
+  24 under *Search and answers*: **Privacy**, 15 px 600, and in quiet 13.5
+  px *What sites may keep on this Mac, and how alo answers their cookie
+  banners. A cookie choice is used from the next page alo opens.*; 14
+  under it *alo at work*'s white box of two rows ruled off as its are,
+  each 10 above and below, its name (13.5 px 600) over its choices, one
+  under another 2 apart, each 28 tall and drawn as *Ask before opening*'s
+  (a radio 16 across, its words 13 px, quiet or the ink when chosen, its
+  room 8 past the row either side):
+  - **Cookies** — **Refuse other sites’ cookies · Default**, **Refuse all
+    cookies** with, under its words in quiet 12.5 px, *Signing in to sites
+    will fail: a site cannot remember you.*, and **Keep all cookies**.
+  - **Cookie banners** — **Answer with the most private choice ·
+    Default** and **Leave them to me**.
+  **By keys**: Tab goes on from *Search and answers*' last stop to
+  *Cookies*, then *Cookie banners*, then round to the ×; on either → ↑
+  choose the next and ← ↓ the one before, round. The ring around the
+  choice made, as on *Ask before opening*. **Effect**: a cookie choice is
+  told to the whole browser process at once and used by every Chromium
+  started after it — each page opened from the box starts one — so from
+  the next page alo opens; a page already open keeps the choice it opened
+  with. A banners' choice is used from the next page loaded, the open
+  card's included. **To an agent**: a region named *Privacy*, radio groups
+  *Cookies* and *Cookie banners* each holding a radio named by its choice,
+  the one made checked; the line under *Refuse all cookies* read after it.
+  **Kept**: `cookies all|keep` and `banners leave` at the end of
+  `settings.txt`, each only when it is not the default. In the design's
+  window, without *Search and answers*, what the panel holds is 1104 in a
+  room of 692.
 
 ## Colours
 
@@ -1351,7 +1389,8 @@ the agent is acting**, and appears nowhere else.
 ## What is not designed yet
 
 Dark mode, a phone-width window, downloads and bookmarks, and the
-settings other than *Font* and *alo at work* — *What alo may do* among
+settings other than *Font*, *alo at work*, *Search and answers* and
+*Privacy* — *What alo may do* among
 them (item 705) — and with them *Settings*' list of its sections.
 *Settings* is walked by keys (item 856); the rest of alo's interface,
 beyond its two fields and *Settings*, is pressed with the pointer only

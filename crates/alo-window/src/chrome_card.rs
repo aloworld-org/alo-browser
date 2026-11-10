@@ -422,6 +422,9 @@ pub struct Told {
     /// How many of its requests the lists refused have been told (queue
     /// item 736).
     blocked: usize,
+    /// Where looking for its page's cookie banner stands (ADR 0108, queue
+    /// item 920).
+    answering: crate::consent_answer::Answering,
 }
 
 impl Told {
@@ -437,6 +440,7 @@ impl Told {
         tell_travel(tab, &mut self.travel, tell);
         tell_blocked(tab, &mut self.blocked, tell);
         tell_told(tab, tell);
+        tell_answered(tab, &mut self.answering, tell);
     }
 }
 
@@ -475,6 +479,26 @@ pub fn tell_blocked(tab: &Tab<'_>, told: &mut usize, tell: TellCard<'_>) {
             url: url.clone(),
             by: by.clone(),
         });
+    }
+}
+
+/// Answer `tab`'s page's cookie banner, if it is time to look and *Settings
+/// › Privacy* asks it ([`crate::consent_answer`], ADR 0108), and tell
+/// `tell` what was done: only for a card, which has someone to tell —
+/// streamed or covered, since a banner on a covered card's page is still
+/// its page's.
+pub fn tell_answered(
+    tab: &mut Tab<'_>,
+    answering: &mut crate::consent_answer::Answering,
+    tell: TellCard<'_>,
+) {
+    let Some(tell) = tell else {
+        return;
+    };
+    let banners = crate::privacy_chosen::process().banners();
+    if let Some(answered) = answering.pass(tab, banners) {
+        // Nobody to hear it is a conversation that has gone.
+        let _ = tell(ToFrame::Consent(answered));
     }
 }
 

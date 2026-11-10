@@ -50898,3 +50898,310 @@ detached through `perl -MPOSIX=setsid`; `gate-batch33.log`). **Summary
 were written after it.
 
 The next unused queue number is **915** and the next ADR is **0108**.
+
+## 2026-11-10 — batch 34: the owner's developer demo made doable (915; 916 cut)
+
+**Contracts read:** `CLAUDE.md`, `LOOP.md`, `QUEUE.md`, `STATE.md` (batch
+33), `docs/contracts/agent-socket.md`, ADR 0002, ADR 0055,
+`crates/alo-window/src/bin/alo-ask.rs`; ADR 0096 for alo's own agent.
+
+**What the owner asked:** a ~90 s video for developers — one line through
+the socket pressing a named button on a page in a card; the tree printed
+readably; a developer's task given to alo's own agent (a public repo's
+failing Actions run, the error, the file at its line); and its numbers.
+Verify each beat on today's build, fix what is broken, and say what is not.
+
+**The screen was locked for the whole batch** (`CGSSessionScreenIsLocked`
+1 at every look, 12:22 to the end). Keys reached alo through
+`CGEventPostToPid` (they open cards and ask alo under the lock); a posted
+press on *Ask alo to do it* did not. `screencapture -l` of alo's window
+was blank, so **no screenshot of any beat was taken**. Every finding below
+is under the lock; 916 is what is owed unlocked.
+
+**Hand runs** (release, `alo-bundle --into handrun54/app{,2,3}
+--keys-from keychain`, keys never printed; `alo --conversation --chats
+handrun54/chats`, `XDG_RUNTIME_DIR` a directory of the run's own so the
+owner's open alo kept its socket; terminal lines timestamped by a `perl`
+pipe; scratchpad `handrun54/`):
+
+- **The socket answers in the conversation and reaches the card's page:**
+  `tabs` `[]` with no card; after an address typed and Return, `tabs` the
+  card's page, `read` its tree, `act` by name (`Activated`,
+  `NotFound`, `NotOperable` on a heading), `renderer` *the Chromium alo
+  carries*. Beat 1 **works through the socket**; whether the page
+  heard the press is 916: on a local page (a counter) it did, visibly in
+  the tree; on `the-internet.herokuapp.com` and on Toolshop it did not
+  under the lock (below).
+- **A press the page never heard, answered `Activated`** (916): bisected
+  with local copies to a page whose first paint a synchronous script holds
+  — a local server's three-second script: 2 of 2 pressed nothing, the same
+  page with none 2 of 2 pressed — in the carried Chromium and in the
+  machine's Chrome 157 (`alo --chrome`). Suspected Chromium dropping
+  input to a hidden page that has not painted; the card's window is
+  transparent and parked, not hidden, unlocked — so measured again there.
+- **Beat 2 had no readable form.** Built: `alo-ask --plain` (below).
+- **Beat 3: GitHub shows a job's log only to someone signed in** (*Sign
+  in to view logs*, by curl and in the card's tree). The run's
+  **annotations** are public and name the error and its file and line, so
+  the task is the run's error, not its log. The run chosen:
+  `go-gitea/gitea` run 42792539551, `lint-backend:
+  modules/web/middleware/flash.go#L72`, gocritic `wrapperFunc` (found by
+  looking through 23 repositories' failing runs, by their pages and
+  unauthenticated API, no key).
+- **Two agent failures, fixed** (below): a run asked on a card still
+  opening told the model no page was open and was stuck (*I can't see a
+  failing run or an open page*, 1 of 4 runs on the first build); and a run
+  that opened the file went back to the run to read the error again —
+  10, 6 and 9 model calls in 3 of 8 runs before the fix.
+
+**Built — 915.**
+- `socket_plain.rs` and `alo-ask --plain`: one node a line, indented,
+  `[number] role "name" states`, `placeholder`, `offscreen`, `undrawn`; no
+  rectangle; generic/none boxes with no name, states or placeholder read
+  through; `list`, `listbox`, `menu`, `tablist`, `radiogroup` count their
+  items (none said when none); `tabs` one address a line or *no tab is
+  open*; `done` its `said` and each issue; `refused (Kind): said`;
+  `renderer` its `said`; anything else, and a tree deeper than
+  `serde_json`'s 128, as it came. **`gate.sh`'s `serde_json` list gains
+  it**, with its reason (eight files). Tests: 8 unit tests over lines
+  `protocol::write` writes; `tests/alo_ask_written_plainly.rs` through the
+  real `alo-ask` and socket over the frozen `web-a-form` (no rect field
+  printed; raw mode unchanged).
+- `conversation_agent::Begins`: the window starts a run `OnACard` when the
+  conversation has a card on screen, and such a run's first reads wait for
+  the card's tab (every 200 ms, at most `VERB_PATIENCE`, then *alo
+  stopped: the card's page did not open within 90 seconds*). Tests: a
+  card up 700 ms late is read and sent to the model; a run with no page
+  is not delayed (3 s). **Mutation** (the wait removed): caught.
+- `agent_protocol`: `Taken.why`, sent back with a step when it has one;
+  the instructions and the `why` field tell the model a page it leaves is
+  not sent again, so to say there what it still needs. Test: the why sent
+  back, a step without one unchanged, the words in the instructions.
+  **Mutation** (why never sent): caught.
+- `docs/drive-alo.md` (linked from the README), `docs/demo.md`; the
+  contract names `--plain`; features line; CHANGELOG; ROADMAP's socket
+  line.
+
+**Docs' examples, run as written:** `tabs`, `read --plain`, `act` and the
+`NotFound` line with `alo-ask` on PATH (`target/release`); the Python
+(`/usr/bin/python3 -I`) and Node (`node`) programs; each output pasted is
+what it printed. Each was run with `XDG_RUNTIME_DIR` naming this run's
+socket, and `alo --conversation` was run as `--conversation --chats DIR`
+(never the real Chats folder). The `act` example's press, under the lock,
+changed nothing on the page (the tree pasted is read before it).
+`docs/demo.md`'s beat-1 and beat-2 lines were run, with the application's
+`MacOS` directory on PATH, against a Toolshop product card: beat 2 printed
+the product's tree (`heading "Combination Pliers" level=1`, `spinbutton
+"Quantity" takes_text`, `button "Add to cart"`); beat 1 was refused
+`NotCarriedOut` (*Chrome finds nothing at the middle of box#163*), twice,
+the button in view the second time — under the lock (916). Toolshop gave
+its products new addresses between 13:28 and 14:40 (its API's ids
+changed, the old address 404), so the script reaches a product from the
+shop's first page. The timing `perl` line was run over sample input.
+
+**Rehearsals of beat 3 on the final build** (card-first: the run's address,
+Return, then *Find the error in this failing run and open that file at that
+line.*, Return): **5 runs started, 5 done** — each opened `flash.go#L72` at
+`d81789c` and said the gocritic error in words (`s1`–`s3`, `s5`, `s6`);
+two more were never started, the task's text lost (typed just after a run
+ended, or while a card opened 30 s late), so 916. Each: a plan of two
+steps; an `activate` on the annotation's link (which the model then went
+around, as runs before the fix said, *the annotation link could not be
+pressed* — a link out of the card's view, under the lock); in `s3` a
+`scroll`, which a card's page refuses; one `open` of the blob address;
+`done`.
+
+| run | model calls | steps | total | first step | later steps |
+|---|---|---|---|---|---|
+| s1 | 3 | 2 | 43.5 s | 32.9 s | 3.4, 7.2 s |
+| s2 | 3 | 2 | 47.6 s | 32.5 s | 7.2, 7.9 s |
+| s3 | 4 | 3 | 48.6 s | 34.3 s | 4.4, 3.2, 6.7 s |
+| s5 | 3 | 2 | 44.0 s | 33.0 s | 2.7, 8.3 s |
+| s6 | 3 | 2 | 43.0 s | 33.5 s | 2.7, 6.9 s |
+
+A step is measured from the person's Return (or the model's last answer)
+to the model's next answer, by the terminal's timestamps. **Median step
+7.2 s, slowest 34.3 s** (every first step); **later steps median 6.7 s,
+slowest 8.3 s**. 16 model calls, 11 steps (5 `open`), 66,547 tokens in
+and 1,404 out over the five. The first step's ~33 s is not the model:
+a socket `tabs` asked as a run started was held 30.23 s (`poll-s6.txt`),
+which is `chrome.rs`' `LONGEST_SILENCE` — the card's thread waiting on
+Chromium, suspected the lock (916). **Screenshots sent to a model: 0** —
+the agent's one request to a model is `agent_protocol::request_body`,
+whose `input` is one user message of text built from `Asking` (the asked
+words, the plan, the address, the tree as `agent_page::text`'s lines, the
+steps), and `agent_protocol.rs`, `openai_answer.rs`, `ai_service.rs` and
+`conversation_agent.rs` name no image, PNG or base64; the card's frames go
+only to `conversation_picture`'s renderer. No comparison figure for any
+other browser was measured, so none is given.
+
+Before the fixes (same task, card-first): 8 runs — 7 done (10, 3, 3, 6,
+4, 3 and 9 model calls; the 10, 6 and 9 the back-and-forth), 1 stuck (the
+card still opening). Nothing was posted, commented, starred, forked or
+signed into; no key was printed.
+
+**Pages chosen** (`docs/demo.md`): beats 1–2, Toolshop
+(`practicesoftwaretesting.com`, a practice shop, *Add to cart* with no
+sign-in), the-internet's *Add Element* as the fallback; beat 3, the Gitea
+run above (kept 90 days).
+
+**ROADMAP:** the product path's socket line names `--plain` and the page.
+
+**Gate: not met, for a reason this batch did not cause — `LOOP HALT`
+reason for whoever commits this** (CEF_PATH set, the pointer at 1400,
+1000; detached through `perl -MPOSIX=setsid`; `gate-batch34.log`). fmt,
+clippy, the boundaries (`serde_json` with its eighth file), no
+coordinate, the supervisor's rule and the CHANGELOG step all ok; the tests
+**Summary [699.168s] 6812/6961 tests run: 6811 passed (4 slow, 1 leaky),
+1 failed** — `the_agent_at_work_on_a_card_through_alos_cef_host`, *the
+page streamed at the split view's page box did not happen*, stopping the
+run there — *"The gate is not met." (11 of 11 steps)*. The same test, run
+twice with `agent_protocol.rs`, `conversation_agent.rs` and
+`conversation_window.rs` put back to HEAD's and then restored from a copy,
+failed both times with the same words (its machine-Chrome twin too: *shown
+in the card did not happen*). A run of every test with `--no-fail-fast`
+(`nextest-batch34-all.log`): **Summary [3454.190s] 6961 tests run: 6915
+passed (7 slow, 1 leaky), 46 failed** — 45 through a shown Chromium, whose
+frames never came, and `the_window_kept_on_the_gpu_shows_what_softbuffer_
+shows`; every one shows a window, and the screen was locked throughout.
+The gate is to be run again with the screen unlocked before this is
+committed. So 915 is **not ticked** (built, not gated), and 916, what was
+not verified, is open.
+
+The next unused queue number is **922** and the next ADR is **0108**.
+
+## Batch 34b — queue 922 (under 916): a press on a scrolled page, and the demo rehearsed unlocked (10 November 2026)
+
+Not committed; not gated by this batch (one gate is to be run over batches
+34, 34b and 35 together). fmt and clippy (`-p alo-window --all-targets
+--all-features -D warnings`) clean, and every `alo-window` test passed on a
+worktree of HEAD + batch 34 + this change (`cargo nextest run -p
+alo-window --all-features`, screen unlocked, CEF_PATH set: 1,230 run; the
+49 that failed on a stale debug `alo-render` passed, 57 of 57, once it was
+rebuilt). The main tree did not build at the time, batch 35 being part
+written.
+
+**Cause (measured, Chrome 157.0.8103.50, scratchpad `p922/`):**
+`DOM.getContentQuads` answers in the window and `DOM.getNodeForLocation`
+takes the **page's** point — the window's plus the layout viewport's
+`pageX`/`pageY`. Toolshop's product page scrolled 547 down: *Add to cart*
+at 462…565 × 318…380, its middle 513, 349 *No node found at given
+location*, 513, 896 the button. A plain page scrolled 1408 × 1178: 450, 350
+nothing, 1858, 1528 the button. A page at its top has the two the same. On
+Toolshop's first page the wrong point happened to land in the same card.
+**Fix:** `chrome_hit::node_at` asks `Page.getLayoutMetrics`, moves the
+point (`chrome_protocol::scrolled`), then asks; `chrome_act::aim` and
+`chrome_card_list::closed_list_at` use it. The click is still sent at the
+window's point. **Test:** `a_press_on_a_scrolled_page_through_chrome.rs`,
+both Chromiums, failed before the fix (`Covered { by: None }`) and passes
+after; it asserts each `Activated` press was heard as a trusted click, and
+that a fixed overlay still answers `Covered` with nothing heard.
+
+**Rehearsed unlocked** (the rebuilt demo app, scratchpad `handrun56/`):
+beat 1 — the product link pressed by name (`activated box#303`, the card
+went to the product), *Add to cart* by name (`activated box#883`, *Product
+added to shopping cart.*), again, and the cart page said *Quantity … 2*;
+at the card's width Toolshop folds its header into *Toggle navigation*,
+so the cart's count shows only once that is pressed (`b1-04-nav-open.png`,
+the badge reads 1). Beat 2 — `read --plain` as written. Beat 3 — the Gitea
+run, card first: done in 2 steps, 3 model calls, 15.5 s; from an empty
+conversation by *Ask alo to do it*: done in 3 steps, 4 model calls, 22.4 s,
+flash.go#L72 open both times. **Beat 4: the ~33 s first step is gone
+unlocked** — first model answer 4.7 s (card first) and 3.5 s (empty), steps
+3.3–8.2 s. The *Activated, never heard* press of 916, re-measured unlocked:
+2 of 2 again on the page whose handler is set by a script after a
+three-second blocking one — the press came before the listener existed;
+with the listener set before that script, 2 of 2 were heard.
+
+## 2026-11-10 — batch 35: cookies refused, and their banners answered (920; 923, 924 cut)
+
+Not committed; not gated by this batch: the screen was locked while it was
+built, then lent to the owner's rehearsal, so one gate is to be run over
+batches 34, 34b and 35 together. **920 is not ticked**: built and tested
+headless, its hand run on live sites (part of *Closes when*) is owed.
+Contracts read: CLAUDE.md, LOOP.md, ADR 0002, ADR 0094, ADR 0106, queue
+915/916/920.
+
+**ADR 0108** (new). Cookies reach both Chromiums as Chromium's own
+preferences — `profile.cookie_controls_mode` (`1` refuses another site's;
+`0` keeps all) and `profile.default_content_setting_values.cookies` (`2`
+refuses every site's) — written into each new profile's
+`Default/Preferences` before the Chromium starts (`chrome_cookies.rs`,
+called from `chrome.rs`'s `launch`). Read in Chromium's source (`main`,
+`pref_names.h`, `cookie_settings.h`/`.cc`, `content_settings_registry.cc`,
+`website_settings_info.cc`, `content_settings.h`,
+`cookie_settings_policy_handler.cc`; CDP's `Network.pdl` and
+`Emulation.pdl` for the alternatives). **Measured**: Chrome 157.0.8103.50
+headless, a local server's first-party cookie and a `SameSite=None;
+Secure` one from a `localhost` frame: no file and mode `0` sent both back,
+mode `1` the first-party one, the default `2` neither — a fresh profile
+keeps another site's cookies, so the default is written. CEF 156.0.14
+reads `Default/Preferences` too: written as `Preferences` in the profile
+itself alone, both Chromiums kept the frame's cookie (the test failed);
+written in `Default/` alone, both held every choice. Banners are found by
+whole name in the agent's tree (`consent_banner.rs`) and pressed with
+`activate` on the node (`consent_answer.rs`, from `chrome_card.rs`'s pass,
+four looks a document: at load, then 1, 2 and 4 s after); never a consent,
+a close or a second layer; the card's bar says *Cookies refused* /
+*Cookie banner left to you*, the terminal the whole of it.
+
+**Frozen banners** (`crates/alo-window/tests/banners/`, `SOURCES.txt`),
+taken with headless Chrome `--dump-dom` from the platforms' own sites:
+OneTrust (`cookiepro.com`: *Allow All*, *Accept only necessary*, *Adjust my
+preferences*), Cookiebot (`cookiebot.com`: *Deny*, *Customize*, *Allow
+all*), TrustArc (`trustarc.com`: *Accept All*, *Reject Optional*, *Manage
+Settings*), Quantcast Choice (`quantcast.com`: *MORE OPTIONS*, *AGREE*).
+Nothing was pressed on a live site. Not met from here: Didomi (its script
+on `bfmtv.com`, no notice), Funding Choices, Usercentrics (an empty
+`<aside>` in `--dump-dom`), Sourcepoint (a cross-site frame on `welt.de`),
+other languages on a live page — queued 924.
+
+**Settings › Privacy**: *Cookies* (*Refuse other sites’ cookies · Default*,
+*Refuse all cookies* + *Signing in to sites will fail: a site cannot
+remember you.*, *Keep all cookies*) and *Cookie banners* (*Answer with the
+most private choice · Default*, *Leave them to me*), under *Search and
+answers*; Tab after its last stop, arrows round; `cookies all|keep`,
+`banners leave` in `settings.txt` only when not the default; told to the
+process at once (`privacy_chosen.rs`): cookies from the next page alo
+opens (each opens a new Chromium), banners from the next page loaded. The
+open card told at once is 923.
+
+**Tests run** (CEF_PATH set, headless only; nothing shown):
+- `cookies_refused_as_chosen_through_chrome.rs` — the three choices in what
+  the server is sent back, machine's Chrome and the CEF host: pass.
+- `cookie_banners_answered_through_chrome.rs` — OneTrust, Cookiebot,
+  TrustArc refused (the page's own line names the refusal's id), Quantcast
+  left, no-banner untouched, *Leave them to me* touching nothing, both
+  Chromiums: pass.
+- **Mutations**, each restored from a copy: a consent pressed as a refusal
+  (`Choice::Refusal | Choice::Consent`) — caught (*came to Refused { name:
+  "Allow All" }*); the press never made — caught (*the page says None*);
+  the preferences in the profile's root alone — caught by the cookie test
+  through both Chromiums.
+- `settings_privacy.rs` (renderer): layout in numbers, reference
+  `settings-privacy.png` (inspected), the ring moving nothing, the agent's
+  tree, presses claimed by place: pass. `a_page_as_a_card.rs`'s bar line,
+  reference `card-cookies-refused.png` (inspected): pass.
+  `messages_across_a_boundary.rs`: privacy and the card's word cross, the
+  new tags refused where nothing is drawn; two existing assertions moved
+  for the wire's new bytes (tags 8, 9 now *Privacy*'s; the turn's tag one
+  byte further from the end): pass.
+- `alo-window --lib` 958 pass (new: consent_banner ×8, consent_answer,
+  chrome_cookies ×2, privacy_chosen, settings_file, conversation ×2,
+  conversation_window ×2); `alo-renderer --lib` pass; the headless
+  `alo-window` tests near it (the agent's lines to a frame, a font in
+  Settings, the profile tests, the resolver, adverts hidden): pass.
+- fmt clean; `cargo clippy --workspace --all-targets --all-features -D
+  warnings` clean.
+- `alo-renderer` whole (`cargo test -p alo-renderer --no-fail-fast`): 1,301 passed, 0 failed, over 142 test programs and doctests.
+
+**Not verified**: the gate; the hand run on live sites; a window showing
+the section or the bar's line (only the renderer's drawing); the
+other languages' labels on a live page; partitioned cookies.
+
+**ROADMAP**: the product path's Settings line gains a *Built* clause for
+920 and owes 923, 924. Files batch 34 also changed: CHANGELOG.md, ROADMAP.md,
+docs/features.md, docs/autonomy/QUEUE.md, docs/autonomy/STATE.md,
+crates/alo-window/src/lib.rs, crates/alo-window/src/conversation_window.rs.
+
+The next unused queue number is **926** and the next ADR is **0109**.

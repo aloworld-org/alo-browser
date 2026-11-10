@@ -203,6 +203,9 @@ pub enum Went {
     /// Where the person is typing on the card's page, read as an input
     /// method's composition began (queue item 802).
     Caret(crate::chrome_card_caret::Caret),
+    /// What alo did with a cookie banner on the card's page (ADR 0108,
+    /// queue item 920).
+    Consent(crate::consent_answer::Answered),
 }
 
 impl Went {
@@ -232,6 +235,7 @@ impl Went {
             }
             Self::Told(told) => format!("the card's Chromium told {told:?}"),
             Self::Caret(caret) => format!("the card's page has its caret at {caret:?}"),
+            Self::Consent(answered) => answered.said(),
             Self::ListPressed => {
                 "a list pressed on the card's page: the card expanded, its menu opened there"
                     .to_owned()
@@ -645,6 +649,7 @@ fn heard_from(again: Sender<Work>, number: u64) -> TellFrame {
             ToFrame::Told(told) => again.send(Work::Told(number, Went::Told(told))),
             ToFrame::ListPressed => again.send(Work::Told(number, Went::ListPressed)),
             ToFrame::Caret(caret) => again.send(Work::Told(number, Went::Caret(caret))),
+            ToFrame::Consent(answered) => again.send(Work::Told(number, Went::Consent(answered))),
             _ => Ok(()),
         };
         true

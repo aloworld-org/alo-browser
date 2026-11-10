@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>A page with a TrustArc banner</title>
+<style>
+body { margin: 0; font: 16px/1.4 sans-serif; }
+main { padding: 24px; }
+.frozen-banner { position: fixed; left: 0; right: 0; bottom: 0; max-height: 60%; overflow: auto; padding: 12px 16px; background: #fff; border-top: 1px solid #888; }
+.frozen-banner button { margin: 4px 8px 4px 0; }
+
+</style>
+</head>
+<body>
+<main>
+<h1>A story on a site</h1>
+<p>The story itself, which the banner stands over.</p>
+<p><a href="#more">Read more</a></p>
+</main>
+<div class="frozen-banner"><div id="truste-consent-track" class="tc-track tc-hide ta-show ta-display-block" role="banner">  <div id="trustarc-banner-overlay" class="tc-overlay"></div>  <div id="truste-consent-content" class="tc-content">    <div id="truste-consent-text" class="tc-left">      <div class="tc-verbiage">        <div class="tc-repop-msg tc-hide">          <i class="tc-warning"></i>          <p id="truste-repop-msg"></p>        </div>        <p>This site uses cookies and related technologies for site operation, analytics, and third party advertising purposes as described in our&nbsp;<a href="https://www.trustarc.com/privacy-policy/" target="_blank" id="truste-privacy-button">TrustArc Privacy Notice</a>. You may choose to consent to our use of these technologies, reject non-essential technologies, or further manage your preferences. To opt-out of sharing with third parties information related to these technologies, select "Reject Optional" or submit a request to&nbsp;<a href="javascript:void(0)" id="do-not-sell-link" class="do-not-sell-link-banner" onclick="truste.eu.irmClickListener()">Do Not Sell or Share My Personal Information</a>.</p>      </div>    </div>    <div id="truste-consent-buttons" class="tc-right">      <button id="truste-consent-button" class="tc-btn-primary tc-btn-icon" type="button">        <span>Accept All</span>      </button>      <button id="truste-consent-required" class="tc-btn-primary tc-btn-icon" type="button">        <span>Reject Optional</span>      </button>      <button id="truste-show-consent" class="tc-btn-secondary tc-btn-icon" type="button" aria-haspopup="dialog">        <span>Manage Settings</span>      </button>    </div>  </div></div>
+</div>
+<p id="pressed" role="status"></p>
+<script>
+// The test's own: says which control was pressed, and takes the banner
+// away as its own script would once it is answered.
+document.addEventListener("click", function (event) {
+  var pressed = event.target.closest("button, a, [role=button]");
+  if (!pressed) { return; }
+  document.getElementById("pressed").textContent = "Pressed " + (pressed.id || pressed.textContent.trim());
+  var banner = document.querySelector(".frozen-banner");
+  if (banner) { banner.remove(); }
+  event.preventDefault();
+}, true);
+</script>
+</body>
+</html>

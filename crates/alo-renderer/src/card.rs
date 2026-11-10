@@ -82,6 +82,10 @@ pub struct Card {
     /// its site — or [`None`], drawing no shield, for a card no Chromium
     /// judges.
     pub shield: Option<Shield>,
+    /// What alo did with a cookie banner on its page (ADR 0108 § 4, queue
+    /// item 920): said quietly in its bar, after the address — or
+    /// [`None`], saying nothing, for a page alo found no banner on.
+    pub consent: Option<Consent>,
     /// alo's own menu over its page, while a person's secondary press
     /// opened it (queue item 798).
     pub menu: Option<CardMenu>,
@@ -113,6 +117,26 @@ pub struct Shield {
     pub on: bool,
 }
 
+/// What a card's bar says of a cookie banner on its page (ADR 0108 § 4):
+/// alo pressed its refusal, or found a banner it had no refusal to press.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Consent {
+    /// alo pressed the banner's most private choice.
+    Refused,
+    /// The banner offered no choice alo would press: it is the person's.
+    LeftToYou,
+}
+
+impl Consent {
+    /// What the bar says.
+    pub fn said(self) -> &'static str {
+        match self {
+            Self::Refused => "Cookies refused",
+            Self::LeftToYou => "Cookie banner left to you",
+        }
+    }
+}
+
 impl Card {
     /// A card for `url`, answering `said`, with nowhere to go back or
     /// forward to, no frame yet, and its page loading.
@@ -128,6 +152,7 @@ impl Card {
             agent: None,
             ran: Vec::new(),
             shield: None,
+            consent: None,
             menu: None,
         }
     }

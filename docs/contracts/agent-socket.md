@@ -53,7 +53,11 @@ recorded beside every other agent as *alo's own agent* — never through a
 road of its own.
 
 `alo-ask [SOCKET]` is the smallest caller. It sends each line it reads and
-prints each answer.
+prints each answer. `alo-ask --plain [SOCKET]` prints each answer for a
+person instead (queue item 915): a tree one node a line, indented, by
+number, role, name and states, with no position; anything else as its
+`said`. What a person reads there is not this contract: a program reads the
+JSON. `docs/drive-alo.md` walks through both.
 
 ### Whichever renderer draws the page
 

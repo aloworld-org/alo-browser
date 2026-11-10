@@ -25243,6 +25243,175 @@ What stage 2's exit gate actually measures: a person using it.
   inspected. `the_applications_icon.rs`, `the_mark.rs`; by hand, the
   panel, the rail, the Dock and the Finder (`handrun53/`).
 
+- [ ] **915. The owner's developer demo made doable (the owner's word, 10
+  November 2026).** *ADR 0002, ADR 0055, ADR 0096; `docs/contracts/agent-socket.md`.*
+  ***Built (batch 34); not ticked: the gate is not yet met*** — run with
+  the screen locked, every test that shows a window failed (STATE). Closes
+  when the gate is met with the screen unlocked. What was built: **`alo-ask --plain`** —
+  `socket_plain.rs`, the eighth file naming `serde_json` (`gate.sh`'s
+  list, with its reason): a tree one node a line, indented, by number,
+  role, name and states, no position; generic boxes with no name read
+  through; a list's items counted; a verb's outcome and a refusal as
+  `said` with the kind; anything else as it came. Unit tests over lines
+  written by `protocol::write`, and `tests/alo_ask_written_plainly.rs`
+  through the real program and socket. **`docs/drive-alo.md`** (from the
+  README): start alo, find the socket, `tabs`/`read`/`act` with `alo-ask`,
+  Python and Node in code blocks, each run as written. **`docs/demo.md`**:
+  the beats, the lines, the pages. **Two agent fixes, each measured by
+  hand first:** a run asked on a card still opening waited for its page
+  instead of being told none was open (`Begins`, `conversation_agent.rs`;
+  it had said *I can't see an open page*); and each step's `why` is sent
+  back to the model, which is told to carry in it what it read on a page
+  it leaves — it had gone back and forth between a failing run and the
+  file it named, up to nine model calls, having no words of the error
+  once it left (`agent_protocol.rs`). What was not verified is 916.
+
+- [ ] **916. The demo rehearsed on an unlocked screen (cut from 915).**
+  Every hand run of 915 was made with this Mac's screen locked, which
+  hides every window, Chromium's among them. Under the lock: a press on
+  a page whose first paint a slow script held answered `Activated` and
+  changed nothing (reproduced with a local page and a three-second
+  script, both Chromiums); a press on Toolshop's *Add to cart*, out of
+  the card's view and then in it, was `NotCarriedOut` (*Chrome finds
+  nothing at the middle*); forty-six tests that show a window failed —
+  forty-five through a shown Chromium, frames never streamed, and the
+  window kept on the GPU — in a run of all 6,961 (the gate's own stopped
+  at the first, which fails alike with HEAD's agent files); each run's
+  first step waited about 33 s, one socket ask held 30.2 s at the run's
+  start (`LONGEST_SILENCE`); and text typed just after a run ended, or
+  while a card opened slowly, was twice lost. Each is to be measured
+  again unlocked; any that remains is a bug of its own, with a test — a
+  verb answered `Activated` for a press the page never heard first.
+  Also owed there: beat 1's *Add to cart* on Toolshop and its count, beat
+  3 begun with no page by *Ask alo to do it*, and screenshots of each
+  beat. *Depends on 915.*
+- [ ] **917. A page made a table (the owner's word, 10 November 2026).**
+  "Make a spreadsheet of these 40 products with name, price and rating":
+  alo reads the card's tree — never a picture — and hands the person a
+  file their spreadsheet program opens (CSV first), its columns the ones
+  asked for, its rows the list's items by name. Every value is text the
+  page shows; nothing is made up, and a value the page lacks is left
+  empty and said. An ADR first: which part reads the list (the tree, the
+  model choosing columns, or both), where the file is put, and what a
+  page too long for one read does. *Closes when:* a frozen list page
+  becomes the expected file, in a test, and by hand on a live shop.
+- [ ] **918. Teach alo once, and it repeats it (the owner's word, 10
+  November 2026).** A person does a task by hand once; alo keeps it as
+  named steps — *the field "Price" in the row "Coffee 1 kg"* — never
+  positions (ADR 0002), with the values that change each time named as
+  blanks, and runs it again when asked by its name. A step whose target
+  is no longer found stops the run and says which. alo's rules hold
+  unchanged: it asks before it pays, sends, deletes or submits, and it
+  never keeps or types a password or card details. An ADR first. *Closes
+  when:* a task taught on one frozen page is replayed on the same page
+  with its layout moved, in a test, and by hand.
+- [ ] **919. Watch a page, and tell me (the owner's word, 10 November
+  2026).** "Tell me when this price drops below 50,000", "when an
+  appointment opens": alo checks the page quietly, reading its tree with
+  no model asked and no picture taken, and tells the person by a macOS
+  notification when the condition holds. How often it may look, how it
+  stops, what a page that needs sign-in or changes shape does, and what
+  it costs a site are an ADR's to settle first. *Closes when:* a watched
+  local page that changes is noticed within the interval, in a test, and
+  a live page by hand.
+- [ ] **920. Cookies refused, and their banners answered (the owner's
+  word, 10 November 2026).** Two halves, one Settings section (*Privacy*):
+  - *Cookies*: the person chooses what the Chromium alo carries keeps —
+    another site's cookies refused (the default), every site's refused
+    (saying plainly that sign-ins then fail), or all kept.
+  - *Cookie banners*: by default alo answers a site's consent banner with
+    its most private choice — *Reject all*, *Only necessary*, closing it
+    where closing refuses — found by name in the page's tree, never by
+    position (ADR 0002), and never *Accept*. A banner with no refusing
+    choice is left to the person. The person may turn this off. What was
+    answered is shown, not hidden.
+  An ADR first: how the choice reaches CEF, what counts as a banner and
+  as its refusal, and what a page that hides content behind consent
+  does. *Closes when:* frozen pages with common consent banners are
+  answered with their refusal and pages without one are untouched, in
+  tests; the cookie choice is shown in the cookies a test page receives;
+  and by hand on live sites.
+  ***Built (batch 35, 10 November 2026); not ticked: the hand run on live
+  sites, and the gate, are owed*** (the screen was locked, then lent to
+  the owner's rehearsal). ADR 0108. **Cookies**: Chromium's own
+  `profile.cookie_controls_mode` and `profile.default_content_setting_values.cookies`
+  written into each new Chromium's `Default/Preferences` before it starts
+  (`chrome_cookies.rs`; measured on Chrome 157 and CEF 156) — used from
+  the next page alo opens. **Banners**: `consent_banner.rs` finds a
+  banner's refusal by its whole name in the agent's tree — never a consent,
+  never a close, never a second layer — and `consent_answer.rs` presses it
+  with `activate` on the node, four looks per document; the card's bar
+  says *Cookies refused* / *Cookie banner left to you*. **Settings ›
+  Privacy**: two radio groups, Tab and the arrows, `cookies`/`banners`
+  lines kept only when not the default, told to the process at once
+  (`privacy_chosen.rs`). Tests: the three cookie choices through both
+  Chromiums against a local server; frozen OneTrust, Cookiebot, TrustArc
+  refused, Quantcast Choice (*AGREE* only) left, a page with no banner
+  untouched, *Leave them to me* touching nothing — through both; mutations
+  (a consent pressed, nothing pressed, the preferences in the wrong file)
+  each caught; the section's numbers, reference, ring, tree and presses;
+  the bar's line and reference. Cut: 923, 924.
+- [ ] **921. alo remembers what you read, privately (the owner's word, 10
+  November 2026).** "What was that hotel with the pool I looked at last
+  Tuesday?": alo keeps the text of the pages a person reads — the tree as
+  text, never a picture — on this Mac alone, searchable from the box and
+  by the agent, and opens the page again from it. Never kept: a sign-in
+  page, a field's typed value, a page in a site the person excludes, a
+  page behind a password, a bank's. The person can switch it off, exclude
+  a site, and forget a day or everything. An ADR first: what is kept,
+  where, how long, encryption at rest, how it is searched, and what
+  leaves the Mac when a model answers from it. *Closes when:* a page read
+  is found again by words it held, in a test; an excluded and a sign-in
+  page are never kept, in tests; and by hand.
+- [ ] **922. A press on a page scrolled away from its top (cut from 916).**
+  Toolshop's *Add to cart*, in the middle of the card, was refused:
+  *Chrome finds nothing at the middle of box#907*. Measured (Chrome
+  157.0.8103.50, scratchpad `p922/`): `DOM.getContentQuads` answers in the
+  window, `DOM.getNodeForLocation` takes the page's point — the window's
+  plus the layout viewport's `pageX`/`pageY`; on a page scrolled 1408 ×
+  1178 the button's middle 450, 350 was *No node found*, 1858, 1528 the
+  button. Fixed in `chrome_hit.rs` (`node_at`, the point moved by
+  `chrome_protocol::scrolled`), used by `chrome_act`'s `aim` and
+  `chrome_card_list`'s `closed_list_at`. Tests: `chrome_hit.rs`' units,
+  `chrome_protocol`'s `scrolled`, and
+  `a_press_on_a_scrolled_page_through_chrome.rs` (machine's Chrome and the
+  CEF host: a link wrapping a product's card and a button with an icon,
+  on a page that scrolls itself down and across, each `Activated` and
+  heard as a trusted click; the button under the page's fixed overlay
+  `Covered`, unheard) — failing before the fix with `Covered { by: None }`
+  on both Chromiums. Not measured: a page pinched larger than one. Also
+  measured unlocked: the *Activated, never heard* press of 916 is a press
+  made **before the page's listener existed** — the handler set by a
+  script after a three-second parser-blocking one; with the listener set
+  before that script, 2 of 2 presses at 1.3 s were heard. Whether a press
+  should wait for the page to have loaded is its own question, not built.
+
+- [ ] **923. A cookie choice used by the open card at once (cut from
+  920).** Today *Settings › Privacy › Cookies* is written into each new
+  Chromium's profile, so it is used from the next page alo opens and a
+  card already open keeps the choice it opened with (ADR 0108 § 1). The
+  CEF host told the new choice over its pipe and set through
+  `CefRequestContext::SetPreference` — and the machine's Chrome, which has
+  no such road, restarted on the card's page or left as it is, decided —
+  the page loaded again as the shield's switch does. *Depends on 920.*
+- [ ] **924. Cookie banners the frozen pages have not met (cut from
+  920).** ADR 0108 § 2 measured OneTrust, Cookiebot, TrustArc and Quantcast
+  Choice, in English. Not met from this Mac: Didomi and Google's Funding
+  Choices (shown where the law asks for consent), Usercentrics (drawn where
+  `--dump-dom` does not reach), Sourcepoint (a frame from another site,
+  which the tree read of a tab may not hold), and the German, French,
+  Spanish, Italian, Dutch and Portuguese labels on a live page. Each frozen
+  where it is shown and added to `cookie_banners_answered_through_chrome.rs`;
+  a banner in a cross-site frame read and pressed through its own target,
+  or said to be left to the person. *Depends on 920.*
+- [ ] **925. The privacy choice no longer one for the whole process in
+  tests (cut from 920).** A `conversation_window` lib test sets the
+  process-wide privacy choice to *Refuse all cookies* and puts it back when
+  it ends; a Chromium another lib test starts in that window would be
+  given that choice. Make the choice something a Chromium's start is
+  handed, not a global it reads, so no test can change another's — then
+  the race cannot happen rather than being unlikely. *Depends on 920.*
+
 ## K. ★ The agent, on somebody else's pages
 
 The reason this exists rather than a faster fork. ADR 0002 holds here or it does

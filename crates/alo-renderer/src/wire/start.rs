@@ -38,6 +38,7 @@ use crate::card::Card;
 use crate::card_menu::{CardMenu, MenuItem};
 use crate::conversation_scroll::{Bar, MOST};
 use crate::results::MOST_PICTURE_BYTES;
+use crate::settings_privacy::{Banners, Cookies, Privacy};
 use crate::settings_services::{
     Entry, EntryRow, LONGEST_TYPED, MOST_DOTS, ServicePress, ServicesShown, Typed,
 };
@@ -76,6 +77,9 @@ impl Writer {
             (true, Some(SettingsKeyed::Asks)) => 6,
             // *Search and answers* (queue item 905), what of it after.
             (true, Some(SettingsKeyed::Service(_))) => 7,
+            // *Privacy*'s two (queue item 920).
+            (true, Some(SettingsKeyed::Cookies)) => 8,
+            (true, Some(SettingsKeyed::Banners)) => 9,
         });
         if let (true, Some(SettingsKeyed::Service(on))) = (start.settings, start.settings_keyed) {
             self.service_press(on);
@@ -165,6 +169,24 @@ impl Writer {
         self.bool(start.services.is_some());
         if let Some(services) = &start.services {
             self.services(services);
+        }
+        self.privacy(start.privacy);
+    }
+
+    /// *Privacy* (queue item 920), if it is drawn: each choice by its
+    /// place.
+    fn privacy(&mut self, privacy: Option<Privacy>) {
+        self.bool(privacy.is_some());
+        if let Some(privacy) = privacy {
+            self.tag(match privacy.cookies {
+                Cookies::RefuseOthers => 0,
+                Cookies::RefuseAll => 1,
+                Cookies::KeepAll => 2,
+            });
+            self.tag(match privacy.banners {
+                Banners::Answer => 0,
+                Banners::Leave => 1,
+            });
         }
     }
 
@@ -277,6 +299,12 @@ impl Writer {
             self.number(u64::from(shield.blocked));
             self.bool(shield.on);
         }
+        // What alo did with a cookie banner on its page (queue item 920).
+        self.tag(match card.consent {
+            None => 0,
+            Some(crate::card::Consent::Refused) => 1,
+            Some(crate::card::Consent::LeftToYou) => 2,
+        });
         // alo's menu over its page (queue item 798).
         self.bool(card.menu.is_some());
         if let Some(menu) = &card.menu {
@@ -381,6 +409,7 @@ impl Reader<'_> {
         }
         let settings_bar = self.bar()?;
         let services = self.services_drawn(settings_keyed)?;
+        let privacy = self.privacy_drawn(settings_keyed)?;
         Ok(Start {
             greeting,
             sites,
@@ -403,7 +432,40 @@ impl Reader<'_> {
             settings_down,
             settings_bar,
             services,
+            privacy,
         })
+    }
+
+    /// *Privacy*, if it is drawn — refused if the keyboard is on it as
+    /// `keyed` says and it is not (queue item 920).
+    fn privacy_drawn(
+        &mut self,
+        keyed: Option<SettingsKeyed>,
+    ) -> Result<Option<Privacy>, Unreadable> {
+        let privacy = if self.bool()? {
+            let cookies = match self.tag()? {
+                0 => Cookies::RefuseOthers,
+                1 => Cookies::RefuseAll,
+                2 => Cookies::KeepAll,
+                other => return Err(unreadable(format!("a choice of cookies tagged {other}"))),
+            };
+            let banners = match self.tag()? {
+                0 => Banners::Answer,
+                1 => Banners::Leave,
+                other => return Err(unreadable(format!("a choice of banners tagged {other}"))),
+            };
+            Some(Privacy { cookies, banners })
+        } else {
+            None
+        };
+        if privacy.is_none()
+            && matches!(keyed, Some(SettingsKeyed::Cookies | SettingsKeyed::Banners))
+        {
+            return Err(unreadable(
+                "the keyboard on a section of Settings not drawn",
+            ));
+        }
+        Ok(privacy)
     }
 
     /// Whether it is *Settings*, and what of it the keyboard is on, as
@@ -418,6 +480,8 @@ impl Reader<'_> {
             5 => (true, Some(SettingsKeyed::Actions)),
             6 => (true, Some(SettingsKeyed::Asks)),
             7 => (true, Some(SettingsKeyed::Service(self.service_press()?))),
+            8 => (true, Some(SettingsKeyed::Cookies)),
+            9 => (true, Some(SettingsKeyed::Banners)),
             other => return Err(unreadable(format!("a Settings tagged {other}"))),
         })
     }
@@ -661,6 +725,14 @@ impl Reader<'_> {
         } else {
             None
         };
+        let consent = match self.tag()? {
+            0 => None,
+            1 => Some(crate::card::Consent::Refused),
+            2 => Some(crate::card::Consent::LeftToYou),
+            other => {
+                return Err(unreadable(format!("a card's cookie banner tagged {other}")));
+            }
+        };
         let menu = if self.bool()? {
             Some(self.card_menu()?)
         } else {
@@ -678,6 +750,7 @@ impl Reader<'_> {
             // Never sent with the live card: drawn once it is shown earlier.
             ran: Vec::new(),
             shield,
+            consent,
             menu,
         })
     }

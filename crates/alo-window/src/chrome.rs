@@ -33,7 +33,9 @@
 //! cookies and sessions are not this browser's to hand a renderer, and
 //! Chrome refuses to be driven on its default profile anyway. It is empty
 //! but for the one file [`crate::chrome_profile`] writes first, which keeps
-//! Chrome's own encrypted DNS off (ADR 0008, item 635). Its own DNS client is
+//! Chrome's own encrypted DNS off (ADR 0008, item 635), and its first
+//! profile's preferences, which say what it keeps of sites' cookies
+//! ([`crate::chrome_cookies`], ADR 0108). Its own DNS client is
 //! switched off too ([`FEATURES_OFF`], item 650), so every name it looks up
 //! is asked of the machine's resolver.
 //!
@@ -81,6 +83,7 @@ use crate::chrome_record::Record;
 use crate::chrome_told::{self, Told};
 use crate::chrome_wire::{self, Frame, Frames, MOST_MESSAGE, Unframed};
 use crate::scale::Scale;
+use alo_renderer::settings_privacy::Cookies;
 use core::fmt;
 use std::io::ErrorKind;
 use std::io::{BufRead as _, Read as _};
@@ -88,6 +91,12 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStderr, ChildStdin, Command as Process, Stdio};
 use std::sync::mpsc::Receiver;
 use std::time::{Duration, Instant};
+
+/// What a Chromium started now keeps of sites' cookies: what *Settings
+/// › Privacy* chose for the process (ADR 0108 § 1).
+fn cookies_now() -> Cookies {
+    crate::privacy_chosen::process().cookies()
+}
 
 /// How long Chrome is waited for, to answer and to close, unless a caller
 /// asks for another bound. Chrome 155 answers its first command in under a
@@ -374,7 +383,7 @@ impl Chrome {
     ) -> Result<Self, Unstarted> {
         let mut added = as_a_card(chromium, scale);
         added.extend(pinned.map(Pinned::switch));
-        Self::launch(&Self::program(chromium)?, true, &added)
+        Self::launch(&Self::program(chromium)?, true, &added, cookies_now())
     }
 
     /// Start the Chromium `chromium` names, headless or `shown`: the
@@ -388,7 +397,22 @@ impl Chrome {
     /// application's own is not a program at its place, or another
     /// [`Unstarted`].
     pub fn start_from(chromium: &Chromium, shown: bool) -> Result<Self, Unstarted> {
-        Self::launch(&Self::program(chromium)?, shown, &[])
+        Self::launch(&Self::program(chromium)?, shown, &[], cookies_now())
+    }
+
+    /// [`Chrome::start_from`], keeping of sites' cookies what `cookies`
+    /// says rather than what *Settings* chose for the process (ADR 0108 §
+    /// 1): for a test that starts Chromiums under each choice at once.
+    ///
+    /// # Errors
+    ///
+    /// As [`Chrome::start_from`].
+    pub fn start_keeping(
+        chromium: &Chromium,
+        shown: bool,
+        cookies: Cookies,
+    ) -> Result<Self, Unstarted> {
+        Self::launch(&Self::program(chromium)?, shown, &[], cookies)
     }
 
     /// The program `chromium` names: the machine's Chrome where its
@@ -411,18 +435,27 @@ impl Chrome {
     /// Chrome that is not there is never mistaken for one that would not
     /// answer; or another [`Unstarted`].
     pub fn start_at(program: &Path) -> Result<Self, Unstarted> {
-        Self::launch(program, false, &[])
+        Self::launch(program, false, &[], cookies_now())
     }
 
     /// Start the Chrome at `program`, headless or `shown`, with the switches
-    /// `added` after every Chromium's ([`as_a_card`]'s for a card).
-    fn launch(program: &Path, shown: bool, added: &[String]) -> Result<Self, Unstarted> {
+    /// `added` after every Chromium's ([`as_a_card`]'s for a card), its
+    /// profile keeping of sites' cookies what `cookies` says
+    /// ([`crate::chrome_cookies`], ADR 0108 § 1).
+    fn launch(
+        program: &Path,
+        shown: bool,
+        added: &[String],
+        cookies: Cookies,
+    ) -> Result<Self, Unstarted> {
         if !is_program(program) {
             return Err(Unstarted::NotInstalled(NotInstalled {
                 looked: vec![program.to_path_buf()],
             }));
         }
         let profile = new_profile().map_err(|why| Unstarted::NoProfile(why.kind()))?;
+        crate::chrome_cookies::write_into(profile.path(), cookies)
+            .map_err(|why| Unstarted::NoProfile(why.kind()))?;
         let mut user_data = std::ffi::OsString::from("--user-data-dir=");
         user_data.push(profile.path());
         let spawned = Process::new("/bin/sh")

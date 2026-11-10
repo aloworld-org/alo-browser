@@ -1327,7 +1327,8 @@ fn a_conversation_the_renderer_should_not_draw_is_refused() {
         refused(&far)
     );
     // A turn tagged as nothing this engine draws: the tag after the turns'
-    // count, rewritten — back past *Search and answers*' flag (queue item
+    // count, rewritten — back past *Privacy*'s flag (queue item 920),
+    // *Search and answers*' flag (queue item
     // 905), *Settings*' bar's flag and its offset (queue item 886), the
     // bar's flag (none), the offset, the failure's two empty strings and
     // the tag itself.
@@ -1340,7 +1341,7 @@ fn a_conversation_the_renderer_should_not_draw_is_refused() {
     ));
     let tag = bytes
         .len()
-        .checked_sub(1 + 1 + 4 + 1 + 4 + 2 * 8 + 1)
+        .checked_sub(1 + 1 + 1 + 4 + 1 + 4 + 2 * 8 + 1)
         .unwrap_or_else(|| panic!("a turn was written"));
     let _ = bytes.get(tag).map(|written| assert_eq!(*written, 3));
     if let Some(written) = bytes.get_mut(tag) {
@@ -1438,6 +1439,8 @@ fn every_claim_on_the_conversation_survives_the_crossing() {
         FromRenderer::ConversationClaimed(Some(ConversationClaim::Face { at: 0 })),
         FromRenderer::ConversationClaimed(Some(ConversationClaim::Face { at: usize::MAX })),
         FromRenderer::ConversationClaimed(Some(ConversationClaim::LeaveSettings)),
+        // Queue item 920: a choice *Privacy* offers.
+        FromRenderer::ConversationClaimed(Some(ConversationClaim::Privacy { at: 4 })),
     ];
     for original in messages {
         let bytes = write_from_renderer(&original);
@@ -3219,7 +3222,7 @@ fn settings_and_where_the_keyboard_is_on_it_cross_and_nothing_else_does() {
     assert_eq!(differing.len(), 1, "{differing:?}");
     let at = differing.first().copied().unwrap_or_default();
     assert_eq!((back.get(at), font.get(at)), (Some(&2), Some(&3)));
-    for hostile in [8_u8, 9, 255] {
+    for hostile in [10_u8, 255] {
         let mut bytes = font.clone();
         if let Some(byte) = bytes.get_mut(at) {
             *byte = hostile;
@@ -3286,6 +3289,83 @@ fn search_and_answers_crosses_and_a_key_never_does() {
             .contains("a field holding more than it can"),
         "{refused}"
     );
+}
+
+/// Queue item 920: *Privacy*'s choices cross as themselves, the keyboard
+/// on either group; a choice of a tag no writer writes is refused; and a
+/// card's word on its cookie banner crosses, any other refused.
+#[test]
+fn privacy_and_a_cards_cookie_banner_cross_as_sent() {
+    use alo_renderer::settings_privacy::{Banners, Cookies, Privacy};
+    for cookies in Cookies::ALL {
+        for banners in Banners::ALL {
+            for keyed in [
+                None,
+                Some(SettingsKeyed::Cookies),
+                Some(SettingsKeyed::Banners),
+            ] {
+                let crossing = ToRenderer::Start(Box::new(Start {
+                    settings: true,
+                    settings_keyed: keyed,
+                    privacy: Some(Privacy { cookies, banners }),
+                    ..Start::default()
+                }));
+                assert_eq!(
+                    read_to_renderer(&write_to_renderer(&crossing)).ok(),
+                    Some(crossing.clone())
+                );
+            }
+        }
+    }
+    // The keyboard on either group of a *Privacy* not drawn is refused.
+    for keyed in [SettingsKeyed::Cookies, SettingsKeyed::Banners] {
+        let refused = read_to_renderer(&write_to_renderer(&ToRenderer::Start(Box::new(Start {
+            settings: true,
+            settings_keyed: Some(keyed),
+            ..Start::default()
+        }))))
+        .expect_err("refused");
+        assert!(
+            refused
+                .to_string()
+                .contains("the keyboard on a section of Settings not drawn"),
+            "{refused}"
+        );
+    }
+    // The last two bytes are the choices: a third banners' is no tag.
+    let mut bytes = write_to_renderer(&ToRenderer::Start(Box::new(Start {
+        settings: true,
+        privacy: Some(Privacy::default()),
+        ..Start::default()
+    })));
+    if let Some(last) = bytes.last_mut() {
+        *last = 2;
+    }
+    let refused = read_to_renderer(&bytes).expect_err("refused");
+    assert!(
+        refused.to_string().contains("a choice of banners tagged 2"),
+        "{refused}"
+    );
+    // A card's word on its page's cookie banner, each, and none.
+    for consent in [
+        None,
+        Some(alo_renderer::card::Consent::Refused),
+        Some(alo_renderer::card::Consent::LeftToYou),
+    ] {
+        let mut card = alo_renderer::card::Card::new(
+            "a page",
+            alo_url::parse("https://example.com/").unwrap_or_else(|_| panic!("parses")),
+        );
+        card.consent = consent;
+        let crossing = ToRenderer::Start(Box::new(Start {
+            turns: vec![Turn::Page(card)],
+            ..Start::default()
+        }));
+        assert_eq!(
+            read_to_renderer(&write_to_renderer(&crossing)).ok(),
+            Some(crossing.clone())
+        );
+    }
 }
 
 /// Queue item 886: over a conversation scrolled its own way, *Settings*

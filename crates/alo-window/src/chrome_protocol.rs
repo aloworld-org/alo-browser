@@ -239,10 +239,15 @@ pub enum Command {
     /// `DOM.getNodeForLocation`: what a person pressing this point would
     /// press — never a way of choosing what to act on (ADR 0002), only of
     /// checking that a click lands on the thing an agent named.
+    ///
+    /// Its point is the **page's**, not the window's: the window's point
+    /// plus how far the page is scrolled ([`scrolled`]; measured against
+    /// Chrome 157, queue item 922). Asked through
+    /// [`crate::chrome_hit::node_at`], which moves it.
     NodeAt {
-        /// In CSS pixels of the window, as Chrome takes them: whole.
+        /// In CSS pixels of the page, as Chrome takes them: whole.
         x: i64,
-        /// In CSS pixels of the window, as Chrome takes them: whole.
+        /// In CSS pixels of the page, as Chrome takes them: whole.
         y: i64,
     },
     /// `Input.dispatchMouseEvent`, with the left button.
@@ -1658,6 +1663,32 @@ pub fn window(result: &[u8]) -> Result<(f64, f64), Malformed> {
             .ok_or(bad)
     };
     Ok((length("clientWidth")?, length("clientHeight")?))
+}
+
+/// How far the page is scrolled in its window, from `Page.getLayoutMetrics`'s
+/// `cssLayoutViewport`: its `pageX` and `pageY`, in CSS pixels — what a
+/// point of the window is moved by to be the page's, as
+/// [`Command::NodeAt`] takes it (queue item 922).
+///
+/// # Errors
+///
+/// [`Malformed`], for a result without a `cssLayoutViewport` holding a
+/// finite `pageX` and `pageY`.
+pub fn scrolled(result: &[u8]) -> Result<(f64, f64), Malformed> {
+    let bad = Malformed::BadField {
+        field: "cssLayoutViewport",
+    };
+    let Some(Value::Object(viewport)) = object(result)?.get("cssLayoutViewport").cloned() else {
+        return Err(bad);
+    };
+    let offset = |name: &str| {
+        viewport
+            .get(name)
+            .and_then(Value::as_f64)
+            .filter(|n| n.is_finite())
+            .ok_or(bad)
+    };
+    Ok((offset("pageX")?, offset("pageY")?))
 }
 
 /// An element, as `DOM.describeNode` describes it.
@@ -3668,6 +3699,14 @@ mod tests {
             ),
             Ok((600.0, 700.0))
         );
+        // Chrome 157's, on a page scrolled 1408 across and 1178 down
+        // (queue item 922).
+        assert_eq!(
+            scrolled(
+                br#"{"cssLayoutViewport":{"pageX":1408,"pageY":1178,"clientWidth":900,"clientHeight":700},"cssVisualViewport":{"offsetX":0,"offsetY":0,"pageX":1408,"pageY":1178,"clientWidth":900,"clientHeight":700,"scale":1,"zoom":1}}"#
+            ),
+            Ok((1408.0, 1178.0))
+        );
     }
 
     #[test]
@@ -3858,6 +3897,11 @@ mod tests {
             Err(Malformed::NotJson)
         );
         let field = "cssLayoutViewport";
+        assert_eq!(scrolled(b"{}"), bad(field));
+        assert_eq!(
+            scrolled(br#"{"cssLayoutViewport":{"pageX":1}}"#),
+            bad(field)
+        );
         assert_eq!(window(b"{}"), bad(field));
         assert_eq!(
             window(br#"{"cssLayoutViewport":{"clientWidth":-1,"clientHeight":1}}"#),

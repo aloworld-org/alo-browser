@@ -138,7 +138,8 @@ about this project (ADR 0058 § 6).
 ### Where the product path stands today
 
 - **Built:** the window (296); the agent socket, a Unix socket and never a port
-  (496); a grant per site, refused by us and recorded (497); the tree, the
+  (496), its answers printed for a person by `alo-ask --plain` and shown to
+  developers in `docs/drive-alo.md` (915); a grant per site, refused by us and recorded (497); the tree, the
   verbs and the refusals, driven on a real external page (131); Chrome spawned
   and spoken to over a pipe (619); a frozen page opened in Chrome and its tree
   read as ours, agreeing with the engine's on every role, name and state they
@@ -2629,7 +2630,13 @@ items where being right and being unusable are the same outcome.
       chosen as it is made, and *Settings › Search and answers* choosing
       them and keeping a person's own keys in their keychain (904–906, ADR
       0106) · Owed: a SearXNG's pictures (907), a service changed used at
-      once (908), a Settings field edited as the box is (909)
+      once (908), a Settings field edited as the box is (909) · Built:
+      other sites' cookies refused by default, every site's or none as a
+      person chooses, and a page's cookie banner answered with its refusal
+      by name, never a consent, in *Settings › Privacy* (920, ADR 0108; its
+      hand run on live sites owed) · Owed: a cookie choice used by the
+      open card at once (923), the platforms and languages not yet frozen
+      (924)
 - [ ] A window, tabs, and a tab strip
       · Built: the window (296, `alo-window`, binary `alo`, decided in ADR
       0024). `winit` and `softbuffer` are rented through safe functions

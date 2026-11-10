@@ -127,8 +127,10 @@ words to find sites - its results come back numbered as the step's outcome - the
 the number of a result, or open with an address the person named or that you know; you are \
 told how many more sites you may open, and following a link inside a site opens none. Never \
 open an address on this machine or its network unless the person wrote it. In step, say what you are doing in a few plain words a person reads, such as \
-Typing \"Kampala\" into Search Wikipedia; in why, say why only when you chose between things, \
-and otherwise leave it empty. With your first action give plan: two to five short steps of \
+Typing \"Kampala\" into Search Wikipedia; in why, say why only when you chose between things; \
+and when you open another page, say in why what you read on this page that you will still \
+need, such as an error's words and where it is, because a page you leave is not sent to you \
+again; otherwise leave why empty. Each step so far is sent with its why. With your first action give plan: two to five short steps of \
 the whole task, a few words each, such as Search for Kampala; after that give plan as null, \
 unless the plan must change, and then give the whole new plan. In on, give the number of the \
 step of the plan this action is for, counting from 1. You are sent the plan as it stands. If \
@@ -150,6 +152,11 @@ pub struct Taken {
     /// What the step was, in the words the model gave it — or, for the
     /// person's, [`PERSON`].
     pub step: String,
+    /// Why, in the model's own words as it gave them with the step — and,
+    /// for a step that left a page, what it read there and still needs,
+    /// since a page left is not sent again (queue item 915). Empty when it
+    /// gave none, and for the person's.
+    pub why: String,
     /// What came of it, in this browser's words: the verb's outcome or its
     /// refusal — or what the person changed.
     pub came_to: String,
@@ -203,7 +210,7 @@ fn tool(name: &str, description: &str, properties: &Value, required: &[&str]) ->
 pub fn tools() -> Value {
     let node = json!({ "type": "integer", "description": "The node's number in the tree." });
     let step = json!({ "type": "string", "description": "What you are doing, in a few plain words a person reads." });
-    let why = json!({ "type": "string", "description": "Why, only when you chose between things; otherwise empty." });
+    let why = json!({ "type": "string", "description": "Why, only when you chose between things; or, opening another page, what you read on this one that you will still need; otherwise empty." });
     let plan = json!({
         "type": ["array", "null"],
         "items": { "type": "string" },
@@ -291,7 +298,15 @@ pub fn request_body(model: &str, asking: &Asking<'_>) -> Vec<u8> {
     let steps: Vec<Value> = asking
         .steps
         .iter()
-        .map(|taken| json!({ "step": taken.step, "came_to": taken.came_to }))
+        .map(|taken| {
+            // A step's why is sent back only when it gave one (queue item
+            // 915): what it read on a page it has left.
+            if taken.why.is_empty() {
+                json!({ "step": taken.step, "came_to": taken.came_to })
+            } else {
+                json!({ "step": taken.step, "why": taken.why, "came_to": taken.came_to })
+            }
+        })
         .collect();
     // The plan as it stands, each step's place: the model is sent it each
     // time, since no request names another (queue item 824).
@@ -785,6 +800,7 @@ mod tests {
     fn the_request_holds_what_was_asked_the_page_and_the_steps_and_nothing_else() {
         let steps = [Taken {
             step: "Typing \u{201c}Ada\u{201d} into Name".to_owned(),
+            why: String::new(),
             came_to: "put \"Ada\" into box#4".to_owned(),
             person: false,
         }];
@@ -1011,6 +1027,7 @@ mod tests {
         };
         let steps = [Taken {
             step: PERSON.to_owned(),
+            why: String::new(),
             came_to: "The field \u{201c}Search\u{201d} went from \u{201c}Kampala\u{201d} to \u{201c}Entebbe\u{201d}."
                 .to_owned(),
             person: true,
@@ -1051,6 +1068,54 @@ mod tests {
                 .unwrap()
                 .contains("do not undo")
         );
+    }
+
+    #[test]
+    fn a_steps_why_is_sent_back_so_what_a_page_left_said_is_not_lost() {
+        // Queue item 915, measured on 10 November 2026: a run that opened
+        // the file a failing run named went back to the run to read the
+        // error again, and again, having no words of it once it left.
+        let steps = [
+            Taken {
+                step: "Opening flash.go at line 72".to_owned(),
+                why: "The run's lint error: flash.go#L72 wrapperFunc (gocritic)".to_owned(),
+                came_to: "Opened https://github.com/o/r/blob/c/flash.go#L72".to_owned(),
+                person: false,
+            },
+            Taken {
+                step: "Pressing Next".to_owned(),
+                why: String::new(),
+                came_to: "activated box#3".to_owned(),
+                person: false,
+            },
+        ];
+        let body = request_body(
+            "a-model",
+            &Asking {
+                asked: "find the error and open the file",
+                plan: None,
+                address: "https://github.com/o/r/blob/c/flash.go",
+                tree: "[1] document\n",
+                steps: &steps,
+                left: 17,
+                sites_left: 3,
+            },
+        );
+        let body: Value = serde_json::from_slice(&body).unwrap();
+        let content: Value =
+            serde_json::from_str(body["input"][0]["content"].as_str().unwrap()).unwrap();
+        assert_eq!(
+            content["steps"][0]["why"],
+            json!("The run's lint error: flash.go#L72 wrapperFunc (gocritic)")
+        );
+        // A step with no why is sent as before, with none.
+        assert_eq!(
+            content["steps"][1],
+            json!({ "step": "Pressing Next", "came_to": "activated box#3" })
+        );
+        let instructions = body["instructions"].as_str().unwrap();
+        assert!(instructions.contains("a page you leave is not sent to you again"));
+        assert!(instructions.contains("Each step so far is sent with its why"));
     }
 
     fn read_call(name: &str, arguments: &Value) -> Result<Call, Unread> {

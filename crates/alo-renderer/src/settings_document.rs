@@ -19,7 +19,9 @@
 //! the one chosen ([`Start::face`]) — an `<input type=radio>`, drawn as
 //! Chrome draws one, in the ink — and, under it, **alo at work** (queue
 //! item 878, [`crate::settings_work_document`]) and **Search and answers**
-//! (ADR 0106, queue item 905, [`crate::settings_services_document`]).
+//! (ADR 0106, queue item 905, [`crate::settings_services_document`]), and
+//! **Privacy** (ADR 0108, queue item 920,
+//! [`crate::settings_privacy_document`]).
 //!
 //! # Each face shown as it would be
 //!
@@ -149,6 +151,12 @@ pub fn put(document: &mut Document, start: &Start) -> Result<(), Unbuilt> {
             _ => None,
         };
         let section = crate::settings_services_document::make(document, services, keyed)?;
+        append(document, page, section)?;
+    }
+    // *Privacy*, under it (ADR 0108, queue item 920).
+    if let Some(privacy) = start.privacy {
+        let section =
+            crate::settings_privacy_document::make(document, privacy, start.settings_keyed)?;
         append(document, page, section)?;
     }
     Ok(())

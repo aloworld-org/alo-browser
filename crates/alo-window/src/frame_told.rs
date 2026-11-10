@@ -86,6 +86,9 @@ pub enum ToFrame {
     /// Where the person is typing on the card's page, as an input method's
     /// composition begins (queue item 802).
     Caret(crate::chrome_card_caret::Caret),
+    /// What was done with a cookie banner on the page streamed for the
+    /// conversation's card (ADR 0108, queue item 920).
+    Consent(crate::consent_answer::Answered),
 }
 
 /// What a stream of frames came to, told as it stops.

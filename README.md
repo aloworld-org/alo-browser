@@ -60,6 +60,15 @@ Two things follow that no existing engine offers:
   row three selected" — and acts on it through typed verbs, never coordinates.
   Most AI browsers photograph somebody else's page and guess where to click.
 
+## Drive it from your code
+
+A program on your Mac reads a page in alo as a tree — what each thing *is*
+and what it is called — and presses, types and chooses by name, one JSON
+line at a time over a socket only your own programs can open. No selectors,
+screenshots or coordinates, and no AI key. See
+[Drive alo from your code](docs/drive-alo.md), and
+[`docs/demo.md`](docs/demo.md) for a short demonstration to record.
+
 ## Your own services
 
 alo does not tie anyone to one search engine or one AI. Searching, a

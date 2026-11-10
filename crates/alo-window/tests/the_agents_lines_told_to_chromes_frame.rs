@@ -121,7 +121,8 @@ fn agents_line(news: ToFrame) -> Option<AgentLine> {
         | ToFrame::Blocked { .. }
         | ToFrame::Told(_)
         | ToFrame::ListPressed
-        | ToFrame::Caret(_) => None,
+        | ToFrame::Caret(_)
+        | ToFrame::Consent(_) => None,
     }
 }
 

@@ -580,7 +580,15 @@ impl ConversationWindow {
                 // The person's limits, read as the run starts and kept for
                 // the whole of it (queue item 878).
                 let limits = self.conversation.settings().limits();
-                match agent.start(number, asked, Arc::clone(tell), limits) {
+                // Asked on a card — one still opening among them — or with
+                // no page (queue item 915): the conversation started it on
+                // the card on screen, if there is one, a moment ago.
+                let begins = if self.conversation.card().is_some() {
+                    crate::conversation_agent::Begins::OnACard
+                } else {
+                    crate::conversation_agent::Begins::WithNoPage
+                };
+                match agent.start(number, asked, begins, Arc::clone(tell), limits) {
                     Ok(run) => {
                         self.run = Some(run);
                         self.following = true;
@@ -804,7 +812,11 @@ impl ConversationWindow {
     ) -> Self {
         self.conversation = std::mem::take(&mut self.conversation)
             .set_in(read.face)
-            .limited_to(read.limits);
+            .limited_to(read.limits)
+            .private_as(read.privacy);
+        // *Privacy*'s choices, for every Chromium started and every page
+        // loaded from now (ADR 0108, queue item 920).
+        crate::privacy_chosen::process().set(read.privacy);
         if let Some(said) = read.said {
             self.tell(said);
         }
@@ -975,9 +987,13 @@ impl ConversationWindow {
         let settings = self.conversation.settings();
         let named = self.conversation.services().named().clone();
         let kept = match &self.settings {
-            Some(file) => {
-                crate::settings_file::write(file, settings.face(), settings.limits(), &named)
-            }
+            Some(file) => crate::settings_file::write(
+                file,
+                settings.face(),
+                settings.limits(),
+                &named,
+                settings.privacy(),
+            ),
             None => Err("there is nowhere to keep it".to_owned()),
         };
         match kept {
@@ -1003,20 +1019,40 @@ impl ConversationWindow {
         let face = self.conversation.take_face_chosen();
         // How far alo's agent may go, kept beside the face (queue item 878).
         let limited = self.conversation.take_limits_changed();
-        if face.is_none() && !limited {
+        // *Privacy*'s choices (queue item 920): told to the whole process
+        // at once — the next Chromium started, the next page loaded — and
+        // kept beside the face.
+        let private = self.conversation.take_privacy_changed();
+        if face.is_none() && !limited && !private {
             return;
         }
         let settings = self.conversation.settings();
+        if private {
+            crate::privacy_chosen::process().set(settings.privacy());
+        }
         let kept = match &self.settings {
             Some(file) => crate::settings_file::write(
                 file,
                 settings.face(),
                 settings.limits(),
                 self.conversation.services().named(),
+                settings.privacy(),
             ),
             None => Err("there is nowhere to keep it".to_owned()),
         };
         let limits = settings.limits();
+        if private && face.is_none() && !limited {
+            let privacy = settings.privacy();
+            match kept {
+                Ok(()) => self.said.push(format!(
+                    "Privacy: {} from the next page alo opens; cookie banners: {} (Settings)",
+                    privacy.cookies.said(),
+                    privacy.banners.said()
+                )),
+                Err(why) => self.tell(format!("the privacy choice is not kept: {why}")),
+            }
+            return;
+        }
         match (kept, face) {
             (Ok(()), Some(face)) => self.said.push(format!(
                 "alo is set in {}, as chosen in Settings",
@@ -2285,7 +2321,9 @@ impl ConversationWindow {
             | Went::Told(_) => {}
             // Said on the terminal only, one line a request: the card shows
             // nothing of it yet (ADR 0094 § 6).
-            Went::Blocked { .. } => self.said.push(said.clone()),
+            // A cookie banner answered: said on the terminal in full, and
+            // quietly in the card's bar (ADR 0108 § 4).
+            Went::Blocked { .. } | Went::Consent(_) => self.said.push(said.clone()),
             // A card put away for a search's results, its page closed
             // after: the line says the search (queue item 708).
             Went::Shut(_) if self.conversation.card().is_none() => {}
@@ -2323,6 +2361,7 @@ impl ConversationWindow {
             }
             Went::Moved(url) => self.conversation.moved_card(url),
             Went::Loading(loading) => self.conversation.card_loading(loading),
+            Went::Consent(answered) => self.conversation.card_consent(answered.consent()),
             Went::Travel(travel) => self.conversation.card_travel(travel),
             // A page not opened leaves why in its turn; one that went on
             // its own leaves its address (queue item 703).
@@ -4396,6 +4435,7 @@ mod tests {
                     face: InterfaceFace::Inter,
                     limits: five,
                     services: crate::services::Named::default(),
+                    privacy: alo_renderer::settings_privacy::Privacy::default(),
                     said: None,
                 },
                 None,
@@ -4778,6 +4818,80 @@ mod tests {
         assert_eq!(window.start_said, opening);
         assert_eq!(window.told(), None);
         window.finish();
+    }
+
+    /// Queue item 920, ADR 0108 § 4: a cookie banner answered on the card's
+    /// page is said in full on the terminal and quietly in the card's bar;
+    /// one left to the person, or whose refusal could not be pressed, says
+    /// so — the first screen's line keeps what it said.
+    #[test]
+    fn a_cookie_banner_answered_is_said_in_the_cards_bar_and_on_the_terminal() {
+        use crate::consent_answer::Answered;
+        use alo_renderer::card::Consent;
+        let mut window = window();
+        window.heard(Heard::Drawn(Drawn::Pressed(Part::Start, Decided::TheBox)));
+        type_and_return(&mut window, "example.com");
+        let url = window.conversation().going().cloned().unwrap();
+        window.heard(Heard::Chrome(Went::Opening(url)));
+        let opening = window.start_said.clone();
+        let _ = window.take_redraw();
+        let _ = window.take_said();
+        let refused = Answered::Refused {
+            name: "Reject all".to_owned(),
+        };
+        window.heard(Heard::Chrome(Went::Consent(refused.clone())));
+        assert_eq!(
+            window.conversation().card().and_then(|card| card.consent),
+            Some(Consent::Refused)
+        );
+        assert!(window.take_redraw(), "the card is drawn again");
+        assert_eq!(window.take_said(), vec![refused.said()]);
+        assert_eq!(window.start_said, opening);
+        let unpressed = Answered::NotPressed {
+            name: "Reject all".to_owned(),
+            why: "something stands over it".to_owned(),
+        };
+        window.heard(Heard::Chrome(Went::Consent(unpressed.clone())));
+        assert_eq!(
+            window.conversation().card().and_then(|card| card.consent),
+            Some(Consent::LeftToYou)
+        );
+        assert_eq!(window.take_said(), vec![unpressed.said()]);
+        window.finish();
+    }
+
+    /// Queue item 920: a choice of *Privacy* pressed is kept in the
+    /// settings file at once, only as a person changed it.
+    #[test]
+    fn a_privacy_choice_pressed_is_kept_in_the_settings_file() {
+        use alo_renderer::settings_privacy::{Cookies, PrivacyPress};
+        let root = std::env::temp_dir().join(format!("alo-window-privacy-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let file = root.join("settings.txt");
+        let mut window =
+            window().with_settings(crate::settings_file::read(&file), Some(file.clone()));
+        window.heard(Heard::Drawn(Drawn::Pressed(Part::Panel, Decided::Settings)));
+        window.heard(Heard::Drawn(Drawn::Pressed(
+            Part::Start,
+            Decided::Privacy(PrivacyPress::Cookies(Cookies::RefuseAll)),
+        )));
+        let kept = std::fs::read_to_string(&file).unwrap_or_default();
+        assert!(kept.ends_with("asks never\ncookies all\n"), "{kept}");
+        assert_eq!(
+            crate::settings_file::read(&file).privacy.cookies,
+            Cookies::RefuseAll
+        );
+        assert!(
+            window
+                .take_said()
+                .iter()
+                .any(|line| line.starts_with("Privacy: Refuse all cookies")),
+        );
+        window.finish();
+        // The process's choice, set by the press, put back for the rest of
+        // this program's tests.
+        crate::privacy_chosen::process().set(alo_renderer::settings_privacy::Privacy::default());
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]

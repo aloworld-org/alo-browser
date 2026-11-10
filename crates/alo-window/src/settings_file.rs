@@ -27,7 +27,11 @@
 //! which services alo asks: `search` and `brave` or `searxng`, `searxng`
 //! and a `SearXNG`'s address, `answers` and `openai`
 //! ([`crate::services::Named`]), each only if a person chose it — so a
-//! release's own default is never frozen into a person's file. **No key is
+//! release's own default is never frozen into a person's file. Since ADR
+//! 0108 (queue item 920), *Privacy*'s choices: `cookies` and `others`,
+//! `all` or `keep`, and `banners` and `answer` or `leave`, each only when
+//! it is not the default — so a file names only what a person changed,
+//! and a file written before them reads as the defaults. **No key is
 //! ever in it**: a person's key is kept in their keychain
 //! ([`crate::service_keys`]). Lines that are empty or begin with `#` are
 //! passed over. Nothing in it leaves the machine.
@@ -46,6 +50,7 @@
 use crate::services::Named;
 use alo_renderer::agent_limits::{Asks, Limits};
 use alo_renderer::interface_face::InterfaceFace;
+use alo_renderer::settings_privacy::{Banners, Cookies, Privacy};
 use std::fs::{self, DirBuilder, File, OpenOptions};
 use std::io::{Read as _, Write as _};
 use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt, PermissionsExt};
@@ -69,6 +74,14 @@ const ACTIONS: &str = "actions";
 /// The word a line saying before which sites alo asks begins with.
 const ASKS: &str = "asks";
 
+/// The word a line saying what is kept of sites' cookies begins with
+/// (queue item 920).
+const COOKIES: &str = "cookies";
+
+/// The word a line saying whether cookie banners are answered begins
+/// with.
+const BANNERS: &str = "banners";
+
 /// The most bytes a settings file is read to: far past any alo writes.
 pub const LARGEST: u64 = 4096;
 
@@ -90,6 +103,9 @@ pub struct Read {
     pub limits: Limits,
     /// Which services it names (ADR 0106 § 3): none, when it does not read.
     pub services: Named,
+    /// *Privacy*'s choices (ADR 0108): the defaults, when it names none or
+    /// does not read.
+    pub privacy: Privacy,
     /// Why the file did not read, when it did not, in words naming it: the
     /// face is then Inter.
     pub said: Option<String>,
@@ -99,16 +115,23 @@ pub struct Read {
 /// Inter and why, when it does not read.
 pub fn read(file: &Path) -> Read {
     match read_kept(file) {
-        Ok((face, limits, services)) => Read {
+        Ok(Kept {
             face,
             limits,
             services,
+            privacy,
+        }) => Read {
+            face,
+            limits,
+            services,
+            privacy,
             said: None,
         },
         Err(why) => Read {
             face: InterfaceFace::Inter,
             limits: Limits::default(),
             services: Named::default(),
+            privacy: Privacy::default(),
             said: Some(format!(
                 "the settings in {} do not read ({why}), so alo is set in Inter",
                 file.display()
@@ -117,13 +140,26 @@ pub fn read(file: &Path) -> Read {
     }
 }
 
-/// The face, the limits and the services `file` names, or why it does not
-/// read.
-fn read_kept(file: &Path) -> Result<(InterfaceFace, Limits, Named), String> {
+/// Everything a settings file names.
+struct Kept {
+    face: InterfaceFace,
+    limits: Limits,
+    services: Named,
+    privacy: Privacy,
+}
+
+/// The face, the limits, the services and *Privacy*'s choices `file`
+/// names, or why it does not read.
+fn read_kept(file: &Path) -> Result<Kept, String> {
     let opened = match File::open(file) {
         Ok(opened) => opened,
         Err(why) if why.kind() == std::io::ErrorKind::NotFound => {
-            return Ok((InterfaceFace::Inter, Limits::default(), Named::default()));
+            return Ok(Kept {
+                face: InterfaceFace::Inter,
+                limits: Limits::default(),
+                services: Named::default(),
+                privacy: Privacy::default(),
+            });
         }
         Err(why) => return Err(format!("it could not be opened: {why}")),
     };
@@ -139,6 +175,7 @@ fn read_kept(file: &Path) -> Result<(InterfaceFace, Limits, Named), String> {
     let mut face = None;
     let (mut sites, mut actions, mut asks) = (None, None, None);
     let mut services = Named::default();
+    let (mut cookies, mut banners) = (None, None);
     for line in text.lines().map(str::trim) {
         if line.is_empty() || line.starts_with('#') {
             continue;
@@ -176,6 +213,19 @@ fn read_kept(file: &Path) -> Result<(InterfaceFace, Limits, Named), String> {
                     return Err(twice("when alo asks"));
                 }
             }
+            // *Privacy* (ADR 0108, queue item 920).
+            COOKIES => {
+                let chosen = Cookies::of_word(rest).ok_or_else(|| unread_choice(line))?;
+                if cookies.replace(chosen).is_some() {
+                    return Err(twice("what is kept of cookies"));
+                }
+            }
+            BANNERS => {
+                let chosen = Banners::of_word(rest).ok_or_else(|| unread_choice(line))?;
+                if banners.replace(chosen).is_some() {
+                    return Err(twice("whether cookie banners are answered"));
+                }
+            }
             // Which services alo asks (ADR 0106 § 3).
             _ if services.read_line(word, rest)? => {}
             _ => {
@@ -194,7 +244,24 @@ fn read_kept(file: &Path) -> Result<(InterfaceFace, Limits, Named), String> {
         asks.unwrap_or(default.asks),
     )
     .ok_or_else(|| "it names a limit for alo at work past its bounds".to_owned())?;
-    Ok((face, limits, services))
+    let privacy = Privacy {
+        cookies: cookies.unwrap_or_default(),
+        banners: banners.unwrap_or_default(),
+    };
+    Ok(Kept {
+        face,
+        limits,
+        services,
+        privacy,
+    })
+}
+
+/// Why a line giving a choice of *Privacy* does not read.
+fn unread_choice(line: &str) -> String {
+    format!(
+        "it holds a privacy choice alo does not read: {:?}",
+        said(line)
+    )
 }
 
 /// Why a line giving a limit does not read.
@@ -207,20 +274,32 @@ fn said(line: &str) -> String {
     line.chars().take(SAID_OF_A_LINE).collect()
 }
 
-/// What [`write`] puts in the file for `face`, `limits` and the `services`
-/// named.
-pub fn text_of(face: InterfaceFace, limits: Limits, services: &Named) -> String {
-    format!(
+/// What [`write`] puts in the file for `face`, `limits`, the `services`
+/// named and `privacy` — each of *Privacy*'s choices only when it is not
+/// the default.
+pub fn text_of(face: InterfaceFace, limits: Limits, services: &Named, privacy: Privacy) -> String {
+    let mut text = format!(
         "{HEADER}\n{FONT} {}\n{SITES} {}\n{ACTIONS} {}\n{ASKS} {}\n{}",
         face.name(),
         limits.sites,
         limits.actions,
         limits.asks.word(),
         services.lines()
-    )
+    );
+    if privacy.cookies != Cookies::default() {
+        for word in [COOKIES, " ", privacy.cookies.word(), "\n"] {
+            text.push_str(word);
+        }
+    }
+    if privacy.banners != Banners::default() {
+        for word in [BANNERS, " ", privacy.banners.word(), "\n"] {
+            text.push_str(word);
+        }
+    }
+    text
 }
 
-/// Keep `face`, `limits` and the `services` named in `file`, whole or not at all, readable by
+/// Keep `face`, `limits`, the `services` named and `privacy` in `file`, whole or not at all, readable by
 /// this user alone; its directory made, readable by this user alone, if it
 /// is not there.
 ///
@@ -232,6 +311,7 @@ pub fn write(
     face: InterfaceFace,
     limits: Limits,
     services: &Named,
+    privacy: Privacy,
 ) -> Result<(), String> {
     let failed = |why: std::io::Error| format!("{} could not be written: {why}", file.display());
     if let Some(directory) = file.parent()
@@ -255,7 +335,7 @@ pub fn write(
         .map_err(failed)?;
     out.set_permissions(fs::Permissions::from_mode(0o600))
         .map_err(failed)?;
-    out.write_all(text_of(face, limits, services).as_bytes())
+    out.write_all(text_of(face, limits, services, privacy).as_bytes())
         .map_err(failed)?;
     out.sync_all().map_err(failed)?;
     drop(out);
@@ -289,9 +369,66 @@ mod tests {
                 face: InterfaceFace::Inter,
                 limits: Limits::default(),
                 services: Named::default(),
+                privacy: Privacy::default(),
                 said: None
             }
         );
+    }
+
+    /// Queue item 920: each of *Privacy*'s choices kept as a word, only
+    /// when it is not the default, and read back; a file of an older alo,
+    /// naming none, the defaults; an odd one or one named twice said.
+    #[test]
+    fn privacys_choices_are_kept_only_when_not_the_default_and_read_back() {
+        let directory = scratch("privacy");
+        let file = file_in(&directory);
+        write(
+            &file,
+            InterfaceFace::Inter,
+            Limits::default(),
+            &Named::default(),
+            Privacy::default(),
+        )
+        .expect("written");
+        let text = fs::read_to_string(&file).unwrap_or_default();
+        assert!(
+            !text.contains("cookies") && !text.contains("banners"),
+            "{text}"
+        );
+        assert_eq!(read(&file).privacy, Privacy::default());
+        for cookies in Cookies::ALL {
+            for banners in Banners::ALL {
+                let made = Privacy { cookies, banners };
+                write(
+                    &file,
+                    InterfaceFace::Inter,
+                    Limits::default(),
+                    &Named::default(),
+                    made,
+                )
+                .expect("written");
+                let back = read(&file);
+                assert_eq!((back.privacy, back.said), (made, None));
+                let text = fs::read_to_string(&file).unwrap_or_default();
+                assert_eq!(
+                    text.contains(&format!("cookies {}\n", cookies.word())),
+                    cookies != Cookies::default(),
+                    "{text}"
+                );
+                assert_eq!(
+                    text.contains(&format!("banners {}\n", banners.word())),
+                    banners != Banners::default(),
+                    "{text}"
+                );
+            }
+        }
+        for odd in ["cookies none", "banners never", "cookies all\ncookies keep"] {
+            fs::write(&file, format!("{HEADER}\nfont Inter\n{odd}\n")).expect("written");
+            let back = read(&file);
+            assert_eq!(back.privacy, Privacy::default(), "{odd}");
+            assert!(back.said.is_some(), "{odd}");
+        }
+        let _ = fs::remove_dir_all(&directory);
     }
 
     #[test]
@@ -300,13 +437,14 @@ mod tests {
         let file = file_in(&directory);
         let limits = Limits::checked(5, 45, Asks::Every).expect("within");
         for face in InterfaceFace::ALL {
-            write(&file, face, limits, &Named::default()).expect("written");
+            write(&file, face, limits, &Named::default(), Privacy::default()).expect("written");
             assert_eq!(
                 read(&file),
                 Read {
                     face,
                     limits,
                     services: Named::default(),
+                    privacy: Privacy::default(),
                     said: None
                 }
             );
@@ -339,7 +477,14 @@ mod tests {
         let file = file_in(&directory);
         for asks in Asks::ALL {
             let limits = Limits::checked(3, 20, asks).expect("within");
-            write(&file, InterfaceFace::Inter, limits, &Named::default()).expect("written");
+            write(
+                &file,
+                InterfaceFace::Inter,
+                limits,
+                &Named::default(),
+                Privacy::default(),
+            )
+            .expect("written");
             assert_eq!(read(&file).limits.asks, asks);
             let text = fs::read_to_string(&file).unwrap_or_default();
             assert!(text.ends_with(&format!("asks {}\n", asks.word())), "{text}");
@@ -377,7 +522,14 @@ mod tests {
             searxng: crate::services::address("https://search.example.org").ok(),
             answers: Some(AiChoice::OpenAi),
         };
-        write(&file, InterfaceFace::Geist, Limits::default(), &named).expect("written");
+        write(
+            &file,
+            InterfaceFace::Geist,
+            Limits::default(),
+            &named,
+            Privacy::default(),
+        )
+        .expect("written");
         let text = fs::read_to_string(&file).unwrap_or_default();
         assert!(
             text.ends_with(
@@ -395,7 +547,14 @@ mod tests {
             search: Some(SearchChoice::Brave),
             ..Named::default()
         };
-        write(&file, InterfaceFace::Inter, Limits::default(), &only).expect("written");
+        write(
+            &file,
+            InterfaceFace::Inter,
+            Limits::default(),
+            &only,
+            Privacy::default(),
+        )
+        .expect("written");
         let text = fs::read_to_string(&file).unwrap_or_default();
         assert!(text.ends_with("asks never\nsearch brave\n"), "{text}");
         assert!(
@@ -534,6 +693,7 @@ mod tests {
                 face: InterfaceFace::Geist,
                 limits: Limits::default(),
                 services: Named::default(),
+                privacy: Privacy::default(),
                 said: None
             }
         );

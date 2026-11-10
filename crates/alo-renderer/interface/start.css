@@ -589,6 +589,14 @@ a {
   text-overflow: ellipsis;
 }
 
+/* What alo did with the page's cookie banner (ADR 0108 § 4, queue item
+   920): the bar's quiet words, as *Loading*, after the address and 8
+   before the shield. */
+.consent {
+  flex-shrink: 0;
+  margin: 0 8px;
+}
+
 /* While the page is still loading (queue item 751): after the address,
    in the bar's quiet words, 8 before Expand. */
 .loading {
@@ -2136,6 +2144,54 @@ ol.result {
    field, as the section's own line is quiet. */
 .estate {
   flex-basis: 100%;
+  color: var(--quiet);
+  font-size: 12.5px;
+  line-height: 17px;
+}
+
+/* *Privacy* (ADR 0108, queue item 920, docs/design/shell.md, *Settings*):
+   *alo at work*'s white box and rules; each row its name over its choices,
+   one under another, each drawn as a choice of asking is, 28 tall — and
+   the one choice with a cost has its quiet line under its words. */
+.prow {
+  flex-direction: column;
+  align-items: stretch;
+  row-gap: 4px;
+  padding: 10px 0;
+}
+
+.privopts {
+  display: flex;
+  flex-direction: column;
+  row-gap: 2px;
+}
+
+.privopt {
+  display: flex;
+  align-items: flex-start;
+  column-gap: 6px;
+  min-height: 28px;
+  padding: 5px 8px;
+  margin: 0 -8px;
+  border-radius: 8px;
+  color: var(--quiet);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.privopt .dot {
+  margin-top: 1px;
+}
+
+.privopt.on {
+  color: var(--ink);
+}
+
+.privopt.on.keyed {
+  box-shadow: 0 0 0 3px rgba(27, 36, 51, 0.33);
+}
+
+.pnote {
   color: var(--quiet);
   font-size: 12.5px;
   line-height: 17px;

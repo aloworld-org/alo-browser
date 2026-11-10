@@ -6,6 +6,34 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Cookies refused, and cookie banners answered for you.** A new
+  *Settings › Privacy* section. **Cookies**: alo now refuses other sites'
+  cookies by default — the advertisers' and trackers' that ride along on a
+  page — and you can refuse every site's (signing in will then fail, and
+  *Settings* says so) or keep them all; a choice is used from the next page
+  alo opens. **Cookie banners**: when a page shows one, alo presses its
+  most private choice — *Reject all*, *Only necessary*, *Deny* and the like,
+  found by the button's own words, never by where it is — and never
+  *Accept*. A banner with no way to refuse is left to you. The card's bar
+  says quietly what happened (*Cookies refused*, or *Cookie banner left to
+  you*). You can turn the answering off with *Leave them to me*.
+- **Fixed: alo's agent could not press anything on a page scrolled away
+  from its top.** A button or a link plainly in the middle of the card —
+  Toolshop's *Add to cart* among them — was refused with *Chrome finds
+  nothing at the middle of …*, because alo asked Chromium what was under
+  the press in the window's coordinates while Chromium reads them as the
+  page's. It now asks where the press really lands, so the press is made
+  and the page hears it; a page's own overlay over the button still stops
+  it.
+- **Read a page's tree at a terminal, and drive alo from your code.**
+  `alo-ask --plain` prints what alo's socket answers the way a person reads
+  it: a page as one thing a line, indented, each with its role and name
+  (`button "Add to cart"`), and no positions. A new page, *Drive alo
+  from your code*, shows how to find the socket, ask with `alo-ask`, and do
+  the same from a few lines of Python or Node — no AI key needed — and
+  `docs/demo.md` is a script for a short demonstration. **Fixed:** asking
+  alo to do something on a page that was still opening could start it with
+  no page at all ("I can't see an open page"); it now waits for the page.
 - **alo's icon is bolder where it is small.** At 16 and 32 pixels — the
   Finder's lists, the Dock's smallest — and in the marks inside alo, the
   logo's thin navy arcs had faded to grey. Those sizes now draw a heavier

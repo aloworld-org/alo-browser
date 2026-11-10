@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>A page with a Cookiebot banner</title>
+<style>
+body { margin: 0; font: 16px/1.4 sans-serif; }
+main { padding: 24px; }
+.frozen-banner { position: fixed; left: 0; right: 0; bottom: 0; max-height: 60%; overflow: auto; padding: 12px 16px; background: #fff; border-top: 1px solid #888; }
+.frozen-banner button { margin: 4px 8px 4px 0; }
+.CybotCookiebotDialogHide { display: none; }
+</style>
+</head>
+<body>
+<main>
+<h1>A story on a site</h1>
+<p>The story itself, which the banner stands over.</p>
+<p><a href="#more">Read more</a></p>
+</main>
+<div class="frozen-banner"><div id="CybotCookiebotDialog" name="CybotCookiebotDialog" role="region" aria-labelledby="CybotCookiebotDialogBodyContentTitle" tabindex="-1" lang="en" dir="ltr"><div id="CybotCookiebotDialogBodyContentTitle" class="CybotCookiebotDialogBodyContentHeading" lang="en" role="heading" aria-level="2">This website uses cookies</div>
+<div id="CybotCookiebotDialogBodyContentText" lang="en">We use cookies to personalise content and ads, to provide social media features and to analyse our traffic. We also share information about your use of our site with our social media, advertising and analytics partners who may combine it with other information that you’ve provided to them or that they’ve collected from your use of their services. </div>
+<div id="CybotCookiebotDialogFooter" class="CybotCookiebotScrollContainer"><div class="CybotCookiebotScrollArea"><div id="CybotCookiebotDialogBodyButtons"><div class="CybotCookiebotDialogBodyLevelButtonWrapper CybotCookiebotDialogBodyContentControlsWrapper CybotCookiebotDialogHide CybotCookiebotDialogBodyLevelButtonSliderWrapperFullWidth"><div role="group" class="CybotCookiebotDialogBodyLevelButtonSliderWrapper"><input type="checkbox" id="CybotCookiebotDialogBodyContentCheckboxPersonalInformation" class="CybotCookiebotDialogBodyLevelButton" tabindex="0" role="switch"> <span class="CybotCookiebotDialogBodyLevelButtonSlider"></span></div><label class="CybotCookiebotDialogBodyLevelButtonLabel" for="CybotCookiebotDialogBodyContentCheckboxPersonalInformation"><strong class="CybotCookiebotDialogBodyLevelButtonDescription">Do not sell or share my personal information</strong></label></div><div id="CybotCookiebotDialogBodyButtonsWrapper"><button id="CybotCookiebotDialogBodyButtonDecline" class="CybotCookiebotDialogBodyButton" tabindex="0" lang="en">Deny</button> <button id="CybotCookiebotDialogBodyLevelButtonLevelOptinAllowallSelection" class="CybotCookiebotDialogBodyButton CybotCookiebotDialogHide" tabindex="0" lang="en">Allow selection</button> <button id="CybotCookiebotDialogBodyLevelButtonCustomize" class="CybotCookiebotDialogBodyButton" tabindex="0" lang="en">Customize<div class="CybotCookiebotDialogArrow"></div></button> <button id="CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll" class="CybotCookiebotDialogBodyButton" tabindex="0" lang="en">Allow all</button></div></div></div><div class="CybotCookiebotScrollbarContainer"></div></div>
+</div></div>
+<p id="pressed" role="status"></p>
+<script>
+// The test's own: says which control was pressed, and takes the banner
+// away as its own script would once it is answered.
+document.addEventListener("click", function (event) {
+  var pressed = event.target.closest("button, a, [role=button]");
+  if (!pressed) { return; }
+  document.getElementById("pressed").textContent = "Pressed " + (pressed.id || pressed.textContent.trim());
+  var banner = document.querySelector(".frozen-banner");
+  if (banner) { banner.remove(); }
+  event.preventDefault();
+}, true);
+</script>
+</body>
+</html>

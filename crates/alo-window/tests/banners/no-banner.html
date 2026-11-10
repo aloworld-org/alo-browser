@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>A page with no cookie banner</title>
+<style>
+body { margin: 0; font: 16px/1.4 sans-serif; }
+main { padding: 24px; }
+</style>
+</head>
+<body>
+<main>
+<h1>An invitation</h1>
+<p>You are invited to the launch on Friday. Will you come?</p>
+<p><button id="accept-invitation" type="button">Accept</button>
+<button id="decline-invitation" type="button">Decline</button></p>
+<form><label>Your email <input type="email"></label> <button type="button" id="subscribe">Subscribe</button></form>
+</main>
+<footer><p><a href="#privacy">Privacy policy</a> · We use no tracking.</p></footer>
+<p id="pressed" role="status"></p>
+<script>
+// The test's own: says which control was pressed.
+document.addEventListener("click", function (event) {
+  var pressed = event.target.closest("button, a, [role=button]");
+  if (!pressed) { return; }
+  document.getElementById("pressed").textContent = "Pressed " + (pressed.id || pressed.textContent.trim());
+  event.preventDefault();
+}, true);
+</script>
+</body>
+</html>

@@ -23,7 +23,7 @@
 
 use alo_layout::{Rect, Size};
 use alo_paint::{Point, from_png};
-use alo_renderer::card::{Card, PAGE_SIZE, Shield};
+use alo_renderer::card::{Card, Consent, PAGE_SIZE, Shield};
 use alo_renderer::card_document::{LOADING, OFF, PICTURED, shield_named};
 use alo_renderer::card_menu::CardMenu;
 use alo_renderer::card_place;
@@ -812,6 +812,76 @@ fn a_cards_shield_counts_what_was_refused_and_switches_its_site() -> Result<(), 
     ))));
     assert!(boxes_of(&plain, "shield").is_empty());
     assert_eq!(boxes_of(&plain, "url"), vec![px(171.0, 112.5, 706.0, 18.0)]);
+    Ok(())
+}
+
+/// Queue item 920, ADR 0108 § 4: what alo did with the page's cookie
+/// banner, said quietly in the card's bar after the address and before the
+/// shield.
+#[test]
+fn a_cards_bar_says_what_alo_did_with_its_pages_cookie_banner() -> Result<(), String> {
+    for (consent, reference) in [
+        (Consent::Refused, Some("card-cookies-refused.png")),
+        (Consent::LeftToYou, None),
+    ] {
+        let mut start = with_a_shield(Shield {
+            blocked: 12,
+            on: true,
+        })?;
+        if let Some(Turn::Page(card)) = start.turns.last_mut() {
+            card.consent = Some(consent);
+        }
+        let drawn = draw(start.clone());
+        let mut renderer = Renderer::new(fonts());
+        let _ = renderer.handle(ToRenderer::Start(Box::new(start.clone())));
+        let at = |class: &str| boxes_of(&renderer, class);
+        // Its words, 18 tall on the address's line, 8 of margin and the
+        // bar's 2 of gap after the address and before the shield, which
+        // has not moved; the address gives it the room.
+        let consents = at("consent");
+        let [words] = consents.as_slice() else {
+            return Err(format!("one line: {consents:?}"));
+        };
+        let width = match consent {
+            Consent::Refused => 100.625,
+            Consent::LeftToYou => 154.609_38,
+        };
+        let left = 819.4375 - 6.0 - 2.0 - 8.0 - width;
+        assert_eq!(words, &px(left, 112.5, width, 18.0));
+        assert_eq!(at("url"), vec![px(171.0, 112.5, left - 10.0 - 171.0, 18.0)]);
+        assert_eq!(at("shield"), vec![px(819.4375, 107.5, 51.5625, 28.0)]);
+        assert_eq!(at("ibtn expand"), vec![px(879.0, 103.5, 36.0, 36.0)]);
+        // Read as a paragraph of the bar, saying it in words; nothing of
+        // it to press.
+        let read_out = read(&drawn.tree, "paragraph")
+            .into_iter()
+            .map(|paragraph| {
+                Snapshot {
+                    root: Some(paragraph.clone()),
+                }
+                .to_outline()
+            })
+            .collect::<Vec<_>>();
+        assert!(
+            read_out.iter().any(|lines| lines.contains(consent.said())),
+            "{}",
+            drawn.tree.to_outline()
+        );
+        assert_eq!(
+            pressed(start, left + width / 2.0, 121.5),
+            FromRenderer::ConversationClaimed(None)
+        );
+        if let Some(reference) = reference {
+            assert_eq!(holds(reference, drawn.frame.as_ref()), Ok(()));
+        }
+    }
+    // A card alo found no banner on says nothing of one.
+    let mut plain = Renderer::new(fonts());
+    let _ = plain.handle(ToRenderer::Start(Box::new(with_a_shield(Shield {
+        blocked: 12,
+        on: true,
+    })?)));
+    assert!(boxes_of(&plain, "consent").is_empty());
     Ok(())
 }
 
