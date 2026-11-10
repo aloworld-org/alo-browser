@@ -50826,3 +50826,75 @@ met." (11 of 11 steps)*. The hand run's application was built before that
 one-line fix, which changes no behaviour.
 
 The next unused queue number is **914** and the next ADR is **0108**.
+
+## 2026-11-10 — batch 33: the icon's small drawing, where the owner's arcs fade (914)
+
+**Contracts read:** `CLAUDE.md`, `LOOP.md`, `QUEUE.md` (913), ADR 0067 § 6
+with its 913 amendment, ADR 0107, `docs/brand/README.md`,
+`docs/design/shell.md` (the mark).
+
+**What the owner asked:** at small sizes the logo's thin navy arcs come
+out faint — `icon-16.png` barely legible, 32 and the in-app 24/28 marks
+thin — so a bolder small version.
+
+**Built — 914.** `docs/brand/alo-browser-icon-small.svg`, derived by
+thickening, not redrawing: the owner's file line for line, each of its
+three paths also stroked **14 of 512** in its own paint (the navy paths
+`#1b3e5e`, the swoosh `url(#teal-small)`), round joins and caps; the dot
+grows with the stroke; nothing moved or removed; its gradient renamed
+`teal-small` so both drawings can stand on one page. The engine drew the
+gradient stroke correctly as it was (no fix needed: a stroke's outline is
+painted with the stroke's `Shade`, ramp or colour, since 275).
+**Width and line chosen by looking** (scratchpad `icon33/`, `cmp-*.png`;
+the final side-by-side is `comparison-batch33.png`): widths 8, 12, 14, 16,
+20, 24, 28 against the owner's at 16, 24, 28, 32, 48, 64, at one and two,
+as the icon page and as the mark on the panel's colour. Under 12 the
+16-pixel picture stayed grey and 12 was lighter than 14; from 16 the gaps
+between the arcs began to close at 48–56. The owner's reads well from 64
+device pixels; at 48 its upper right arc is already faint. **So under 64
+device pixels the small drawing; 64 and up the owner's** (ADR 0067 § 6,
+amended). `the-applications-icon`: one page holding both drawings, a
+`max-width: 63px` media query choosing — `icon-16.png` and `icon-32.png`
+rewritten; 64–1,024, `render.png` and the case's text expectations
+unchanged. **The marks:** the panel's 24 and the rail's 28 are at most 56
+device pixels at two, so both templates write the small drawing; no layout
+number moved (`the_chats_panel.rs`' placements pass unchanged).
+**Tests:** `the_applications_icon.rs` — the shown drawing on its tile at
+every size and the other boxless; both files in the page as they are; the
+16 and 32 pictures against the same page with its query defeated, in
+numbers (16: 27 pixels darker than half to the owner's 4, darkest 71 to
+107; 32: 147 to 49), and 64 and 128 identical to it; two ramps under 64,
+one from 64. `the_mark.rs` — both templates are the small file, and the
+small file is the owner's with those strokes and the rename and nothing
+else.
+**References moved, each inspected against a backup (scratchpad
+`backup-icon/`, `backup-refs/`; montages `moved-icons.png`,
+`moved-renderer.png`, `moved-window.png`), every diff inside the mark's
+box:** corpus `icon-16`, `icon-32`; renderer
+`face-{dm-sans,geist,instrument-sans,inter,plus-jakarta-sans}-panel`,
+`panel-chats`, `panel-closing`, `panel-deleting`, `panel-rail`,
+`panel-rail-at-two`, `panel-rail-addresses`, `panel-rail-named`,
+`panel-search-selected`, `panel-searched`; window `the-conversation`,
+`the-conversation-at-two`, `the-conversation-panel-hidden`,
+`the-conversation-panel-hidden-at-two`, `the-panel-after-a-press`,
+`the-panel-folded-at-759`, `the-rail-naming-a-chat-at-759`,
+`the-sheet-at-700`.
+
+**By hand** (release, `alo-bundle --into handrun53/app` with the CEF host,
+no keys; `--conversation --chats handrun53/chats`; scratchpad
+`handrun53/`): the panel's mark (`53-01`–`53-03`, on a display at one),
+the rail's (`53-04`, `53-05`), the Dock (`53-06`, 50 points at two: the
+owner's drawing, as the line says), the Finder in list view with small
+icons (`53-07`, `53-07b`: the small drawing, from the 32-pixel picture at
+two) and icon view (`53-08`: the owner's).
+
+**ROADMAP:** the application line names the small drawing for the 16- and
+32-pixel pictures.
+
+**Gate: met on the first run** (CEF_PATH set, the pointer at 1400, 1000;
+detached through `perl -MPOSIX=setsid`; `gate-batch33.log`). **Summary
+[1181.800s] 6949 tests run: 6949 passed (5 slow, 1 leaky), 0 skipped** —
+*"The gate is met." (11 of 11 steps)*. The queue's tick and this paragraph
+were written after it.
+
+The next unused queue number is **915** and the next ADR is **0108**.

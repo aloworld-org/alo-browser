@@ -29,7 +29,9 @@ Top to bottom, inside 6 px above and 10 px either side, 12 px below:
 
 - **The mark**: the owner's icon (`docs/brand/`), 24 px square, then 8 px
   on, *alo* in the serif, 22 px (item 913), in a row 46 px tall with the
-  button that hides the panel.
+  button that hides the panel. It is the icon's small drawing,
+  `alo-browser-icon-small.svg`, as every picture under 64 device pixels
+  is (item 914; ADR 0067 § 6).
 - **New chat**, a white button 40 px tall, a plus before its words and
   `⌘T` at its end.
 - **Search chats**, 38 px.
@@ -110,7 +112,7 @@ square, rounded 8, an 18 px icon — a window with its left side ruled off —
 in the panel's text colour, named *Hide the panel*. Pressed, the panel
 becomes **the rail**, 64 wide, and the conversation takes the rest of the
 window: the mark — the owner's icon alone, 28 square, in the middle (item
-913) — 40 tall 10 down; *New chat*, a 44-square button with an
+913), in its small drawing (item 914) — 40 tall 10 down; *New chat*, a 44-square button with an
 18 px plus, 6 under it; a 28-wide line 4 above and below; and at the foot,
 12 up, *Show the panel*, 44 square with the same icon, which brings the
 panel back as it was, what was searched kept.

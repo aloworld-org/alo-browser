@@ -49,7 +49,8 @@ body {
 }
 
 /* The mark: the owner's icon, 28 square in the middle of its row of 40
-   (queue item 913). The panel shows it before the word; the rail has room
+   (queue item 913), in its small drawing, since 28 is under 64 device
+   pixels (queue item 914). The panel shows it before the word; the rail has room
    for the icon alone. */
 .mark {
   display: flex;

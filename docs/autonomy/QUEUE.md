@@ -25223,6 +25223,26 @@ What stage 2's exit gate actually measures: a person using it.
   holds both templates' drawings to the owner's file; `the_chats_panel.rs`
   places both in numbers. **The README** opens with the icon.
 
+- [x] **914. The icon's small drawing, where the owner's arcs fade.**
+  *ADR 0067 § 6 (amended); amends 913.* The owner, 10 November 2026: at
+  small sizes the logo's thin navy arcs come out faint — `icon-16.png`
+  barely legible, 32 and the in-app 24 and 28 thin. A derived
+  `docs/brand/alo-browser-icon-small.svg`: the owner's paths and colours,
+  each also stroked in its own paint (the swoosh in its gradient), round
+  joins and caps, its width chosen by looking; nothing redrawn, moved or
+  removed. The line between the two drawings chosen by looking at both at
+  16, 24, 28, 32, 48 and 64, at one and at two; the `.icns`'s pictures
+  below it and the panel's and rail's marks if they fall below it draw the
+  small one. Tests: the small sizes draw the small drawing, in numbers;
+  the marks' layout numbers unchanged; every moved reference inspected.
+  ***Done (batch 33).*** Stroked 14 of 512, round joins and caps; the line
+  at 64 device pixels — the `.icns`'s 16 and 32 pictures (a `max-width:
+  63px` media query on the case's page) and both marks (24 and 28, at most
+  56 at two) are the small drawing; 64 and up the owner's. 2 corpus, 14
+  renderer and 8 window references moved, each inside the mark, each
+  inspected. `the_applications_icon.rs`, `the_mark.rs`; by hand, the
+  panel, the rail, the Dock and the Finder (`handrun53/`).
+
 ## K. ★ The agent, on somebody else's pages
 
 The reason this exists rather than a faster fork. ADR 0002 holds here or it does

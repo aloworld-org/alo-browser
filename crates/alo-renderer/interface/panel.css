@@ -85,7 +85,8 @@ a {
 }
 
 /* The mark: the owner's icon, 24 square, 8 before the word alo in the
-   serif (queue item 913), as the owner's lockup sets them side by side. */
+   serif (queue item 913), as the owner's lockup sets them side by side —
+   its small drawing, since 24 is under 64 device pixels (queue item 914). */
 .mark {
   display: flex;
   align-items: center;

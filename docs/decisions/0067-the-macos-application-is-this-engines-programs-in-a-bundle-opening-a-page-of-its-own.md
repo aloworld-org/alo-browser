@@ -173,6 +173,22 @@ Its input is not watched. `alo` never watched it; only `--chrome` does.
   shadow the icon always had. The terracotta tile with *alo* in cream that
   stood there until then was ours, not the owner's. Its swoosh is a
   `<linearGradient>`, which this engine draws since ADR 0107.
+  *Amended 10 November 2026 (queue item 914):* **under 64 device pixels a
+  side the drawing is the small one**, `docs/brand/alo-browser-icon-small.svg`
+  — the owner's paths and colours unchanged, each also stroked 14 of 512 in
+  its own paint, round joins and caps — because there the owner's thin
+  arcs fade to grey (the owner's own complaint, of the 16 and 32 pixel
+  pictures and the marks inside alo). The line was found by looking, not
+  computed: both drawings at 16, 24, 28, 32, 48 and 64, at one and at two,
+  side by side. The owner's reads well from 64 device pixels; at 48 its
+  upper right arc is already a faint grey, and below that the small one
+  reads better at every size. So the `.icns`'s 16- and 32-pixel pictures
+  (16 points at one; 32 at one and 16 at two) are the small drawing, chosen
+  on the page by a `max-width: 63px` media query on the window, which is
+  the picture; 64 and up are the owner's as before. The same line holds the
+  marks inside alo: the panel's 24 and the rail's 28 are at most 56 device
+  pixels at two, the most a Mac's screen has, so both are the small drawing
+  on every screen.
 - **It is sealed ad hoc** with `codesign -s -`, Apple's own tool, rented
   as `screencapture` is in the tests. That is what makes it valid on disk
   (§ 1) — not trusted: `spctl` rejects it, and a copy macOS has marked as

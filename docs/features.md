@@ -776,7 +776,8 @@ The reason this exists rather than a faster fork of somebody else's engine.
   where the agent is at work and *Done* where it finished, read by an agent
   as *navigation Chats* with each chat by its name and state; its mark is
   the owner's icon before the word *alo*, and the rail's the icon alone,
-  hidden from an agent (913). **The first
+  hidden from an agent (913), each in the icon's small drawing, heavier for
+  the size (914). **The first
   screen is built** (700): the greeting, the one box an agent reads as a
   search with its field and *Go*, a person's sites and the chats waiting on
   them. **Both are in the engine's window** (709): `alo --conversation`

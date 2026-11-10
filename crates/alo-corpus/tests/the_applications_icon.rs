@@ -15,6 +15,11 @@
 //! into the page as it is (queue item 913): a cream tile, a navy globe and
 //! a teal swoosh filled by a `<linearGradient>` (queue item 275).
 //!
+//! Under 64 pixels a side the owner's thin arcs fade, so there the page
+//! draws `docs/brand/alo-browser-icon-small.svg` instead — the same paths
+//! and colours, each also stroked in its own paint (queue item 914), chosen
+//! by a `max-width` media query on the window, which is the picture.
+//!
 //! The pictures, `icon-16.png` to `icon-1024.png` beside the case, are the
 //! references compared here — and the bytes `alo-bundle` packs into the
 //! application's `.icns`, so the icon a person sees is the one this test
@@ -30,15 +35,30 @@ use std::rc::Rc;
 /// Each side an `.icns` holds a picture of, in pixels.
 const SIDES: [u32; 7] = [16, 32, 64, 128, 256, 512, 1024];
 
+/// The smallest side the owner's drawing is drawn at; under it the small
+/// drawing is.
+const OWNERS_FROM: u32 = 64;
+
+/// The class of the drawing shown at `side`.
+fn shown_at(side: u32) -> &'static str {
+    if side < OWNERS_FROM { "small" } else { "icon" }
+}
+
 fn case() -> Option<Case> {
     Case::read(&cases_directory().join("the-applications-icon"))
 }
 
 /// The page laid out and drawn in a window `side` pixels a side.
 fn drawn(case: &Case, side: u32) -> Rc<Drawing> {
+    drawn_from(case, &case.html, side)
+}
+
+/// `html`, with the case's sheets and resources, laid out and drawn in a
+/// window `side` pixels a side.
+fn drawn_from(case: &Case, html: &str, side: u32) -> Rc<Drawing> {
     let side = f32::from(u16::try_from(side).unwrap_or(u16::MAX));
     render_at(
-        &case.html,
+        html,
         &case.css,
         Screen::new(Size::new(side, side)),
         &corpus_fonts(),
@@ -95,9 +115,16 @@ fn the_tile_and_its_drawing_stand_on_apples_grid_at_every_size() {
                 && near(tile.size.height, width),
             "at {side}: {tile:?}, not {inset} in and {width} wide"
         );
-        // The owner's drawing stands exactly on the box that casts its
-        // shadow, so the shadow's corners are the drawing's.
-        let drawn = box_of(&case, &drawing, "icon").expect("the drawing has a box");
+        // The drawing shown stands exactly on the box that casts its
+        // shadow, so the shadow's corners are the drawing's; the other has
+        // no box at all.
+        let shown = shown_at(side);
+        let hidden = if shown == "small" { "icon" } else { "small" };
+        assert!(
+            box_of(&case, &drawing, hidden).is_none(),
+            "at {side}: the {hidden} drawing has a box too"
+        );
+        let drawn = box_of(&case, &drawing, shown).expect("the drawing has a box");
         assert!(
             near(drawn.left(), tile.left())
                 && near(drawn.top(), tile.top())
@@ -178,24 +205,98 @@ fn the_icon_at_1024_is_the_case_as_the_corpus_renders_it() {
 }
 
 #[test]
-fn the_drawing_is_the_owners_as_it_is() {
-    // Every element of the owner's file is in the page, attribute for
-    // attribute: the page adds a class and a name to its <svg> and nothing
-    // else.
+fn the_drawings_are_the_owners_and_its_small_variant_as_they_are() {
+    // Every element of each file is in the page, attribute for attribute:
+    // the page adds a class and a name to each <svg> and nothing else.
     let case = case().expect("the case is in the corpus");
-    let owners = include_str!("../../../docs/brand/alo-browser-icon.svg");
-    let body = owners
-        .split_once('>')
-        .map(|(_, rest)| rest.trim())
-        .expect("the owner's file opens with its <svg>");
-    assert!(
-        case.html.contains(&body.replace('\n', "\n    ")),
-        "the page's drawing is not the owner's file"
-    );
+    for (name, file) in [
+        (
+            "alo-browser-icon.svg",
+            include_str!("../../../docs/brand/alo-browser-icon.svg"),
+        ),
+        (
+            "alo-browser-icon-small.svg",
+            include_str!("../../../docs/brand/alo-browser-icon-small.svg"),
+        ),
+    ] {
+        let body = file
+            .split_once('>')
+            .map(|(_, rest)| rest.trim())
+            .expect("the file opens with its <svg>");
+        assert!(
+            case.html.contains(&body.replace('\n', "\n    ")),
+            "the page's drawing is not {name}"
+        );
+    }
+}
+
+/// How many of a picture's opaque pixels are darker than half, and the
+/// darkest of them, by the mean of their channels.
+fn darkness(picture: &Canvas) -> (usize, u8) {
+    let mut dark = 0;
+    let mut darkest = u8::MAX;
+    for pixel in picture.pixels() {
+        let (r, g, b, a) = pixel.to_rgba8();
+        if a == 255 {
+            let mean = (u16::from(r) + u16::from(g) + u16::from(b)) / 3;
+            let mean = u8::try_from(mean).unwrap_or(u8::MAX);
+            darkest = darkest.min(mean);
+            if mean < 128 {
+                dark += 1;
+            }
+        }
+    }
+    (dark, darkest)
 }
 
 #[test]
-fn the_swoosh_is_filled_by_its_gradient_at_every_size() {
+fn the_small_pictures_are_the_heavier_drawing_in_numbers() {
+    // The same page with its media query never matching draws the owner's
+    // drawing at every size: what the 16- and 32-pixel pictures were
+    // before item 914. The small drawing covers several times as many dark
+    // pixels, and at 16 its darkest is nearer the navy's 61.
+    let case = case().expect("the case is in the corpus");
+    let owners_only = case.html.replace("(max-width: 63px)", "(max-width: 0px)");
+    assert_ne!(owners_only, case.html, "the page has its media query");
+    let mut measured = Vec::new();
+    for side in [16, 32] {
+        let small = icon(&drawn(&case, side), side).expect("the icon is a PNG");
+        let owners = icon(&drawn_from(&case, &owners_only, side), side).expect("the icon is a PNG");
+        measured.push((side, darkness(&small), darkness(&owners)));
+    }
+    // Measured: at 16, 27 dark pixels to the owner's 4, darkest 71 to 107;
+    // at 32, 147 to 49.
+    for (side, (dark, darkest), (owners_dark, owners_darkest)) in &measured {
+        assert!(
+            *dark >= owners_dark * 2 + 10 && darkest <= owners_darkest,
+            "at {side}: {measured:?}"
+        );
+    }
+    assert!(
+        measured
+            .first()
+            .is_some_and(|(_, (_, darkest), _)| *darkest <= 80),
+        "{measured:?}"
+    );
+    // From 64 up the page is the owner's drawing alone.
+    for side in [64, 128] {
+        let page = icon(&drawn(&case, side), side).expect("the icon is a PNG");
+        let owners = icon(&drawn_from(&case, &owners_only, side), side).expect("the icon is a PNG");
+        let colours = |picture: &Canvas| -> Vec<(u8, u8, u8, u8)> {
+            picture
+                .pixels()
+                .iter()
+                .map(|pixel| pixel.to_rgba8())
+                .collect()
+        };
+        assert!(colours(&page) == colours(&owners), "at {side}");
+    }
+}
+
+#[test]
+fn the_swoosh_is_painted_by_its_gradient_at_every_size() {
+    // Filled at every size; under 64 also stroked in it, which is the small
+    // drawing's second ramp.
     let case = case().expect("the case is in the corpus");
     for side in SIDES {
         let drawing = drawn(&case, side);
@@ -213,6 +314,7 @@ fn the_swoosh_is_filled_by_its_gradient_at_every_size() {
                 )
             })
             .count();
-        assert_eq!(ramps, 1, "at {side}");
+        let expected = if side < OWNERS_FROM { 2 } else { 1 };
+        assert_eq!(ramps, expected, "at {side}");
     }
 }

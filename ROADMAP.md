@@ -248,7 +248,8 @@ about this project (ADR 0058 § 6).
   out at each size an `.icns` holds, 16 to 1,024 pixels, every picture a
   reference the gate compares, packed by our own code into the `.icns`
   `CFBundleIconFile` names, and shown by the Finder (689) — since 913 the
-  owner's icon, `docs/brand/alo-browser-icon.svg`, as it is; and
+  owner's icon, `docs/brand/alo-browser-icon.svg`, as it is, and since
+  914 its small drawing for the 16- and 32-pixel pictures; and
   **an application that, quit, leaves nothing behind** — the shutdown
   that closes Chrome, waits for it and removes its profile and the
   socket run as the frame's event loop ends, which `winit`'s own

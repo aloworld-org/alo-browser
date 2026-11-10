@@ -6,6 +6,12 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **alo's icon is bolder where it is small.** At 16 and 32 pixels — the
+  Finder's lists, the Dock's smallest — and in the marks inside alo, the
+  logo's thin navy arcs had faded to grey. Those sizes now draw a heavier
+  version of the same logo: every line and colour the owner's, each traced
+  a little wider. From 64 pixels up the icon is the owner's drawing exactly
+  as before.
 - **alo browser has its own logo.** The Mac application's icon is now
   the owner's — a navy globe crossed by a teal swoosh on a cream tile —
   drawn by alo's own engine at every size macOS asks for, on Apple's grid
