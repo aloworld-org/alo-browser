@@ -1,6 +1,8 @@
 # ADR 0109 — A page drawn on a canvas is read through what the app itself says, never through its pixels
 
-**Status:** Proposed — a measurement spike, not accepted, not built
+**Status:** Accepted in part (the owner, 11 November 2026): points 1, 3 and 4
+of the decision are accepted; point 2, reading an app's own saved document
+through CDP's storage domains, stays proposed. Not built.
 **Date:** 2026-11-11
 **Context:** ADR 0002 (the layout tree is the agent's tree; no verb takes a
 coordinate); ADR 0058 (Chromium is a renderer we drive; no script of ours in
