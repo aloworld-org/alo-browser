@@ -23,7 +23,7 @@ use alo_renderer::frame::frame_to_png;
 use alo_renderer::generic::Generics;
 use alo_renderer::host::Renderers;
 use alo_renderer::panel::{self, Chat, Doing, Panel};
-use alo_renderer::panel_document::{self, DONE};
+use alo_renderer::panel_document::{self, DONE, TICK};
 use alo_renderer::{Frame, FromRenderer, Renderer, Snapshot, SnapshotNode, ToRenderer};
 use alo_text::{Font, FontDatabase, Slant, Weight};
 use std::path::{Path, PathBuf};
@@ -336,7 +336,8 @@ fn a_panel_of_open_and_earlier_chats_is_read_by_name_with_what_is_happening() {
     // In numbers: 6 above and 10 either side; the mark's row of 46 and 4
     // below it; New chat 40 tall at 56; Search chats 38 tall, 6 under it, at
     // 102 (queue item 711). The first group's heading 18 below that, 14
-    // tall, 6 above its rows; rows 38 tall and 2 apart, 220 wide. The second
+    // tall, 6 above its rows; rows 38 tall and 2 apart, 220 wide — the chat
+    // at work's 56, for its second line (queue item 985). The second
     // group 18 below the first's last row. Settings at the foot: 560 less 12
     // of padding, 38 of row, 8 above it and the line's 1.
     let rects: Vec<String> = links.iter().map(|link| units(link.rect)).collect();
@@ -345,10 +346,10 @@ fn a_panel_of_open_and_earlier_chats_is_read_by_name_with_what_is_happening() {
         vec![
             px(10.0, 56.0, 220.0, 40.0),
             px(10.0, 178.0, 220.0, 38.0),
-            px(10.0, 218.0, 220.0, 38.0),
-            px(10.0, 258.0, 220.0, 38.0),
-            px(10.0, 334.0, 220.0, 38.0),
-            px(10.0, 374.0, 220.0, 38.0),
+            px(10.0, 218.0, 220.0, 56.0),
+            px(10.0, 276.0, 220.0, 38.0),
+            px(10.0, 352.0, 220.0, 38.0),
+            px(10.0, 392.0, 220.0, 38.0),
             px(10.0, 510.0, 220.0, 38.0),
         ],
         "{outline}"
@@ -402,6 +403,52 @@ fn a_panel_of_open_and_earlier_chats_is_read_by_name_with_what_is_happening() {
     assert_eq!(holds("panel-chats.png", drawn.frame.as_ref()), Ok(()));
 }
 
+/// Queue item 985 (the owner, 11 November 2026): a chat alo is at work on
+/// is never cut for alo's mark and *Working*, and *Done* is in the ink.
+#[test]
+fn a_chat_at_work_keeps_its_whole_name_and_working_is_on_a_line_under_it() {
+    let drawn = draw(panel_of(five()));
+    // Queue item 985: the chat at work keeps its whole name on the row's
+    // first line — the row's whole text width, 174 from 46 (220 less 20 of
+    // padding, 16 of site and 10 of gap), as the chat on screen's name has
+    // — and alo's mark, 14 square, and Working on a second line, 2 under
+    // it; the lines in the middle of its 56, the site on the name's line.
+    let names = of_class(&drawn, "name");
+    assert_eq!(
+        names.get(..2),
+        Some(&[px(46.0, 188.0, 174.0, 18.0), px(46.0, 228.0, 174.0, 18.0)][..]),
+        "{names:?}"
+    );
+    assert_eq!(
+        of_class(&drawn, "site").get(1),
+        Some(&px(20.0, 229.0, 16.0, 16.0))
+    );
+    assert_eq!(
+        of_class(&drawn, "working"),
+        vec![px(46.0, 248.0, 174.0, 16.0)]
+    );
+    assert_eq!(
+        of_class(&drawn, "acting-mark"),
+        vec![px(46.0, 249.0, 14.0, 14.0)]
+    );
+    // Its name drawn whole, not cut; the finished chat's Done after a
+    // check mark, at the end of its row.
+    assert!(
+        drawn.texts.iter().any(|text| text == "Weekend in Lisbon"),
+        "{:?}",
+        drawn.texts
+    );
+    assert!(!drawn.texts.iter().any(|text| text == "\u{2026}"));
+    let ticked: Vec<&str> = drawn
+        .texts
+        .iter()
+        .map(String::as_str)
+        .skip_while(|text| *text != TICK)
+        .take(2)
+        .collect();
+    assert_eq!(ticked, vec![TICK, DONE], "{:?}", drawn.texts);
+}
+
 /// What the field holds, as the agent reads it: the text the field's
 /// value is drawn as, read next after the field.
 fn value(tree: &Snapshot) -> Option<String> {
@@ -452,8 +499,8 @@ fn search_chats_typed_into_shows_its_words_and_only_the_chats_named_so() {
         vec![
             (Some("New chat"), px(10.0, 56.0, 220.0, 40.0)),
             (Some("Charging my EV"), px(10.0, 178.0, 220.0, 38.0)),
-            (Some(working.as_str()), px(10.0, 218.0, 220.0, 38.0)),
-            (Some(done.as_str()), px(10.0, 258.0, 220.0, 38.0)),
+            (Some(working.as_str()), px(10.0, 218.0, 220.0, 56.0)),
+            (Some(done.as_str()), px(10.0, 276.0, 220.0, 38.0)),
             (Some("Settings"), px(10.0, 510.0, 220.0, 38.0)),
         ],
         "{outline}"
@@ -553,10 +600,11 @@ fn hidden_the_panel_is_the_rail_at_one_and_at_two() {
             vec![
                 (Some("New chat"), px(10.0, 56.0, 44.0, 44.0)),
                 (Some("Charging my EV"), px(10.0, 121.0, 44.0, 44.0)),
-                // The chat at work 58 tall, its word under its circle
-                // (queue item 974), so the one after it 14 lower.
+                // The chat at work and the finished one 58 tall, a line
+                // under their circles (queue items 974, 985), so each one
+                // after them 14 lower.
                 (Some("Weekend in Lisbon"), px(10.0, 171.0, 44.0, 58.0)),
-                (Some(done.as_str()), px(10.0, 235.0, 44.0, 44.0)),
+                (Some(done.as_str()), px(10.0, 235.0, 44.0, 58.0)),
                 (Some("Show the panel"), px(10.0, 504.0, 44.0, 44.0)),
             ],
             "{outline}"
@@ -570,17 +618,26 @@ fn hidden_the_panel_is_the_rail_at_one_and_at_two() {
             ],
             "{outline}"
         );
-        // The working chat's mark, alo's, 14 square at its circle's
-        // shoulder, 1 in; and Working under the circle, 3 above the
-        // button's foot (queue item 974; a 7 px dot before).
-        assert_eq!(
-            of_class(&drawn, "acting-mark"),
-            vec![px(39.0, 172.0, 14.0, 14.0)],
-            "{outline}"
-        );
+        // Under the working chat's circle, a line of its own the rail's
+        // width, 3 above the button's foot: alo's mark, 12 square, and
+        // Working after it, the two in the line's middle (queue items 974,
+        // 985; a 7 px dot before, then the mark at the circle's shoulder).
+        // Under the finished chat's, a check mark and Done, so.
         assert_eq!(
             of_class(&drawn, "working"),
-            vec![px(10.0, 214.0, 44.0, 12.0)],
+            vec![px(0.0, 214.0, 64.0, 12.0)],
+            "{outline}"
+        );
+        // The word is measured at each scale, so the mark is 5 and some in
+        // from the rail's edge.
+        let marks = of_class(&drawn, "acting-mark");
+        assert!(
+            matches!(marks.as_slice(), [mark] if mark.starts_with("(5.4") && mark.ends_with(", 214) 12×12")),
+            "{marks:?}\n{outline}"
+        );
+        assert_eq!(
+            of_class(&drawn, "done"),
+            vec![px(0.0, 278.0, 64.0, 12.0)],
             "{outline}"
         );
         // The mark, the owner's icon 28 square (item 913), in the middle of
@@ -706,7 +763,7 @@ fn a_press_on_each_chat_of_the_rail_claims_its_place() {
         other => panic!("{other:?}"),
     };
     // The chat at work is 58 tall (queue item 974), the one after it 14
-    // lower.
+    // lower, and itself finished 58 tall (queue item 985).
     for (place, top) in [(0, 121.0), (1, 171.0), (2, 235.0)] {
         for (x, y) in [(32.0, top + 22.0), (10.0, top), (53.0, top + 43.0)] {
             assert_eq!(
@@ -722,7 +779,7 @@ fn a_press_on_each_chat_of_the_rail_claims_its_place() {
         }
     }
     // Between two, and under the last.
-    for (x, y) in [(32.0, 168.0), (32.0, 280.0)] {
+    for (x, y) in [(32.0, 168.0), (32.0, 300.0)] {
         assert_eq!(at(ToRenderer::ConversationPress, x, y), None, "({x}, {y})");
     }
     // The name beside the hovered one is inside its button, so were a press
@@ -780,7 +837,7 @@ fn chats_named_by_addresses_have_their_sites_letters_on_the_rail() {
         .texts
         .iter()
         .map(String::as_str)
-        .filter(|text| text.chars().count() <= 2 && *text != "alo")
+        .filter(|text| text.chars().count() <= 2 && *text != "alo" && *text != TICK)
         .collect();
     assert_eq!(letters, vec!["W", "B", "Y", "T", "1"], "{:?}", drawn.texts);
     // Each in its 32 circle where 760 put it.
@@ -790,8 +847,8 @@ fn chats_named_by_addresses_have_their_sites_letters_on_the_rail() {
             px(16.0, 127.0, 32.0, 32.0),
             px(16.0, 177.0, 32.0, 32.0),
             px(16.0, 241.0, 32.0, 32.0),
-            px(16.0, 291.0, 32.0, 32.0),
-            px(16.0, 341.0, 32.0, 32.0),
+            px(16.0, 305.0, 32.0, 32.0),
+            px(16.0, 355.0, 32.0, 32.0),
         ],
         "{outline}"
     );
@@ -825,9 +882,9 @@ fn folded_the_rail_is_laid_out_at_the_folds_height_and_the_least_windows() {
                 (Some("New chat"), px(10.0, 56.0, 44.0, 44.0)),
                 (Some("Charging my EV"), px(10.0, 121.0, 44.0, 44.0)),
                 (Some("Weekend in Lisbon"), px(10.0, 171.0, 44.0, 58.0)),
-                (Some(done.as_str()), px(10.0, 235.0, 44.0, 44.0)),
-                (Some("Compare phone plans"), px(10.0, 285.0, 44.0, 44.0)),
-                (Some("Birthday present ideas"), px(10.0, 335.0, 44.0, 44.0)),
+                (Some(done.as_str()), px(10.0, 235.0, 44.0, 58.0)),
+                (Some("Compare phone plans"), px(10.0, 299.0, 44.0, 44.0)),
+                (Some("Birthday present ideas"), px(10.0, 349.0, 44.0, 44.0)),
                 (Some("Show the panel"), px(10.0, height - 56.0, 44.0, 44.0)),
             ],
             "{height}: {outline}"
@@ -1018,13 +1075,13 @@ fn a_hovered_chat_offers_delete_and_a_chat_just_deleted_offers_undo() {
         vec![
             (Some("New chat"), px(10.0, 56.0, 220.0, 40.0)),
             (Some("Charging my EV"), px(10.0, 178.0, 220.0, 38.0)),
-            (Some(working.as_str()), px(10.0, 218.0, 220.0, 38.0)),
-            (Some(done.as_str()), px(10.0, 258.0, 220.0, 38.0)),
+            (Some(working.as_str()), px(10.0, 218.0, 220.0, 56.0)),
+            (Some(done.as_str()), px(10.0, 276.0, 220.0, 38.0)),
             // The hovered row holds Delete, and is read with it, as a
             // finished chat is read with its Done.
             (
                 Some("Compare phone plans Delete"),
-                px(10.0, 334.0, 220.0, 38.0)
+                px(10.0, 352.0, 220.0, 38.0)
             ),
             (Some("Settings"), px(10.0, 510.0, 220.0, 38.0)),
         ],
@@ -1053,7 +1110,7 @@ fn a_hovered_chat_offers_delete_and_a_chat_just_deleted_offers_undo() {
             )),
             delete.1.size.width > 40.0 && delete.1.size.width < 70.0
         ),
-        (px(220.0, 341.0, 0.0, 24.0), true),
+        (px(220.0, 359.0, 0.0, 24.0), true),
         "{outline}"
     );
     assert_eq!(undo.0, Some("Undo"));
@@ -1102,11 +1159,11 @@ fn a_press_on_delete_or_undo_claims_it_and_a_hover_finds_the_row() {
     // Delete, at the hovered row's end; the row elsewhere; Undo; the pill
     // beside it, which is nothing.
     assert_eq!(
-        at(ToRenderer::ConversationPress, 200.0, 353.0),
+        at(ToRenderer::ConversationPress, 200.0, 371.0),
         Some(Claim::DeleteChat)
     );
     assert_eq!(
-        at(ToRenderer::ConversationPress, 60.0, 353.0),
+        at(ToRenderer::ConversationPress, 60.0, 371.0),
         Some(Claim::Chat { at: 3 })
     );
     assert_eq!(
@@ -1116,11 +1173,11 @@ fn a_press_on_delete_or_undo_claims_it_and_a_hover_finds_the_row() {
     assert_eq!(at(ToRenderer::ConversationPress, 40.0, 484.0), None);
     // A hover is answered as a press is: what is under the pointer.
     assert_eq!(
-        at(ToRenderer::ConversationHover, 60.0, 277.0),
+        at(ToRenderer::ConversationHover, 60.0, 295.0),
         Some(Claim::Chat { at: 2 })
     );
     assert_eq!(
-        at(ToRenderer::ConversationHover, 200.0, 353.0),
+        at(ToRenderer::ConversationHover, 200.0, 371.0),
         Some(Claim::DeleteChat)
     );
     assert_eq!(at(ToRenderer::ConversationHover, 120.0, 20.0), None);
@@ -1147,21 +1204,22 @@ fn a_hovered_open_chat_offers_its_close_and_the_empty_chat_on_screen_none() {
     let working = format!("Weekend in Lisbon {WORKING}");
     assert_eq!(
         links.get(2),
-        Some(&(Some(working.as_str()), px(10.0, 218.0, 220.0, 38.0))),
+        Some(&(Some(working.as_str()), px(10.0, 218.0, 220.0, 56.0))),
         "the row did not move: {outline}"
     );
     let buttons: Vec<(Option<&str>, String)> = read(&drawn.tree, "button")
         .iter()
         .map(|button| (button.name.as_deref(), units(button.rect)))
         .collect();
-    // 24 square, 7 down its 38-row, its right edge at the row's padding.
+    // 24 square in the middle of its row — the chat at work's, 56 tall
+    // (queue item 985) — its right edge at the row's padding.
     assert_eq!(
         buttons,
         vec![
             (Some("Hide the panel"), px(194.0, 11.0, 36.0, 36.0)),
             (
                 Some("Close Weekend in Lisbon"),
-                px(196.0, 225.0, 24.0, 24.0)
+                px(196.0, 234.0, 24.0, 24.0)
             ),
         ],
         "{outline}"
@@ -1174,14 +1232,14 @@ fn a_hovered_open_chat_offers_its_close_and_the_empty_chat_on_screen_none() {
     );
     // Its cross, 12 square in the middle of it.
     assert!(
-        drawn.icons.contains(&px(202.0, 231.0, 12.0, 12.0)),
+        drawn.icons.contains(&px(202.0, 240.0, 12.0, 12.0)),
         "{:?}",
         drawn.icons
     );
     let frame = drawn.frame.as_ref();
     // The ×'s ground beside its cross, and the hovered row's lighter one.
     assert_eq!(
-        frame.and_then(|frame| pixel(frame, 199, 237)),
+        frame.and_then(|frame| pixel(frame, 199, 246)),
         Some([0xe1, 0xda, 0xce, 0xff])
     );
     assert_eq!(
@@ -1201,11 +1259,11 @@ fn a_hovered_open_chat_offers_its_close_and_the_empty_chat_on_screen_none() {
         other => panic!("{other:?}"),
     };
     assert_eq!(
-        at(ToRenderer::ConversationPress, 208.0, 237.0),
+        at(ToRenderer::ConversationPress, 208.0, 246.0),
         Some(Claim::CloseChat)
     );
     assert_eq!(
-        at(ToRenderer::ConversationHover, 208.0, 237.0),
+        at(ToRenderer::ConversationHover, 208.0, 246.0),
         Some(Claim::CloseChat)
     );
     assert_eq!(

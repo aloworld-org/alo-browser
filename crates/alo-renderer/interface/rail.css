@@ -20,7 +20,8 @@
   --line-soft: #e1dace;
   /* Deep teal is alo acting (ADR 0112, Answered 1; ADR 0074 § 2 as
      amended, queue item 974), and is never drawn without alo's mark and a
-     word. Dark #77c8c6 is for when the interface has a dark mode. */
+     word. Dark #77c8c6 is for when the interface has a dark mode. A
+     finished chat is said in the ink, never in a green (queue item 985). */
   --acting: #0f6b72;
 }
 
@@ -144,35 +145,46 @@ body {
   box-shadow: 0 1px 3px rgba(16, 42, 67, 0.18);
 }
 
-/* The agent at work in it (queue item 974): alo's mark, 14 square, at the
-   circle's shoulder where the 7 px dot was, and Working under the circle,
-   10 px 600 in the acting colour — never the colour alone — so the
-   button is 58 tall. */
+/* The agent at work in it (queue items 974, 985): its initials alone in the
+   circle, and under it a line of their own — alo's mark, 12 square, and
+   Working, 10 px 600 in the acting colour, never the colour alone — the
+   width of the rail, so the button is 58 tall. A chat the agent finished
+   has a check mark and Done there, in the ink, no green. */
 /* The button centres what is in flow — the circle — in the room above its
-   last 14, where the word stands. */
-.rchat[aria-busy="true"] {
+   last 14, where the line stands. */
+.rchat[aria-busy="true"],
+.rchat[data-done="true"] {
   height: 58px;
   padding-bottom: 14px;
 }
 
-.rchat .acting-mark {
+.rchat .working,
+.rchat .done {
   position: absolute;
-  top: 1px;
-  right: 1px;
-  width: 14px;
-  height: 14px;
-}
-
-.rchat .working {
-  position: absolute;
-  left: 0;
-  right: 0;
+  left: -10px;
+  right: -10px;
   bottom: 3px;
-  color: var(--acting);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  column-gap: 2px;
   font-size: 10px;
   line-height: 12px;
   font-weight: 600;
-  text-align: center;
+}
+
+.rchat .working {
+  color: var(--acting);
+}
+
+.rchat .done {
+  color: var(--ink);
+}
+
+.rchat .acting-mark {
+  display: block;
+  width: 12px;
+  height: 12px;
 }
 
 /* Its name beside it while the pointer is over it: a dark pill 28 tall

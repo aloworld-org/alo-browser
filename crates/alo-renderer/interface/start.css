@@ -25,7 +25,6 @@
      word. Dark #77c8c6 is for when the interface has a dark mode. */
   --acting: #0f6b72;
   --acting-tint: #e2edee;
-  --done: #2f6b5e;
   /* What is selected in a field: the ink at 18 % over white (item 861). */
   --selected: #d4d9dd;
 }
@@ -997,9 +996,12 @@ a {
   width: 100%;
 }
 
+/* Done in N steps, in the ink: no green (queue item 985), so deep teal is
+   only ever alo acting and nothing beside it reads as a second state
+   colour. */
 .finished .done {
   font-weight: 600;
-  color: var(--done);
+  color: var(--ink);
 }
 
 /* A result as it was written (queue item 883): each paragraph keeping its

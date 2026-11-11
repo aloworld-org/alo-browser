@@ -137,20 +137,20 @@ fn the_panels_mark_is_newsreader_and_its_words_manrope() {
         Some((MANROPE, 600)),
         "{runs:?}"
     );
-    // The word beside the chat at work (queue item 974), which leaves the
-    // chat's name the less room: it is cut, as any name too long is.
+    // The word under the chat at work's name (queue items 974, 985).
     assert_eq!(drawn_in(&runs, "Working"), Some((MANROPE, 600)), "{runs:?}");
     // Manrope has no `⌘`, so *New chat*'s `⌘T` is two runs: the `T` in
     // it, the `⌘` in the next family that has one, as a browser falls
-    // back. Nothing else in the panel is drawn in anything but Manrope and
-    // Newsreader.
+    // back; nor the check mark before a finished chat's *Done* (queue item
+    // 985), drawn so too. Nothing else in the panel is drawn in anything
+    // but Manrope and Newsreader.
     assert_eq!(drawn_in(&runs, "T"), Some((MANROPE, 400)), "{runs:?}");
     let elsewhere: Vec<&str> = runs
         .iter()
         .filter(|(_, family, _)| family != MANROPE && family != NEWSREADER)
         .map(|(text, _, _)| text.as_str())
         .collect();
-    assert_eq!(elsewhere, vec!["⌘"]);
+    assert_eq!(elsewhere, vec!["⌘", "\u{2713}"]);
 }
 
 #[test]
@@ -210,8 +210,9 @@ fn a_face_chosen_sets_every_word_of_both_parts_and_never_the_mark_or_the_greetin
             Some((family, 400)),
             "{face:?}"
         );
-        // Every other word in the face; only a `⌘` the face lacks is drawn
-        // by the next family that has one, as a browser falls back.
+        // Every other word in the face; only a `⌘` or a check mark the face
+        // lacks is drawn by the next family that has one, as a browser
+        // falls back.
         let elsewhere: Vec<&str> = panel
             .iter()
             .chain(&start)
@@ -221,7 +222,7 @@ fn a_face_chosen_sets_every_word_of_both_parts_and_never_the_mark_or_the_greetin
         let lacking = if face == InterfaceFace::Inter {
             Vec::<&str>::new()
         } else {
-            vec!["⌘"]
+            vec!["⌘", "\u{2713}"]
         };
         assert_eq!(elsewhere, lacking, "{face:?}");
         // The rail too: its initials and the hovered chat's name, which are

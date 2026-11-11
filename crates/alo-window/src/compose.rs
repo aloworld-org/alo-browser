@@ -29,6 +29,7 @@
 //! else: the page's tab as its strip's renderer painted it, which renderer
 //! draws the page, and what agents' verbs were answered with.
 
+use crate::acting_mark;
 use crate::agent_lines::AgentLine;
 use crate::colours::{agent_line, background, notice_line, rail, refused_line, renderer_line};
 use crate::frame_place::FramePlacement;
@@ -195,7 +196,7 @@ pub fn compose_frame(scene: &FrameScene<'_>, lettering: &Lettering) -> Canvas {
 }
 
 /// Draw each of `lines` into its rectangle, if it was given one, in the
-/// colours of a verb that ran or of a refusal.
+/// colours of a verb that ran — after alo's mark — or of a refusal.
 fn draw_agent_lines(
     canvas: &mut Canvas,
     lettering: &Lettering,
@@ -209,8 +210,16 @@ fn draw_agent_lines(
         } else {
             agent_line()
         };
-        if let Some(rect) = rect {
-            lettering.draw(canvas, rect, &line.sentence, scale, colours);
+        let Some(rect) = rect else {
+            continue;
+        };
+        // A verb that ran is alo acting: alo's mark before its words (queue
+        // item 984). A refusal is not, and has none.
+        let marked = !line.refused && acting_mark::place(rect, scale).is_some();
+        let lead = if marked { acting_mark::lead(scale) } else { 0 };
+        lettering.draw_after(canvas, rect, &line.sentence, scale, colours, lead);
+        if marked {
+            acting_mark::draw(canvas, rect, scale);
         }
     }
 }

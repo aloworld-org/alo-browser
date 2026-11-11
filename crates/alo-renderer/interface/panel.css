@@ -2,7 +2,8 @@
    docs/design/shell.md). The values are the palette's, spelled here because
    no other file is reachable from a renderer. Deep teal is kept for one
    thing — a chat where the agent is at work — and is drawn with alo's mark
-   and a word (queue item 974). */
+   and a word (queue item 974); a finished chat is said in the ink, with a
+   check mark, and no green (queue item 985). */
 :root {
   /* The face every word is set in (queue items 853, 854, 975): Manrope,
      unless a person chose another in Settings, which the document builder
@@ -22,7 +23,6 @@
      amended, queue item 974), and is never drawn without alo's mark and a
      word. Dark #77c8c6 is for when the interface has a dark mode. */
   --acting: #0f6b72;
-  --done: #2f6b5e;
   /* What is selected in a field: the ink at 18 % over white (item 861). */
   --selected: #d4d9dd;
 }
@@ -299,15 +299,42 @@ a {
   text-overflow: ellipsis;
 }
 
-/* A chat the agent works in (queue item 974): alo's mark, 14 square, and
-   Working, 12 px 600 in the acting colour, where the 7 px dot was; never
-   the colour alone. */
+/* A chat the agent works in (queue items 974, 985): its whole name on the
+   row's first line, where a row of 38 has it, and on a second, 2 under it,
+   alo's mark, 14 square, and Working, 12 px 600 on 16 in the acting colour,
+   never the colour alone — so the name is never cut for them, and the row is
+   56 tall, the two lines in its middle. The site's 16 square stands on the
+   name's line of 18, 10 down; what a hovered row offers stays in the middle. */
+.chat[aria-busy="true"] {
+  height: 56px;
+}
+
+.chat[aria-busy="true"] .site {
+  align-self: flex-start;
+  margin-top: 11px;
+}
+
+.lines {
+  display: flex;
+  flex-direction: column;
+  row-gap: 2px;
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0;
+  min-width: 0;
+}
+
+.lines .name {
+  flex-grow: 0;
+  flex-basis: auto;
+}
+
 .working {
   display: flex;
   align-items: center;
   column-gap: 4px;
-  flex-shrink: 0;
   font-size: 12px;
+  line-height: 16px;
   font-weight: 600;
   color: var(--acting);
 }
@@ -318,11 +345,16 @@ a {
   height: 14px;
 }
 
+/* A chat the agent finished (queue item 985): a check mark and Done, 12 px
+   600 in the ink — no green, so deep teal is only ever alo acting. */
 .done {
+  display: flex;
+  align-items: center;
+  column-gap: 3px;
   flex-shrink: 0;
   font-size: 12px;
   font-weight: 600;
-  color: var(--done);
+  color: var(--ink);
 }
 
 .foot {

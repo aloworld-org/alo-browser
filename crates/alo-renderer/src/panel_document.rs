@@ -16,7 +16,10 @@
 //! heading and a list; each chat a link named by its name, `aria-current`
 //! when it is on screen and `aria-busy` while the agent works in it; a chat
 //! the agent finished says [`DONE`] after its name, in words a person and an
-//! agent both read. While *Settings* is the page on screen (queue item
+//! agent both read, after a check mark ([`TICK`]) hidden from the tree.
+//! A chat the agent works in keeps its whole name on the row's first line,
+//! alo's mark and *Working* on a second under it (queue item 985), so the
+//! name is never cut for them. While *Settings* is the page on screen (queue item
 //! 854) its link is the one `aria-current`, and no chat's is. The site's
 //! mark is decoration and is hidden from the
 //! tree: the row is named by its chat, not by a letter. So are the icons
@@ -61,6 +64,11 @@ pub const SHEET: &str = include_str!("../interface/panel.css");
 
 /// What a chat the agent finished says after its name.
 pub const DONE: &str = "Done";
+
+/// The check mark drawn before [`DONE`], in the ink (queue item 985): the
+/// character a finished step of a plan is ticked with, hidden from the tree
+/// since the word says it.
+pub const TICK: &str = "\u{2713}";
 
 /// The heading over the open chats.
 pub const OPEN: &str = "Open";
@@ -249,14 +257,18 @@ fn make_chat(document: &mut Document, chat: &Chat) -> Result<NodeId, Unbuilt> {
     // as a text node's data: no parser ever sees it.
     let text = document.create_text_node(chat.label());
     append(document, name, text)?;
-    append(document, row, name)?;
     match chat.doing {
-        Doing::Nothing => {}
+        Doing::Nothing => append(document, row, name)?,
         Doing::Working => {
-            // alo's mark and a word with the acting colour, never the
-            // colour alone (queue item 974): read as "Weekend in Lisbon
-            // Working", as a finished chat is read with *Done*.
+            // The name and, on a line under it, alo's mark and a word with
+            // the acting colour, never the colour alone (queue items 974,
+            // 985): the name keeps the row's whole width, and the row is
+            // read as "Weekend in Lisbon Working", as a finished chat is
+            // read with *Done*.
             attribute(document, row, "aria-busy", "true")?;
+            let lines = element(document, "span")?;
+            attribute(document, lines, "class", "lines")?;
+            append(document, lines, name)?;
             let said = element(document, "span")?;
             attribute(document, said, "class", "working")?;
             let mark = element(document, "img")?;
@@ -267,13 +279,22 @@ fn make_chat(document: &mut Document, chat: &Chat) -> Result<NodeId, Unbuilt> {
             append(document, said, mark)?;
             let words = document.create_text_node(crate::acting::WORKING);
             append(document, said, words)?;
-            append(document, row, said)?;
+            append(document, lines, said)?;
+            append(document, row, lines)?;
         }
         Doing::Done => {
             // A flex item of its own, so the row is read as "Charging my EV
-            // Done", as a gone tab is read (queue item 530).
+            // Done", as a gone tab is read (queue item 530); its check mark
+            // in the ink with the word (queue item 985), hidden from the tree.
+            append(document, row, name)?;
             let said = element(document, "span")?;
             attribute(document, said, "class", "done")?;
+            let tick = element(document, "span")?;
+            attribute(document, tick, "class", "tick")?;
+            attribute(document, tick, "aria-hidden", "true")?;
+            let mark = document.create_text_node(TICK);
+            append(document, tick, mark)?;
+            append(document, said, tick)?;
             let words = document.create_text_node(DONE);
             append(document, said, words)?;
             append(document, row, said)?;
@@ -526,7 +547,7 @@ mod tests {
             vec![
                 "ECharging my EV",
                 "LWeekend in LisbonWorking",
-                "BInvoice for MarchDone",
+                "BInvoice for March\u{2713}Done",
                 "Compare phone plans",
             ]
         );

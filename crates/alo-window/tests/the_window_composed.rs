@@ -571,6 +571,31 @@ fn what_an_agent_did_is_a_line_of_the_browsers_over_the_page() {
             );
         }
     }
+    // Queue item 984: alo's mark, 16 square, 12 in and in the middle of the
+    // line, its navy arcs drawn; the 8 after it the line's own ground, the
+    // words past them.
+    let mark = alo_window::acting_mark::place(line, Scale::ONE);
+    assert_eq!(
+        mark,
+        Some(PixelRect {
+            x: 12,
+            y: 412,
+            width: 16,
+            height: 16
+        })
+    );
+    let pixel = |x: u32, y: u32| canvas.at(x, y).map(alo_value::Rgba::to_rgba8);
+    let arcs = (412..428)
+        .flat_map(|y| (12..28).map(move |x| (x, y)))
+        .filter(|&(x, y)| pixel(x, y) == Some((0x1b, 0x3e, 0x5e, 0xff)))
+        .count();
+    assert!(arcs > 0, "the mark's arcs are drawn");
+    let ground = Some(alo_window::colours::agent_ground().to_rgba8());
+    for y in 405..line.y + line.height {
+        for x in (0..12).chain(28..36) {
+            assert_eq!(pixel(x, y), ground, "only the ground at {x},{y}");
+        }
+    }
     assert_eq!(holds("an-agents-sentence.png", &canvas), Ok(()));
 }
 

@@ -182,7 +182,8 @@ fn a_chat_at_work_on_the_rail_has_alos_mark_and_working_in_teal() -> Result<(), 
         ..Panel::default()
     })))?;
     assert_eq!(in_teal(&drawn), vec![WORKING]);
-    assert_eq!(marks(&drawn), vec![((14.0, 14.0), true)]);
+    // 12 square, on the word's line under the circle (queue item 985).
+    assert_eq!(marks(&drawn), vec![((12.0, 12.0), true)]);
     assert!(!drawn.fills.contains(&TERRACOTTA));
     Ok(())
 }

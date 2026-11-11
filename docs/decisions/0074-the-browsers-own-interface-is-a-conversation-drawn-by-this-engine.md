@@ -105,12 +105,26 @@ paper.
 Where the agent at work is drawn, and how the mark and the word go with the
 colour (`crates/alo-renderer/src/acting.rs`):
 
-- **A chat on the panel** it works in: where a 7 px dot was, alo's mark,
-  14 square, and **Working**, 12 px 600 in the teal; read by an agent as
-  the chat's name and *Working*, as a finished one is read with *Done*.
-- **A chat on the rail**: the mark, 14 square, at the circle's shoulder,
-  and **Working** under the circle, 10 px 600 in the teal, the button 58
-  tall rather than 44; the button is named by the chat and `aria-busy`.
+- **A chat on the panel** it works in: its whole name on the row's first
+  line, the row's whole text width, and on a second line under it alo's
+  mark, 14 square, and **Working**, 12 px 600 in the teal, so the name is
+  never cut for them (queue item 985, the owner, 11 November 2026; until
+  then the mark and the word stood after the name and cut it); the row 56
+  tall rather than 38; read by an agent as the chat's name and *Working*,
+  as a finished one is read with *Done*.
+- **A chat on the rail**: its initials alone in the circle, and under the
+  circle a line of their own, the rail's width — the mark, 12 square, and
+  **Working**, 10 px 600 in the teal — the button 58 tall rather than 44
+  (item 985; the mark stood at the circle's shoulder before); the button
+  is named by the chat and `aria-busy`.
+- **A finished chat** is not alo acting and shows no teal and no green:
+  a check mark and **Done**, 12 px 600 in the ink, at the end of its row on
+  the panel, and under its circle on the rail, 10 px 600, that button 58
+  tall too (item 985). The *Done* green `#2F6B5E` of the table above is retired
+  as the done colour, and the conversation's *Done in N steps* is in the
+  ink as well; the same value stays only as one of a site's four letter
+  tints, as an answer's *used* pill and the shield's words, none of which
+  means a state of alo's work.
 - **The card while alo works on its page**, in the conversation and in the
   split view: the outline in the teal, and the working line on the tint
   with alo's mark, 16 square, before its words — *alo is working on this
@@ -121,8 +135,13 @@ colour (`crates/alo-renderer/src/acting.rs`):
   colours are `alo-workplace`'s tokens (`alo-window`'s `colours.rs`) — the
   ring around the box an agent's verb acted on, and Chrome's highlight of
   it, are the teal, and the line saying what the agent did is on the
-  teal's tint, its words in the navy. That line's words go with the ring;
-  **alo's mark is not drawn there yet** (queue item 984).
+  teal's tint, its words in the navy. That line is the ring's word, and
+  **alo's mark**, 16 square, 12 in and in the middle of the line, stands
+  before its words, which begin 8 past it (queue item 984): `alo-window`
+  draws it itself (`acting_mark.rs`), from the same compiled-in small
+  drawing, laid out and painted by this engine as one `<img>` of fixed
+  markup at the window's scale — no stranger's byte, so ADR 0024 § 4 is
+  kept. A refusal's line is not alo acting and has no mark.
 
 *Settings › alo at work* and a run kept in the conversation (item 820) show
 no acting colour: neither is alo acting. Terracotta stays where it never

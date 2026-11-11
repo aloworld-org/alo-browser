@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A chat alo is working on keeps its whole name, and *Done* is no longer
+  green.** In the chats panel a working chat's name has the full row, with
+  alo's mark and *Working* on a line under it; on the rail the mark sits
+  beside *Working* under the chat's circle. A finished chat says *Done*
+  after a check mark in the interface's navy, on the panel and now on the
+  rail too, and *Done in N steps* in the conversation is navy as well — so
+  deep teal only ever means alo is acting. Outside the conversation, the
+  line saying what an agent did beside the ring in `alo PAGE` and in the
+  frame around Chrome's window (`alo --chrome`) now starts with alo's mark
+  (ADR 0074 § 2, amended).
 - **Starting alo again opens the address in the alo you already have.**
   `alo --conversation ADDRESS` while alo is running on the same profile
   hands the address to it: it opens in a new chat, that window comes

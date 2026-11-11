@@ -661,27 +661,31 @@ mod tests {
 
     #[test]
     fn a_press_on_a_chat_claims_its_place_in_the_order_drawn() {
-        // Rows 220 × 38 from x 10, at y 178, 218 and 258 under *Open* and
-        // 334 and 374 under *Earlier*, their corners rounded by 9.
+        // Rows 220 wide from x 10, at y 178, 218 — 56 tall, the chat at
+        // work's (queue item 985) — and 276 under *Open* and 352 and 392
+        // under *Earlier*, the others 38 tall, their corners rounded by 9.
         assert_eq!(on_panel(120.0, 194.0), chat(0));
         assert_eq!(on_panel(10.0, 197.0), chat(0));
         assert_eq!(on_panel(229.0, 197.0), chat(0));
         assert_eq!(on_panel(120.0, 178.0), chat(0));
         assert_eq!(on_panel(120.0, 215.0), chat(0));
         assert_eq!(on_panel(120.0, 234.0), chat(1));
-        assert_eq!(on_panel(120.0, 274.0), chat(2));
-        assert_eq!(on_panel(120.0, 344.0), chat(3));
+        assert_eq!(on_panel(120.0, 272.0), chat(1));
+        assert_eq!(on_panel(120.0, 292.0), chat(2));
+        assert_eq!(on_panel(120.0, 362.0), chat(3));
         assert_eq!(on_panel(120.0, 411.0), chat(4));
     }
 
     #[test]
     fn a_press_on_what_a_row_holds_is_on_the_chat() {
         // The site's mark, 16 square from 20 in; the name after it; the
-        // second's dot and the third's *Done* at their rows' ends.
+        // second's mark and *Working* on the line under its name, and the
+        // third's *Done* at its row's end.
         assert_eq!(on_panel(27.0, 196.0), chat(0));
         assert_eq!(on_panel(60.0, 196.0), chat(0));
         assert_eq!(on_panel(60.0, 236.0), chat(1));
-        assert_eq!(on_panel(210.0, 276.0), chat(2));
+        assert_eq!(on_panel(60.0, 256.0), chat(1));
+        assert_eq!(on_panel(210.0, 295.0), chat(2));
     }
 
     #[test]
@@ -906,14 +910,10 @@ mod tests {
         assert_eq!(on_the_rail(10.0, 56.0), claim(Claim::NewChat));
         assert_eq!(on_the_rail(32.0, 526.0), claim(Claim::ShowThePanel));
         assert_eq!(on_the_rail(53.0, 547.0), claim(Claim::ShowThePanel));
-        // Queue item 760: the five chats, 44 square from 121, 6 apart, each
-        // by its place among the rail's.
-        for at in 0..5 {
-            #[expect(
-                clippy::cast_precision_loss,
-                reason = "a place under five, exact in an f32"
-            )]
-            let top = 121.0 + 50.0 * at as f32;
+        // Queue item 760: the five chats, 44 wide from 121, 6 apart, each
+        // by its place among the rail's; the one at work and the finished
+        // one 58 tall, for the line under their circles (queue item 985).
+        for (at, top) in [121.0, 171.0, 235.0, 299.0, 349.0].into_iter().enumerate() {
             assert_eq!(on_the_rail(32.0, top + 22.0), chat(at), "{at}");
         }
         for (x, y) in [

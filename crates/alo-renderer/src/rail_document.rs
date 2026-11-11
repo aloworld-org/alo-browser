@@ -25,12 +25,14 @@
 //! each chat named by the chat — with *Done* after a finished one's name,
 //! busy while the agent works in it, and the one on screen current — and
 //! *Show the panel*. The mark, the initials, the name beside a hovered chat
-//! (it repeats the button's) and the icons are hidden from the tree.
+//! (it repeats the button's), the line under a chat at work or finished —
+//! alo's mark and *Working*, or a check mark and *Done* (queue item 985) —
+//! and the icons are hidden from the tree.
 //!
 //! It runs no script: the template has none and nothing here makes one.
 
 use crate::panel::{Chat, Doing, Panel};
-use crate::panel_document::{DONE, Unbuilt};
+use crate::panel_document::{DONE, TICK, Unbuilt};
 use alo_dom::{Document, NodeId, parse_document};
 
 /// The rail's markup, compiled in.
@@ -81,8 +83,9 @@ pub fn build(panel: &Panel) -> Result<Document, Unbuilt> {
 }
 
 /// One chat on the rail: a button named by the chat, holding its initials,
-/// alo's mark and *Working* while the agent works in it, and — hovered —
-/// its name beside it.
+/// under them alo's mark and *Working* while the agent works in it or a
+/// check mark and *Done* once it finished, and — hovered — its name beside
+/// it.
 fn make_chat(document: &mut Document, chat: &Chat) -> Result<NodeId, Unbuilt> {
     let button = element(document, "button")?;
     attribute(document, button, "class", "rbtn rchat")?;
@@ -105,23 +108,43 @@ fn make_chat(document: &mut Document, chat: &Chat) -> Result<NodeId, Unbuilt> {
     let letters = document.create_text_node(&chat.initials());
     append(document, initials, letters)?;
     append(document, button, initials)?;
-    if chat.doing == Doing::Working {
-        // alo's mark at the circle's shoulder and the word under it, with
-        // the acting colour, never the colour alone (queue item 974). The
-        // button is named by the chat and `aria-busy`, so both are hidden
-        // from an agent, as the initials are.
-        let mark = element(document, "img")?;
-        attribute(document, mark, "class", "acting-mark")?;
-        attribute(document, mark, "src", crate::acting::SRC)?;
-        attribute(document, mark, "alt", "")?;
-        attribute(document, mark, "aria-hidden", "true")?;
-        append(document, button, mark)?;
-        let said = element(document, "span")?;
-        attribute(document, said, "class", "working")?;
-        attribute(document, said, "aria-hidden", "true")?;
-        let words = document.create_text_node(crate::acting::WORKING);
-        append(document, said, words)?;
-        append(document, button, said)?;
+    match chat.doing {
+        Doing::Nothing => {}
+        Doing::Working => {
+            // The initials alone on the first line and, under the circle,
+            // alo's mark and the word with the acting colour, never the
+            // colour alone (queue items 974, 985). The button is named by
+            // the chat and `aria-busy`, so both are hidden from an agent, as
+            // the initials are.
+            let said = element(document, "span")?;
+            attribute(document, said, "class", "working")?;
+            attribute(document, said, "aria-hidden", "true")?;
+            let mark = element(document, "img")?;
+            attribute(document, mark, "class", "acting-mark")?;
+            attribute(document, mark, "src", crate::acting::SRC)?;
+            attribute(document, mark, "alt", "")?;
+            attribute(document, mark, "aria-hidden", "true")?;
+            append(document, said, mark)?;
+            let words = document.create_text_node(crate::acting::WORKING);
+            append(document, said, words)?;
+            append(document, button, said)?;
+        }
+        Doing::Done => {
+            // A check mark and *Done* under the circle, in the ink (queue
+            // item 985), hidden from an agent: the button's name says it.
+            attribute(document, button, "data-done", "true")?;
+            let said = element(document, "span")?;
+            attribute(document, said, "class", "done")?;
+            attribute(document, said, "aria-hidden", "true")?;
+            let tick = element(document, "span")?;
+            attribute(document, tick, "class", "tick")?;
+            let mark = document.create_text_node(TICK);
+            append(document, tick, mark)?;
+            append(document, said, tick)?;
+            let words = document.create_text_node(DONE);
+            append(document, said, words)?;
+            append(document, button, said)?;
+        }
     }
     if chat.hovered {
         attribute(document, button, "data-hovered", "true")?;
@@ -285,6 +308,22 @@ mod tests {
                 .map(|&node| document.text_content(node))
                 .collect::<Vec<_>>(),
             vec![crate::acting::WORKING]
+        );
+        // alo's mark on the word's line, under the circle (queue item 985).
+        assert_eq!(
+            marks
+                .first()
+                .and_then(|&mark| document.parent(mark))
+                .and_then(|line| document.attribute_by_name(line, "class")),
+            Some("working")
+        );
+        // The finished chat: a check mark and Done under its circle.
+        let done = of_class("done");
+        assert_eq!(
+            done.iter()
+                .map(|&node| document.text_content(node))
+                .collect::<Vec<_>>(),
+            vec![format!("{TICK}{DONE}")]
         );
         let busy = of_class("rbtn rchat")
             .into_iter()

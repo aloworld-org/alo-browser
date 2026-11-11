@@ -26554,8 +26554,9 @@ the rest runs on this Mac. Order: ADR 0112's *The plan, in order*.
   the adapter).** Rust implementing alo OS's `Adapter` trait, mapping
   its typed verbs (open, new tab, read page, find, fill a field, press a
   control, print to PDF) onto the socket's asks, never a verb that runs
-  code a model wrote. *blocked: the owner's decision on where its code
-  lives* (this repository never edits alo OS's; MPL-2.0 is compatible).
+  code a model wrote. *Unblocked 11 November 2026: the owner chose this
+  repository, as a crate of its own* (this repository never edits alo OS's;
+  it reads alo OS's adapter contract; MPL-2.0 is compatible).
 - [ ] **978. A windowless card's popups, and ADR 0060's hold in Alloy style
   (ADR 0113, proposed; cut from 959).** Measured: with Chromium's own
   session held, a windowless page's `window.open` never returned and the
@@ -26599,7 +26600,7 @@ the rest runs on this Mac. Order: ADR 0112's *The plan, in order*.
   handler the host has, each through a windowless card against a Chrome-style
   one. *Depends on 980. Closes when:* each is listed, kept, rebuilt or
   refused in ADR 0113's amendment.
-- [ ] **984. alo's mark beside the acting colour outside the conversation
+- [x] **984. alo's mark beside the acting colour outside the conversation
   (cut from 974).** `alo PAGE`'s ring around the box an agent's verb acted
   on (`mark.rs`) and the line saying what it did (`compose.rs`), and
   `alo --chrome`'s highlight (`chrome_mark.rs`), are deep teal since 974,
@@ -26607,6 +26608,35 @@ the rest runs on this Mac. Order: ADR 0112's *The plan, in order*.
   window draws that line itself, not from a document. *Closes when:* the
   line beside the ring shows alo's mark, in `the_window_composed.rs`'s
   references, or ADR 0074 § 2 says why these developer modes go without.
+  *Built 11 November 2026 (gated 11 November 2026, 7111 tests):* `alo-window`'s
+  `acting_mark.rs` lays out and paints the owner's small drawing
+  (`alo_renderer::acting::picture`) as one `<img>` of fixed markup at the
+  window's scale, kept per scale, and `compose.rs` draws it 16 square, 12
+  in and centred, before the words of every agent's line that ran — in
+  `alo PAGE`'s window and in the frame around Chrome's — the words 8 past
+  it (`Lettering::draw_after`); a refusal's line has none. ADR 0074 § 2 and
+  `shell.md` say so; `the_window_composed.rs`'s references redrawn.
+- [x] **985. *Working* on its own line, and *Done* in navy with a check
+  (the owner, 11 November 2026).** On the chats panel and the rail, a chat
+  alo is at work on keeps its whole name on the first line, with alo's mark
+  and *Working* on a second line under it, so the name is never cut for
+  them; *Done* is drawn in the navy ink with a check mark, no green, so
+  deep teal means only *alo acting* (ADR 0112, *Answered* 1). ADR 0074 § 2
+  and `shell.md` say so. *Closes when:* the panel's and the rail's
+  references show both, with a layout assertion that a working chat's name
+  has the row's whole width, and no `--done` green is left.
+  *Built 11 November 2026 (gated 11 November 2026, 7111 tests):* the panel's working row holds
+  its name and, in a `lines` column under it, alo's mark and *Working*, 56
+  tall; `the_chats_panel.rs` asserts the name 174 wide from 46 — the row's
+  220 less padding, site and gap, as wide as the chat on screen's — and
+  drawn whole. On the rail the mark moved from the circle's shoulder onto
+  *Working*'s line under the circle; a finished chat there has a check
+  mark and *Done* under its circle, in the ink, its button 58 tall. *Done*
+  is the ink after `✓` (`panel_document::TICK`, the character a plan's
+  done step is ticked with); `--done` is gone from `panel.css` and
+  `start.css` (*Done in N steps* in the ink). The site letter tint, the
+  *used* pill and the shield keep `#2f6b5e`, which never meant done. ADR
+  0074 § 2 and `shell.md` amended; 15 panel and rail references redrawn.
 
 ## After stage 4
 

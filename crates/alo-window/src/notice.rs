@@ -123,6 +123,21 @@ impl Lettering {
         scale: Scale,
         colours: LineColours,
     ) {
+        self.draw_after(canvas, rect, sentence, scale, colours, 0);
+    }
+
+    /// [`Lettering::draw`], its words beginning `lead` device pixels further
+    /// in than the inset — past alo's mark, on an agent's line
+    /// ([`crate::acting_mark`], queue item 984) — and cut to the room left.
+    pub fn draw_after(
+        &self,
+        canvas: &mut Canvas,
+        rect: PixelRect,
+        sentence: &str,
+        scale: Scale,
+        colours: LineColours,
+        lead: u32,
+    ) {
         if rect.is_empty() {
             return;
         }
@@ -137,7 +152,8 @@ impl Lettering {
         );
 
         let inset = INSET * scale.factor();
-        let room = whole(rect.width) - 2.0 * inset;
+        let start = inset + whole(lead);
+        let room = whole(rect.width) - start - inset;
         if room <= 0.0 {
             return;
         }
@@ -157,7 +173,7 @@ impl Lettering {
             &self.font,
             size,
             0.0,
-            (whole(rect.x) + inset, baseline),
+            (whole(rect.x) + start, baseline),
         );
         let coverage = fill(&path);
         let (origin_x, origin_y) = coverage.origin();

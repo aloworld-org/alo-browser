@@ -37,10 +37,13 @@ Top to bottom, inside 6 px above and 10 px either side, 12 px below:
 - **Search chats**, 38 px.
 - **Open** — the chats in use. Each row is 38 px, 13.5 px text, the site
   open in it as a 16 px mark before its name. The chat on screen is white.
-  A chat where the agent is working has alo's mark, 14 px, and
-  **Working**, 12 px 600 in deep teal, after its name (item 974; a 7 px
-  terracotta dot before); one it finished has a green tick, and both say
-  so in words to an agent.
+  A chat where the agent is working keeps its whole name on the first
+  line, and under it, 2 px down, alo's mark, 14 px, and **Working**, 12 px
+  600 in deep teal, so the name is never cut for them — the row 56 px tall
+  (item 985; item 974 put them after the name, and a 7 px terracotta dot
+  before that). One it finished has a check mark and **Done**, 12 px 600 in
+  the navy ink at its row's end — no green, so deep teal means only alo
+  acting (item 985). Both say so in words to an agent.
 - **Earlier** — past chats, in quiet text, without marks. Closing a chat
   never loses it: it moves here, first (item 791). The chats kept from
   before alo was last closed are here, newest first; pressed, one is on
@@ -146,9 +149,10 @@ a "+" at the top makes a new chat.*
   to `S` — the rule's known limit. An IP address is its first digit —, 12 px 600 in the ink in
   a **32 px circle** on the line colour. **The chat on screen** is white
   with a shadow, as its row is white in the panel; one the agent works in
-  has alo's mark, 14 px, at its circle's shoulder and **Working** under
-  the circle, 10 px 600 in deep teal, its button 58 tall (item 974; the
-  panel's 7 px terracotta dot before). Five fit above *Show the panel* in
+  has, under its circle, a line the rail's width holding alo's mark, 12
+  px, and **Working**, 10 px 600 in deep teal; one it finished a check mark
+  and **Done** there in the ink; either button 58 tall (items 974, 985; the
+  mark at the circle's shoulder, and a 7 px terracotta dot, before). Five fit above *Show the panel* in
   the least window.
 - **The name on hover.** The chat the pointer is over is a shade lighter,
   and its name stands beside it in a dark pill — `#2b2722`, 12.5 px 500 in
@@ -781,7 +785,7 @@ it chose (12.5 on 18), the step under way in the teal. Asking before
 pressing what pays, sends, deletes or sends a form: a box rounded 12, 12
 by 14 inside, the question (600), then **Allow** in the ink and **Not
 now**, 28 tall, 8 apart. Stuck: why, then each choice as a button. Done:
-*Done in N steps* in the done colour and the result in full, **as it was
+*Done in N steps* in the ink (item 985; green before) and the result in full, **as it was
 written** (item 883): its lines kept, an empty line between paragraphs 8
 apart, and lines beginning `- `, `* `, `•` or `–` a bulleted list (its
 bullets 18 in), lines beginning `1.` or `1)` a numbered list keeping its
@@ -797,7 +801,7 @@ payment pays (826) are below, and so is beginning with no page open
 worked on (820): once the page is shown earlier, under its line, what the
 person asked as their bubble, then what alo did on a white box rounded 12,
 14 by 16 inside — its steps in the quiet colour, 6 apart, why under a step
-— and 10 under them *Done in N steps* in the done colour and the result,
+— and 10 under them *Done in N steps* in the ink (item 985; green before) and the result,
 in its lines and lists as on the card (883), or why it was stuck or
 stopped; nothing on it pressable. A text typed that
 the person did not say is never kept: that step reads *Typed into a
@@ -1417,7 +1421,11 @@ ADR 0074 § 2 is the palette, amended 12 November 2026 (item 974, ADR 0112
 *Answered* 1). The rule that matters most: **deep teal `#0F6B72` means alo
 is acting**, appears nowhere else, and **is never drawn alone** — always with
 alo's mark and a word. Terracotta, its colour until then, no longer means
-it. The ink is alo OS's navy `#102A43`.
+it. The ink is alo OS's navy `#102A43`. A finished chat, and *Done in N
+steps*, are in that ink with no green (item 985). Outside the conversation,
+`alo PAGE`'s ring around the box a verb acted on and `alo --chrome`'s
+highlight are the teal, and the line saying what the verb did carries alo's
+mark, 16 px, before its words (item 984).
 
 ## What is not designed yet
 

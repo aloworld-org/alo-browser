@@ -1,9 +1,8 @@
 # ADR 0113 — A card drawn with no window of Chromium's
 
-**Status:** proposed — queue item 959, 11 November 2026. Not accepted: the
-owner accepts, and two questions below are the owner's alone (*Asked of the
-owner*). Nothing alo starts changes until then: the spike is behind a switch
-alo never gives.
+**Status:** accepted — queue item 959, 11 November 2026; the owner answered
+both questions on 11 November 2026 (*Answered*, below). The spike stays
+behind a switch alo never gives until 978 and 983 are done.
 **Date:** 2026-11-11
 **Context:** ADR 0076 (a card is a parked window of Chromium's, streamed;
 every amendment, the sixth's exact sRGB above all); ADR 0058 (Chromium is a
@@ -323,6 +322,17 @@ popup's requests leave unseen.
    opens in a window of their own? ADR 0079 § 3.2 chose Chrome style for the
    hold; this ADR proposes Alloy for windowless cards only once 978 has
    rebuilt the hold.
+
+### Answered (the owner, 11 November 2026)
+
+The owner answered "yes" to the proposals as put:
+
+1. **No new `unsafe` boundary, not yet.** Frames come by the screencast
+   (road a); 981 stays blocked, and is asked again only if road (a) is
+   measured too slow.
+2. **Alloy style for windowless cards only**, once 978 has rebuilt ADR
+   0060's hold for popups and 983 has measured what Alloy style takes from a
+   card. Pages a person opens in a window of their own stay Chrome style.
 
 ## Rejected
 
