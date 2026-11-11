@@ -2,12 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! Queue items 706, 853 and 854: the interface's text is shaped in the
+//! Queue items 706, 853, 854 and 975: the interface's text is shaped in the
 //! design's own typefaces (ADR 0084) — the mark and the greeting in
-//! Newsreader, every other word in Inter, or in the face a person chose in
-//! *Settings*, each set to the weight its stylesheet asks for — and, for a
-//! renderer never handed them, in the generics its stylesheet falls back
-//! to.
+//! Newsreader, every other word in Manrope, or in the face a person chose
+//! in *Settings*, each set to the weight its stylesheet asks for, and what
+//! it sets in a monospace in Geist Mono — and, for a renderer never handed
+//! them, in the generics its stylesheet falls back to.
 //!
 //! Read off the drawing itself: every run of text the panel and the first
 //! screen put down, with the family and the weight of the font the shaper
@@ -20,7 +20,7 @@ use alo_renderer::panel::{Chat, Doing, Panel};
 use alo_renderer::settings_document::SAMPLE;
 use alo_renderer::start::{KeptSite, Start};
 use alo_renderer::typed::offers;
-use alo_renderer::typefaces::{self, INTER, NEWSREADER};
+use alo_renderer::typefaces::{self, GEIST_MONO, MANROPE, NEWSREADER};
 use alo_renderer::{FromRenderer, Renderer, ToRenderer};
 use alo_text::{Font, FontDatabase, Slant, Weight};
 
@@ -117,35 +117,44 @@ fn drawn_in<'a>(runs: &'a [Run], text: &str) -> Option<(&'a str, u16)> {
 }
 
 #[test]
-fn the_panels_mark_is_newsreader_and_its_words_inter() {
+fn the_panels_mark_is_newsreader_and_its_words_manrope() {
     let runs = runs(panel(), true);
     assert_eq!(drawn_in(&runs, "alo"), Some((NEWSREADER, 400)), "{runs:?}");
     assert_eq!(
-        drawn_in(&runs, "Weekend in Lisbon"),
-        Some((INTER, 400)),
+        drawn_in(&runs, "Compare phone plans"),
+        Some((MANROPE, 400)),
         "{runs:?}"
     );
-    // The chat on screen is 600, the variable font set to that instance.
+    // The chat on screen is 600, the variable font set to that instance:
+    // Manrope's file names its 200 as its own, and is drawn at 600.
     assert_eq!(
         drawn_in(&runs, "Charging my EV"),
-        Some((INTER, 600)),
+        Some((MANROPE, 600)),
         "{runs:?}"
     );
-    assert_eq!(drawn_in(&runs, "New chat"), Some((INTER, 600)), "{runs:?}");
-    // Inter has a `⌘`, so *New chat*'s `⌘T` is one run in it (queue item
-    // 853; Instrument Sans has none, below). Nothing in the panel is drawn
-    // in anything but Inter and Newsreader.
-    assert_eq!(drawn_in(&runs, "⌘T"), Some((INTER, 400)), "{runs:?}");
+    assert_eq!(
+        drawn_in(&runs, "New chat"),
+        Some((MANROPE, 600)),
+        "{runs:?}"
+    );
+    // The word beside the chat at work (queue item 974), which leaves the
+    // chat's name the less room: it is cut, as any name too long is.
+    assert_eq!(drawn_in(&runs, "Working"), Some((MANROPE, 600)), "{runs:?}");
+    // Manrope has no `⌘`, so *New chat*'s `⌘T` is two runs: the `T` in
+    // it, the `⌘` in the next family that has one, as a browser falls
+    // back. Nothing else in the panel is drawn in anything but Manrope and
+    // Newsreader.
+    assert_eq!(drawn_in(&runs, "T"), Some((MANROPE, 400)), "{runs:?}");
     let elsewhere: Vec<&str> = runs
         .iter()
-        .filter(|(_, family, _)| family != INTER && family != NEWSREADER)
+        .filter(|(_, family, _)| family != MANROPE && family != NEWSREADER)
         .map(|(text, _, _)| text.as_str())
         .collect();
-    assert_eq!(elsewhere, Vec::<&str>::new());
+    assert_eq!(elsewhere, vec!["⌘"]);
 }
 
 #[test]
-fn the_first_screens_greeting_is_newsreader_and_its_words_inter() {
+fn the_first_screens_greeting_is_newsreader_and_its_words_manrope() {
     let runs = runs(start(), true);
     assert_eq!(
         drawn_in(&runs, "Good morning."),
@@ -154,12 +163,12 @@ fn the_first_screens_greeting_is_newsreader_and_its_words_inter() {
     );
     assert_eq!(
         drawn_in(&runs, "Go to the site"),
-        Some((INTER, 400)),
+        Some((MANROPE, 400)),
         "{runs:?}"
     );
     let elsewhere: Vec<&Run> = runs
         .iter()
-        .filter(|(_, family, _)| family != INTER && family != NEWSREADER)
+        .filter(|(_, family, _)| family != MANROPE && family != NEWSREADER)
         .collect();
     assert_eq!(elsewhere, Vec::<&Run>::new());
 }
@@ -242,7 +251,7 @@ fn a_face_chosen_sets_every_word_of_both_parts_and_never_the_mark_or_the_greetin
 
 #[test]
 fn settings_draws_each_face_in_itself_whatever_the_page_is_set_in() {
-    for chosen in [InterfaceFace::Inter, InterfaceFace::PlusJakartaSans] {
+    for chosen in [InterfaceFace::Manrope, InterfaceFace::PlusJakartaSans] {
         let runs = runs(
             ToRenderer::Start(Box::new(Start {
                 viewport: Size::new(1040.0, 820.0),
@@ -275,8 +284,8 @@ fn settings_draws_each_face_in_itself_whatever_the_page_is_set_in() {
             "{runs:?}"
         );
         for face in InterfaceFace::ALL {
-            let name = if face == InterfaceFace::Inter {
-                "Inter \u{b7} Default".to_owned()
+            let name = if face == InterfaceFace::Manrope {
+                "Manrope \u{b7} Default".to_owned()
             } else {
                 face.name().to_owned()
             };
@@ -294,7 +303,7 @@ fn a_renderer_never_handed_them_draws_the_stylesheets_generics() {
         "{panel:?}"
     );
     assert_eq!(
-        drawn_in(&panel, "Weekend in Lisbon"),
+        drawn_in(&panel, "Compare phone plans"),
         Some(("DejaVu Sans", 400)),
         "{panel:?}"
     );
@@ -304,4 +313,42 @@ fn a_renderer_never_handed_them_draws_the_stylesheets_generics() {
         Some(("DejaVu Serif", 400)),
         "{start:?}"
     );
+}
+
+/// Queue item 975: what the interface sets in a monospace is set in Geist
+/// Mono, whatever face its words are in, in every stylesheet of the
+/// interface's that sets words; and in the generic after it for a renderer
+/// never handed it.
+#[test]
+fn a_monospace_in_the_interface_is_geist_mono() {
+    let html = "<!doctype html><p>Run <code>alo-ask --plain</code> to see</p>";
+    for sheet in [
+        alo_renderer::panel_document::SHEET,
+        alo_renderer::rail_document::SHEET,
+        alo_renderer::start_document::SHEET,
+    ] {
+        let mut handed = fonts(true);
+        handed.map_generic("monospace", "DejaVu Sans");
+        let drawn = alo_renderer::render(html, sheet, Size::new(600.0, 200.0), &handed);
+        let runs: Vec<Run> = drawn
+            .drawing
+            .display
+            .items()
+            .iter()
+            .filter_map(|item| match item {
+                DisplayItem::Text { text, font, .. } => Some((
+                    text.clone(),
+                    font.family().to_owned(),
+                    font.weight().value(),
+                )),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            drawn_in(&runs, "alo-ask --plain"),
+            Some((GEIST_MONO, 400)),
+            "{runs:?}"
+        );
+        assert_eq!(drawn_in(&runs, "Run"), Some((MANROPE, 400)), "{runs:?}");
+    }
 }

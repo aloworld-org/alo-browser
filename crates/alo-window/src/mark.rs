@@ -17,7 +17,10 @@
 //! render showed a ringed "Try again" that nobody could tell was ringed. A
 //! box broken across lines has a rectangle per
 //! line (`SnapshotNode::rects`), and each is ringed, because their union
-//! would ring text that belongs to somebody else.
+//! would ring text that belongs to somebody else. Since queue item 974 the
+//! ring is alo's acting colour, deep teal (ADR 0112, *Answered* 1), no
+//! longer the focus outline's terracotta; it keeps that outline's width and
+//! gap.
 //!
 //! # Read to draw, never acted on
 //!
@@ -47,8 +50,8 @@ use crate::scale::Scale;
 use alo_layout::Rect;
 use alo_paint::Canvas;
 
-/// How thick the ring is, in CSS pixels: alo's focus outline, two pixels of
-/// `--accent`.
+/// How thick the ring is, in CSS pixels: alo's focus outline's two
+/// pixels, in the acting colour ([`mark`]).
 pub const RING_WIDTH: u32 = 2;
 
 /// How far outside the box the ring is, in CSS pixels: alo's

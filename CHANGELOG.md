@@ -6,6 +6,23 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **alo acting is deep teal now, never colour alone, and alo speaks in
+  Manrope.** Wherever alo is at work — a chat it works in, the outline
+  and the line over a page it works on — it is drawn in deep teal with
+  alo's own mark and a word (*Working*, *alo is working on this page*),
+  where it was a terracotta dot or outline before; the interface's ink
+  is alo OS's navy. Every word of alo's own interface is set in Manrope,
+  and anything in a monospace in Geist Mono, both under the SIL Open Font
+  License; Inter and the other faces are still yours to choose in
+  *Settings* (ADR 0074 § 2 and ADR 0084, amended; ADR 0112).
+- **A first look at pages in the conversation drawn with no window behind
+  them** — what alo OS's Wayland needs, where no program may hide or place
+  a window. Measured on a Mac, behind a switch nothing uses yet: the page
+  answers everything an agent asks of it, keeps its exact colours, works
+  without a graphics card, and keeps drawing even with the screen asleep;
+  but opening a pop-up window from such a page stalls alo's request
+  checks, so nothing changes for you until that is solved. The proposal
+  waits for the owner (ADR 0113, proposed).
 - **alo browser is on its way to being alo OS's default browser.** The
   owner decided it will become the default on alo OS once it passes alo
   OS's own bar on an alo OS machine; Firefox stays the default until then,

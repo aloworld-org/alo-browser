@@ -1,6 +1,6 @@
 # ADR 0074 — The browser's own interface is a conversation, drawn by this engine
 
-**Status:** accepted — the chats panel (699), the first screen (700), their window (709), a press on either (710), icons (712), going to a website from the one box (701) and opening it in the machine's Chrome (713, ADR 0075), the typefaces (706, ADR 0084), the conversation's turns, scrolled (703, ADR 0085), a press on an offer (714, 759), *Search chats* and the button that hides the panel (711), and the one box and *Search chats* as text fields — caret, selection, clipboard, undo, presses and input methods (861, 848) — built; the rest queued
+**Status:** accepted; § 2 amended 12 November 2026 (queue item 974: deep teal is alo acting, alo OS's navy the ink) — the chats panel (699), the first screen (700), their window (709), a press on either (710), icons (712), going to a website from the one box (701) and opening it in the machine's Chrome (713, ADR 0075), the typefaces (706, ADR 0084), the conversation's turns, scrolled (703, ADR 0085), a press on an offer (714, 759), *Search chats* and the button that hides the panel (711), and the one box and *Search chats* as text fields — caret, selection, clipboard, undo, presses and input methods (861, 848) — built; the rest queued
 **Date:** 2026-10-30
 **Context:** ADR 0024 § 4 (the tab strip is a document of ours, rendered by
 the engine in a sandboxed renderer of its own); ADR 0002 (the layout tree is
@@ -87,6 +87,48 @@ renderer reaches no other file, as `strip.css` says of its own):
 Every text colour is at least 4.5:1 against what it is drawn on. The strip
 keeps its own rail colours until the strip is folded into the panel; nothing
 here changes it.
+
+**Amended 12 November 2026 (queue item 974; ADR 0112, *Answered* 1).** Three
+rows of the table change, and the rest stand:
+
+| Name | Value | Used for |
+|---|---|---|
+| Ink | `#102A43`, alo OS's navy (was `#1B2433`) | text, the send button, what is selected — the browser's own structure and controls; what is drawn *of* the ink moves with it: the selection's tint, the ink at 18 % over white, is `#D4D9DD` (was `#D6D8DA`), and every shadow, veil and keyboard ring drawn in the ink at an alpha is now the navy at that alpha |
+| Acting | `#0F6B72`, **deep teal** (was terracotta `#B5573A`); dark `#77C8C6` once the interface has a dark mode, which it has not yet | **only** while alo acts, and **never alone**: always with **alo's mark** (the owner's icon in its small drawing, `docs/brand/`) **and a word** |
+| Acting tint | `#E2EDEE`, the teal at 12 % over white (was `#F6E7E0`) | behind the working line |
+
+*Acting text* (`#7A3A24`) is retired: the teal itself is 5.3 : 1 on its tint
+and 6.2 : 1 on white, so the working line's words, *Stop*'s and the step
+under way are the teal. The navy is 14.6 : 1 on white and 13.0 : 1 on
+paper.
+
+Where the agent at work is drawn, and how the mark and the word go with the
+colour (`crates/alo-renderer/src/acting.rs`):
+
+- **A chat on the panel** it works in: where a 7 px dot was, alo's mark,
+  14 square, and **Working**, 12 px 600 in the teal; read by an agent as
+  the chat's name and *Working*, as a finished one is read with *Done*.
+- **A chat on the rail**: the mark, 14 square, at the circle's shoulder,
+  and **Working** under the circle, 10 px 600 in the teal, the button 58
+  tall rather than 44; the button is named by the chat and `aria-busy`.
+- **The card while alo works on its page**, in the conversation and in the
+  split view: the outline in the teal, and the working line on the tint
+  with alo's mark, 16 square, before its words — *alo is working on this
+  page · click anywhere to take over*, or *alo is finding the site to work
+  on* — and *Stop* outlined in the teal; the step under way in the teal,
+  in the same column as that line.
+- **Outside the conversation** — `alo PAGE` and `alo --chrome`, whose
+  colours are `alo-workplace`'s tokens (`alo-window`'s `colours.rs`) — the
+  ring around the box an agent's verb acted on, and Chrome's highlight of
+  it, are the teal, and the line saying what the agent did is on the
+  teal's tint, its words in the navy. That line's words go with the ring;
+  **alo's mark is not drawn there yet** (queue item 984).
+
+*Settings › alo at work* and a run kept in the conversation (item 820) show
+no acting colour: neither is alo acting. Terracotta stays where it never
+meant the agent — the tab strip's loading and gone tabs (`strip.css`, the
+strip's own colours, as above) and the pages of the corpus. The owner's
+logo is not changed (ADR 0112, *Answered* 2).
 
 ## 3. The typefaces
 

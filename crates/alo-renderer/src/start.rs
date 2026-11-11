@@ -109,8 +109,8 @@ pub struct Start {
     /// — is set up, which the box's offer to ask says: set up only while a
     /// card is open and the model can be asked.
     pub asking: SetUp,
-    /// The face its words are set in (queue items 853, 854): Inter unless
-    /// a person chose another in *Settings*.
+    /// The face its words are set in (queue items 853, 854, 975):
+    /// Manrope unless a person chose another in *Settings*.
     pub face: InterfaceFace,
     /// Whether *Settings* is open (queue items 854, 886): a panel over the
     /// chat on screen, which is drawn under it as it was, blurred and
@@ -208,7 +208,7 @@ pub struct Waiting {
 impl Default for Start {
     /// A greeting of nothing, no sites, nothing waiting, at no size, on a
     /// screen of one, an empty box without the keyboard, no turns, not
-    /// scrolled, and searching not set up, for no reason given, in Inter,
+    /// scrolled, and searching not set up, for no reason given, in Manrope,
     /// and not *Settings*.
     fn default() -> Self {
         Self {
@@ -226,7 +226,7 @@ impl Default for Start {
             bar: None,
             search: SetUp::Not(String::new()),
             asking: SetUp::Not(String::new()),
-            face: InterfaceFace::Inter,
+            face: InterfaceFace::Manrope,
             settings: false,
             settings_keyed: None,
             limits: Limits::default(),

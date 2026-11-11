@@ -838,7 +838,9 @@ impl Renderer {
                 // The rail is drawn on nothing, so the name of the chat
                 // hovered on it stands over the first screen (queue item
                 // 760); the whole panel on white.
-                (sheet, Vec::new(), panel.hidden),
+                // alo's mark, beside a chat the agent works in (queue item
+                // 974).
+                (sheet, vec![crate::acting::picture()], panel.hidden),
                 Holds::Conversation(Part::Panel),
             ),
             Err(unbuilt) => FromRenderer::Failed(Failure::NoPanel { why: unbuilt.why }),
@@ -959,6 +961,8 @@ impl Renderer {
                     .chain(crate::videos_document::pictures(start))
                     .chain(crate::news_document::pictures(start))
                     .chain(crate::marks_document::pictures(start))
+                    // alo's mark, on the working line (queue item 974).
+                    .chain(std::iter::once(crate::acting::picture()))
                     .collect(),
                 false,
             ),

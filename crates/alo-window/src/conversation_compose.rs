@@ -547,7 +547,8 @@ mod tests {
         assert_eq!(rgba8(&canvas, 0, 0), Some((255, 255, 255, 255)));
         assert_eq!(rgba8(&canvas, 39, 3), Some((255, 255, 255, 255)));
         // Past it, the first screen and the bare paper under the shade:
-        // the ink at 0.32 over the porcelain.
+        // the ink, alo OS's navy since queue item 974, at 0.32 over the
+        // porcelain.
         let shaded = |under: u8, ink: u8| {
             let mixed = f32::from(under) * 0.68 + f32::from(ink) * 0.32;
             #[expect(
@@ -561,15 +562,15 @@ mod tests {
         // Over the rail's room, the panel's colour shaded; over the first
         // screen and the paper, the porcelain shaded.
         let rail = Some((
-            shaded(0xee, 0x1b),
-            shaded(0xea, 0x24),
-            shaded(0xe2, 0x33),
+            shaded(0xee, 0x10),
+            shaded(0xea, 0x2a),
+            shaded(0xe2, 0x43),
             255,
         ));
         let paper = Some((
-            shaded(0xf4, 0x1b),
-            shaded(0xf1, 0x24),
-            shaded(0xec, 0x33),
+            shaded(0xf4, 0x10),
+            shaded(0xf1, 0x2a),
+            shaded(0xec, 0x43),
             255,
         ));
         for (x, expected) in [

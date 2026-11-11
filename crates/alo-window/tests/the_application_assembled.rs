@@ -50,12 +50,13 @@ fn assemble(into: &Path) -> Result<Output, String> {
         .map_err(|why| format!("alo-bundle did not run: {why}"))
 }
 
-/// The licences of the typefaces `alo` carries (items 706 and 853, ADR 0084), in the
+/// The licences of the typefaces `alo` carries (items 706, 853 and 975, ADR 0084), in the
 /// application's `Contents` at `contents`: the files published beside the
 /// fonts, byte for byte.
 fn the_typefaces_licences_are_the_published_ones(contents: &Path) -> Result<(), String> {
     let fonts = Path::new(env!("CARGO_MANIFEST_DIR")).join("../alo-renderer/interface/fonts");
     for name in [
+        "OFL-Manrope.txt",
         "OFL-Inter.txt",
         "OFL-Geist.txt",
         "OFL-DMSans.txt",
@@ -249,6 +250,7 @@ fn the_command_makes_a_sealed_application_holding_what_it_should() -> Result<(),
             "alo browser.app/Contents/Resources/licences/OFL-Geist.txt",
             "alo browser.app/Contents/Resources/licences/OFL-InstrumentSans.txt",
             "alo browser.app/Contents/Resources/licences/OFL-Inter.txt",
+            "alo browser.app/Contents/Resources/licences/OFL-Manrope.txt",
             "alo browser.app/Contents/Resources/licences/OFL-Newsreader.txt",
             "alo browser.app/Contents/Resources/licences/OFL-NotoColorEmoji.txt",
             "alo browser.app/Contents/Resources/licences/OFL-PlusJakartaSans.txt",

@@ -402,7 +402,7 @@ fn the_plan_is_drawn_as_the_reference() -> Result<(), String> {
     };
     assert_eq!(
         darkest(130),
-        Some([0x1b, 0x24, 0x33, 0xff]),
+        Some([0x10, 0x2a, 0x43, 0xff]),
         "now, in the ink"
     );
     assert_eq!(

@@ -215,7 +215,7 @@ fn inside(inner: Rect, outer: Rect) -> bool {
 
 /// The person's line, one line of 22 and 10 above and below: as wide as
 /// its words, or cut to the column.
-const SAID_WIDE: f32 = 554.812_5;
+const SAID_WIDE: f32 = 538.046_9;
 
 #[test]
 fn the_column_is_the_room_less_32_either_side_with_the_panel_or_the_rail() {
@@ -227,9 +227,10 @@ fn the_column_is_the_room_less_32_either_side_with_the_panel_or_the_rail() {
     // A window 720 wide was laid out beside the panel, a column of 416,
     // until the panel folded to the rail below 760 (queue item 775): the
     // narrowest column beside the panel is 760's, 456, where Inter's six
-    // tabs fit with 37 to spare (queue item 853). At 416 they would not:
-    // News would end 2.78 past the column, Inter's tabs being 2 to 4 wider
-    // each than Instrument Sans'.
+    // tabs fit with 37 to spare (queue item 853), and Manrope's, a little
+    // narrower, with 45 (975). At 416 Inter's would not: News would end
+    // 2.78 past the column, Inter's tabs being 2 to 4 wider each than
+    // Instrument Sans'.
     for (said, room, column, third) in [
         ("967 beside the panel", 727.0, 663.0, 74.0),
         ("967 beside the rail", 903.0, 839.0, 74.0),
@@ -254,15 +255,15 @@ fn the_column_is_the_room_less_32_either_side_with_the_panel_or_the_rail() {
             "{said}"
         );
         assert_eq!(at("rtabs"), vec![px(32.0, 102.0, column, 42.0)], "{said}");
-        assert_eq!(at("rt on"), vec![px(32.0, 102.0, 45.515_625, 42.0)]);
+        assert_eq!(at("rt on"), vec![px(32.0, 102.0, 44.640_625, 42.0)]);
         assert_eq!(
             at("rt"),
             vec![
-                px(163.484_38, 102.0, 60.375, 42.0),
-                px(307.890_63, 102.0, 73.578_125, 42.0),
-                px(385.468_75, 102.0, 65.312_5, 42.0),
+                px(160.609_38, 102.0, 60.765_625, 42.0),
+                px(304.125, 102.0, 71.484_375, 42.0),
+                px(379.609_38, 102.0, 63.312_5, 42.0),
             ],
-            "{said}: Sites, Videos and News, News ending at 450.78125"
+            "{said}: Sites, Videos and News, News ending at 442.921875"
         );
         // The sites, 22 apart, each as wide as the column; a description
         // 740 at most.
@@ -347,15 +348,15 @@ fn at_the_fold_and_in_the_least_window_the_tab_row_is_inside_the_column() {
             "{said}"
         );
         assert_eq!(at("rtabs"), vec![px(32.0, 102.0, column, 42.0)], "{said}");
-        assert_eq!(at("rt on"), vec![px(32.0, 102.0, 45.515_625, 42.0)]);
+        assert_eq!(at("rt on"), vec![px(32.0, 102.0, 44.640_625, 42.0)]);
         assert_eq!(
             at("rt"),
             vec![
-                px(163.484_38, 102.0, 60.375, 42.0),
-                px(307.890_63, 102.0, 73.578_125, 42.0),
-                px(385.468_75, 102.0, 65.312_5, 42.0),
+                px(160.609_38, 102.0, 60.765_625, 42.0),
+                px(304.125, 102.0, 71.484_375, 42.0),
+                px(379.609_38, 102.0, 63.312_5, 42.0),
             ],
-            "{said}: News ends at 444.75, inside the column's {}",
+            "{said}: News ends at 442.921875, inside the column's {}",
             32.0 + column
         );
         assert_eq!(
@@ -571,7 +572,7 @@ fn the_all_tab_in_a_window_967_wide_is_drawn_as_the_reference() {
         // The chosen tab's underline in the ink from the column's left
         // edge; the first site's mark, not the paper, at 33; and the paper in
         // the gutters either side.
-        assert_eq!(pixel(frame, 50, 143), Some([0x1b, 0x24, 0x33, 0xff]));
+        assert_eq!(pixel(frame, 50, 143), Some([0x10, 0x2a, 0x43, 0xff]));
         assert_ne!(pixel(frame, 33, 177), Some([0xf4, 0xf1, 0xec, 0xff]));
         assert_eq!(pixel(frame, 16, 177), Some([0xf4, 0xf1, 0xec, 0xff]));
         assert_eq!(pixel(frame, 710, 768), Some([0xf4, 0xf1, 0xec, 0xff]));

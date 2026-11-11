@@ -355,7 +355,7 @@ fn the_all_tabs_row_of_images_is_laid_out_as_the_design_draws_it() {
     assert!(
         at("seeall")
             .first()
-            .is_some_and(|all| all.ends_with("454) 89.421875×18")),
+            .is_some_and(|all| all.ends_with("454) 86.703125×18")),
         "{:?}",
         at("seeall")
     );
@@ -386,11 +386,11 @@ fn the_all_tabs_row_of_images_is_laid_out_as_the_design_draws_it() {
             px(792.0, 522.0, 168.0, 0.0),
         ]
     );
-    assert_eq!(at("more"), vec![px(80.0, 584.0, 79.968_75, 20.0)]);
+    assert_eq!(at("more"), vec![px(80.0, 584.0, 81.093_75, 20.0)]);
     assert_eq!(at("box"), vec![px(80.0, 740.0, 880.0, 56.0)]);
     // The tabs: All shown, Sites, Images, Videos and News open (queue
     // items 744–746), Answer disabled.
-    assert_eq!(at("rt on"), vec![px(80.0, 102.0, 45.515_625, 42.0)]);
+    assert_eq!(at("rt on"), vec![px(80.0, 102.0, 44.640_625, 42.0)]);
     assert_eq!(at("rt").len(), 4);
     assert_eq!(at("rt off").len(), 1);
 }
@@ -429,7 +429,7 @@ fn the_all_tab_with_images_is_drawn_as_the_reference() {
 fn the_sites_tab_shows_every_site_and_no_row_of_images() {
     let renderer = laid_out(with(results(Tab::Sites)));
     let at = |class: &str| boxes_of(&renderer, class);
-    assert_eq!(at("rt on"), vec![px(210.421_88, 102.0, 61.546_875, 42.0)]);
+    assert_eq!(at("rt on"), vec![px(207.375, 102.0, 62.140_625, 42.0)]);
     assert_eq!(at("res"), vec![px(80.0, 164.0, 880.0, 558.0)]);
     assert_eq!(
         at("found"),
@@ -469,8 +469,9 @@ fn the_sites_tab_offers_more_sites_under_its_sites() {
     // 22 under the second site (264 + 74 + 22 = 360): the canvas's
     // `.morebtn`, 40 tall, at the column's left, as wide as its words and
     // 16 and a line of 1 each side.
-    // Its words are 109.375 wide at 14 in Inter: 143.375 in all.
-    assert_eq!(at("morebtn"), vec![px(80.0, 360.0, 143.375, 40.0)]);
+    // Its words are 105.984375 wide at 14 in Manrope (109.375 in Inter):
+    // 139.984375 in all.
+    assert_eq!(at("morebtn"), vec![px(80.0, 360.0, 139.984_38, 40.0)]);
     assert!(at("note").is_empty());
     let drawn = draw(offering(Next::Offered));
     let frame = drawn.frame.as_ref();
@@ -494,7 +495,7 @@ fn the_sites_tab_offers_more_sites_under_its_sites() {
     assert_eq!(boxes_of(&asking, "morebtn"), Vec::<String>::new());
     assert_eq!(
         boxes_of(&asking, "morebtn off"),
-        vec![px(80.0, 360.0, 175.718_75, 40.0)]
+        vec![px(80.0, 360.0, 168.703_13, 40.0)]
     );
     // Not answered: why, on a line of 23, then the button again, 22 under
     // it.
@@ -507,7 +508,7 @@ fn the_sites_tab_offers_more_sites_under_its_sites() {
     );
     assert_eq!(
         boxes_of(&unanswered, "morebtn"),
-        vec![px(80.0, 405.0, 143.375, 40.0)]
+        vec![px(80.0, 405.0, 139.984_38, 40.0)]
     );
     // None offered, or on All: no button.
     let mut none = Results::of(SAID, Showing::Found(sites(2))).on(Tab::Sites);
@@ -535,7 +536,7 @@ fn a_press_on_show_more_sites_is_claimed_by_its_place_and_while_asked_nothing() 
 fn the_images_tab_is_a_grid_of_four_with_each_title_and_site() {
     let renderer = laid_out(with(results(Tab::Images)));
     let at = |class: &str| boxes_of(&renderer, class);
-    assert_eq!(at("rt on"), vec![px(274.796_88, 102.0, 77.25, 42.0)]);
+    assert_eq!(at("rt on"), vec![px(272.140_63, 102.0, 76.390_625, 42.0)]);
     assert!(at("res").is_empty() && at("more").is_empty());
     // Four columns of 208, 16 apart: 4 × 208 + 3 × 16 = 880; rows 20
     // apart, each a tile of 150, 8, a title of 18, 2 and a site of 16.
@@ -587,7 +588,7 @@ fn with_no_images_yet_all_draws_no_row_and_the_images_tab_says_so() {
     assert!(boxes_of(&renderer, "imrow").is_empty());
     assert_eq!(
         boxes_of(&renderer, "more"),
-        vec![px(80.0, 454.0, 79.968_75, 20.0)],
+        vec![px(80.0, 454.0, 81.093_75, 20.0)],
         "More sites 20 under the sites, where it was before images"
     );
     let drawn = draw(with(asking.on(Tab::Images)));

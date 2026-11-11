@@ -1426,15 +1426,15 @@ mod tests {
         let closed = painted();
         let face = |at| claimed(Claim::Face { at });
         assert_eq!(
-            decide(face(2), Part::Start, &open, &open),
+            decide(face(3), Part::Start, &open, &open),
             Decided::Face(InterfaceFace::DmSans)
         );
         assert_eq!(
-            decide(face(5), Part::Start, &open, &open),
+            decide(face(6), Part::Start, &open, &open),
             Decided::Refused(Refusal::NotShown {
                 listed: Listed::Faces,
-                at: 5,
-                shown: 5
+                at: 6,
+                shown: 6
             })
         );
         assert_eq!(

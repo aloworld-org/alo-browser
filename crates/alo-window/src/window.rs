@@ -952,11 +952,11 @@ pub fn conversation(
         std::sync::Arc::new(move |said| proxy.send_event(Heard::Agent(said)).is_ok());
     // What a person chose in Settings, kept beside the chats whether or not
     // the chats themselves can be opened (queue item 854): a file that does
-    // not read is Inter, and said.
+    // not read is Manrope, and said.
     let settings = chats.as_deref().ok().map(crate::settings_file::file_in);
     let read = settings.as_deref().map_or(
         crate::settings_file::Read {
-            face: alo_renderer::interface_face::InterfaceFace::Inter,
+            face: alo_renderer::interface_face::InterfaceFace::Manrope,
             limits: alo_renderer::agent_limits::Limits::default(),
             services: crate::services::Named::default(),
             privacy: alo_renderer::settings_privacy::Privacy::default(),

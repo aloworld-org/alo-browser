@@ -5,12 +5,14 @@
 //! The interface's own typefaces, carried by the application (queue items
 //! 706 and 853, ADR 0084).
 //!
-//! The owner's design sets every word of the interface in **Inter** (since
-//! 7 November 2026, queue item 853; before, Instrument Sans), and the mark
-//! *alo* and the greeting in **Newsreader**, whatever else is chosen. A
-//! person may set the interface's words in one of four other faces instead
-//! — **Geist**, **DM Sans**, **Plus Jakarta Sans** and **Instrument Sans**
-//! — in *Settings* (queue item 854, [`crate::interface_face`]). All six are
+//! The owner's design sets every word of the interface in **Manrope** (since
+//! 12 November 2026, queue item 975, ADR 0112 *Answered* 3; Inter from 7
+//! November, queue item 853; before, Instrument Sans), what it sets in a
+//! monospace in **Geist Mono**, and the mark *alo* and the greeting in
+//! **Newsreader**, whatever else is chosen. A person may set the
+//! interface's words in one of five other faces instead — **Inter**,
+//! **Geist**, **DM Sans**, **Plus Jakarta Sans** and **Instrument Sans** —
+//! in *Settings* (queue item 854, [`crate::interface_face`]). All eight are
 //! under the SIL Open Font License 1.1, and fonts are rented physics
 //! (`CLAUDE.md`), so each is the file its foundry or Google Fonts publishes,
 //! unmodified, beside its own licence in `interface/fonts/` — ADR 0084
@@ -19,7 +21,9 @@
 //! # Variable, and set by weight and size alone
 //!
 //! Every one is a variable font, one file for every weight the design uses
-//! (400, 500 and 600; Newsreader 400 and 500). This engine sets a variable
+//! (400, 500 and 600; Newsreader 400 and 500). Manrope's file names its
+//! lightest instance, 200, as its own, and is drawn at the weight asked
+//! for as every other is. This engine sets a variable
 //! font's `wght` axis to the weight asked for — measured, shaped and
 //! outlined at that instance (`alo_text::Font::at_weight`) — and its `opsz`
 //! axis, where it has one, to the CSS pixels the text is set at, as Chrome
@@ -61,9 +65,18 @@ use crate::face::Face;
 use alo_text::Font;
 
 /// The family the interface's words are set in unless a person chose
-/// another (queue item 853): Inter, which its file calls *Inter Variable* —
-/// its `name` table has no typographic family, so that is the family a
-/// stylesheet asks for (ADR 0084 § 2).
+/// another (queue item 975, ADR 0112 *Answered* 3): Manrope, its file's
+/// typographic family.
+pub const MANROPE: &str = "Manrope";
+
+/// The family the interface sets a monospace in (queue item 975): Geist
+/// Mono, whatever face is chosen for its words.
+pub const GEIST_MONO: &str = "Geist Mono";
+
+/// Inter, the interface's default face from queue item 853 to 975 and a
+/// face a person may choose in *Settings* since: its file calls it *Inter
+/// Variable* — its `name` table has no typographic family, so that is the
+/// family a stylesheet asks for (ADR 0084 § 2).
 pub const INTER: &str = "Inter Variable";
 
 /// Geist, a face a person may choose in *Settings* (queue item 854).
@@ -82,6 +95,13 @@ pub const INSTRUMENT_SANS: &str = "Instrument Sans";
 
 /// The family the mark and the greeting are set in, whatever is chosen.
 pub const NEWSREADER: &str = "Newsreader";
+
+/// `ofl/manrope/Manrope[wght].ttf` of `google/fonts`, as published.
+const MANROPE_FILE: &[u8] = include_bytes!("../interface/fonts/Manrope.ttf");
+
+/// `geist-font/GeistMono/variable/GeistMono[wght].ttf` of Geist 1.9.2's
+/// release (`vercel/geist-font`), as published; its licence is Geist's.
+const GEIST_MONO_FILE: &[u8] = include_bytes!("../interface/fonts/GeistMono.ttf");
 
 /// `InterVariable.ttf` of Inter 4.1's release (`rsms/inter`), as published.
 const INTER_FILE: &[u8] = include_bytes!("../interface/fonts/Inter.ttf");
@@ -112,8 +132,14 @@ const NOTO_COLOR_EMOJI_FILE: &[u8] = include_bytes!("../interface/fonts/NotoColo
 
 /// Each family's licence: its file name as carried, and its text — the
 /// copyright notice and the SIL Open Font License 1.1, as published beside
-/// the font (Noto's notice is in the font itself).
-pub const LICENCES: [(&str, &str); 7] = [
+/// the font (Noto's notice is in the font itself). Geist Mono is Geist's
+/// project's, under Geist's licence, the one file the release carries for
+/// both.
+pub const LICENCES: [(&str, &str); 8] = [
+    (
+        "OFL-Manrope.txt",
+        include_str!("../interface/fonts/OFL-Manrope.txt"),
+    ),
     (
         "OFL-Inter.txt",
         include_str!("../interface/fonts/OFL-Inter.txt"),
@@ -144,20 +170,23 @@ pub const LICENCES: [(&str, &str); 7] = [
     ),
 ];
 
-/// The interface's faces, as a renderer is handed them: the five a
-/// person may set its words in, Inter first, then Newsreader, then Noto
-/// Color Emoji, each filed under what the font says it is.
+/// The interface's faces, as a renderer is handed them: the six a
+/// person may set its words in, Manrope first, then Geist Mono, then
+/// Newsreader, then Noto Color Emoji, each filed under what the font says
+/// it is.
 ///
 /// A face the font would not describe is left out rather than filed under
 /// a name written here, which is a broken build rather than anything a page
 /// could cause, and which the tests below would say.
 pub fn faces() -> Vec<Face> {
     [
+        MANROPE_FILE,
         INTER_FILE,
         GEIST_FILE,
         DM_SANS_FILE,
         PLUS_JAKARTA_SANS_FILE,
         INSTRUMENT_SANS_FILE,
+        GEIST_MONO_FILE,
         NEWSREADER_FILE,
         NOTO_COLOR_EMOJI_FILE,
     ]
@@ -180,14 +209,17 @@ mod tests {
     use super::*;
     use alo_text::{Slant, Weight};
 
-    /// The five faces a person may set the interface's words in, in the
-    /// order they are handed, then the serif and the emoji face.
-    const FAMILIES: [&str; 7] = [
+    /// The six faces a person may set the interface's words in, in the
+    /// order they are handed, then the monospace, the serif and the emoji
+    /// face.
+    const FAMILIES: [&str; 9] = [
+        MANROPE,
         INTER,
         GEIST,
         DM_SANS,
         PLUS_JAKARTA_SANS,
         INSTRUMENT_SANS,
+        GEIST_MONO,
         NEWSREADER,
         NOTO_COLOR_EMOJI,
     ];
@@ -202,7 +234,11 @@ mod tests {
             named,
             FAMILIES
                 .iter()
-                .map(|family| ((*family).to_owned(), 400, Slant::Normal))
+                // Manrope's file names its lightest instance as its own.
+                .map(|family| {
+                    let weight = if *family == MANROPE { 200 } else { 400 };
+                    ((*family).to_owned(), weight, Slant::Normal)
+                })
                 .collect::<Vec<_>>()
         );
     }
@@ -223,11 +259,13 @@ mod tests {
         assert_eq!(
             ranges,
             vec![
+                (MANROPE.to_owned(), Some((200, 800))),
                 (INTER.to_owned(), Some((100, 900))),
                 (GEIST.to_owned(), Some((100, 900))),
                 (DM_SANS.to_owned(), Some((100, 1000))),
                 (PLUS_JAKARTA_SANS.to_owned(), Some((200, 800))),
                 (INSTRUMENT_SANS.to_owned(), Some((400, 700))),
+                (GEIST_MONO.to_owned(), Some((100, 900))),
                 (NEWSREADER.to_owned(), Some((200, 800))),
                 (NOTO_COLOR_EMOJI.to_owned(), None),
             ]
@@ -244,8 +282,9 @@ mod tests {
 
     #[test]
     fn each_licence_is_the_ofl_with_its_familys_copyright() {
-        let (designs, emoji) = LICENCES.split_at(6);
+        let (designs, emoji) = LICENCES.split_at(7);
         let projects = [
+            "The Manrope Project Authors",
             "The Inter Project Authors",
             "The Geist Project Authors",
             "The DM Sans Project Authors",
@@ -287,6 +326,18 @@ mod tests {
                 .any(|window| window == notice.as_slice()),
             "the font states its copyright"
         );
+        // Geist Mono is carried under Geist's licence: its own notice names
+        // the same project.
+        let geists: Vec<u8> = "Copyright 2024 The Geist Project Authors"
+            .encode_utf16()
+            .flat_map(u16::to_be_bytes)
+            .collect();
+        assert!(
+            GEIST_MONO_FILE
+                .windows(geists.len())
+                .any(|window| window == geists.as_slice()),
+            "Geist Mono's notice is Geist's project's"
+        );
     }
 
     #[test]
@@ -298,11 +349,13 @@ mod tests {
         assert_eq!(
             sized,
             vec![
+                (MANROPE.to_owned(), None),
                 (INTER.to_owned(), Some((14.0, 32.0))),
                 (GEIST.to_owned(), None),
                 (DM_SANS.to_owned(), Some((9.0, 40.0))),
                 (PLUS_JAKARTA_SANS.to_owned(), None),
                 (INSTRUMENT_SANS.to_owned(), None),
+                (GEIST_MONO.to_owned(), None),
                 (NEWSREADER.to_owned(), Some((6.0, 72.0))),
                 (NOTO_COLOR_EMOJI.to_owned(), None),
             ]

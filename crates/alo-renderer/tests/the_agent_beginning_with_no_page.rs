@@ -279,10 +279,12 @@ fn the_column_stands_in_its_own_turn_while_it_finds_the_site() {
     // + 20 + 10 + 42 + 10 + 20 + 16 = 178.
     assert_eq!(at("agent"), vec![px(81.0, 99.0, 878.0, 178.0)]);
     assert_eq!(at("working"), vec![px(97.0, 113.0, 846.0, 36.0)]);
-    assert_eq!(at("said"), vec![px(109.0, 122.0, 763.046_9, 18.0)]);
+    // alo's mark 12 in, then its words 8 after it (queue item 974).
+    assert_eq!(at("acting-mark"), vec![px(109.0, 123.0, 16.0, 16.0)]);
+    assert_eq!(at("said"), vec![px(133.0, 122.0, 738.640_6, 18.0)]);
     assert_eq!(
         at("abtn stop"),
-        vec![px(884.046_9, 117.0, 54.953_125, 28.0)]
+        vec![px(883.640_6, 117.0, 55.359_375, 28.0)]
     );
     assert_eq!(at("asked"), vec![px(97.0, 159.0, 846.0, 20.0)]);
     assert_eq!(at("plan"), vec![px(97.0, 189.0, 846.0, 42.0)]);
@@ -304,10 +306,10 @@ fn the_question_to_open_stands_under_its_steps() {
     assert_eq!(at("steps"), vec![px(97.0, 241.0, 846.0, 64.0)]);
     assert_eq!(at("asks"), vec![px(97.0, 315.0, 846.0, 84.0)]);
     assert_eq!(at("question"), vec![px(112.0, 328.0, 816.0, 20.0)]);
-    assert_eq!(at("abtn allow"), vec![px(112.0, 358.0, 60.890_625, 28.0)]);
+    assert_eq!(at("abtn allow"), vec![px(112.0, 358.0, 59.390_625, 28.0)]);
     assert_eq!(
         at("abtn notnow"),
-        vec![px(180.890_63, 358.0, 78.234_375, 28.0)]
+        vec![px(179.390_63, 358.0, 77.062_5, 28.0)]
     );
     // *Stop* still drawn while it asks.
     assert_eq!(at("abtn stop").len(), 1);
@@ -319,17 +321,17 @@ fn finding_and_asking_to_open_are_drawn_as_the_references() -> Result<(), String
     let frame = finding.as_ref().ok_or("nothing was painted")?;
     // The working line's tint, clear of its words; the box's white beside
     // the column.
-    assert_eq!(pixel(frame, 600, 116), Some([0xf6, 0xe7, 0xe0, 0xff]));
+    assert_eq!(pixel(frame, 600, 116), Some([0xe2, 0xed, 0xee, 0xff]));
     assert_eq!(pixel(frame, 88, 200), Some([0xff, 0xff, 0xff, 0xff]));
     // No outline in the acting colour anywhere down its left edge.
     for y in (100..276).step_by(8) {
-        assert_ne!(pixel(frame, 81, y), Some([0xb5, 0x57, 0x3a, 0xff]), "{y}");
+        assert_ne!(pixel(frame, 81, y), Some([0x0f, 0x6b, 0x72, 0xff]), "{y}");
     }
     assert_eq!(holds("agent-beginning.png", finding.as_ref()), Ok(()));
     let (asking, _) = drawn(begun(asking_to_open()));
     let frame = asking.as_ref().ok_or("nothing was painted")?;
     // *Allow* in the ink, clear of its word.
-    assert_eq!(pixel(frame, 114, 372), Some([0x1b, 0x24, 0x33, 0xff]));
+    assert_eq!(pixel(frame, 114, 372), Some([0x10, 0x2a, 0x43, 0xff]));
     assert_eq!(holds("agent-asks-to-open.png", asking.as_ref()), Ok(()));
     Ok(())
 }

@@ -4,8 +4,8 @@
 
 //! Queue item 704 (ADR 0096, `docs/design/shell.md`, *The agent at work*):
 //! the agent at work on a card's page, drawn by the first screen's renderer
-//! under the page — the terracotta outline over the page and the line
-//! *alo is working on this page · click anywhere to take over* with *Stop*,
+//! under the page — the deep teal outline over the page and the line, alo's
+//! mark then *alo is working on this page · click anywhere to take over* with *Stop*,
 //! what was asked, one line per step with why under it when it chose, and
 //! the question it asks before pressing what sends, with *Allow* and *Not
 //! now*; stuck with its choices; done.
@@ -297,12 +297,14 @@ fn the_column_stands_under_the_page_as_the_design_draws_it() -> Result<(), Strin
     // 16 = 171.
     assert_eq!(at("agent"), vec![px(81.0, 465.0, 878.0, 171.0)]);
     assert_eq!(at("working"), vec![px(97.0, 480.0, 846.0, 36.0)]);
-    // Its words 12 in, one line of 18 in its middle; *Stop* 28 tall at its
-    // end, 4 in from its right.
-    assert_eq!(at("said"), vec![px(109.0, 489.0, 763.046_9, 18.0)]);
+    // alo's mark 12 in, 16 square in its middle (queue item 974); its words
+    // 8 after it, one line of 18 in its middle; *Stop* 28 tall at its end,
+    // 4 in from its right.
+    assert_eq!(at("acting-mark"), vec![px(109.0, 490.0, 16.0, 16.0)]);
+    assert_eq!(at("said"), vec![px(133.0, 489.0, 738.640_6, 18.0)]);
     assert_eq!(
         at("abtn stop"),
-        vec![px(884.046_9, 484.0, 54.953_125, 28.0)]
+        vec![px(883.640_6, 484.0, 55.359_375, 28.0)]
     );
     assert_eq!(at("asked"), vec![px(97.0, 526.0, 846.0, 20.0)]);
     assert_eq!(at("steps"), vec![px(97.0, 556.0, 846.0, 64.0)]);
@@ -332,15 +334,15 @@ fn the_question_stands_under_the_steps_with_allow_and_not_now() -> Result<(), St
     assert!(at("step now").is_empty());
     assert_eq!(at("asks"), vec![px(97.0, 612.0, 846.0, 84.0)]);
     assert_eq!(at("question"), vec![px(112.0, 625.0, 816.0, 20.0)]);
-    assert_eq!(at("abtn allow"), vec![px(112.0, 655.0, 60.890_625, 28.0)]);
+    assert_eq!(at("abtn allow"), vec![px(112.0, 655.0, 59.390_625, 28.0)]);
     assert_eq!(
         at("abtn notnow"),
-        vec![px(180.890_63, 655.0, 78.234_375, 28.0)]
+        vec![px(179.390_63, 655.0, 77.062_5, 28.0)]
     );
     // *Stop* still drawn: it waits, and can be stopped.
     assert_eq!(
         at("abtn stop"),
-        vec![px(884.046_9, 484.0, 54.953_125, 28.0)]
+        vec![px(883.640_6, 484.0, 55.359_375, 28.0)]
     );
     Ok(())
 }
@@ -359,8 +361,8 @@ fn stuck_it_draws_why_and_its_choices_and_no_outline() -> Result<(), String> {
     assert_eq!(
         at("achoice"),
         vec![
-            px(97.0, 568.0, 165.390_63, 28.0),
-            px(270.390_63, 568.0, 86.437_5, 28.0)
+            px(97.0, 568.0, 162.296_88, 28.0),
+            px(267.296_88, 568.0, 86.359_375, 28.0)
         ]
     );
     Ok(())
@@ -373,20 +375,20 @@ fn acting_asking_and_stuck_are_drawn_as_the_references() -> Result<(), String> {
     // The outline, 2 of the acting colour over the page's left edge, low
     // down where the room shows it: x 81 and 82, y 400.
     for x in [81, 82] {
-        assert_eq!(pixel(frame, x, 400), Some([0xb5, 0x57, 0x3a, 0xff]), "{x}");
+        assert_eq!(pixel(frame, x, 400), Some([0x0f, 0x6b, 0x72, 0xff]), "{x}");
     }
     // The working line's tint, inside it, clear of its words.
-    assert_eq!(pixel(frame, 300, 483), Some([0xf6, 0xe7, 0xe0, 0xff]));
+    assert_eq!(pixel(frame, 300, 483), Some([0xe2, 0xed, 0xee, 0xff]));
     assert_eq!(holds("agent-acting.png", acting.as_ref()), Ok(()));
     let (asking, _) = drawn(with(asking())?);
     let frame = asking.as_ref().ok_or("nothing was painted")?;
     // *Allow* in the ink, clear of its word.
-    assert_eq!(pixel(frame, 114, 669), Some([0x1b, 0x24, 0x33, 0xff]));
+    assert_eq!(pixel(frame, 114, 669), Some([0x10, 0x2a, 0x43, 0xff]));
     assert_eq!(holds("agent-asking.png", asking.as_ref()), Ok(()));
     let (stuck, _) = drawn(with(stuck())?);
     let frame = stuck.as_ref().ok_or("nothing was painted")?;
     // No outline: the page's own pixel at its left edge.
-    assert_ne!(pixel(frame, 82, 400), Some([0xb5, 0x57, 0x3a, 0xff]));
+    assert_ne!(pixel(frame, 82, 400), Some([0x0f, 0x6b, 0x72, 0xff]));
     assert_eq!(holds("agent-stuck.png", stuck.as_ref()), Ok(()));
     Ok(())
 }

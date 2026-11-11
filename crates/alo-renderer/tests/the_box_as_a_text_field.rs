@@ -255,7 +255,7 @@ fn measured(text: &str) -> f32 {
     use alo_layout::MeasureText as _;
     let fonts = fonts();
     let measurer = alo_text::TextMeasurer::new(&fonts);
-    let style = alo_renderer::field_line::style("Inter Variable", 16.0, 1.0);
+    let style = alo_renderer::field_line::style(alo_renderer::typefaces::MANROPE, 16.0, 1.0);
     measurer.measure(text, &style, None).width
 }
 
@@ -295,7 +295,7 @@ fn the_caret_stands_inside_the_words_where_it_was_put() {
     assert!(shown.tree.to_outline().contains("caret=16"));
     let frame = shown.frame.as_ref();
     // The caret is the ink, over the box's white.
-    let ink = [0x1b, 0x24, 0x33, 0xff];
+    let ink = [0x10, 0x2a, 0x43, 0xff];
     let x = 183 + column(caret_x.round());
     assert_eq!(frame.and_then(|frame| pixel(frame, x, 286)), Some(ink));
     assert_eq!(holds("field-caret-mid-text.png", frame), Ok(()));
@@ -340,13 +340,14 @@ fn a_selection_is_drawn_on_the_inks_tint_and_read_as_a_range() {
     let laid = shown.laid.clone().unwrap_or_default();
     let (start, end) = (laid.x_of(8), laid.x_of(18));
     let selected = boxes_of(&shown, "selected");
-    // As wide as `population` where its stops are, 20 tall in the
-    // middle of the field's 40: (252.47, 276) 78.94 × 20.
+    // As wide as `population` where its stops are, 22 tall in the
+    // middle of the field's 40: (249.16, 275) 79.66 × 22, the line of
+    // Manrope at 16 (queue item 975; Inter's was 20).
     assert_eq!(selected.len(), 1, "{:?}", shown.classed);
     assert!(
         selected.first().is_some_and(|laid_out| near(
             *laid_out,
-            Rect::new(laid.left + start, 276.0, end - start, 20.0)
+            Rect::new(laid.left + start, 275.0, end - start, 22.0)
         )),
         "{selected:?}"
     );
@@ -362,7 +363,7 @@ fn a_selection_is_drawn_on_the_inks_tint_and_read_as_a_range() {
     let x = column(laid.left + start + 1.0);
     assert_eq!(
         frame.and_then(|frame| pixel(frame, x, 277)),
-        Some([0xd6, 0xd8, 0xda, 0xff])
+        Some([0xd4, 0xd9, 0xdd, 0xff])
     );
     assert_eq!(holds("field-selection.png", frame), Ok(()));
 }
@@ -443,12 +444,12 @@ fn a_composition_is_underlined_where_the_caret_is_and_read_in_the_value() {
     let laid = shown.laid.clone().unwrap_or_default();
     let composed = boxes_of(&shown, "composed");
     let (start, end) = (laid.x_of(8), laid.x_of(13));
-    // `nihao`, after `Kampala `: (252.47, 276) 40.98 × 20.
+    // `nihao`, after `Kampala `: (249.16, 275) 41.11 × 22.
     assert!(
         composed.len() == 1
             && composed.first().is_some_and(|laid_out| near(
                 *laid_out,
-                Rect::new(laid.left + start, 276.0, end - start, 20.0)
+                Rect::new(laid.left + start, 275.0, end - start, 22.0)
             )),
         "{composed:?}"
     );
@@ -462,7 +463,7 @@ fn a_composition_is_underlined_where_the_caret_is_and_read_in_the_value() {
     let frame = shown.frame.as_ref();
     let under = |x: f32| {
         frame.and_then(|frame| {
-            (292..297).find(|&y| pixel(frame, column(x), y) == Some([0x1b, 0x24, 0x33, 0xff]))
+            (292..297).find(|&y| pixel(frame, column(x), y) == Some([0x10, 0x2a, 0x43, 0xff]))
         })
     };
     assert!(under(laid.left + start + 2.0).is_some(), "under n");
@@ -509,7 +510,7 @@ fn search_chats_selected_is_drawn_and_read_as_the_box_is() {
         selected.len() == 1
             && selected
                 .first()
-                .is_some_and(|laid_out| near(*laid_out, Rect::new(laid.left, 113.0, end, 16.0))),
+                .is_some_and(|laid_out| near(*laid_out, Rect::new(laid.left, 112.0, end, 18.0))),
         "{selected:?}"
     );
     let node = field(&shown.tree);

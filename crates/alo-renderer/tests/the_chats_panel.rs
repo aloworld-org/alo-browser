@@ -17,6 +17,7 @@
 
 use alo_layout::{Rect, Size};
 use alo_paint::{DisplayItem, from_png};
+use alo_renderer::acting::WORKING;
 use alo_renderer::face::Face;
 use alo_renderer::frame::frame_to_png;
 use alo_renderer::generic::Generics;
@@ -302,12 +303,13 @@ fn a_panel_of_open_and_earlier_chats_is_read_by_name_with_what_is_happening() {
     let links = read(&drawn.tree, "link");
     let names: Vec<Option<&str>> = links.iter().map(|link| link.name.as_deref()).collect();
     let done = format!("Invoice for March {DONE}");
+    let working = format!("Weekend in Lisbon {WORKING}");
     assert_eq!(
         names,
         vec![
             Some("New chat"),
             Some("Charging my EV"),
-            Some("Weekend in Lisbon"),
+            Some(working.as_str()),
             Some(done.as_str()),
             Some("Compare phone plans"),
             Some("Birthday present ideas"),
@@ -444,12 +446,13 @@ fn search_chats_typed_into_shows_its_words_and_only_the_chats_named_so() {
         .map(|link| (link.name.as_deref(), units(link.rect)))
         .collect();
     let done = format!("Invoice for March {DONE}");
+    let working = format!("Weekend in Lisbon {WORKING}");
     assert_eq!(
         links,
         vec![
             (Some("New chat"), px(10.0, 56.0, 220.0, 40.0)),
             (Some("Charging my EV"), px(10.0, 178.0, 220.0, 38.0)),
-            (Some("Weekend in Lisbon"), px(10.0, 218.0, 220.0, 38.0)),
+            (Some(working.as_str()), px(10.0, 218.0, 220.0, 38.0)),
             (Some(done.as_str()), px(10.0, 258.0, 220.0, 38.0)),
             (Some("Settings"), px(10.0, 510.0, 220.0, 38.0)),
         ],
@@ -550,8 +553,10 @@ fn hidden_the_panel_is_the_rail_at_one_and_at_two() {
             vec![
                 (Some("New chat"), px(10.0, 56.0, 44.0, 44.0)),
                 (Some("Charging my EV"), px(10.0, 121.0, 44.0, 44.0)),
-                (Some("Weekend in Lisbon"), px(10.0, 171.0, 44.0, 44.0)),
-                (Some(done.as_str()), px(10.0, 221.0, 44.0, 44.0)),
+                // The chat at work 58 tall, its word under its circle
+                // (queue item 974), so the one after it 14 lower.
+                (Some("Weekend in Lisbon"), px(10.0, 171.0, 44.0, 58.0)),
+                (Some(done.as_str()), px(10.0, 235.0, 44.0, 44.0)),
                 (Some("Show the panel"), px(10.0, 504.0, 44.0, 44.0)),
             ],
             "{outline}"
@@ -561,14 +566,21 @@ fn hidden_the_panel_is_the_rail_at_one_and_at_two() {
             vec![
                 px(16.0, 127.0, 32.0, 32.0),
                 px(16.0, 177.0, 32.0, 32.0),
-                px(16.0, 227.0, 32.0, 32.0),
+                px(16.0, 241.0, 32.0, 32.0),
             ],
             "{outline}"
         );
-        // The working chat's dot at its circle's shoulder, 5 in.
+        // The working chat's mark, alo's, 14 square at its circle's
+        // shoulder, 1 in; and Working under the circle, 3 above the
+        // button's foot (queue item 974; a 7 px dot before).
+        assert_eq!(
+            of_class(&drawn, "acting-mark"),
+            vec![px(39.0, 172.0, 14.0, 14.0)],
+            "{outline}"
+        );
         assert_eq!(
             of_class(&drawn, "working"),
-            vec![px(42.0, 176.0, 7.0, 7.0)],
+            vec![px(10.0, 214.0, 44.0, 12.0)],
             "{outline}"
         );
         // The mark, the owner's icon 28 square (item 913), in the middle of
@@ -693,7 +705,9 @@ fn a_press_on_each_chat_of_the_rail_claims_its_place() {
         FromRenderer::ConversationClaimed(claim) => claim,
         other => panic!("{other:?}"),
     };
-    for (place, top) in [(0, 121.0), (1, 171.0), (2, 221.0)] {
+    // The chat at work is 58 tall (queue item 974), the one after it 14
+    // lower.
+    for (place, top) in [(0, 121.0), (1, 171.0), (2, 235.0)] {
         for (x, y) in [(32.0, top + 22.0), (10.0, top), (53.0, top + 43.0)] {
             assert_eq!(
                 at(ToRenderer::ConversationPress, x, y),
@@ -775,9 +789,9 @@ fn chats_named_by_addresses_have_their_sites_letters_on_the_rail() {
         vec![
             px(16.0, 127.0, 32.0, 32.0),
             px(16.0, 177.0, 32.0, 32.0),
-            px(16.0, 227.0, 32.0, 32.0),
-            px(16.0, 277.0, 32.0, 32.0),
-            px(16.0, 327.0, 32.0, 32.0),
+            px(16.0, 241.0, 32.0, 32.0),
+            px(16.0, 291.0, 32.0, 32.0),
+            px(16.0, 341.0, 32.0, 32.0),
         ],
         "{outline}"
     );
@@ -810,10 +824,10 @@ fn folded_the_rail_is_laid_out_at_the_folds_height_and_the_least_windows() {
             vec![
                 (Some("New chat"), px(10.0, 56.0, 44.0, 44.0)),
                 (Some("Charging my EV"), px(10.0, 121.0, 44.0, 44.0)),
-                (Some("Weekend in Lisbon"), px(10.0, 171.0, 44.0, 44.0)),
-                (Some(done.as_str()), px(10.0, 221.0, 44.0, 44.0)),
-                (Some("Compare phone plans"), px(10.0, 271.0, 44.0, 44.0)),
-                (Some("Birthday present ideas"), px(10.0, 321.0, 44.0, 44.0)),
+                (Some("Weekend in Lisbon"), px(10.0, 171.0, 44.0, 58.0)),
+                (Some(done.as_str()), px(10.0, 235.0, 44.0, 44.0)),
+                (Some("Compare phone plans"), px(10.0, 285.0, 44.0, 44.0)),
+                (Some("Birthday present ideas"), px(10.0, 335.0, 44.0, 44.0)),
                 (Some("Show the panel"), px(10.0, height - 56.0, 44.0, 44.0)),
             ],
             "{height}: {outline}"
@@ -998,12 +1012,13 @@ fn a_hovered_chat_offers_delete_and_a_chat_just_deleted_offers_undo() {
         .map(|link| (link.name.as_deref(), units(link.rect)))
         .collect();
     let done = format!("Invoice for March {DONE}");
+    let working = format!("Weekend in Lisbon {WORKING}");
     assert_eq!(
         links,
         vec![
             (Some("New chat"), px(10.0, 56.0, 220.0, 40.0)),
             (Some("Charging my EV"), px(10.0, 178.0, 220.0, 38.0)),
-            (Some("Weekend in Lisbon"), px(10.0, 218.0, 220.0, 38.0)),
+            (Some(working.as_str()), px(10.0, 218.0, 220.0, 38.0)),
             (Some(done.as_str()), px(10.0, 258.0, 220.0, 38.0)),
             // The hovered row holds Delete, and is read with it, as a
             // finished chat is read with its Done.
@@ -1129,9 +1144,10 @@ fn a_hovered_open_chat_offers_its_close_and_the_empty_chat_on_screen_none() {
         .iter()
         .map(|link| (link.name.as_deref(), units(link.rect)))
         .collect();
+    let working = format!("Weekend in Lisbon {WORKING}");
     assert_eq!(
         links.get(2),
-        Some(&(Some("Weekend in Lisbon"), px(10.0, 218.0, 220.0, 38.0))),
+        Some(&(Some(working.as_str()), px(10.0, 218.0, 220.0, 38.0))),
         "the row did not move: {outline}"
     );
     let buttons: Vec<(Option<&str>, String)> = read(&drawn.tree, "button")

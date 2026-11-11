@@ -1452,9 +1452,9 @@ fn every_claim_on_the_conversation_survives_the_crossing() {
     }
 }
 
-/// Queue items 853 and 854: each face the interface may be set in, and
+/// Queue items 853, 854 and 975: each face the interface may be set in, and
 /// *Settings* on screen, cross to the panel's and the first screen's
-/// renderers; a face tagged as none of the five is refused.
+/// renderers; a face tagged as none of the six is refused.
 #[test]
 fn every_face_and_settings_survive_the_crossing_and_an_unknown_face_is_refused() {
     for face in InterfaceFace::ALL {
@@ -1497,13 +1497,13 @@ fn every_face_and_settings_survive_the_crossing_and_an_unknown_face_is_refused()
     assert_eq!(differ.len(), 1, "{differ:?}");
     let mut unknown = inter.clone();
     if let Some(byte) = differ.first().and_then(|&at| unknown.get_mut(at)) {
-        *byte = 5;
+        *byte = 6;
     }
     let refused = read_to_renderer(&unknown).map_err(|why| why.to_string());
     assert!(
         refused
             .as_ref()
-            .is_err_and(|why| why.contains("a face tagged 5")),
+            .is_err_and(|why| why.contains("a face tagged 6")),
         "{refused:?}"
     );
 }

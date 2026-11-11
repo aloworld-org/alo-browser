@@ -143,10 +143,10 @@ const LEFT: u16 = 80;
 const ROOM_BOTTOM: u16 = 716;
 
 /// The ink *Allow* is drawn in.
-const INK: [u8; 4] = [0x1b, 0x24, 0x33, 0xff];
+const INK: [u8; 4] = [0x10, 0x2a, 0x43, 0xff];
 
 /// The tint of the line saying the agent is at work.
-const TINT: [u8; 4] = [0xf6, 0xe7, 0xe0, 0xff];
+const TINT: [u8; 4] = [0xe2, 0xed, 0xee, 0xff];
 
 /// The test's page.
 const FORM: &str = "<!doctype html><title>Form</title><h1>A form</h1>\
@@ -778,7 +778,7 @@ fn card_marked(driven: &Driven) -> Result<usize, String> {
 }
 
 /// How many pixels of the card's frame `png` are drawn in Chrome's
-/// highlight's border, alo's accent (`#e76f51`), within a few levels: the
+/// highlight's border, alo's acting teal (`#0f6b72`), within a few levels: the
 /// page itself has none.
 fn marked_pixels(png: &[u8]) -> Result<usize, String> {
     let canvas = alo_paint::encode::picture_from_png(png).map_err(|why| format!("{why:?}"))?;
@@ -786,7 +786,7 @@ fn marked_pixels(png: &[u8]) -> Result<usize, String> {
     Ok((0..canvas.height())
         .flat_map(|y| (0..canvas.width()).map(move |x| (x, y)))
         .filter_map(|(x, y)| canvas.at(x, y).map(alo_value::color::Rgba::to_rgba8))
-        .filter(|&(red, green, blue, _)| near(red, 0xe7) && near(green, 0x6f) && near(blue, 0x51))
+        .filter(|&(red, green, blue, _)| near(red, 0x0f) && near(green, 0x6b) && near(blue, 0x72))
         .count())
 }
 

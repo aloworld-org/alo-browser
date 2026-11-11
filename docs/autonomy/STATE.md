@@ -51616,3 +51616,110 @@ never compiled (no Linux target here), so 958 stays open; the window's
 title as a compositor draws it.
 
 The next unused queue number is **978**.
+
+## 2026-11-11 — ADR 0113 proposed: a card drawn with no window of Chromium's (959, open); 978–983 queued
+
+**Contracts read.** `CLAUDE.md`, `LOOP.md`, ADRs 0058, 0060, 0069, 0076 (every
+amendment), 0077, 0079, 0080, 0090, 0105, 0112; CEF 156.0.14's headers.
+
+**Built.** `crates/alo-cef-host`: `--alo-windowless=WIDTHxHEIGHT@SCALE`
+beside `--app=` (`switches.rs` `windowless`, `windowless.rs`) opens the page
+as a CEF windowless browser (`window.rs` `open_windowless`, render handler
+`Drawn`; `host.rs` turns windowless rendering on for the process only then).
+It reads no pixel — reading `OnPaint`'s buffer is `unsafe`, which is asked of
+the owner — and says each paint on its error output; frames reach alo by the
+screencast, as today. alo never gives the switch: nothing changes for people.
+No new `unsafe`; `cef` still named only in ADR 0080's three files.
+
+**Measured** (ADR 0113, probes in the scratchpad's `osr/`): every verb, the
+stream, exact colours, an input method's composition and a closed list's
+popup on a windowless page at one and two, GPU and software; costs and key
+latency; ADR 0060's hold stalls a `window.open` popup there (CEF #4308).
+**The main display was asleep throughout**, which stopped a windowed
+Chromium drawing at all, so today's parked stream was not re-measured on
+the same page (queued in 980).
+
+**Tests.** The host: fmt clean, `clippy --all-targets -D warnings` clean,
+`cargo test` 40 passed (new: the viewport's parse, its bounds, the paint
+line, the switch only beside `--app=`). No alo-window change, so no
+workspace test was run. The full gate was not run (the owner gates).
+
+**Open.** 959 stays open until the owner accepts ADR 0113; 978–983 queued
+(981 blocked on the owner's yes to a new `unsafe` line). The item served
+`ROADMAP.md`'s alo OS line only through ADR 0112's plan, which already names
+959; no roadmap line moves until the ADR is accepted.
+
+The next unused queue number is **984**.
+
+## 2026-11-12 — 974 and 975: deep teal is alo acting, the navy ink, Manrope and Geist Mono (built, not gated; 984 queued)
+
+**Contracts read.** `CLAUDE.md`, `LOOP.md`, QUEUE 971, 974, 975; ADR 0074
+§ 2, ADR 0084 and its amendment, ADR 0112 *Answered*; `docs/design/shell.md`;
+`docs/brand/README.md`.
+
+**974.** `--acting` `#0f6b72`, its tint `#e2edee` (the teal at 12 % over
+white), *Acting text* retired (the teal is 5.3 : 1 on its tint); `--ink`
+`#102a43` and everything drawn of it (the selection `#d4d9dd`, every shadow,
+veil and ring in the ink at an alpha) in `panel.css`, `rail.css` and
+`start.css`; `alo-window`'s sheet shade likewise. alo's mark beside it,
+always: `acting.rs` hands the owner's small drawing
+(`docs/brand/alo-browser-icon-small.svg`, as it is) as a picture named
+`alo:mark` to the panel's and the first screen's drawings, so any number of
+`<img>`s draw it — a panel row at work shows it at 14 and *Working* (12 px
+600, read by an agent as the chat's name and *Working*); a rail chat at work
+shows it at 14 on its circle's shoulder and *Working* (10 px) under the
+circle, the button 58 tall, so the chats after it sit 14 lower (the rail
+still holds its five above *Show the panel* in the least window); the working
+line over a card, in the conversation and the split view, shows it at 16, 12
+in, its words 8 after it (`said` from 109 to 133). In `alo PAGE` and
+`alo --chrome` the acted-on ring and the agent line's ground are teal (the
+line's sentence is their word); **alo's mark is not drawn there** — 984.
+The strip's terracotta (a loading tab, a gone one) and the corpus pages'
+were left alone: neither is the agent. The logo was not touched.
+
+**975.** `Manrope.ttf` (google/fonts `86aced91`, `ofl/manrope/Manrope[wght].ttf`,
+blob `75274da5`, SHA-256 `3ae11c49…9d6ae6`), `OFL-Manrope.txt` (blob
+`e271172a`, `58172e0c…41f7b`), `GeistMono.ttf` (Geist 1.9.2's release zip,
+digest as GitHub lists it, `GeistMono[wght].ttf`, `41d86e19…ca63`; its
+licence is the carried `OFL-Geist.txt`, byte for byte the release's).
+Manrope the default and first of six (`InterfaceFace::Manrope`, wire tag 5);
+`--mono: "Geist Mono"` for `code`, `kbd`, `pre`, `samp` (none drawn today);
+a settings file saying `font Inter` is read as Inter; no file, or one that
+does not read, is Manrope. Bundle licences eight.
+
+**Layout numbers moved, each understood.** Text widths in Manrope (narrower
+than Inter on most lines, wider on *Stop* and the shield's count): the
+person's line, tabs (*All* 45.52 → 44.64, Answer, Sites, Images, Videos,
+News), *More sites ›*, *Show more sites*, the short answer's *Full answer*
+and site count and its citation pills (1 higher, Manrope's line), *alo
+used this*, the card bar's *Loading*, consent words and shield, the
+agent's *Allow*, *Not now*, *Stop*, the stuck choices and the held line,
+video lengths, a news site's name and age. Manrope's line at 15 and 16 is
+22 tall, Inter's 20: the box's hint, the selection and a composition in the
+box (22) and *Search chats* (18); at 18 the emoji test's title is 24 at
+its line's top. The working line's words 24 in for the mark. The rail's
+working chat 58 tall. *Settings*: six faces, the order Manrope, Inter,
+Geist, DM Sans, Plus Jakarta Sans, Instrument Sans (keyed Geist now the
+first of row two; the least window's last face at (273, 518); Privacy's
+radios after nine dots). `a_kept_layout_is_the_layout_made.rs` returns to
+the default face, Manrope, before *the ring again*.
+`the_panel_folded_in_a_narrow_window.rs`' paper probe moved from y 177 to
+160 (the first site's line now reaches x 240 there).
+
+**References.** Backed up to the scratchpad, rewritten, and looked at in
+before/after montages: 81 of `alo-renderer` (plus the new
+`face-manrope-panel.png` and `face-manrope-result.png`) and 17 of
+`alo-window`.
+
+**Tests.** `cargo test -p alo-renderer --lib` 501 passed; 54 renderer
+integration files touching the interface, 400 passed (new
+`alo_acting_in_deep_teal.rs`; `the_interfaces_typefaces.rs` asserts Manrope
+and Geist Mono resolved); `cargo test -p alo-window --lib` 1025 passed; 19
+window integration files that draw off-screen, all passed. fmt clean;
+`clippy -p alo-renderer -p alo-window --all-targets --all-features -D
+warnings` clean. **Not run:** the full gate; the Chrome-driven window tests
+whose expected colours were changed (`the_agent_at_work_on_a_card_through_chrome`,
+`the_agent_begins_with_no_page_through_chrome`, the two `the_box_marked_*`
+through Chrome); the CEF host's link strip (852) still asks for Inter.
+
+The next unused queue number is **985**.

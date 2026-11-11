@@ -2,23 +2,25 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! Which face the interface's words are set in (queue items 853 and 854,
-//! `docs/design/shell.md`, *Settings*; approved by the owner 2026-11-07).
+//! Which face the interface's words are set in (queue items 853, 854 and
+//! 975, `docs/design/shell.md`, *Settings*; approved by the owner
+//! 2026-11-07, and Manrope its default since 2026-11-12, ADR 0112
+//! *Answered* 3).
 //!
-//! Every word of alo's own interface is set in one face, **Inter** unless
-//! a person chose another in *Settings*: Geist, DM Sans, Plus Jakarta Sans
-//! or Instrument Sans. The mark *alo* and the greeting stay in Newsreader
+//! Every word of alo's own interface is set in one face, **Manrope** unless
+//! a person chose another in *Settings*: Inter, Geist, DM Sans, Plus
+//! Jakarta Sans or Instrument Sans. The mark *alo* and the greeting stay in Newsreader
 //! whatever is chosen, and a page in a card keeps its own fonts — none of
 //! these is ever handed to a page's renderer (ADR 0084 § 3).
 //!
 //! # How a document is set in it
 //!
 //! The interface's stylesheets ask for `var(--face), system-ui,
-//! sans-serif` wherever they set words, and say `--face` is Inter on the
+//! sans-serif` wherever they set words, and say `--face` is Manrope on the
 //! root. The document builders put the face chosen on the root element as
 //! its own style ([`InterfaceFace::declaration`]), so the whole document
 //! follows it at once — no stylesheet is changed and no font handed again,
-//! since the interface's renderers hold all five from the start. Which face
+//! since the interface's renderers hold all six from the start. Which face
 //! is chosen is the browser process's to say, as one of a closed list: the
 //! declaration is built from this file's names, never from a stranger's
 //! string.
@@ -28,8 +30,10 @@ use alo_dom::Document;
 /// A face the interface's words may be set in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum InterfaceFace {
-    /// Inter: the default.
+    /// Manrope: the default (queue item 975).
     #[default]
+    Manrope,
+    /// Inter: the default from queue item 853 to 975.
     Inter,
     /// Geist.
     Geist,
@@ -43,7 +47,8 @@ pub enum InterfaceFace {
 
 impl InterfaceFace {
     /// Every face, in the order *Settings* offers them: the default first.
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 6] = [
+        Self::Manrope,
         Self::Inter,
         Self::Geist,
         Self::DmSans,
@@ -55,6 +60,7 @@ impl InterfaceFace {
     /// each choice as, and what the settings file writes.
     pub fn name(self) -> &'static str {
         match self {
+            Self::Manrope => "Manrope",
             Self::Inter => "Inter",
             Self::Geist => "Geist",
             Self::DmSans => "DM Sans",
@@ -67,6 +73,7 @@ impl InterfaceFace {
     /// ([`crate::typefaces`]): Inter's calls itself *Inter Variable*.
     pub fn family(self) -> &'static str {
         match self {
+            Self::Manrope => crate::typefaces::MANROPE,
             Self::Inter => crate::typefaces::INTER,
             Self::Geist => crate::typefaces::GEIST,
             Self::DmSans => crate::typefaces::DM_SANS,
@@ -123,11 +130,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn inter_is_the_default_and_first_of_five() {
-        assert_eq!(InterfaceFace::default(), InterfaceFace::Inter);
+    fn manrope_is_the_default_and_first_of_six() {
+        assert_eq!(InterfaceFace::default(), InterfaceFace::Manrope);
         assert_eq!(
             InterfaceFace::ALL.map(InterfaceFace::name),
             [
+                "Manrope",
                 "Inter",
                 "Geist",
                 "DM Sans",
@@ -139,6 +147,7 @@ mod tests {
 
     #[test]
     fn each_is_asked_for_by_the_family_its_file_says_and_named_back() {
+        assert_eq!(InterfaceFace::Manrope.family(), "Manrope");
         assert_eq!(InterfaceFace::Inter.family(), "Inter Variable");
         assert_eq!(InterfaceFace::DmSans.family(), "DM Sans");
         let carried: Vec<String> = crate::typefaces::faces()
@@ -154,10 +163,17 @@ mod tests {
             assert_eq!(InterfaceFace::at(face.place()), Some(face));
         }
         // Only as written: no other case, no family, no stray space.
-        for stranger in ["inter", "Inter Variable", " Geist", "Comic Sans", ""] {
+        for stranger in [
+            "inter",
+            "manrope",
+            "Inter Variable",
+            " Geist",
+            "Comic Sans",
+            "",
+        ] {
             assert_eq!(InterfaceFace::named(stranger), None, "{stranger:?}");
         }
-        assert_eq!(InterfaceFace::at(5), None);
+        assert_eq!(InterfaceFace::at(6), None);
     }
 
     #[test]
@@ -170,6 +186,7 @@ mod tests {
             InterfaceFace::Inter.declaration(),
             "--face: \"Inter Variable\""
         );
+        assert_eq!(InterfaceFace::Manrope.declaration(), "--face: \"Manrope\"");
         let mut document =
             alo_dom::parse_document("<!doctype html><html><body>words</body></html>");
         assert_eq!(InterfaceFace::Geist.set_on(&mut document), Ok(()));

@@ -25,8 +25,9 @@
 //!    press on the veil beside its panel closes it.
 //! 2. A second launch on the same directory: set in Geist from its first
 //!    frame, pixel for pixel the panel the first launch painted in it.
-//! 3. A damaged file: Inter, said with why, the panel pixel for pixel the
-//!    first launch's in Inter, and the file left as it was.
+//! 3. A damaged file: Manrope, the default since queue item 975, said with
+//!    why, the panel pixel for pixel the first launch's in it, and the file
+//!    left as it was.
 //!
 //! And queue item 856, *Settings* by keys: Tab to its × and on to *Font*,
 //! each drawn with its ring; → choosing the next face, kept as a press
@@ -61,9 +62,10 @@ const WINDOW: (u32, u32) = (1280, 820);
 /// foot.
 const SETTINGS_ROW: (f64, f64) = (120.0, 789.0);
 
-/// *Geist*, the second face, at one: its middle 688, 244 into the first
-/// screen, which stands 240 in (queue item 886).
-const GEIST: (f64, f64) = (928.0, 244.0);
+/// *Geist*, the third face — the first of the second row since Manrope
+/// came first (queue item 975) — at one: its middle 351.5, 390 into the
+/// first screen, which stands 240 in (queue item 886).
+const GEIST: (f64, f64) = (591.5, 390.0);
 
 /// *Settings*' ×, at one: 824, 52 into the first screen, 36 square.
 const CLOSE: (f64, f64) = (1082.0, 70.0);
@@ -223,20 +225,20 @@ fn open(driven: &Driven) -> bool {
 }
 
 #[test]
-fn a_font_chosen_applies_at_once_is_kept_across_launches_and_a_damaged_file_is_inter()
+fn a_font_chosen_applies_at_once_is_kept_across_launches_and_a_damaged_file_is_manrope()
 -> Result<(), String> {
     let directory = scratch("kept");
     let file = settings_file::file_in(&directory);
 
-    // 1. The first launch, in Inter: nothing kept, nothing said of it.
+    // 1. The first launch, in Manrope: nothing kept, nothing said of it.
     let mut first = the_window(&directory)?;
-    assert_eq!(face(&first), InterfaceFace::Inter);
+    assert_eq!(face(&first), InterfaceFace::Manrope);
     assert!(
         first.said.iter().all(|line| !line.contains("settings")),
         "{:?}",
         first.said
     );
-    let inter_panel = first.panel().ok_or("no panel")?;
+    let manrope_panel = first.panel().ok_or("no panel")?;
     let chat_start = first.start().ok_or("no first screen")?;
     first.click(SETTINGS_ROW);
     first.until("Settings on screen, painted", |driven| {
@@ -276,14 +278,17 @@ fn a_font_chosen_applies_at_once_is_kept_across_launches_and_a_damaged_file_is_i
     let mode = std::fs::metadata(&file).map(|meta| meta.permissions().mode() & 0o777);
     assert_eq!(mode.ok(), Some(0o600));
     // Escape: back to the chat, still in Geist; the panel no longer the
-    // one painted in Inter.
+    // one painted in Manrope.
     let painted = first.painted;
     first.window.key(&Press::of(Key::Escape), Some("\u{1b}"));
     first.until("Settings closed and both parts painted", |driven| {
         !open(driven) && driven.painted.0 > painted.0 && driven.painted.1 > painted.1
     })?;
     let geist_panel = first.panel().ok_or("no panel")?;
-    assert_ne!(geist_panel, inter_panel, "the panel painted again in Geist");
+    assert_ne!(
+        geist_panel, manrope_panel,
+        "the panel painted again in Geist"
+    );
     // Its × closes it too.
     first.click(SETTINGS_ROW);
     first.until("Settings open again", open)?;
@@ -305,22 +310,22 @@ fn a_font_chosen_applies_at_once_is_kept_across_launches_and_a_damaged_file_is_i
     })?;
     second.close()?;
 
-    // 3. A damaged file: Inter, said, and left as it was.
+    // 3. A damaged file: Manrope, said, and left as it was.
     std::fs::write(&file, "font Comic Sans\n").map_err(|why| why.to_string())?;
     let mut third = the_window(&directory)?;
-    assert_eq!(face(&third), InterfaceFace::Inter);
+    assert_eq!(face(&third), InterfaceFace::Manrope);
     assert!(
         third.said.iter().any(|line| line
             == &format!(
                 "the settings in {} do not read (it names a font alo does not carry: \
-                 \"Comic Sans\"), so alo is set in Inter",
+                 \"Comic Sans\"), so alo is set in Manrope",
                 file.display()
             )),
         "{:?}",
         third.said
     );
-    third.until("the panel painted in Inter", |driven| {
-        driven.panel().as_ref() == Some(&inter_panel)
+    third.until("the panel painted in Manrope", |driven| {
+        driven.panel().as_ref() == Some(&manrope_panel)
     })?;
     third.close()?;
     assert_eq!(
@@ -360,12 +365,15 @@ fn settings_is_walked_by_keys_a_face_chosen_by_an_arrow_and_back_by_return() -> 
     driven.until("Close ringed", |driven| {
         driven.start().as_ref().is_some_and(|frame| *frame != plain)
     })?;
-    // Tab: *Font*; → the face after Inter, Geist, set and kept at once.
+    // Tab: *Font*; → the face after Manrope, Inter, and → again Geist,
+    // each set and kept at once.
     key(&mut driven, Press::of(Key::Tab));
     assert_eq!(
         keyed(&driven),
         Some(alo_renderer::start::SettingsKeyed::Font)
     );
+    key(&mut driven, Press::of(Key::Arrow(Arrow::Right)));
+    assert_eq!(face(&driven), InterfaceFace::Inter);
     key(&mut driven, Press::of(Key::Arrow(Arrow::Right)));
     assert_eq!(face(&driven), InterfaceFace::Geist);
     assert_eq!(
@@ -380,7 +388,8 @@ fn settings_is_walked_by_keys_a_face_chosen_by_an_arrow_and_back_by_return() -> 
             .as_str()
         )
     );
-    // ← ← round to Instrument Sans, the last.
+    // ← ← ← round to Instrument Sans, the last.
+    key(&mut driven, Press::of(Key::Arrow(Arrow::Left)));
     key(&mut driven, Press::of(Key::Arrow(Arrow::Left)));
     key(&mut driven, Press::of(Key::Arrow(Arrow::Left)));
     assert_eq!(face(&driven), InterfaceFace::InstrumentSans);

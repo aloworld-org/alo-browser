@@ -348,7 +348,7 @@ fn the_all_tab_is_laid_out_as_the_design_draws_it() {
     // The tab row: 42 tall with its line, each tab 42 and 1 over the line,
     // so the chosen tab's 2 of ink stand on it; 4 between tabs.
     assert_eq!(at("rtabs"), vec![px(80.0, 102.0, 880.0, 42.0)]);
-    assert_eq!(at("rt on"), vec![px(80.0, 102.0, 45.515_625, 42.0)]);
+    assert_eq!(at("rt on"), vec![px(80.0, 102.0, 44.640_625, 42.0)]);
     // Sites, Videos and News are open once sites are found (queue items
     // 744–746); Answer and Images — no images were asked for here — are
     // disabled.
@@ -357,7 +357,7 @@ fn the_all_tab_is_laid_out_as_the_design_draws_it() {
     assert_eq!(tabs.len(), 2);
     assert!(
         tabs.first()
-            .is_some_and(|answer| answer.starts_with("(129.51563, 102)")),
+            .is_some_and(|answer| answer.starts_with("(128.64063, 102)")),
         "{tabs:?}"
     );
     // 20 under the row the sites, 4 inside their list; each site its line
@@ -410,7 +410,7 @@ fn the_all_tab_is_laid_out_as_the_design_draws_it() {
     );
     // More sites, 20 under the last site; and the box, 880 × 56, 24 above
     // the window's foot: 820 - 24 - 56 = 740 (queue item 750).
-    assert_eq!(at("more"), vec![px(80.0, 477.0, 79.968_75, 20.0)]);
+    assert_eq!(at("more"), vec![px(80.0, 477.0, 81.093_75, 20.0)]);
     assert_eq!(at("box"), vec![px(80.0, 740.0, 880.0, 56.0)]);
 }
 
@@ -475,7 +475,7 @@ fn the_all_tab_with_results_is_drawn_as_the_reference() {
     assert!(frame.is_some(), "nothing was painted");
     if let Some(frame) = frame {
         // The chosen tab's underline in the ink, over the row's line.
-        assert_eq!(pixel(frame, 100, 143), Some([0x1b, 0x24, 0x33, 0xff]));
+        assert_eq!(pixel(frame, 100, 143), Some([0x10, 0x2a, 0x43, 0xff]));
         // A site's mark in its tint, and the paper between two sites.
         assert_eq!(pixel(frame, 81, 177), Some([0x2f, 0x6b, 0x5e, 0xff]));
         assert_eq!(pixel(frame, 900, 275), Some([0xf4, 0xf1, 0xec, 0xff]));

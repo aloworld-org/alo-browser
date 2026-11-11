@@ -253,11 +253,21 @@ fn make_chat(document: &mut Document, chat: &Chat) -> Result<NodeId, Unbuilt> {
     match chat.doing {
         Doing::Nothing => {}
         Doing::Working => {
+            // alo's mark and a word with the acting colour, never the
+            // colour alone (queue item 974): read as "Weekend in Lisbon
+            // Working", as a finished chat is read with *Done*.
             attribute(document, row, "aria-busy", "true")?;
-            let dot = element(document, "span")?;
-            attribute(document, dot, "class", "working")?;
-            attribute(document, dot, "aria-hidden", "true")?;
-            append(document, row, dot)?;
+            let said = element(document, "span")?;
+            attribute(document, said, "class", "working")?;
+            let mark = element(document, "img")?;
+            attribute(document, mark, "class", "acting-mark")?;
+            attribute(document, mark, "src", crate::acting::SRC)?;
+            attribute(document, mark, "alt", "")?;
+            attribute(document, mark, "aria-hidden", "true")?;
+            append(document, said, mark)?;
+            let words = document.create_text_node(crate::acting::WORKING);
+            append(document, said, words)?;
+            append(document, row, said)?;
         }
         Doing::Done => {
             // A flex item of its own, so the row is read as "Charging my EV
@@ -515,7 +525,7 @@ mod tests {
             said,
             vec![
                 "ECharging my EV",
-                "LWeekend in Lisbon",
+                "LWeekend in LisbonWorking",
                 "BInvoice for MarchDone",
                 "Compare phone plans",
             ]

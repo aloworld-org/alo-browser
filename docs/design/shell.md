@@ -37,9 +37,10 @@ Top to bottom, inside 6 px above and 10 px either side, 12 px below:
 - **Search chats**, 38 px.
 - **Open** — the chats in use. Each row is 38 px, 13.5 px text, the site
   open in it as a 16 px mark before its name. The chat on screen is white.
-  A chat where the agent is working has a 7 px terracotta dot after its
-  name; one it finished has a green tick, and both say so in words to an
-  agent.
+  A chat where the agent is working has alo's mark, 14 px, and
+  **Working**, 12 px 600 in deep teal, after its name (item 974; a 7 px
+  terracotta dot before); one it finished has a green tick, and both say
+  so in words to an agent.
 - **Earlier** — past chats, in quiet text, without marks. Closing a chat
   never loses it: it moves here, first (item 791). The chats kept from
   before alo was last closed are here, newest first; pressed, one is on
@@ -145,8 +146,10 @@ a "+" at the top makes a new chat.*
   to `S` — the rule's known limit. An IP address is its first digit —, 12 px 600 in the ink in
   a **32 px circle** on the line colour. **The chat on screen** is white
   with a shadow, as its row is white in the panel; one the agent works in
-  has the panel's 7 px terracotta dot at its circle's shoulder. Five fit
-  above *Show the panel* in the least window.
+  has alo's mark, 14 px, at its circle's shoulder and **Working** under
+  the circle, 10 px 600 in deep teal, its button 58 tall (item 974; the
+  panel's 7 px terracotta dot before). Five fit above *Show the panel* in
+  the least window.
 - **The name on hover.** The chat the pointer is over is a shade lighter,
   and its name stands beside it in a dark pill — `#2b2722`, 12.5 px 500 in
   `#f3efe8`, 28 tall, rounded 8, 10 inside, at most 240 wide and cut where
@@ -343,8 +346,10 @@ following macOS's own fields where in doubt:
   against macOS's fields. It is drawn only while the field and the window
   both have the keyboard and nothing is selected.
 - **The selection** is drawn behind its letters on **the ink's tint** —
-  the ink at 18 % over the box's white, `#d6d8da` — the letters keeping the
-  ink, 10.9 : 1 on it; 20 tall in the box, 16 in *Search chats*. The
+  the ink at 18 % over the box's white, `#d4d9dd` since the ink is alo OS's
+  navy (item 974; `#d6d8da` before) — the letters keeping the ink, 10.3 : 1
+  on it; as tall as the face's line, 22 in the box and 18 in *Search
+  chats* in Manrope (item 975; 20 and 16 in Inter). The
   palette's ink is *what is selected* (ADR 0074 § 2); a block of solid ink
   behind white letters read as a button, and the acting colour means the
   agent. macOS greys a selection in a window without the keyboard; here it
@@ -765,13 +770,14 @@ Words typed while a card is open, and Return, ask alo: the box offers *Ask
 alo about "…"* first, saying *alo works on this page*. The agent works on
 the card's page through the same road an agent on the socket takes, one
 step at a time, and is drawn **under the page, inside the card**: while it
-works the card and its page are outlined in terracotta (2 over the page,
-the card's border and 1 more around it), and a line 36 tall on
-`#F6E7E0` says *alo is working on this page · click anywhere to take over*
-in `#7A3A24`, 13 px, 600, with **Stop** at its end (28 tall, rounded 8,
-outlined terracotta); 10 under it what the person asked (13.5 on 20, 600),
+works the card and its page are outlined in deep teal `#0F6B72` (2 over
+the page, the card's border and 1 more around it), and a line 36 tall on
+the teal's tint `#E2EDEE` holds alo's mark, 16 px, then 8 on *alo is
+working on this page · click anywhere to take over* in the teal, 13 px,
+600, with **Stop** at its end (28 tall, rounded 8, outlined in the teal)
+(item 974; terracotta, `#F6E7E0` and `#7A3A24` before); 10 under it what the person asked (13.5 on 20, 600),
 then one line per step in the quiet colour, 6 apart, why under a step when
-it chose (12.5 on 18), the step under way in terracotta. Asking before
+it chose (12.5 on 18), the step under way in the teal. Asking before
 pressing what pays, sends, deletes or sends a form: a box rounded 12, 12
 by 14 inside, the question (600), then **Allow** in the ink and **Not
 now**, 28 tall, 8 apart. Stuck: why, then each choice as a button. Done:
@@ -803,7 +809,7 @@ field*.
 rail for the run, at any width; the first screen beside it is no longer
 the conversation but **the page, large, on the left** — the card with its
 bar, 16 in from the screen's top, left and foot and from the column, its
-page box the rest of the card under the bar, outlined in terracotta — and
+page box the rest of the card under the bar, outlined in the teal — and
 **the agent's column, 384 wide its rule included, on the right**: white,
 ruled off on its left in the line's colour, 16 inside it and 24 above its
 foot. In it, from the top, the working line with *Stop* (its words on two
@@ -1073,8 +1079,8 @@ here:
   step, as it happens**, in a person's words — *"Choosing Saturday,
   10:00"* — with why, when it chose: *"8:00 is taken, so this is the
   earliest free morning slot"*.
-- The page has a terracotta outline and *alo is working on this page · click
-  anywhere to take over*. Clicking the page takes over; the agent pauses,
+- The page has a deep teal outline and alo's mark with *alo is working on
+  this page · click anywhere to take over*. Clicking the page takes over; the agent pauses,
   and *Let alo continue* carries it on from whatever the page then shows
   (built, item 825).
 - **It stops before paying**, with the amount, the merchant and the
@@ -1113,6 +1119,17 @@ for. Emoji are drawn in **Noto Color Emoji**, carried and handed the same
 way (ADR 0088). A face with an optical size — Newsreader's 6 to 72,
 Inter's 14 to 32 and DM Sans' 9 to 40 — is set to the CSS pixels its text
 is at, as Chrome sets it (measured in Chrome 157, item 853).
+
+**Since 12 November 2026** (item 975; ADR 0112 *Answered* 3, the owner's
+decision through alo OS's coordinator: *"Manrope"*): **Manrope** is every
+word of the interface by default, and **Geist Mono** whatever it sets in a
+monospace (`code`, `kbd`, `pre`, `samp` — none today); `--face` is Manrope
+on each document's root and `--mono` Geist Mono. Inter stays, as a choice in
+*Settings* with the other four — the owner's call — so *Settings* offers
+six: **Manrope** (default), Inter, Geist, DM Sans, Plus Jakarta Sans and
+Instrument Sans. Newsreader is still the mark's and the greeting's. Both new
+files are under the OFL and carried as the others are (ADR 0084, amended).
+Where this section or the next says *Inter* as the default, read Manrope.
 
 ## Settings (items 853, 854, 878, 886)
 
@@ -1186,8 +1203,8 @@ Settled here, as the design left them open:
   of them on its left is for when there are more.
 - **A face** is a white box, 1 px line-colour border, rounded 14, 15 / 16
   / 16 inside: a row of 18 holding a radio, 16 across, drawn as Chrome
-  draws one in the ink, and the face's name in 13 px 600 (*Inter ·
-  Default* for Inter) — quiet, or the ink when chosen; 10 under it the
+  draws one in the ink, and the face's name in 13 px 600 (*Manrope ·
+  Default* for Manrope since item 975; *Inter · Default* before) — quiet, or the ink when chosen; 10 under it the
   sample. The face chosen has its border in the ink and a second pixel
   inside it, so nothing moves. The whole box is pressed as the face.
 - **The sample** (item 901) is the owner's one sentence, *If you live
@@ -1195,8 +1212,8 @@ Settled here, as the design left them open:
   right.*, 16 px 400 in the ink on lines of 25, its room never less than
   three lines so every face is as tall, fixed, set in that face whatever
   the page is set in, and never cut: at the design's width Inter and DM
-  Sans take three lines and Geist, Plus Jakarta Sans and Instrument Sans
-  two; in the least window it is four lines, whole, and the faces taller. (In the panel at the design's size each face is
+  Sans take three lines and Manrope, Geist, Plus Jakarta Sans and
+  Instrument Sans two; in the least window it is four lines, whole, and the faces taller. (In the panel at the design's size each face is
   327 wide; in the least window, 203.)
 - **Effect**: choosing a face sets every word of the panel, the rail and
   the first screen in it at once — both renderers draw again, neither is
@@ -1299,10 +1316,12 @@ Settled here, as the design left them open:
 - **A file that does not read** — a face alo does not carry, a line it
   does not know, no `font` line or two, a limit past its bounds or named
   twice, bytes that are not text, more than 4,096 bytes, or a file that
-  cannot be opened — is **Inter and the default limits, and said**,
+  cannot be opened — is **Manrope (Inter before item 975) and the default
+  limits, and said**,
   with the file's path and why, on the terminal and in the first screen's
   line as the window opens; the file is left as it is until a face is next
-  chosen, which writes it whole. No file is Inter, said nothing.
+  chosen, which writes it whole. No file is Manrope, said nothing; a file
+  from before item 975 saying `font Inter` is read as it says, Inter.
 - **Search and answers** (items 904, 905, ADR 0106; the owner's word of 9
   November 2026, *"since it will be open source we should not be brave
   hardcoded"*), 24 under *alo at work*: **Search and answers**, 15 px 600,
@@ -1394,8 +1413,11 @@ Settled here, as the design left them open:
 
 ## Colours
 
-ADR 0074 § 2 is the palette. The rule that matters most: **terracotta means
-the agent is acting**, and appears nowhere else.
+ADR 0074 § 2 is the palette, amended 12 November 2026 (item 974, ADR 0112
+*Answered* 1). The rule that matters most: **deep teal `#0F6B72` means alo
+is acting**, appears nowhere else, and **is never drawn alone** — always with
+alo's mark and a word. Terracotta, its colour until then, no longer means
+it. The ink is alo OS's navy `#102A43`.
 
 ## What is not designed yet
 

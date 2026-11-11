@@ -12,14 +12,15 @@
 //!
 //! Under the page, inside the card, a column the card's width:
 //!
-//! - While it works, a terracotta line — [`WORKING`] — with *Stop* at its
-//!   end, and the page outlined in terracotta ([`ring`]): the one place the
-//!   acting colour is used (ADR 0074 § 2).
+//! - While it works, a deep teal line — alo's mark, then [`WORKING`] —
+//!   with *Stop* at its end, and the page outlined in deep teal
+//!   ([`ring`]): the acting colour, which is never drawn without alo's
+//!   mark and a word (ADR 0074 § 2 as amended, queue item 974).
 //! - What the person asked, in the ink.
 //! - Its plan, once it wrote one (queue item 824): two to five short
 //!   steps, those done ticked, the one it is on in bold, the rest greyed.
 //! - One line per step, oldest first, in a person's words, with why under
-//!   it when it chose; the step under way, while it works, in terracotta.
+//!   it when it chose; the step under way, while it works, in deep teal.
 //! - What it is doing now: asking the person — the question, with *Allow*
 //!   and *Not now*, and for a press that pays what it pays and *Pay* in
 //!   place of *Allow* (queue item 826) — stuck, with why and its choices as
@@ -30,7 +31,7 @@
 //! # What an agent reads
 //!
 //! ADR 0002: a `region` named [`AT_WORK`] holding the working line as a
-//! paragraph and *Stop* as a button; what was asked as a paragraph; a list
+//! paragraph (alo's mark before it hidden) and *Stop* as a button; what was asked as a paragraph; a list
 //! named [`crate::agent_plan::PLAN`] of the plan's steps, each a list item
 //! named by where it stands and its words — *Done: …*, *Now: …*, *Next: …*
 //! — the one it is on `aria-current="step"`; a list named [`STEPS`] of each
@@ -115,6 +116,14 @@ fn column(document: &mut Document, work: &AtWork, working: &str) -> Result<NodeI
     if work.is_working() {
         let row = element(document, "div")?;
         attribute(document, row, "class", "working")?;
+        // alo's mark before the words, so the acting colour is never alone
+        // (queue item 974); the words say *alo*, so it is hidden.
+        let mark = element(document, "img")?;
+        attribute(document, mark, "class", "acting-mark")?;
+        attribute(document, mark, "src", crate::acting::SRC)?;
+        attribute(document, mark, "alt", "")?;
+        attribute(document, mark, "aria-hidden", "true")?;
+        append(document, row, mark)?;
         let line = words(document, "p", "said", working)?;
         append(document, row, line)?;
         let stop = button(document, "abtn stop", STOP)?;
@@ -429,6 +438,8 @@ mod tests {
         assert_eq!(of_class(&document, "card acting").len(), 1);
         assert_eq!(of_class(&document, "ring").len(), 1);
         assert_eq!(of_class(&document, "said"), vec![super::WORKING]);
+        // alo's mark with the words, never the acting colour alone.
+        assert_eq!(of_class(&document, "acting-mark").len(), 1);
         assert_eq!(of_class(&document, "abtn stop"), vec!["Stop"]);
         assert_eq!(of_class(&document, "asked"), vec!["send my name"]);
         assert_eq!(

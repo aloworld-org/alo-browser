@@ -347,7 +347,7 @@ fn each_character_is_drawn_by_the_face_that_has_it_and_an_emoji_by_noto() {
         ],
         "a skin tone, a selector and a joined pair are each one picture"
     );
-    // In Inter, the interface's own face (queue item 853), which has the
+    // In Inter, the interface's own face from queue item 853 to 975, which has the
     // star and the letters: only the emoji leave it.
     let inter = "Inter Variable";
     assert_eq!(
@@ -378,9 +378,10 @@ fn an_emoji_is_as_wide_as_its_face_says_and_its_line_no_taller() {
     let at = |class: &str| boxes_of(&renderer, class);
     // Two plugs at 18 px: Noto's advance is 2550 of 2048 units each,
     // 22.412… px, 44.828125 in layout's sixty-fourths. The link's box is
-    // its first face's: Inter's ascent and descent at 18, 21 tall, 2 into
-    // its line of 25 (Instrument Sans' were 22, 1 in; queue item 853).
-    assert_eq!(at("title").get(1), Some(&px(80.0, 288.0, 44.828_125, 21.0)));
+    // its first face's: Manrope's ascent and descent at 18, 24 tall, at the
+    // top of its line of 25 (queue item 975; Inter's were 21, 2 in, and
+    // Instrument Sans' 22, 1 in; queue item 853).
+    assert_eq!(at("title").get(1), Some(&px(80.0, 286.0, 44.828_125, 24.0)));
     // Each title's line 25 tall and each description's 23, as with no emoji
     // in them: the emoji face's taller ascent does not grow a line whose
     // height the stylesheet sets.
@@ -393,7 +394,10 @@ fn an_emoji_is_as_wide_as_its_face_says_and_its_line_no_taller() {
         at("found"),
         vec![px(80.0, 168.0, 880.0, 74.0), px(80.0, 264.0, 880.0, 51.0)]
     );
-    assert_eq!(at("title").first(), Some(&px(80.0, 192.0, 372.687_5, 21.0)));
+    assert_eq!(
+        at("title").first(),
+        Some(&px(80.0, 190.0, 358.109_38, 24.0))
+    );
 }
 
 #[test]

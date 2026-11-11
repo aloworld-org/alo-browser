@@ -27,7 +27,7 @@ use std::time::{Duration, Instant};
 /// Where the page says it was served from. Frozen: nothing reaches it.
 const ADDRESS: &str = "https://example.com/marked";
 
-/// The page, 600 by 640 CSS pixels: a swatch of alo's accent at its top
+/// The page, 600 by 640 CSS pixels: a swatch of alo's acting teal at its top
 /// left, as wide as 40 and 20 more for each time the page has loaded
 /// before; and four boxes, each 120 by 40 with a grey border six thick,
 /// far enough apart that Chrome's label beside one — about 190 by 120,
@@ -37,7 +37,7 @@ const ADDRESS: &str = "https://example.com/marked";
 const PAGE: &str = "<!doctype html><title>Marked</title><style>\
     body { margin: 0; background: #fff; font: 16px sans-serif }\
     #swatch { position: absolute; left: 0; top: 0; width: 40px; height: 40px;\
-      background: #e76f51 }\
+      background: #0f6b72 }\
     .box { position: absolute; box-sizing: border-box; width: 120px; height: 40px;\
       border: 6px solid #888; background: #fff; color: #fff; padding: 0;\
       display: block; font: 16px sans-serif }\
@@ -596,8 +596,8 @@ fn check(
     );
     let (red, green, blue, _) = accent.to_rgba8();
     assert!(
-        red > green && green > blue,
-        "an accent, terracotta: {accent:?}"
+        blue > green && green > red,
+        "alo acting, deep teal: {accent:?}"
     );
 
     // What the agent reads is where the page put each box: Chrome's word

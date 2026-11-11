@@ -818,7 +818,7 @@ impl ConversationWindow {
 
     /// The same window, its interface set in the face `read` back from
     /// where it was kept, and each face a person chooses kept in `file` when
-    /// there is one (queue item 854): a file that did not read is Inter, and
+    /// there is one (queue item 854): a file that did not read is Manrope, and
     /// said, with why, on the terminal and in the first screen's line.
     #[must_use]
     pub fn with_settings(

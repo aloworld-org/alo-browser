@@ -260,7 +260,7 @@ fn typed_moved_and_its_caret_drawn(driven: &mut Driven) -> Result<(), String> {
     let hidden = driven.painted().ok_or("nothing painted")?;
     let caret = columns_differing(&shown, &hidden);
     assert_eq!(caret.len(), 1, "one column: {caret:?}");
-    let ink = Some([0x1b, 0x24, 0x33, 0xff]);
+    let ink = Some([0x10, 0x2a, 0x43, 0xff]);
     assert!(caret.iter().all(|&x| pixel(&shown, x, 286) == ink));
     // After `kampa` in Inter at 16, 183 in: past the `p`, before `la`.
     let at = caret.first().copied().unwrap_or_default();

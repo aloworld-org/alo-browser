@@ -409,6 +409,6 @@ fn the_payments_question_is_drawn_as_the_reference() -> Result<(), String> {
     let (frame, _) = drawn(with(paying(found()), NORMAL)?);
     let frame = frame.as_ref().ok_or("nothing was painted")?;
     // *Pay* in the ink.
-    assert_eq!(pixel(frame, 868, 356), Some([0x1b, 0x24, 0x33, 0xff]));
+    assert_eq!(pixel(frame, 868, 356), Some([0x10, 0x2a, 0x43, 0xff]));
     holds("agent-paying.png", Some(frame))
 }

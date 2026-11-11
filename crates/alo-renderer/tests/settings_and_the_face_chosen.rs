@@ -294,7 +294,7 @@ fn settings_is_read_as_a_radio_group_named_font_with_the_face_chosen_checked() {
 #[test]
 fn settings_is_laid_out_in_a_panel_over_the_screen_two_faces_a_row() {
     let drawn = draw(ToRenderer::Start(Box::new(settings(
-        InterfaceFace::Inter,
+        InterfaceFace::Manrope,
         DESIGN,
     ))));
     let at = |class: &str| boxes_of(&drawn.renderer, class);
@@ -319,7 +319,7 @@ fn settings_is_laid_out_in_a_panel_over_the_screen_two_faces_a_row() {
     assert_eq!(at("pabout").first(), Some(&px(188.0, 144.0, 664.0, 18.0)));
     // Two a row, 10 apart: (664 - 10) / 2 = 327 each; each 15 + 18 + 10 +
     // 75 (the sample's three lines of 25) + 16 and its border, 136 tall;
-    // three rows.
+    // three rows, full since Manrope made six (queue item 975).
     assert_eq!(at("faces"), vec![px(188.0, 176.0, 664.0, 428.0)]);
     let faces: Vec<String> = at("face on").into_iter().chain(at("face")).collect();
     assert_eq!(
@@ -330,6 +330,7 @@ fn settings_is_laid_out_in_a_panel_over_the_screen_two_faces_a_row() {
             px(188.0, 322.0, 327.0, 136.0),
             px(525.0, 322.0, 327.0, 136.0),
             px(188.0, 468.0, 327.0, 136.0),
+            px(525.0, 468.0, 327.0, 136.0),
         ]
     );
     // Inside each, 1 of border and 15 down, 16 in: the name's row of 18,
@@ -343,7 +344,8 @@ fn settings_is_laid_out_in_a_panel_over_the_screen_two_faces_a_row() {
             px(542.0, 220.0, 293.0, 75.0),
             px(205.0, 366.0, 293.0, 75.0),
             px(542.0, 366.0, 293.0, 75.0),
-            px(205.0, 512.0, 293.0, 75.0)
+            px(205.0, 512.0, 293.0, 75.0),
+            px(542.0, 512.0, 293.0, 75.0)
         ]
     );
 }
@@ -351,7 +353,7 @@ fn settings_is_laid_out_in_a_panel_over_the_screen_two_faces_a_row() {
 #[test]
 fn in_the_least_window_every_face_stands_inside_the_panel() {
     let drawn = draw(ToRenderer::Start(Box::new(settings(
-        InterfaceFace::Inter,
+        InterfaceFace::Manrope,
         LEAST,
     ))));
     let at = |class: &str| boxes_of(&drawn.renderer, class);
@@ -371,14 +373,16 @@ fn in_the_least_window_every_face_stands_inside_the_panel() {
         .into_iter()
         .chain(rects_of(&drawn.renderer, "face"))
         .collect();
-    assert_eq!(faces.len(), 5);
+    assert_eq!(faces.len(), 6);
     for face in &faces {
         assert!(face.left() >= 60.0 && face.right() <= 476.0, "{face:?}");
     }
     assert_eq!(
         faces.last().map(|face| units(*face)),
-        // Its sample on four lines of 25 there, whole, never cut: 161.
-        Some(px(60.0, 536.0, 203.0, 161.0))
+        // Its sample on four lines of 25 there, whole, never cut: 161; the
+        // second of the third row since Manrope made six (queue item 975),
+        // the rows above it as tall as their taller sample.
+        Some(px(273.0, 518.0, 203.0, 161.0))
     );
 }
 
@@ -484,7 +488,7 @@ fn settings_is_drawn_as_the_references() {
         (LEAST, "settings-in-the-least-window.png"),
     ] {
         let drawn = draw(ToRenderer::Start(Box::new(settings(
-            InterfaceFace::Inter,
+            InterfaceFace::Manrope,
             viewport,
         ))));
         assert_eq!(holds(name, drawn.frame.as_ref()), Ok(()));
@@ -510,7 +514,9 @@ fn panel_in(face: InterfaceFace) -> Panel {
 
 #[test]
 fn while_settings_is_on_screen_its_row_is_current_in_the_panel() {
-    let drawn = draw(ToRenderer::Panel(Box::new(panel_in(InterfaceFace::Inter))));
+    let drawn = draw(ToRenderer::Panel(Box::new(panel_in(
+        InterfaceFace::Manrope,
+    ))));
     let links: Vec<(Option<String>, bool)> = read(&drawn.tree, "link")
         .iter()
         .map(|node| (node.name.clone(), node.states.current.is_some()))
@@ -643,11 +649,12 @@ fn the_keyboards_ring_moves_nothing_and_is_drawn_as_the_references() {
         keyed_faces.sort();
         faces_before.sort();
         assert_eq!(keyed_faces, faces_before, "every face where it was");
-        // Its × 36 square at 824, 52 down; Geist's face the second of the
-        // first row, 327 wide at 525.
+        // Its × 36 square at 824, 52 down; Geist's face the first of the
+        // second row, 327 wide at 188, since Manrope is first (queue item
+        // 975).
         let expected = match keyed {
             SettingsKeyed::Close => vec![px(824.0, 52.0, 36.0, 36.0)],
-            SettingsKeyed::Font => vec![px(525.0, 176.0, 327.0, 136.0)],
+            SettingsKeyed::Font => vec![px(188.0, 322.0, 327.0, 136.0)],
             // alo at work's (queue item 878) are `settings_alo_at_work.rs`'s.
             other => panic!("{other:?} is not rung here"),
         };

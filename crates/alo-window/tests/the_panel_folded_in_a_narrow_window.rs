@@ -253,7 +253,7 @@ fn a_window_narrowed_past_760_is_the_rail_and_the_conversation_beside_it() {
     let at = |x: u32, y: u32| canvas.at(x, y).map(alo_value::Rgba::to_rgba8);
     assert_eq!(at(80, 177), Some((0xf4, 0xf1, 0xec, 0xff)));
     assert_eq!(at(743, 177), Some((0xf4, 0xf1, 0xec, 0xff)));
-    assert_eq!(at(64 + 50, 143), Some((0x1b, 0x24, 0x33, 0xff)));
+    assert_eq!(at(64 + 50, 143), Some((0x10, 0x2a, 0x43, 0xff)));
     assert_eq!(holds("the-panel-folded-at-759.png", &canvas), Ok(()));
 }
 
@@ -287,7 +287,8 @@ fn near(got: Option<(u8, u8, u8, u8)>, want: (u8, u8, u8, u8)) -> bool {
     })
 }
 
-/// `under` with the ink at the sheet's shade over it.
+/// `under` with the ink — alo OS's navy since queue item 974 — at the
+/// sheet's shade over it.
 fn shaded(under: (u8, u8, u8)) -> (u8, u8, u8, u8) {
     let mix = |under: u8, ink: u8| {
         let mixed = f32::from(under) * (1.0 - SHADE) + f32::from(ink) * SHADE;
@@ -300,9 +301,9 @@ fn shaded(under: (u8, u8, u8)) -> (u8, u8, u8, u8) {
         mixed
     };
     (
-        mix(under.0, 0x1b),
-        mix(under.1, 0x24),
-        mix(under.2, 0x33),
+        mix(under.0, 0x10),
+        mix(under.1, 0x2a),
+        mix(under.2, 0x43),
         0xff,
     )
 }
@@ -371,11 +372,13 @@ fn shown_at_700_the_panel_slides_over_the_conversation_as_a_sheet_over_a_shade()
         ),
         None
     );
-    // Past it, the conversation's paper under the shade: in its gutter,
-    // 64 + 16 across, and at the window's right.
+    // Past it, the conversation's paper under the shade, at the sheet's
+    // edge and at the window's right: 160 down, between the tab row and
+    // the first site (at 177 the first site's line reaches 240 in Manrope,
+    // queue item 975).
     let paper = shaded((0xf4, 0xf1, 0xec));
-    assert!(near(at_xy(240, 177), paper), "{:?}", at_xy(240, 177));
-    assert!(near(at_xy(699, 177), paper), "{:?}", at_xy(699, 177));
+    assert!(near(at_xy(240, 160), paper), "{:?}", at_xy(240, 160));
+    assert!(near(at_xy(699, 160), paper), "{:?}", at_xy(699, 160));
     assert_eq!(holds("the-sheet-at-700.png", &canvas), Ok(()));
     // Part way, 50 ms out: its left edge at −74, its right at 166, the
     // shade lighter.

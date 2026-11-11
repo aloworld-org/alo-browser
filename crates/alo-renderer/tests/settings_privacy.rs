@@ -281,8 +281,9 @@ fn privacy_stands_under_alo_at_work_in_numbers() {
             px(205.0, 696.0, 630.0, 17.0)
         ]
     );
-    // Each radio 16 across, 6 down in its choice.
-    let radios: Vec<String> = at("dot").into_iter().skip(8).collect();
+    // Each radio 16 across, 6 down in its choice: after the six faces'
+    // (queue item 975) and alo at work's.
+    let radios: Vec<String> = at("dot").into_iter().skip(9).collect();
     assert_eq!(
         radios,
         vec![

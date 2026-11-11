@@ -26415,6 +26415,12 @@ the rest runs on this Mac. Order: ADR 0112's *The plan, in order*.
   the screencast; and decide what *Expand* becomes when nothing of
   Chromium's has a window. *needs ADR. Closes when:* the ADR is accepted
   with those measurements, and items cut from it are queued.
+  **Proposed, open (11 November 2026):** ADR 0113, with a spike in the host
+  behind `--alo-windowless` (alo never gives it): every verb, the
+  screencast, exact colours, an input method's composition and a closed
+  list's popup measured on a windowless page at one and two, GPU and
+  software; ADR 0060's hold stalls a popup there (#4308). Cut and queued:
+  978–983. Waits for the owner (ADR 0113, *Asked of the owner*).
 - [ ] **960. alo on Linux: the workspace built, the host on Linux, and a
   card through it, with no GPU (ADR 0112 requirements 1 and 3).** The
   eighteen `cfg(target_os = "macos")` files given Linux counterparts or
@@ -26500,19 +26506,32 @@ the rest runs on this Mac. Order: ADR 0112's *The plan, in order*.
   developer build's alone (or refuse it in a bundled application), so no
   product path keeps anything under a written password. *Closes when:* the
   application refuses `--sign-ins`, in a test, and ADR 0111 § 6 says so.
-- [ ] **974. Deep teal is alo acting, everywhere (ADR 0112, *Answered* 1).**
+- [x] **974. Deep teal is alo acting, everywhere (ADR 0112, *Answered* 1).**
   Terracotta is retired from *the agent is acting*: deep teal `#0F6B72`
   (dark `#77C8C6`), always with alo's mark and a word, never colour
   alone; the browser's own chrome takes alo OS's navy `#102A43` where ADR
   0074 used its ink. ADR 0074 § 2 amended. *Closes when:* every place the
   agent at work is drawn uses the teal with the mark and a word, in
   reference renders, and no terracotta is left for that role.
-- [ ] **975. Manrope, and Geist Mono (ADR 0112, *Answered* 3).** The
+  *Built 12 November 2026* (gated 12 November 2026, 7089 tests): the palette's ink is the navy
+  and its acting colour the teal in all three stylesheets; alo's mark
+  (`acting.rs`, the owner's small drawing as an `<img>`) and *Working* on a
+  chat at work on the panel and the rail, the mark before the working
+  line's words over a card and in the split view; ADR 0074 § 2 and
+  `shell.md` amended; `alo_acting_in_deep_teal.rs`. `alo PAGE`'s and
+  `alo --chrome`'s ring and agent line are teal, its words beside them,
+  but **without alo's mark** — open for 984.
+- [x] **975. Manrope, and Geist Mono (ADR 0112, *Answered* 3).** The
   conversation's interface draws in Manrope by default, its monospace in
   Geist Mono; ADR 0084 amended (whether the other faces stay as a
   person's choice in *Settings* is said there). Fonts carried under their
   licences. *Closes when:* the reference renders draw in Manrope and a
   test asserts the face resolved.
+  *Built 12 November 2026* (gated 12 November 2026, 7089 tests): Manrope (google/fonts) and
+  Geist Mono (Geist 1.9.2's release) carried, Manrope the default and
+  first of six in *Settings*, Inter kept as a choice; ADR 0084 amended;
+  every interface reference redrawn; `the_interfaces_typefaces.rs`
+  asserts Manrope and Geist Mono resolved.
 - [ ] **976. A second launch hands its address to the running alo (ADR
   0112, *Answered* 4).** On the same profile, a second `alo` with an
   address hands it to the running one, which opens it in a new card and
@@ -26524,6 +26543,57 @@ the rest runs on this Mac. Order: ADR 0112's *The plan, in order*.
   control, print to PDF) onto the socket's asks, never a verb that runs
   code a model wrote. *blocked: the owner's decision on where its code
   lives* (this repository never edits alo OS's; MPL-2.0 is compatible).
+- [ ] **978. A windowless card's popups, and ADR 0060's hold in Alloy style
+  (ADR 0113, proposed; cut from 959).** Measured: with Chromium's own
+  session held, a windowless page's `window.open` never returned and the
+  popup was never asked for (CEF issue #4308); with the page's session only,
+  the popup's requests left unheld; a host with a popup did not end on
+  `Browser.close`. Build: `OnBeforePopup` of a windowless card cancelled and
+  told, opened as the conversation's next turn; a shared worker held from
+  Chromium's own session measured in Alloy style; the host ending with a
+  popup open. *Depends on ADR 0113 accepted. Closes when:* ADR 0060 is
+  amended for windowless cards and a test through the host holds a frame, a
+  worker and a shared worker of a windowless card, and no popup is made.
+- [ ] **979. The host told a size, a scale, focus and hiding; *Expand* as
+  alo's (ADR 0113, proposed).** A channel from alo to the host (the pipe
+  carries only Chromium's protocol): `WasResized`, `NotifyScreenInfoChanged`,
+  `WasHidden`, `SetFocus`, read bounded as `chrome_told.rs` reads the other
+  way. *Expand* becomes the card's frames drawn at the window's size, the
+  view resized to it. *Depends on 978. Closes when:* a windowless card is
+  resized and rescaled in a test through the host, in numbers, and *Expand*
+  places no window.
+- [ ] **980. Windowless cards in alo, behind a switch, on this Mac (ADR
+  0113, proposed).** `alo-window` starts the host with `--alo-windowless`
+  at the card's box and the conversation's scale, parks nothing, asks no
+  `Browser.getWindowForTarget` (refused on a windowless page, measured), and
+  streams as today. *Depends on 978, 979. Closes when:* every card test
+  through the host passes windowless too, and the stream's numbers are
+  measured against the parked window's on the same page with the display
+  awake (959 could not: the display was asleep).
+- [ ] **981. `OnPaint`'s pixels to alo instead of the screencast (ADR 0113,
+  road b).** *blocked: the owner's yes to a new `unsafe` boundary in the host*
+  (one line reading `OnPaint`'s buffer, ADR 0080's form). Measured in 959:
+  painting only costs a quarter to a seventh of a streamed frame's CPU.
+  *Closes when:* accepted or refused by the owner; if accepted, built with
+  the hand-off measured against the stream.
+- [ ] **982. A closed list's popup, drags and the file chooser on a
+  windowless card (ADR 0113).** The list drawn by alo from the DOM (or from
+  the popup's paints, with 981); `StartDragging` and `DragTarget*` (959 saw
+  `dragstart` but no `StartDragging`); `CefDialogHandler`, to the portal on
+  alo OS (967). *Depends on 980.*
+- [ ] **983. What Alloy style takes from a card, measured (ADR 0113).**
+  Permission prompts, print preview, autofill, Chrome's commands and every
+  handler the host has, each through a windowless card against a Chrome-style
+  one. *Depends on 980. Closes when:* each is listed, kept, rebuilt or
+  refused in ADR 0113's amendment.
+- [ ] **984. alo's mark beside the acting colour outside the conversation
+  (cut from 974).** `alo PAGE`'s ring around the box an agent's verb acted
+  on (`mark.rs`) and the line saying what it did (`compose.rs`), and
+  `alo --chrome`'s highlight (`chrome_mark.rs`), are deep teal since 974,
+  with the agent's sentence as their word, but carry no alo mark: the
+  window draws that line itself, not from a document. *Closes when:* the
+  line beside the ring shows alo's mark, in `the_window_composed.rs`'s
+  references, or ADR 0074 § 2 says why these developer modes go without.
 
 ## After stage 4
 

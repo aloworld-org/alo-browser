@@ -36,13 +36,17 @@
 //! ([`crate::service_keys`]). Lines that are empty or begin with `#` are
 //! passed over. Nothing in it leaves the machine.
 //!
-//! # Read back, or Inter and said
+//! # Read back, or Manrope and said
 //!
-//! No file is Inter, said nothing: alo was never set otherwise. Anything
+//! No file is Manrope, the default since queue item 975, said nothing: alo
+//! was never set otherwise. A file naming `font Inter` — Inter, the default
+//! before 975, which every file written then named whether chosen or not —
+//! is read as it says, Inter: a face is no safety, and a person whose file
+//! says Inter is drawn in what their file says until they choose again. Anything
 //! else that does not read as written here — a face alo does not carry, a
 //! line it does not know, no `font` line or two, a limit past its bounds or
 //! named twice, bytes that are not UTF-8, a file larger than any it writes,
-//! or one that cannot be read at all — is **Inter and the default limits,
+//! or one that cannot be read at all — is **Manrope and the default limits,
 //! and said**, with the file's path and why, on the terminal and in the
 //! first screen's line as the window opens. The file is left as it is
 //! until a person next chooses a face or a limit, which writes it whole.
@@ -96,7 +100,7 @@ pub fn file_in(directory: &Path) -> PathBuf {
 /// What a settings file read back as.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Read {
-    /// The face the interface is set in: the one kept, or Inter.
+    /// The face the interface is set in: the one kept, or Manrope.
     pub face: InterfaceFace,
     /// How far alo's agent may go: the limits kept, or the default (queue
     /// item 878).
@@ -107,12 +111,12 @@ pub struct Read {
     /// does not read.
     pub privacy: Privacy,
     /// Why the file did not read, when it did not, in words naming it: the
-    /// face is then Inter.
+    /// face is then Manrope.
     pub said: Option<String>,
 }
 
-/// The settings kept in `file`: Inter, said nothing, when there is none;
-/// Inter and why, when it does not read.
+/// The settings kept in `file`: Manrope, said nothing, when there is none;
+/// Manrope and why, when it does not read.
 pub fn read(file: &Path) -> Read {
     match read_kept(file) {
         Ok(Kept {
@@ -128,12 +132,12 @@ pub fn read(file: &Path) -> Read {
             said: None,
         },
         Err(why) => Read {
-            face: InterfaceFace::Inter,
+            face: InterfaceFace::Manrope,
             limits: Limits::default(),
             services: Named::default(),
             privacy: Privacy::default(),
             said: Some(format!(
-                "the settings in {} do not read ({why}), so alo is set in Inter",
+                "the settings in {} do not read ({why}), so alo is set in Manrope",
                 file.display()
             )),
         },
@@ -155,7 +159,7 @@ fn read_kept(file: &Path) -> Result<Kept, String> {
         Ok(opened) => opened,
         Err(why) if why.kind() == std::io::ErrorKind::NotFound => {
             return Ok(Kept {
-                face: InterfaceFace::Inter,
+                face: InterfaceFace::Manrope,
                 limits: Limits::default(),
                 services: Named::default(),
                 privacy: Privacy::default(),
@@ -361,12 +365,12 @@ mod tests {
     }
 
     #[test]
-    fn no_file_is_inter_and_nothing_said() {
+    fn no_file_is_manrope_and_nothing_said() {
         let directory = scratch("none");
         assert_eq!(
             read(&file_in(&directory)),
             Read {
-                face: InterfaceFace::Inter,
+                face: InterfaceFace::Manrope,
                 limits: Limits::default(),
                 services: Named::default(),
                 privacy: Privacy::default(),
@@ -505,6 +509,9 @@ mod tests {
             ),
             (4, 15, Asks::Never, None)
         );
+        // Inter, the default before queue item 975, is read as the file
+        // says, not as the new default.
+        assert_eq!(older.face, InterfaceFace::Inter);
         let _ = fs::remove_dir_all(&directory);
     }
 
@@ -585,7 +592,7 @@ mod tests {
             assert_eq!(
                 unread.said,
                 Some(format!(
-                    "the settings in {} do not read ({why}), so alo is set in Inter",
+                    "the settings in {} do not read ({why}), so alo is set in Manrope",
                     file.display()
                 ))
             );
@@ -594,7 +601,7 @@ mod tests {
     }
 
     #[test]
-    fn a_damaged_or_unknown_setting_is_inter_and_said_with_why_and_left_as_it_is() {
+    fn a_damaged_or_unknown_setting_is_manrope_and_said_with_why_and_left_as_it_is() {
         let directory = scratch("damaged");
         fs::create_dir_all(&directory).expect("made");
         let file = file_in(&directory);
@@ -648,12 +655,12 @@ mod tests {
         for (bytes, why) in cases {
             fs::write(&file, bytes).expect("written");
             let read = read(&file);
-            assert_eq!(read.face, InterfaceFace::Inter, "{why}");
+            assert_eq!(read.face, InterfaceFace::Manrope, "{why}");
             assert_eq!(read.limits, Limits::default(), "{why}");
             assert_eq!(
                 read.said,
                 Some(format!(
-                    "the settings in {} do not read ({why}), so alo is set in Inter",
+                    "the settings in {} do not read ({why}), so alo is set in Manrope",
                     file.display()
                 ))
             );
@@ -669,7 +676,7 @@ mod tests {
             read(&file).said,
             Some(format!(
                 "the settings in {} do not read (it is larger than 4096 bytes), so alo is set \
-                 in Inter",
+                 in Manrope",
                 file.display()
             ))
         );

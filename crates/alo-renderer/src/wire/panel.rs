@@ -53,8 +53,9 @@ impl Writer {
         }
     }
 
-    /// The face the interface's words are set in (queue items 853, 854),
-    /// by its place among the five.
+    /// The face the interface's words are set in (queue items 853, 854,
+    /// 975), by a tag of its own: Manrope, the default since 975, took the
+    /// next tag rather than moving the others'.
     pub(super) fn face(&mut self, face: InterfaceFace) {
         self.tag(match face {
             InterfaceFace::Inter => 0,
@@ -62,6 +63,7 @@ impl Writer {
             InterfaceFace::DmSans => 2,
             InterfaceFace::PlusJakartaSans => 3,
             InterfaceFace::InstrumentSans => 4,
+            InterfaceFace::Manrope => 5,
         });
     }
 }
@@ -140,6 +142,7 @@ impl Reader<'_> {
             2 => Ok(InterfaceFace::DmSans),
             3 => Ok(InterfaceFace::PlusJakartaSans),
             4 => Ok(InterfaceFace::InstrumentSans),
+            5 => Ok(InterfaceFace::Manrope),
             other => Err(unreadable(format!("a face tagged {other}"))),
         }
     }

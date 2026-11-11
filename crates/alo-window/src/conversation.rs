@@ -4149,7 +4149,7 @@ mod tests {
     #[test]
     fn a_face_chosen_sets_both_parts_at_once_and_is_kept_once() {
         let mut conversation = Conversation::default();
-        assert_eq!(conversation.settings().face(), InterfaceFace::Inter);
+        assert_eq!(conversation.settings().face(), InterfaceFace::Manrope);
         let _ = conversation.act(Pressed::Settings);
         assert!(conversation.act(Pressed::Face(InterfaceFace::PlusJakartaSans)));
         assert!(conversation.settings().is_open(), "choosing keeps it open");

@@ -159,7 +159,9 @@ fn kept_only_where_alike(scale: f32) -> Result<(), String> {
             steps.push(("a Tab", screen(scale, true, Some(keyed)), true));
         }
         steps.push(("the keyboard put away", screen(scale, true, None), true));
-        for face in [InterfaceFace::Geist, InterfaceFace::Inter] {
+        // Then back to the default (Manrope since queue item 975), so the ring
+        // again is over the screen as it was.
+        for face in [InterfaceFace::Geist, InterfaceFace::Manrope] {
             let mut start = screen(scale, true, Some(SettingsKeyed::Font));
             start.face = face;
             steps.push(("a face chosen", start, false));

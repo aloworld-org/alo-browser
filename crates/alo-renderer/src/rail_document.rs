@@ -81,7 +81,8 @@ pub fn build(panel: &Panel) -> Result<Document, Unbuilt> {
 }
 
 /// One chat on the rail: a button named by the chat, holding its initials,
-/// a dot while the agent works in it, and — hovered — its name beside it.
+/// alo's mark and *Working* while the agent works in it, and — hovered —
+/// its name beside it.
 fn make_chat(document: &mut Document, chat: &Chat) -> Result<NodeId, Unbuilt> {
     let button = element(document, "button")?;
     attribute(document, button, "class", "rbtn rchat")?;
@@ -105,10 +106,22 @@ fn make_chat(document: &mut Document, chat: &Chat) -> Result<NodeId, Unbuilt> {
     append(document, initials, letters)?;
     append(document, button, initials)?;
     if chat.doing == Doing::Working {
-        let dot = element(document, "span")?;
-        attribute(document, dot, "class", "working")?;
-        attribute(document, dot, "aria-hidden", "true")?;
-        append(document, button, dot)?;
+        // alo's mark at the circle's shoulder and the word under it, with
+        // the acting colour, never the colour alone (queue item 974). The
+        // button is named by the chat and `aria-busy`, so both are hidden
+        // from an agent, as the initials are.
+        let mark = element(document, "img")?;
+        attribute(document, mark, "class", "acting-mark")?;
+        attribute(document, mark, "src", crate::acting::SRC)?;
+        attribute(document, mark, "alt", "")?;
+        attribute(document, mark, "aria-hidden", "true")?;
+        append(document, button, mark)?;
+        let said = element(document, "span")?;
+        attribute(document, said, "class", "working")?;
+        attribute(document, said, "aria-hidden", "true")?;
+        let words = document.create_text_node(crate::acting::WORKING);
+        append(document, said, words)?;
+        append(document, button, said)?;
     }
     if chat.hovered {
         attribute(document, button, "data-hovered", "true")?;
@@ -239,9 +252,11 @@ mod tests {
             panic!("one name beside the hovered chat: {named:?}");
         };
         assert_eq!(document.text_content(*named), hostile);
+        // The only pictures are alo's mark beside the chat at work.
         assert!(
             !document
                 .descendants(document.root())
+                .filter(|&node| document.attribute_by_name(node, "class") != Some("acting-mark"))
                 .filter_map(|node| document.element(node))
                 .any(|element| element.name.local.as_ref() == "img"),
             "no element came of a name"
@@ -255,7 +270,22 @@ mod tests {
             .filter(|&node| document.attribute_by_name(node, "aria-current") == Some("page"))
             .collect();
         assert_eq!(current.len(), 1);
-        assert_eq!(of_class("working").len(), 1, "the dot of the working chat");
+        // The working chat: alo's mark and the word, never the colour alone.
+        let marks = of_class("acting-mark");
+        assert_eq!(marks.len(), 1, "alo's mark on the working chat");
+        assert_eq!(
+            marks
+                .first()
+                .and_then(|&mark| document.attribute_by_name(mark, "src")),
+            Some(crate::acting::SRC)
+        );
+        let said = of_class("working");
+        assert_eq!(
+            said.iter()
+                .map(|&node| document.text_content(node))
+                .collect::<Vec<_>>(),
+            vec![crate::acting::WORKING]
+        );
         let busy = of_class("rbtn rchat")
             .into_iter()
             .filter(|&node| document.attribute_by_name(node, "aria-busy") == Some("true"))

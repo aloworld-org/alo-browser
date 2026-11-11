@@ -281,7 +281,7 @@ mod tests {
             .iter()
             .filter(|class| *class == "face" || *class == "face on")
             .count();
-        assert_eq!(faces, 5);
+        assert_eq!(faces, 6);
         let text = document.text_content(document.root());
         assert!(
             text.contains(TITLE) && text.contains(FONT) && text.contains("Hello."),
@@ -351,6 +351,7 @@ mod tests {
         assert_eq!(
             radios,
             vec![
+                (Some("Manrope".into()), false),
                 (Some("Inter".into()), false),
                 (Some("Geist".into()), false),
                 (Some("DM Sans".into()), true),
@@ -372,6 +373,7 @@ mod tests {
         assert_eq!(
             faces,
             vec![
+                set("face", "Manrope"),
                 set("face", "Inter Variable"),
                 set("face", "Geist"),
                 set("face on", "DM Sans"),

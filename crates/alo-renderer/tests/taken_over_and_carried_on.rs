@@ -244,7 +244,7 @@ fn held_the_column_says_the_page_is_yours_with_let_alo_continue() -> Result<(), 
     assert_eq!(at("steps"), vec![px(97.0, 562.0, 846.0, 46.0)]);
     assert_eq!(at("paused"), vec![px(97.0, 618.0, 846.0, 58.0)]);
     // Its words as wide as they are, at the column's left.
-    assert_eq!(at("pausedsaid"), vec![px(97.0, 618.0, 443.546_88, 20.0)]);
+    assert_eq!(at("pausedsaid"), vec![px(97.0, 618.0, 419.75, 20.0)]);
     let carry_on = at("abtn continue");
     assert_eq!(carry_on.len(), 1);
     assert!(carry_on[0].starts_with("(97, 648) "), "{carry_on:?}");

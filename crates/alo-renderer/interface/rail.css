@@ -8,21 +8,35 @@
    ground, so the name standing beside a hovered chat, past the rail's
    edge, is all the window draws over the first screen. */
 :root {
-  /* The face every word is set in (queue items 853, 854): Inter, unless a
-     person chose another in Settings, which the document builder puts on
-     the root element as its own style. The mark and the greeting stay in
-     Newsreader whatever is chosen. */
-  --face: "Inter Variable";
-  --ink: #1b2433;
+  /* The face every word is set in (queue items 853, 854, 975): Manrope,
+     unless a person chose another in Settings, which the document builder
+     puts on the root element as its own style; and Geist Mono for what is
+     set in a monospace. The mark and the greeting stay in Newsreader
+     whatever is chosen. */
+  --face: "Manrope";
+  --mono: "Geist Mono";
+  --ink: #102a43;
   --panel: #eeeae2;
   --line-soft: #e1dace;
-  --acting: #b5573a;
+  /* Deep teal is alo acting (ADR 0112, Answered 1; ADR 0074 § 2 as
+     amended, queue item 974), and is never drawn without alo's mark and a
+     word. Dark #77c8c6 is for when the interface has a dark mode. */
+  --acting: #0f6b72;
 }
 
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+}
+
+/* What the interface sets in a monospace is set in Geist Mono (queue item
+   975), whatever face its words are in. */
+code,
+kbd,
+pre,
+samp {
+  font-family: var(--mono), ui-monospace, monospace;
 }
 
 html,
@@ -127,19 +141,38 @@ body {
 
 .rchat[aria-current="page"] .initials {
   background: #ffffff;
-  box-shadow: 0 1px 3px rgba(27, 36, 51, 0.18);
+  box-shadow: 0 1px 3px rgba(16, 42, 67, 0.18);
 }
 
-/* The agent at work in it: the panel's 7 px terracotta dot, at the
-   circle's shoulder. */
+/* The agent at work in it (queue item 974): alo's mark, 14 square, at the
+   circle's shoulder where the 7 px dot was, and Working under the circle,
+   10 px 600 in the acting colour — never the colour alone — so the
+   button is 58 tall. */
+/* The button centres what is in flow — the circle — in the room above its
+   last 14, where the word stands. */
+.rchat[aria-busy="true"] {
+  height: 58px;
+  padding-bottom: 14px;
+}
+
+.rchat .acting-mark {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 14px;
+  height: 14px;
+}
+
 .rchat .working {
   position: absolute;
-  top: 5px;
-  right: 5px;
-  width: 7px;
-  height: 7px;
-  border-radius: 4px;
-  background: var(--acting);
+  left: 0;
+  right: 0;
+  bottom: 3px;
+  color: var(--acting);
+  font-size: 10px;
+  line-height: 12px;
+  font-weight: 600;
+  text-align: center;
 }
 
 /* Its name beside it while the pointer is over it: a dark pill 28 tall

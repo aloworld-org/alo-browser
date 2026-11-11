@@ -397,10 +397,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_opens_closed_in_inter_and_closes_once() {
+    fn it_opens_closed_in_manrope_and_closes_once() {
         let mut settings = Settings::default();
         assert!(!settings.is_open());
-        assert_eq!(settings.face(), InterfaceFace::Inter);
+        assert_eq!(settings.face(), InterfaceFace::Manrope);
         assert!(settings.open());
         assert!(!settings.open(), "open already");
         assert!(settings.is_open());
@@ -441,21 +441,21 @@ mod tests {
         let mut settings = Settings::default();
         assert!(settings.open());
         assert!(!settings.step(true), "the keyboard not on Font");
-        assert_eq!(settings.face(), InterfaceFace::Inter);
+        assert_eq!(settings.face(), InterfaceFace::Manrope);
         assert!(settings.tab(false));
         assert!(settings.tab(false));
         assert!(settings.step(true));
-        assert_eq!(settings.face(), InterfaceFace::Geist);
-        assert_eq!(settings.take_chosen(), Some(InterfaceFace::Geist), "kept");
+        assert_eq!(settings.face(), InterfaceFace::Inter);
+        assert_eq!(settings.take_chosen(), Some(InterfaceFace::Inter), "kept");
         assert!(settings.step(false));
         assert!(settings.step(false));
         assert_eq!(settings.face(), InterfaceFace::InstrumentSans, "round");
         assert!(settings.step(true));
-        assert_eq!(settings.face(), InterfaceFace::Inter, "round again");
+        assert_eq!(settings.face(), InterfaceFace::Manrope, "round again");
         // On Back, the arrows are nothing.
         assert!(settings.tab(true));
         assert!(!settings.step(true));
-        assert_eq!(settings.face(), InterfaceFace::Inter);
+        assert_eq!(settings.face(), InterfaceFace::Manrope);
     }
 
     #[test]
@@ -507,7 +507,7 @@ mod tests {
         assert!(settings.step(false));
         assert_eq!(settings.limits().sites, 9);
         // A face is not a limit, nor a limit a face.
-        assert_eq!(settings.face(), InterfaceFace::Inter);
+        assert_eq!(settings.face(), InterfaceFace::Manrope);
         assert_eq!(settings.take_chosen(), None);
     }
 

@@ -31,12 +31,13 @@ pub fn panel() -> Rgba {
 
 /// The shade over the conversation while the chats panel stands over it as
 /// a sheet in a narrow window (queue item 776): the conversation's ink,
-/// `#1b2433` — ADR 0074 § 2, as [`panel`] is — at `alpha`, the sheet's
-/// own ([`crate::conversation_sheet::SHADE`] all the way out).
+/// alo OS's navy `#102a43` since queue item 974 — ADR 0074 § 2, as
+/// [`panel`] is — at `alpha`, the sheet's own
+/// ([`crate::conversation_sheet::SHADE`] all the way out).
 pub fn shade(alpha: f32) -> Rgba {
     Rgba {
         alpha: alpha.clamp(0.0, 1.0),
-        ..Rgba::from_rgba8(0x1b, 0x24, 0x33, 0xff)
+        ..Rgba::from_rgba8(0x10, 0x2a, 0x43, 0xff)
     }
 }
 
@@ -63,11 +64,14 @@ pub fn notice_rule() -> Rgba {
 }
 
 /// The ground of the line saying what an agent last did (queue item 623):
-/// `--accent-soft`, the quiet terracotta ground alo gives what an AI wrote.
-/// Not the warning's, because an agent doing what it was asked is not
-/// something gone wrong.
+/// once `--accent-soft`, the quiet terracotta ground alo gives what an AI
+/// wrote; since queue item 974 the acting colour's tint, deep teal `#0f6b72`
+/// at 12 % over white — the one colour here that is not a token of
+/// `tokens.css`, because the owner retired terracotta from *alo is acting*
+/// on every alo product (ADR 0112, *Answered* 1). Not the warning's,
+/// because an agent doing what it was asked is not something gone wrong.
 pub fn agent_ground() -> Rgba {
-    Rgba::from_rgba8(0xfc, 0xea, 0xe3, 0xff)
+    Rgba::from_rgba8(0xe2, 0xed, 0xee, 0xff)
 }
 
 /// Its words: `--text-primary`, alo's navy.
@@ -89,12 +93,13 @@ pub fn refused_ink() -> Rgba {
     Rgba::from_rgba8(0xdc, 0x26, 0x26, 0xff)
 }
 
-/// The ring around the box an agent's verb acted on (queue item 624):
-/// `--accent`, alo's base terracotta, in which every control of its design
-/// system draws its focus outline — so the mark reads as alo saying *this
-/// one*, and never as a page's own border.
+/// The ring around the box an agent's verb acted on (queue item 624): alo
+/// acting, so deep teal `#0f6b72` since queue item 974 (ADR 0112,
+/// *Answered* 1; before, `--accent`, alo's base terracotta) — so the mark
+/// reads as alo saying *this one*, and never as a page's own border. It is
+/// drawn beside the agent's line, whose words say what alo did.
 pub fn mark() -> Rgba {
-    Rgba::from_rgba8(0xe7, 0x6f, 0x51, 0xff)
+    Rgba::from_rgba8(0x0f, 0x6b, 0x72, 0xff)
 }
 
 /// The words saying which renderer draws the page, in the frame around

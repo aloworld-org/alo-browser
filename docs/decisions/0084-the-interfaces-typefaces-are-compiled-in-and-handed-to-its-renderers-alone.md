@@ -1,6 +1,6 @@
 # ADR 0084 — The interface's typefaces are compiled in, and handed to its renderers alone
 
-**Status:** accepted — built by queue item 706 (31 October 2026); Newsreader's optical size set by 752 (1 November 2026); amended 7 November 2026 — Inter the interface's face, and four more a person may choose (queue items 853, 854)
+**Status:** accepted — built by queue item 706 (31 October 2026); Newsreader's optical size set by 752 (1 November 2026); amended 7 November 2026 — Inter the interface's face, and four more a person may choose (queue items 853, 854); amended 12 November 2026 — Manrope the default, Geist Mono for monospace, Inter kept as a choice (queue item 975)
 **Date:** 2026-10-31
 **Context:** ADR 0074 § 3 (the design is set in Instrument Sans and
 Newsreader; carrying them is its own change, item 706); ADR 0010 (a renderer
@@ -292,3 +292,91 @@ lists them and compares their bytes with the published ones.
   asks for *Inter* where the system has it and is not told the face
   chosen (queue item 852).
 
+
+## Amendment, 2026-11-12 — Manrope the default, Geist Mono for monospace (queue item 975)
+
+The owner's decision, through alo OS's coordinator (ADR 0112, *Answered*
+3: *"Manrope"*): **Manrope** is final for alo's interfaces, **Geist Mono**
+for monospace, and the conversation moves off Inter as its default. The
+owner's call on the rest: **the other faces stay a person's choice in
+*Settings***, Manrope listed first as the default — *Manrope · Default*,
+then Inter, Geist, DM Sans, Plus Jakarta Sans and Instrument Sans. Newsreader
+stays the mark's and the greeting's. Everything above holds of the two new
+files as of the others — compiled in, filed by what each font says it is,
+handed to the interface's renderers alone and never a page's, each licence
+in the bundle.
+
+### The files, as published
+
+Each from its upstream only, downloaded into a directory of its own, and
+nothing but the font and its licence taken from it. Both are under the
+**SIL Open Font License 1.1**: the licence file says so, and so do each
+font's `name` table (ID 13) and copyright notice (ID 0), unmodified. Each is
+renamed only in its file's name, so neither is a Modified Version.
+
+| File in `crates/alo-renderer/interface/fonts/` | Published as | Bytes | SHA-256 |
+|---|---|---|---|
+| `Manrope.ttf` | `ofl/manrope/Manrope[wght].ttf` of `github.com/google/fonts` at commit `86aced91de05cd4f96a06838124cca45be337b2b`, DM Sans' commit (git blob `75274da5`, the one the contents API lists) | 164 700 | `3ae11c49db0455a3cc33e37d380f20fdb8c7f8b41dc07625c177e3d87a9d6ae6` |
+| `OFL-Manrope.txt` | `ofl/manrope/OFL.txt` there (git blob `e271172a`) | 4 387 | `58172e0c0fac2cda8a37b348164bb55e44b0e69051e557e92b1d3f6910141f7b` |
+| `GeistMono.ttf` | `geist-font/GeistMono/variable/GeistMono[wght].ttf` in `geist-font-v1.9.2.zip`, the same release of `github.com/vercel/geist-font` Geist was taken from (tag commit `ef2597cf`; the zip's SHA-256 `15f066d5…5d3d8`, the digest GitHub lists for the asset) | 171 200 | `41d86e19407b1cb271be5d916fed8bb14051402270fb61cc28daf802e1a8ca63` |
+
+**Geist Mono's licence is Geist's.** The release carries one `OFL.txt` for
+the whole project — the `OFL-Geist.txt` already carried, byte for byte
+(SHA-256 `021caa74…fc17`) — and Geist Mono's own notice names the same
+project (*Copyright 2024 The Geist Project Authors*), so no second copy is
+carried; `typefaces.rs` tests that the font says so. As with Geist, the
+release's file differs from the copy committed at the tag
+(`fonts/GeistMono/variable`, 171 968 bytes, git blob `f1f640b6`); the
+release is the one carried. **336 287 bytes** added in all.
+
+**Variable, both**: Manrope `wght` 200–800, Geist Mono `wght` 100–900, no
+other axis; only the upright files. **Manrope's file names its lightest
+instance as its own** — its default `wght` is 200 and its `OS/2` weight 200
+(*Manrope ExtraLight*, typographic family *Manrope*) — so it is filed at 200
+and, as the only face of its family, drawn at the weight asked for by
+setting its axis there, as every other is (`the_interfaces_typefaces.rs`
+reads the 600 drawn). Manrope has Latin, Greek and Cyrillic (678
+characters) and, like every face here but Inter, no `⌘`: *New chat*'s `⌘T`
+draws its `⌘` in the next family that has one, as § 4 says.
+
+Its widths were **not** measured against Chrome as Inter's were (the
+amendment above, *Their optical size*): Manrope has no optical size, and is
+set by `wght` alone, which those 1,600 runs already held for four variable
+faces. `chosen-faces-runs.chrome.txt` is unchanged.
+
+### Where Geist Mono is asked for
+
+Every stylesheet of the interface's says `--mono: "Geist Mono"` on its root
+and sets `code`, `kbd`, `pre` and `samp` in `var(--mono), ui-monospace,
+monospace`, whatever `--face` is. **Nothing in the interface is set in a
+monospace today** — no template or builder makes those elements — so no
+reference render draws it; `the_interfaces_typefaces.rs` holds each
+stylesheet to it.
+
+### A file that says Inter
+
+`settings.txt` writes its `font` line whenever it writes at all, so a file
+written before 975 says `font Inter` whether the person chose it or not.
+It is **read as it says**: Inter. A face is no safety (unlike *asks*, whose
+old default was read as the new one, queue item 884), and guessing a
+person's choice away is worse than keeping a default they can change. A
+file that does not read, and no file, are Manrope now.
+
+### The wire
+
+The face crosses as a tag; Manrope took the next one, 5, rather than moving
+the tags of the five before it.
+
+### Consequences
+
+- Every reference render of the interface was redrawn in Manrope and looked
+  at, and the layout assertions whose numbers are text widths were moved by
+  what Manrope measures (`docs/autonomy/STATE.md`, 12 November 2026, lists
+  them).
+- *Settings* offers six faces, two a row: its third row, which held
+  Instrument Sans alone, is full, so *Font* is no taller; Geist, a choice
+  a press or → reached second, is third.
+- 336 KB more in the program and on each interface renderer's pipe.
+- The link strip of an expanded card (queue item 852, drawn by the CEF
+  host) still asks for *Inter*; it is not told the face and is not changed
+  here.

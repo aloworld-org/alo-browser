@@ -299,7 +299,7 @@ fn the_card_is_laid_out_as_the_design_draws_it() -> Result<(), String> {
     assert!(
         at("you")
             .first()
-            .is_some_and(|you| you.starts_with("(759.7969, 40)") && you.ends_with("×42")),
+            .is_some_and(|you| you.starts_with("(764.3906, 40)") && you.ends_with("×42")),
         "{:?}",
         at("you")
     );
@@ -517,9 +517,10 @@ fn a_card_whose_page_is_loading_says_so_in_its_bar() -> Result<(), String> {
     let at = |class: &str| boxes_of(&renderer, class);
     // The word, one line of 18 in the bar's middle, ends 8 and the bar's 2
     // before Expand: 879 - 2 - 8 = 869; the address ends 2 and 8 before
-    // it, 819.65625 - 10 = 809.65625 (in Inter, queue item 853).
-    assert_eq!(at("loading"), vec![px(819.656_25, 112.5, 49.343_75, 18.0)]);
-    assert_eq!(at("url"), vec![px(171.0, 112.5, 638.656_25, 18.0)]);
+    // it, 821.296875 - 10 = 811.296875 (in Manrope, queue item 975; in
+    // Inter, 819.65625).
+    assert_eq!(at("loading"), vec![px(821.296_9, 112.5, 47.703_125, 18.0)]);
+    assert_eq!(at("url"), vec![px(171.0, 112.5, 640.296_9, 18.0)]);
     assert_eq!(at("ibtn expand"), vec![px(879.0, 103.5, 36.0, 36.0)]);
     assert_eq!(at("shot"), vec![px(81.0, 145.0, 878.0, 520.0)]);
     let drawn = draw(with_a_card_loading(Some(frame()?), true));
@@ -843,13 +844,13 @@ fn a_cards_bar_says_what_alo_did_with_its_pages_cookie_banner() -> Result<(), St
             return Err(format!("one line: {consents:?}"));
         };
         let width = match consent {
-            Consent::Refused => 100.625,
-            Consent::LeftToYou => 154.609_38,
+            Consent::Refused => 97.812_5,
+            Consent::LeftToYou => 149.875,
         };
-        let left = 819.4375 - 6.0 - 2.0 - 8.0 - width;
+        let left = 819.890_6 - 6.0 - 2.0 - 8.0 - width;
         assert_eq!(words, &px(left, 112.5, width, 18.0));
         assert_eq!(at("url"), vec![px(171.0, 112.5, left - 10.0 - 171.0, 18.0)]);
-        assert_eq!(at("shield"), vec![px(819.4375, 107.5, 51.5625, 28.0)]);
+        assert_eq!(at("shield"), vec![px(819.890_6, 107.5, 51.109_375, 28.0)]);
         assert_eq!(at("ibtn expand"), vec![px(879.0, 103.5, 36.0, 36.0)]);
         // Read as a paragraph of the bar, saying it in words; nothing of
         // it to press.

@@ -20,7 +20,7 @@
 //!   time on macOS — eased out (`1 − (1 − t)³`), so it arrives gently.
 //! - **It slides back the same way**, the same curve run backwards, which
 //!   is eased in: a sheet closed half way out goes back from where it was.
-//! - **The shade** under it is the ink, `#1b2433`, at most [`SHADE`] —
+//! - **The shade** under it is the ink, `#102a43`, at most [`SHADE`] —
 //!   0.32 — over the conversation and the rail, as far on as the sheet is.
 
 use crate::conversation_place::{PANEL_WIDTH, RAIL_WIDTH};

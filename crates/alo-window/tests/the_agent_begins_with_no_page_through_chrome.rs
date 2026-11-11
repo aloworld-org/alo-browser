@@ -73,7 +73,7 @@ const ASK_ALO_TO_DO_IT: (f64, f64) = (PANEL + 300.0, 410.0);
 const WORKING_TINT_AT: (u32, u32) = (600, 120);
 
 /// The tint of the line saying the agent is at work.
-const TINT: [u8; 4] = [0xf6, 0xe7, 0xe0, 0xff];
+const TINT: [u8; 4] = [0xe2, 0xed, 0xee, 0xff];
 
 /// The page the person names.
 const START: &str = "<!doctype html><title>Start</title><h1>The start page</h1>\
