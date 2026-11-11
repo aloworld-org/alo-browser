@@ -22,6 +22,8 @@
 //! An object's keys are written in order, so a caller — or a test — can
 //! compare an answer to the one it expected without parsing it.
 
+use crate::agent_find::FoundNode;
+use crate::agent_saves::MOST_PATH;
 use crate::asking::{
     Answer, Ask, Echo, MOST_ADDRESS, MOST_NAME, MOST_NESTING, Refused, Request, VERSION,
     outcome_kind,
@@ -36,8 +38,8 @@ use alo_renderer::SnapshotNode;
 use serde_json::{Map, Value};
 
 /// Every field a request may carry, in any version this browser speaks.
-const FIELDS: [&str; 9] = [
-    "v", "id", "ask", "tab", "target", "verb", "text", "scroll", "key",
+const FIELDS: [&str; 11] = [
+    "v", "id", "ask", "tab", "target", "verb", "text", "scroll", "key", "address", "path",
 ];
 
 /// Read one line — without its newline — into a request.
@@ -131,13 +133,42 @@ fn ask(fields: &Map<String, Value>) -> Result<Ask, Refused> {
                 verb: verb(fields)?,
             }
         }
+        // Queue item 956: a tab named is the one it opens in, and none is
+        // a new one.
+        "open" => Ask::Open {
+            tab: match fields.get("tab") {
+                None => None,
+                Some(_) => Some(text(fields, "tab", MOST_ADDRESS)?.to_owned()),
+            },
+            address: text(fields, "address", MOST_ADDRESS)?.to_owned(),
+        },
+        "new_tab" => Ask::NewTab,
+        "find" => {
+            let tab = text(fields, "tab", MOST_ADDRESS)?.to_owned();
+            let words = text(fields, "text", MOST_NAME)?;
+            // No words find everything, which is a read, and is refused.
+            if words.trim().is_empty() {
+                return Err(Refused::BadField { field: "text" });
+            }
+            Ask::Find {
+                tab,
+                text: words.to_owned(),
+            }
+        }
+        "print_pdf" => Ask::PrintPdf {
+            tab: text(fields, "tab", MOST_ADDRESS)?.to_owned(),
+            path: text(fields, "path", MOST_PATH)?.to_owned(),
+        },
         _ => return Err(Refused::BadField { field: "ask" }),
     };
     // A field that belongs to another ask is refused as not this one's, so
     // that a verb sent with a `read` is said rather than ignored.
     let takes: &[&str] = match &asked {
-        Ask::Tabs => &["v", "id", "ask"],
+        Ask::Tabs | Ask::NewTab => &["v", "id", "ask"],
         Ask::Read { .. } | Ask::Renderer { .. } => &["v", "id", "ask", "tab"],
+        Ask::Open { .. } => &["v", "id", "ask", "tab", "address"],
+        Ask::Find { .. } => &["v", "id", "ask", "tab", "text"],
+        Ask::PrintPdf { .. } => &["v", "id", "ask", "tab", "path"],
         Ask::Act { verb, .. } => match verb {
             Verb::Activate => &["v", "id", "ask", "tab", "target", "verb"],
             Verb::PutText(_) => &["v", "id", "ask", "tab", "target", "verb", "text"],
@@ -282,6 +313,32 @@ pub fn write(echo: Option<&Echo>, answer: &Answer) -> String {
             line.insert("outcome".to_owned(), self::outcome(outcome));
             line.insert("issues".to_owned(), Value::from(issues.clone()));
         }
+        Answer::Opened { tab } => {
+            line.insert("answer".to_owned(), Value::from("opened"));
+            line.insert("tab".to_owned(), Value::from(tab.as_str()));
+        }
+        Answer::NewTab => {
+            line.insert("answer".to_owned(), Value::from("new_tab"));
+        }
+        Answer::Found {
+            tab,
+            text,
+            found,
+            more,
+        } => {
+            line.insert("answer".to_owned(), Value::from("found"));
+            line.insert("tab".to_owned(), Value::from(tab.as_str()));
+            line.insert("text".to_owned(), Value::from(text.as_str()));
+            let found = found.iter().map(found_node).collect();
+            line.insert("found".to_owned(), Value::Array(found));
+            line.insert("more".to_owned(), Value::from(*more));
+        }
+        Answer::Printed { tab, path, bytes } => {
+            line.insert("answer".to_owned(), Value::from("printed"));
+            line.insert("tab".to_owned(), Value::from(tab.as_str()));
+            line.insert("path".to_owned(), Value::from(path.as_str()));
+            line.insert("bytes".to_owned(), Value::from(*bytes));
+        }
         Answer::Refused(refused) => {
             line.insert("answer".to_owned(), Value::from("refused"));
             line.insert("refusal".to_owned(), self::refused(refused));
@@ -351,6 +408,16 @@ fn node(node: &SnapshotNode) -> Value {
     }
     let children = node.children.iter().map(self::node).collect();
     fields.insert("children".to_owned(), Value::Array(children));
+    Value::Object(fields)
+}
+
+/// A node `find` found: its number, its role and its name — never where it
+/// is drawn (queue item 956).
+fn found_node(found: &FoundNode) -> Value {
+    let mut fields = Map::new();
+    fields.insert("node".to_owned(), id(found.node));
+    fields.insert("role".to_owned(), Value::from(found.role.as_str()));
+    fields.insert("name".to_owned(), Value::from(found.name.as_str()));
     Value::Object(fields)
 }
 
@@ -557,6 +624,14 @@ fn refused(refused: &Refused) -> Value {
             put("tab", Value::from(tab.as_str()));
             put("node", id(*node));
         }
+        Refused::NotOpenable { address } | Refused::NotOpened { address, .. } => {
+            put("address", Value::from(address.as_str()));
+        }
+        Refused::NotOffered { ask } => put("ask", Value::from(*ask)),
+        Refused::NotAPath { path }
+        | Refused::NotAllowedThere { path }
+        | Refused::Exists { path }
+        | Refused::NotWritten { path, .. } => put("path", Value::from(path.as_str())),
         Refused::Verb { tab, refusal } => {
             put("tab", Value::from(tab.as_str()));
             verb_refused(refusal, &mut put);
@@ -1087,5 +1162,156 @@ mod tests {
         ] {
             let _ = read(line);
         }
+    }
+
+    #[test]
+    fn the_asks_of_queue_item_956_are_read_with_only_their_own_fields() {
+        assert_eq!(
+            asked(r#"{"v":1,"ask":"open","address":"https://example.com/"}"#),
+            Ok(Ask::Open {
+                tab: None,
+                address: "https://example.com/".to_owned()
+            })
+        );
+        assert_eq!(
+            asked(
+                r#"{"v":1,"ask":"open","tab":"https://a.example/","address":"https://b.example/"}"#
+            ),
+            Ok(Ask::Open {
+                tab: Some("https://a.example/".to_owned()),
+                address: "https://b.example/".to_owned()
+            })
+        );
+        assert_eq!(asked(r#"{"v":1,"ask":"new_tab"}"#), Ok(Ask::NewTab));
+        assert_eq!(
+            asked(r#"{"v":1,"ask":"find","tab":"t","text":"Next"}"#),
+            Ok(Ask::Find {
+                tab: "t".to_owned(),
+                text: "Next".to_owned()
+            })
+        );
+        assert_eq!(
+            asked(r#"{"v":1,"ask":"print_pdf","tab":"t","path":"/tmp/a.pdf"}"#),
+            Ok(Ask::PrintPdf {
+                tab: "t".to_owned(),
+                path: "/tmp/a.pdf".to_owned()
+            })
+        );
+        // What each needs, and nothing it does not take.
+        assert_eq!(
+            asked(r#"{"v":1,"ask":"open"}"#),
+            Err(Refused::MissingField { field: "address" })
+        );
+        assert_eq!(
+            asked(r#"{"v":1,"ask":"open","tab":7,"address":"https://b.example/"}"#),
+            Err(Refused::BadField { field: "tab" })
+        );
+        assert_eq!(
+            asked(r#"{"v":1,"ask":"new_tab","address":"https://b.example/"}"#),
+            Err(Refused::UnknownField {
+                field: "address".to_owned()
+            })
+        );
+        assert_eq!(
+            asked(r#"{"v":1,"ask":"find","tab":"t"}"#),
+            Err(Refused::MissingField { field: "text" })
+        );
+        assert_eq!(
+            asked(r#"{"v":1,"ask":"find","tab":"t","text":"  "}"#),
+            Err(Refused::BadField { field: "text" })
+        );
+        assert_eq!(
+            asked(r#"{"v":1,"ask":"print_pdf","tab":"t"}"#),
+            Err(Refused::MissingField { field: "path" })
+        );
+        assert_eq!(
+            asked(r#"{"v":1,"ask":"print_pdf","tab":"t","path":"/a.pdf","text":"x"}"#),
+            Err(Refused::UnknownField {
+                field: "text".to_owned()
+            })
+        );
+        assert_eq!(
+            asked(r#"{"v":1,"ask":"read","tab":"t","path":"/a.pdf"}"#),
+            Err(Refused::UnknownField {
+                field: "path".to_owned()
+            })
+        );
+        let long = "x".repeat(MOST_NAME + 1);
+        assert_eq!(
+            asked(&format!(
+                r#"{{"v":1,"ask":"find","tab":"t","text":"{long}"}}"#
+            )),
+            Err(Refused::FieldTooLong {
+                field: "text",
+                most: MOST_NAME
+            })
+        );
+    }
+
+    #[test]
+    fn the_answers_of_queue_item_956_are_written_with_no_position() {
+        let link = FoundNode {
+            node: BoxId::from_wire(4),
+            role: Role::Known(KnownRole::Link),
+            name: "Next page".to_owned(),
+        };
+        assert_eq!(
+            write(
+                Some(&Echo::Number(1)),
+                &Answer::Found {
+                    tab: "https://example.com/".to_owned(),
+                    text: "next".to_owned(),
+                    found: vec![link],
+                    more: 0,
+                }
+            ),
+            "{\"answer\":\"found\",\"found\":[{\"name\":\"Next page\",\"node\":4,\"role\":\"link\"}],\
+             \"id\":1,\"more\":0,\"said\":\"\\\"next\\\" is in link \\\"Next page\\\"\",\
+             \"tab\":\"https://example.com/\",\"text\":\"next\",\"v\":1}\n"
+        );
+        assert_eq!(
+            write(
+                None,
+                &Answer::Opened {
+                    tab: "https://example.com/".to_owned()
+                }
+            ),
+            "{\"answer\":\"opened\",\"said\":\"opened https://example.com/\",\
+             \"tab\":\"https://example.com/\",\"v\":1}\n"
+        );
+        assert!(write(None, &Answer::NewTab).starts_with("{\"answer\":\"new_tab\","));
+        assert!(
+            write(
+                None,
+                &Answer::Printed {
+                    tab: "t".to_owned(),
+                    path: "/p/a.pdf".to_owned(),
+                    bytes: 12,
+                }
+            )
+            .starts_with("{\"answer\":\"printed\",\"bytes\":12,\"path\":\"/p/a.pdf\",")
+        );
+        let refused = write(
+            None,
+            &Answer::Refused(Refused::NotAllowedThere {
+                path: "/etc/a.pdf".to_owned(),
+            }),
+        );
+        assert!(
+            refused.starts_with(
+                "{\"answer\":\"refused\",\"refusal\":{\"kind\":\"NotAllowedThere\",\"path\":\"/etc/a.pdf\"}"
+            ),
+            "{refused}"
+        );
+        let refused = write(
+            None,
+            &Answer::Refused(Refused::NotOffered { ask: "new_tab" }),
+        );
+        assert!(
+            refused.starts_with(
+                "{\"answer\":\"refused\",\"refusal\":{\"ask\":\"new_tab\",\"kind\":\"NotOffered\"}"
+            ),
+            "{refused}"
+        );
     }
 }

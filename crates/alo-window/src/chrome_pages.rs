@@ -130,4 +130,16 @@ impl Pages for ChromePages<'_> {
             ) => Err(Unanswered::NotCarriedOut(why.to_string())),
         }
     }
+
+    fn go(&mut self, _: TheTab, address: &Url) -> Result<ActionId, Unanswered> {
+        self.tab
+            .go_for_agent(address)
+            .map_err(|why| Unanswered::NotCarriedOut(why.to_string()))
+    }
+
+    fn print_pdf(&mut self, _: TheTab) -> Result<Vec<u8>, Unanswered> {
+        self.tab
+            .print_pdf()
+            .map_err(|why| Unanswered::NotCarriedOut(why.to_string()))
+    }
 }

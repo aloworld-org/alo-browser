@@ -425,6 +425,8 @@ pub struct Told {
     /// Where looking for its page's cookie banner stands (ADR 0108, queue
     /// item 920).
     answering: crate::consent_answer::Answering,
+    /// What its page was last told to be called (queue item 958).
+    titling: crate::chrome_card_title::Titling,
 }
 
 impl Told {
@@ -432,7 +434,7 @@ impl Told {
     /// if it streams: whether it is loading before the frame drawn of it,
     /// so the first frame is never shown without the card knowing; the
     /// newest frame; where the page is; where it can go back or forward
-    /// to; and what the lists refused.
+    /// to; what the lists refused; and what the page is called.
     pub fn tell(&mut self, tab: &mut Tab<'_>, tell: TellCard<'_>) {
         tell_loading(tab, &mut self.loading, tell);
         tell_newest(tab, tell);
@@ -441,6 +443,7 @@ impl Told {
         tell_blocked(tab, &mut self.blocked, tell);
         tell_told(tab, tell);
         tell_answered(tab, &mut self.answering, tell);
+        crate::chrome_card_title::tell_titled(tab, &mut self.titling, tell);
     }
 }
 

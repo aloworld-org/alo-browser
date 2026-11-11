@@ -285,6 +285,7 @@ fn a_page_that_navigates_itself_off_the_site_is_refused_where_it_went() {
     let mut tabs =
         Tabs::over(Renderers::running(renderer, &[]).with_machine(alo_window::fonts::frozen()));
     let (mut record, sites) = (AgentRecord::new(), kept());
+    let scope = alo_window::agent_scope::AgentScope::from(sites.clone());
     let tab = tabs.open(url(HERE));
     let loaded = tabs.load(
         tab,
@@ -296,7 +297,7 @@ fn a_page_that_navigates_itself_off_the_site_is_refused_where_it_went() {
         "{loaded:?}"
     );
     let mut asked =
-        |tabs: &mut Tabs, ask: Ask| serve(tabs, &mut record, &sites, Caller(0), Ok(ask)).answer;
+        |tabs: &mut Tabs, ask: Ask| serve(tabs, &mut record, &scope, Caller(0), Ok(ask)).answer;
     let read = |tab: &str| Ask::Read {
         tab: tab.to_owned(),
     };

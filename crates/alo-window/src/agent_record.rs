@@ -96,6 +96,38 @@ pub enum Did {
         /// What came of it: what changed, or why nothing did.
         came_to: Result<Outcome, Refusal>,
     },
+    /// It had a tab's page sent to an address, which the browser accepted
+    /// under `action` (queue item 956).
+    Went {
+        /// The action everything that follows from it is attributed to.
+        action: ActionId,
+        /// Where it was sent.
+        to: String,
+    },
+    /// It asked for a page in a new tab, or a new tab with nothing in it —
+    /// in the conversation, a new chat — which the window was handed
+    /// (queue item 956). What came of it is the window's to show.
+    Opening {
+        /// Where to, or [`None`] for a tab with nothing in it.
+        to: Option<String>,
+    },
+    /// It looked for words on a page, and was told how many nodes hold
+    /// them (queue item 956).
+    Found {
+        /// The document looked in.
+        document: Option<DocumentId>,
+        /// How many nodes hold them.
+        found: usize,
+    },
+    /// It had a page saved as a PDF (queue item 956).
+    Printed {
+        /// The document saved.
+        document: Option<DocumentId>,
+        /// The file made.
+        path: String,
+        /// How many bytes it holds.
+        bytes: usize,
+    },
     /// It was refused before any page answered.
     Refused(Refused),
 }
@@ -146,6 +178,22 @@ impl fmt::Display for Entry {
                     Ok(outcome) => write!(f, "{outcome}"),
                     Err(refusal) => write!(f, "refused, {refusal}"),
                 }
+            }
+            Did::Went { action, to } => write!(f, ": {action} sent the page to {to}"),
+            Did::Opening { to: Some(to) } => write!(f, ": asked to open {to} in a new tab"),
+            Did::Opening { to: None } => f.write_str(": asked for a new tab with nothing in it"),
+            Did::Found { document, found } => {
+                write!(f, ": found {found} nodes")?;
+                document.map_or(Ok(()), |document| write!(f, " in {document}"))
+            }
+            Did::Printed {
+                document,
+                path,
+                bytes,
+            } => {
+                write!(f, ": saved")?;
+                document.map_or(Ok(()), |document| write!(f, " {document}"))?;
+                write!(f, " as a PDF of {bytes} bytes at {path}")
             }
             Did::Refused(refused) => write!(f, ": refused, {refused}"),
         }?;

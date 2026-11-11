@@ -319,8 +319,9 @@ struct Conducting {
     holds: Holds,
     /// What agents outside the browser read and did.
     agents: AgentRecord,
-    /// The sites they may reach.
-    sites: AgentSites,
+    /// The sites they may reach, and nowhere a page of this engine's is
+    /// saved for them: its tabs print none (queue item 956).
+    sites: crate::agent_scope::AgentScope,
     /// The tab a person's press went to, until its release ([`pointing`]).
     pressed: Option<TabId>,
 }
@@ -347,7 +348,7 @@ fn conduct(
         fetches: Answering::new(),
         holds: Holds::new(),
         agents: AgentRecord::new(),
-        sites,
+        sites: sites.into(),
         pressed: None,
     };
     conducting.conduct(inbox, tell);

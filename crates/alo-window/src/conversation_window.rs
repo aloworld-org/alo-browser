@@ -100,6 +100,8 @@ use std::time::Instant;
 mod bar;
 mod beneath;
 mod fields;
+mod outside;
+mod title;
 
 /// What the conversation's window hears from the threads it hands work to.
 #[derive(Debug)]
@@ -114,6 +116,9 @@ pub enum Heard {
     /// What a run of the agent at work on the card's page said (queue item
     /// 704).
     Agent(AgentSaid),
+    /// A new tab an agent outside alo asked for over the socket, judged by
+    /// the relay (queue item 956).
+    NewTab(crate::conversation_agents::NewTabAsked),
 }
 
 /// Where the window is, as the window server gives it.
@@ -276,6 +281,11 @@ pub struct ConversationWindow {
     /// The one box and *Search chats* as text fields: the clipboard read,
     /// a press placing the caret, the caret's blink (queue items 861, 848).
     fields: fields::Fields,
+    /// A page an agent outside alo asked to open in a new chat, until its
+    /// card has opened (queue item 956).
+    outside: outside::Outside,
+    /// What the window is called (queue item 958).
+    title: title::Titled,
 }
 
 /// Input methods in the conversation's window (queue item 802).
@@ -434,6 +444,8 @@ impl ConversationWindow {
             clipboard: Box::new(crate::clipboard::copy),
             ime: Ime::default(),
             fields: fields::Fields::default(),
+            outside: outside::Outside::default(),
+            title: title::Titled::default(),
         }
     }
 
@@ -913,6 +925,9 @@ impl ConversationWindow {
                              from its next start.",
                             keyed.of()
                         ),
+                        // No secret store under a data directory (queue
+                        // item 957): said as it is.
+                        Err(why) if why == crate::service_keys::NOT_IN_THIS_FOLDER => why.clone(),
                         Err(why) => format!("Your key was not kept: {why}."),
                     };
                     self.key_done(keyed, said);
@@ -2340,9 +2355,14 @@ impl ConversationWindow {
     fn went(&mut self, went: Went) {
         let said = went.said();
         let framed = matches!(went, Went::Framed(_));
+        // The window's title, and an agent outside waiting on the card
+        // (queue items 958 and 956).
+        self.titled(&went);
+        self.answer_outside(&went);
         match &went {
-            // Each is shown by the card itself.
+            // Each is shown by the card itself; the title by the window's.
             Went::Framed(_)
+            | Went::Titled(_)
             | Went::Unstreamed(_)
             | Went::Moved(_)
             | Went::Loading(_)
@@ -2440,7 +2460,9 @@ impl ConversationWindow {
             }
             // Counted on the card's shield (queue item 807).
             Went::Blocked { .. } => self.conversation.blocked(),
-            Went::Unstreamed(_) => false,
+            // The window's title, asked of the event loop (queue item 958):
+            // nothing drawn changes.
+            Went::Unstreamed(_) | Went::Titled(_) => false,
             Went::Told(told) => self.told_beside(told),
             // Where the person is typing, for an input method's candidates
             // (queue item 802).
@@ -2516,6 +2538,7 @@ impl ConversationWindow {
             Heard::Chrome(went) => self.went(went),
             Heard::Searched(searched) => self.searched(searched),
             Heard::Agent(said) => self.agent_said(said),
+            Heard::NewTab(asked) => self.new_tab_asked(asked),
             Heard::Drawn(Drawn::Painted(Part::Panel, frame)) => {
                 // Painted whole while the sheet is out (queue item 776): what
                 // slides, and what slides back in once it is closed.
@@ -4107,6 +4130,50 @@ mod tests {
             window.told(),
             Some("the font chosen is not kept: there is nowhere to keep it")
         );
+        window.finish();
+    }
+
+    /// Queue item 957 (ADR 0112 § 5): under a data directory, with no
+    /// secret store, a key a person gives in *Settings* is not kept — and
+    /// *Settings* says so, naming no provider — while nothing is written.
+    #[test]
+    fn a_key_given_under_a_data_directory_is_not_kept_and_settings_says_so() {
+        use crate::service_keys::{Keys, NOT_IN_THIS_FOLDER};
+        use alo_renderer::settings_services::{Entry, ServicePress};
+        let root = std::env::temp_dir().join(format!("alo-window-957-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("made");
+        let file = root.join("settings.txt");
+        let mut window = window()
+            .with_settings(crate::settings_file::read(&file), Some(file.clone()))
+            .with_services(crate::services::Named::default(), Keys::carried_only(None));
+        let press = |window: &mut ConversationWindow, pressed| {
+            window.heard(Heard::Drawn(Drawn::Pressed(
+                Part::Start,
+                Decided::Service(pressed),
+            )));
+        };
+        window.heard(Heard::Drawn(Drawn::Pressed(Part::Panel, Decided::Settings)));
+        window.paste_with(|| Ok("not-a-real-key-0957\n".to_owned()));
+        press(&mut window, ServicePress::Field(Entry::SearchKey));
+        window.key(
+            &Press::character("v").with(crate::keys::Modifier::Command),
+            Some("v"),
+        );
+        press(&mut window, ServicePress::Keep(Entry::SearchKey));
+        let shown = window
+            .conversation()
+            .start(Size::new(1040.0, 820.0), Scale::ONE)
+            .services
+            .expect("drawn");
+        assert_eq!(shown.said.as_deref(), Some(NOT_IN_THIS_FOLDER));
+        assert!(!format!("{shown:?}").contains("not-a-real"));
+        let said = window.take_said().join("\n");
+        assert!(!said.contains("not-a-real"), "{said}");
+        assert!(!said.contains("was kept"), "{said}");
+        let written = std::fs::read_to_string(&file).unwrap_or_default();
+        assert!(!written.contains("not-a-real"), "{written}");
+        let _ = std::fs::remove_dir_all(&root);
         window.finish();
     }
 

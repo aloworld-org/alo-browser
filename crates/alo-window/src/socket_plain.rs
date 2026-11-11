@@ -29,7 +29,10 @@
 //!
 //! Every other answer is its `said`, the sentence the browser wrote for a
 //! person: a verb's outcome, a refusal with its kind beside it, the
-//! renderer. The tabs are their addresses, one a line.
+//! renderer, a page opened or saved, a new tab. The tabs are their
+//! addresses, one a line; what `find` found is its sentence and then each
+//! node a line as a tree's are, by number, role and name, and never a
+//! position (queue item 956).
 //!
 //! # Read from the browser, and never trusted further
 //!
@@ -58,7 +61,10 @@ pub fn written(line: &str) -> String {
         Some("tree") => tree(&answer).unwrap_or_else(|| format!("{line}\n")),
         Some("done") => done(&answer, said).unwrap_or_else(|| format!("{line}\n")),
         Some("refused") => refused(&answer, said).unwrap_or_else(|| format!("{line}\n")),
-        Some("renderer") => said.map_or_else(|| format!("{line}\n"), |said| format!("{said}\n")),
+        Some("found") => found(&answer, said).unwrap_or_else(|| format!("{line}\n")),
+        Some("renderer" | "opened" | "new_tab" | "printed") => {
+            said.map_or_else(|| format!("{line}\n"), |said| format!("{said}\n"))
+        }
         _ => format!("{line}\n"),
     }
 }
@@ -82,6 +88,20 @@ fn done(answer: &Map<String, Value>, said: Option<&str>) -> Option<String> {
     let mut out = format!("{}\n", said?);
     for issue in answer.get("issues").and_then(Value::as_array)? {
         let _ = writeln!(out, "  the page said: {}", issue.as_str()?);
+    }
+    Some(out)
+}
+
+/// What `find` found: its sentence, then each node a line, as a tree's,
+/// and how many more there were.
+fn found(answer: &Map<String, Value>, said: Option<&str>) -> Option<String> {
+    let mut out = format!("{}\n", said?);
+    for node in answer.get("found")?.as_array()? {
+        let _ = write!(out, "{}", line_of(node.as_object()?, &[], 1)?);
+    }
+    let more = answer.get("more")?.as_u64()?;
+    if more > 0 {
+        let _ = writeln!(out, "  and {more} more");
     }
     Some(out)
 }
@@ -374,6 +394,42 @@ mod tests {
         assert_eq!(
             written(&line),
             "activated box#11 \"Add to cart\"\n  the page said: console.log: added\n"
+        );
+    }
+
+    #[test]
+    fn what_find_found_is_its_sentence_and_a_node_a_line_with_no_position() {
+        let next = crate::agent_find::FoundNode {
+            node: BoxId::from_wire(14),
+            role: alo_box::Role::Known(alo_box::KnownRole::Link),
+            name: "Next page".to_owned(),
+        };
+        let line = on_the_wire(&Answer::Found {
+            tab: "https://example.com/shop".to_owned(),
+            text: "next".to_owned(),
+            found: vec![next],
+            more: 2,
+        });
+        assert_eq!(
+            written(&line),
+            "\"next\" is in 3 things on the page\n  [14] link \"Next page\"\n  and 2 more\n"
+        );
+        let opened = on_the_wire(&Answer::Opened {
+            tab: "https://example.com/next".to_owned(),
+        });
+        assert_eq!(written(&opened), "opened https://example.com/next\n");
+        let printed = on_the_wire(&Answer::Printed {
+            tab: "https://example.com/".to_owned(),
+            path: "/p/a.pdf".to_owned(),
+            bytes: 9,
+        });
+        assert_eq!(
+            written(&printed),
+            "the page at https://example.com/ was saved as a PDF of 9 bytes at /p/a.pdf\n"
+        );
+        assert_eq!(
+            written(&on_the_wire(&Answer::NewTab)),
+            "a new chat is open, with no page in it\n"
         );
     }
 

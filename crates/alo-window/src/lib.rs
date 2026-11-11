@@ -42,7 +42,10 @@
 //!   writes its lines, one of the two files that name `serde_json`, into what
 //!   [`asking`] says they mean; [`serving`] answers them from the tabs on the
 //!   conductor's thread, kept to the sites a person named in
-//!   [`agent_sites`], and [`agent_record`] is what it records. The socket
+//!   [`agent_sites`] — and, for `print_pdf`, to the directories a person
+//!   allowed in [`agent_saves`], the two held as one [`agent_scope`] — and
+//!   [`agent_record`] is what it records; `find` is answered by
+//!   [`agent_find`], by name and never by place (item 956). The socket
 //!   is a Unix one, and Windows is undecided (ADR 0055 § 1). What a verb
 //!   that ran was answered with is shown to the person watching, in a line
 //!   of the window's own ([`message::News::AgentSaid`], item 623), and so is
@@ -132,6 +135,7 @@
 
 pub mod agent_changes;
 pub mod agent_dropdown;
+pub mod agent_find;
 pub mod agent_found;
 pub mod agent_gate;
 pub mod agent_kept;
@@ -141,6 +145,8 @@ pub mod agent_page;
 pub mod agent_paying;
 pub mod agent_protocol;
 pub mod agent_record;
+pub mod agent_saves;
+pub mod agent_scope;
 pub mod agent_signin;
 pub mod agent_sites;
 #[cfg(unix)]
@@ -187,6 +193,7 @@ pub mod chrome_card;
 pub mod chrome_card_caret;
 pub mod chrome_card_input;
 pub mod chrome_card_list;
+pub mod chrome_card_title;
 pub mod chrome_cast_wire;
 pub mod chrome_choose;
 pub mod chrome_cookies;
@@ -257,6 +264,7 @@ pub mod conversation_thread;
 pub mod conversation_window;
 pub mod conversation_work;
 pub mod cursor;
+pub mod data_dir;
 pub mod engine_pages;
 pub mod field_blink;
 pub mod field_edit;
@@ -323,3 +331,4 @@ pub mod text_undo;
 pub mod typing;
 pub mod window;
 pub mod window_server;
+pub mod window_title;

@@ -26339,6 +26339,166 @@ machine we did not set up, and stays.
 
 ---
 
+## alo OS's default browser (ADR 0112)
+
+*The owner's decision, 11 November 2026.* alo browser becomes alo OS's
+default browser once it passes **alo OS's bar on an alo OS machine**
+(ADR 0112, *The bar*); Firefox stays the default until then, and a person
+can always choose another. This repository follows alo OS's guidelines —
+ADR 0112's eleven requirements. **This lifts *blocked: stage 2's exit
+gate* from 480, 481, 483 and 728 for the alo OS road, by a person's
+decision** (`LOOP.md`, *Stage 4 does not start until a person says so*).
+An item marked ***alo OS machine*** needs an alo OS image — real hardware,
+or the qemu image asked of the coordinator — and is verified only there;
+the rest runs on this Mac. Order: ADR 0112's *The plan, in order*.
+
+- [x] **955. ADR 0112 — alo browser becomes alo OS's default browser,
+  following alo OS's guidelines.** The decision, the two rules, the eleven
+  requirements with today's status, the bar, the stance changed in
+  `ROADMAP.md`, the questions sent to the coordinator and the plan.
+  *Closes when:* the ADR is accepted and `ROADMAP.md`'s alo OS passage
+  says the same. ***Done (11 November 2026).***
+- [x] **956. The socket's `open`, `new_tab`, `find` and `print_pdf` (ADR
+  0112 § 7's roads).** *Closes when:* each is in
+  `docs/contracts/agent-socket.md` (additive), judged before any tab is
+  looked at where it can be, recorded, printed by `alo-ask --plain`, and
+  tested through both Chromiums: `find` answers by name with no position;
+  `print_pdf` writes a new PDF only in a directory the person allowed
+  (`--agent-saves`) and never over a file; `open` sends a named tab and
+  is answered where it arrived, and with no tab opens a new chat in the
+  conversation; `new_tab` is a new chat. ***Done (11 November 2026):***
+  `a_page_opened_found_and_printed_by_an_agent_through_chrome.rs` and
+  `a_new_chat_opened_by_an_agent_outside_through_chrome.rs`, both passing
+  through the machine's Chrome and alo's CEF host. Cut and queued: a
+  page's plain text (964); a PDF through the portal (967); a new tab in
+  `alo --chrome` and this engine's window, which hold one tab (not
+  queued: neither is the product); the person's agent line for `open`
+  and `print_pdf` in `alo --chrome`'s frame (the frame says verbs only).
+- [x] **957. One data directory: `alo --data DIR` (ADR 0112 requirement
+  8).** *Closes when:* what alo keeps moves under `DIR` — settings and the
+  socket — a second alo with another directory gets its own socket and
+  shares nothing kept, and **nothing secret is kept under `DIR` without a
+  real secret store** (the coordinator, 11 November 2026): sign-ins held
+  in memory for the run, *Settings* saying so; a person's own service keys
+  not kept, *Settings* saying *Your own keys can't be kept in this data
+  folder yet*, the application's keys still used; no keychain file with a
+  password written in this repository anywhere in product code —
+  documented and tested. ***Done (11 November 2026):*** `data_dir.rs`,
+  `service_keys.rs` (`Keys::carried_only`);
+  `two_alos_with_their_own_data_in_the_window.rs` (two `alo` processes,
+  each at its own socket; no keychain, sealed file or sign-ins written
+  under either; the terminal saying sign-ins are kept only until alo
+  quits; the person's keychain search list unchanged); unit tests of the
+  keeping, the keys and *Settings*' line. Under `--data` the chats are not
+  kept either (their key would have nowhere to be). Cut: an address
+  handed to an alo already running on the same directory, and keys,
+  sign-ins and chats kept under `--data` once there is a secret store
+  (969).
+- [ ] **958. The window called by its card's page, and the application's
+  `app_id` (ADR 0112 requirement 1).** *Closes when:* the conversation's
+  window is called the live card's page's title, *alo* with none, and
+  asks for `app_id` `org.aloworld.Browser` where `winit` allows — tested.
+  **Built, open (11 November 2026).** On macOS the title is followed in
+  `a_new_chat_opened_by_an_agent_outside_through_chrome.rs` (*One*, *Two*,
+  *alo*) through both Chromiums; handed to the window server only off
+  macOS, where the compositor draws it (ADR 0024 § 4, `window_title.rs`).
+  **Owed:** the Linux `app_id` code (`window.rs`, `named`) has never been
+  compiled — no Linux target here — nor the title seen drawn by a
+  compositor; both close with 960.
+- [ ] **959. ADR — a card drawn with no window of Chromium's (CEF
+  off-screen rendering), amending ADR 0076.** Wayland lets no client park
+  or place a window, and a card today is a parked window streamed
+  (`chrome_window.rs` `PARKED`) and *Expand* places Chromium's own window.
+  Measure, on this Mac first, CEF 156's off-screen rendering in alo's host:
+  frames handed to us, a person's input forwarded, input methods, a
+  `<select>`'s popup, colours (ADR 0076's sixth amendment), cost against
+  the screencast; and decide what *Expand* becomes when nothing of
+  Chromium's has a window. *needs ADR. Closes when:* the ADR is accepted
+  with those measurements, and items cut from it are queued.
+- [ ] **960. alo on Linux: the workspace built, the host on Linux, and a
+  card through it, with no GPU (ADR 0112 requirements 1 and 3).** The
+  eighteen `cfg(target_os = "macos")` files given Linux counterparts or
+  refusals that say so; the CEF host off `compile_error!` (728's Linux
+  half) with 959's off-screen drawing; Chromium told to draw in software.
+  *Depends on 959, 169, 480. alo OS machine. Closes when:* on an alo OS
+  image with no GPU in 4 GB, `alo --conversation` opens a real site in a
+  card, the window's `app_id` is `org.aloworld.Browser` and its title the
+  page's, recorded with the image and machine named.
+- [ ] **961. The renderer's sandbox inside a Flatpak.** 481's open
+  question, answered by alo OS's probes, then 169 built for that
+  answer (ADR 0010 superseded for the platform if nesting fails — never
+  bent). *Depends on 169, 481. alo OS machine.*
+- [ ] **962. alo OS's window rules: server-side decorations only, full
+  screen, cursors by name, fractional scale (ADR 0112 requirements 2, 4
+  and 11).** F11 and a video's full screen through
+  `xdg_toplevel.set_fullscreen`; the cursor-shape protocol; Wayland's
+  fractional scale. *Depends on 960. alo OS machine. Closes when:* each is
+  seen on alo OS with the band, minimise, maximise and full screen
+  working, recorded.
+- [ ] **963. The desktop entry and the default-browser registration (ADR
+  0112 requirement 6).** `org.aloworld.Browser.desktop` with `MimeType`
+  `x-scheme-handler/http;x-scheme-handler/https;text/html;`, `GenericName`
+  *Web Browser*, `Keywords` translated (970), `Exec` taking an address.
+  *Depends on 960, 483. alo OS machine. Closes when:* the launcher finds it
+  by *browser* and a link from another application opens in it.
+- [ ] **964. A page's text, read through the socket (ADR 0112 requirement
+  7, *read page text*).** An ask answering the page's words in reading
+  order, bounded, with no position — from the same tree. *Closes when:* in
+  the contract, additive, and tested through both Chromiums.
+- [ ] **965. The tree published to AT-SPI by default (ADR 0112
+  requirement 7; ADR 0002: the same tree is the accessibility tree).**
+  Needs an ADR naming what is rented (AccessKit or another) behind one
+  file. *needs ADR. Depends on 960. alo OS machine. Closes when:* Orca and
+  `alo-app` read a card's page and alo's own interface through AT-SPI.
+- [ ] **966. alo OS's adapter: open URL, new tab, read page text, find,
+  fill a field, click a named control, print or save as PDF.** A thin
+  wrapper in alo OS's format over the socket's asks (956, 964), whose
+  shape is theirs to say. *Depends on 956, 964, the coordinator's format.
+  alo OS machine.*
+- [ ] **967. Files, downloads, uploads, links out and keys through
+  `xdg-desktop-portal` (ADR 0112 requirement 5).** FileChooser for
+  downloads, uploads and `print_pdf`'s file; OpenURI for links out;
+  Secret for every key; the clipboard. *Depends on 960, 483. alo OS
+  machine. Closes when:* a download and an upload go through the portal
+  on alo OS, and no key is read from anywhere else there.
+- [ ] **968. Nothing leaves silently, measured on alo OS (ADR 0112
+  requirement 9).** A net log of an idle alo — no card, then one card left
+  open — showing no request the person did not cause; Chromium's own
+  last requests stopped (696). *Depends on 696, 960. alo OS machine.*
+- [ ] **969. An instance already running, and a profile's secrets (cut
+  from 957).** An address opened for an alo already running on the same
+  data directory reaches it (the coordinator's OpenURI answer, ADR 0112
+  question 4). And a real secret store for a data directory — the Secret
+  portal on alo OS, the login keychain under an account of the profile's
+  own on macOS; **never a keychain file unlocked by a password written in
+  this repository** — so that under `--data` the sign-ins' and the chats'
+  keys and a person's own service keys are kept, which today they are not
+  (sign-ins and chats only for the run; *Settings* says a person's own keys
+  can't be kept in the data folder yet). *Depends on the coordinator's
+  answer; 967. Closes when:* under `--data` each is kept in that store,
+  tested with a store of the test's own, and nothing secret is written
+  under the directory in the clear or under a written password.
+- [ ] **970. Every string of alo's own externalised, for the 24 EU
+  languages (ADR 0112 requirement 10).** An ADR first: the catalogue's
+  form in Rust, plural rules, how a renderer of alo's own is handed its
+  language. *needs ADR. Closes when:* the conversation, *Settings* and
+  every refusal a person reads come from the catalogue, with English and
+  one other language whole.
+- [ ] **971. alo OS's look: palette, the agent's colour, the logo and the
+  typeface (ADR 0112 requirement 10).** *blocked: the coordinator's
+  answers to ADR 0112's questions 1–3.* Nothing changes before them.
+- [ ] **972. The bar, run whole on a clean alo OS image (ADR 0112, *The
+  bar*).** Each of the nine measured and recorded with the image, the
+  machine and the date; the judgement is alo OS's. *Depends on 960–970.
+  alo OS machine.*
+- [ ] **973. The hand-run sign-ins flag kept out of the shipped program (cut
+  from 957).** `alo --sign-ins DIR` keeps its jar's key in a keychain file
+  unlocked by a password written in `sign_in_key.rs` (ADR 0111 § 6) — fine
+  for a hand run, but the flag is in the shipped binary. Make it a
+  developer build's alone (or refuse it in a bundled application), so no
+  product path keeps anything under a written password. *Closes when:* the
+  application refuses `--sign-ins`, in a test, and ADR 0111 § 6 says so.
+
 ## After stage 4
 
 Nothing. `ROADMAP.md` names four stages and this queue now covers all of them,

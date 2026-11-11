@@ -70,25 +70,46 @@ gives the reason in its own words: *"a pinned upstream one, since our own
 engine is not scheduled."*
 
 **That clause is what changed.** The engine is scheduled. Firefox remains the
-right pin until this browser meets stage 2's exit gate, and nothing here asks
-for the slot before then — a pinned upstream browser that works beats a
-sovereign one that does not, and the gate exists to stop us pretending
-otherwise.
+right pin until this browser passes alo OS's bar, and a pinned upstream
+browser that works beats a sovereign one that does not.
 
-**Running on Linux is stage 2 work, not a stage 4 port.** The distinction is
-load-bearing. Three files carry `cfg(target_os = "macos")` — `sandbox.rs`,
-`fonts.rs`, `generic.rs` — and the window is already rented from `winit` and
-`softbuffer`, both of which speak Wayland. The one real gap is the sandbox:
-ADR 0010 already decided Linux's — *seccomp-bpf, a user namespace and
-Landlock* — and queue item 169 is where it gets built. Until 169 lands, this
-browser cannot run anywhere but macOS, so 169 is the gate on everything
-alo-OS-shaped rather than one item among many.
+***Amended 11 November 2026 (ADR 0112): alo browser seeks to be alo OS's
+default browser, by alo OS's bar rather than by stage 2's exit gate.*** The
+owner decided it: alo browser becomes alo OS's **default web browser** once
+it passes **alo OS's bar on an alo OS machine** — installs and starts on a
+clean image with no GPU in 4 GB, real sites, alo's band, minimise, maximise
+and full screen, downloads and uploads through the portal, found by
+*browser*, links from other applications open in it, `alo-app` and alo open
+a URL and read a page, a second instance on its own profile, no idle
+traffic. **Firefox stays the default until then, and a person can always
+choose another default browser.** This repository follows alo OS's
+guidelines for an application — ADR 0112's eleven requirements — and the
+judgement of the bar is alo OS's, never ours. Stage 2's exit gate is
+unchanged and still governs stage 2; it no longer gates alo OS. What this
+said before — *nothing here asks for the slot before stage 2's exit gate* —
+is superseded.
 
-**Being installed on alo OS is stage 4 work**, and theirs as much as ours: one
-application per role, so a pin for this browser is a pin removed from another,
-and that is their decision made under their gates. What is ours is being
-installable the way any application is — from a source, through the rented
-tool, arriving granted nothing.
+**Running on Linux heads the road, and is larger than this file said.** It
+named three files carrying `cfg(target_os = "macos")`; today eighteen do —
+the clipboard, every key, the window server's word, a card's menu — and the
+carried Chromium's host is macOS-only (queue item 728). And a card is a
+Chromium window parked off every display and streamed (ADR 0076), which
+Wayland does not allow a client to do: a card on alo OS needs Chromium
+drawing off screen, decided in an ADR of its own (queue item 959). The
+sandbox (ADR 0010, queue item 169) is still a gate. ADR 0112's plan orders
+the road: the Linux build with cards needing no window placement, then
+Flatpak and portals, the agent's roads (AT-SPI, the socket, alo OS's
+adapter), registration and the window, egress, translations and the look
+(queue items 955–972). · Built (956–958): the socket's `open`, `new_tab`,
+`find` and `print_pdf`; `alo --data DIR`; the window called by its card's
+page and an `app_id` asked for on Linux. · Owed: everything that needs an
+alo OS machine, and the coordinator's answers on the palette, the agent's
+colour, the logo, the typeface and OpenURI.
+
+**Being installed on alo OS** is theirs as much as ours: the default is their
+decision made under their gates, and a person's choice of another browser
+stands. What is ours is being installable the way any application is — from
+a source, through the rented tool, arriving granted nothing.
 
 **One question is open and could change a decision rather than a detail.**
 ADR 0010 makes it fatal for a renderer to fail to obtain a sandbox. Whether a

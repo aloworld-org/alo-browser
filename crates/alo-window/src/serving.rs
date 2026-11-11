@@ -43,11 +43,32 @@
 //! leaves out every one an agent may not reach, so it cannot learn what else
 //! is open. And every entry in the record says the site of the address
 //! named, refused or not.
+//!
+//! # Opened, found and saved (queue item 956, ADR 0112 § 4)
+//!
+//! `open` names where to go as well as which tab: the address to go to is
+//! judged — an `http` or `https` one, on a site agents may reach — after
+//! the tab's site and before any tab is looked at, so a refusal of either
+//! says nothing about what is open. A tab sent there is named by where it
+//! arrived; one a server sent on to a site agents may not reach is
+//! answered as not opened for the agent, and never named. With no tab
+//! named it asks for a new one, and so does `new_tab`, which only the
+//! conversation opens ([`crate::conversation_agents`]): here both are
+//! [`Refused::NotOffered`], after the address is judged.
+//!
+//! `find` is answered from the tree `read` answers, by name and never by
+//! place ([`crate::agent_find`]). `print_pdf` judges its path against the
+//! directories a person allowed ([`crate::agent_saves`]) where `open`
+//! judges its address — before any tab — and the file is written here, by
+//! the browser process, never by a renderer: one that answers with
+//! something that is not a PDF has nothing written for it.
 
 use crate::agent_record::{AgentRecord, Caller, Did, Entry};
+use crate::agent_saves::{self, Unsaved};
+use crate::agent_scope::AgentScope;
 use crate::agent_sites::AgentSites;
 use crate::asking::{Answer, Ask, MOST_DEPTH, Refused};
-use crate::pages::{Acted, Pages, Unanswered};
+use crate::pages::{Acted, Pages, RenderedBy, Unanswered};
 use alo_agent::{Target, Verb};
 use alo_renderer::site::Site;
 use alo_renderer::{Snapshot, SnapshotNode};
@@ -63,15 +84,16 @@ pub struct Served<T> {
     pub acted: Option<T>,
 }
 
-/// Answer `ask` from `pages` on behalf of `caller`, kept to `sites`, and
+/// Answer `ask` from `pages` on behalf of `caller`, kept to `scope`, and
 /// record it.
 pub fn serve<P: Pages>(
     pages: &mut P,
     record: &mut AgentRecord,
-    sites: &AgentSites,
+    scope: &AgentScope,
     caller: Caller,
     ask: Result<Ask, Refused>,
 ) -> Served<P::Tab> {
+    let sites = &scope.sites;
     let named = ask.as_ref().ok().and_then(Ask::tab).map(str::to_owned);
     let mut site = None;
     let mut rendered_by = None;
@@ -135,6 +157,12 @@ pub fn serve<P: Pages>(
                 }
             }
         }
+        Ok(ask @ (Ask::Open { .. } | Ask::NewTab | Ask::Find { .. } | Ask::PrintPdf { .. })) => {
+            let came = opened_found_or_saved(pages, scope, ask);
+            site = came.site;
+            rendered_by = came.rendered_by;
+            (came.answer, came.did, came.acted)
+        }
     };
     record.write(Entry {
         caller,
@@ -144,6 +172,95 @@ pub fn serve<P: Pages>(
         did,
     });
     Served { answer, acted }
+}
+
+/// What came of an `open`, `new_tab`, `find` or `print_pdf` (queue item
+/// 956): the answer and the record's entry, the tab a page was sent from,
+/// and the site and renderer the entry names.
+struct Came<T> {
+    answer: Answer,
+    did: Did,
+    acted: Option<T>,
+    site: Option<Site>,
+    rendered_by: Option<RenderedBy>,
+}
+
+/// Answer `ask` — an `open`, `new_tab`, `find` or `print_pdf` — from
+/// `pages`, kept to `scope`.
+fn opened_found_or_saved<P: Pages>(pages: &mut P, scope: &AgentScope, ask: Ask) -> Came<P::Tab> {
+    let sites = &scope.sites;
+    let mut site = None;
+    let mut rendered_by = None;
+    let (answer, did, acted) = match ask {
+        Ask::Open {
+            tab: Some(tab),
+            address,
+        } => {
+            let (found, at) = reached_after(pages, sites, &tab, || openable(sites, &address).0);
+            site = at;
+            match found {
+                Err(refused) => refusal(refused),
+                Ok((id, to)) => {
+                    rendered_by = Some(pages.rendered_by(id));
+                    let (answer, did) = go(pages, sites, id, &address, &to);
+                    (answer, did, Some(id))
+                }
+            }
+        }
+        // Only the conversation opens a new tab, and answers these before
+        // they reach here (`conversation_agents`); judged all the same.
+        Ask::Open { tab: None, address } => {
+            let (judged, at) = openable(sites, &address);
+            site = at;
+            refusal(judged.err().unwrap_or(Refused::NotOffered { ask: "open" }))
+        }
+        Ask::NewTab => refusal(Refused::NotOffered { ask: "new_tab" }),
+        Ask::Find { tab, text } => {
+            let (found, at) = reached(pages, sites, &tab);
+            site = at;
+            match found {
+                Err(refused) => refusal(refused),
+                Ok(id) => {
+                    rendered_by = Some(pages.rendered_by(id));
+                    let (answer, did) = find_in(pages, id, tab, text);
+                    (answer, did, None)
+                }
+            }
+        }
+        Ask::PrintPdf { tab, path } => {
+            let (found, at) = reached_after(pages, sites, &tab, || {
+                scope
+                    .saves
+                    .judge(&path)
+                    .map_err(|why| unsaved(path.clone(), why))
+            });
+            site = at;
+            match found {
+                Err(refused) => refusal(refused),
+                Ok((id, file)) => {
+                    rendered_by = Some(pages.rendered_by(id));
+                    let (answer, did) = print(pages, id, tab, &file);
+                    (answer, did, None)
+                }
+            }
+        }
+        // Every other ask is `serve`'s own, and never handed here.
+        other => refusal(Refused::NotOffered {
+            ask: match other {
+                Ask::Tabs => "tabs",
+                Ask::Read { .. } => "read",
+                Ask::Renderer { .. } => "renderer",
+                _ => "act",
+            },
+        }),
+    };
+    Came {
+        answer,
+        did,
+        acted,
+        site,
+        rendered_by,
+    }
 }
 
 /// A request refused before any page answered.
@@ -165,6 +282,24 @@ fn reached<P: Pages>(
     sites: &AgentSites,
     tab: &str,
 ) -> (Result<P::Tab, Refused>, Option<Site>) {
+    let (found, site) = reached_after(pages, sites, tab, || Ok(()));
+    (found.map(|(id, ())| id), site)
+}
+
+/// The tab reached and what else was judged, or why not — and, whenever the
+/// tab is named by an address, its site.
+type Judged<Tab, T> = (Result<(Tab, T), Refused>, Option<Site>);
+
+/// [`reached`], with what else the request is refused for without a page
+/// — an address to go to, a path to save at — judged by `before` after the
+/// tab's site and before any tab is looked at: the tab, and what `before`
+/// answered.
+fn reached_after<P: Pages, T>(
+    pages: &mut P,
+    sites: &AgentSites,
+    tab: &str,
+    before: impl FnOnce() -> Result<T, Refused>,
+) -> Judged<P::Tab, T> {
     let Ok(address) = alo_url::parse(tab) else {
         let refused = Refused::NotAnAddress {
             tab: tab.to_owned(),
@@ -180,9 +315,173 @@ fn reached<P: Pages>(
             (Err(refused), Some(site))
         }
         Ok(site) => {
+            let judged = match before() {
+                Ok(judged) => judged,
+                Err(refused) => return (Err(refused), Some(site)),
+            };
             pages.catch_up();
-            (find(pages, &address, tab), Some(site))
+            (
+                find(pages, &address, tab).map(|id| (id, judged)),
+                Some(site),
+            )
         }
+    }
+}
+
+/// The page at `address`, if an agent kept to `sites` may open it: an
+/// `http` or `https` address on a site it may reach — and, whenever it is
+/// one, its site. Judged before any tab is looked at, here and by the
+/// conversation's relay.
+pub fn openable(sites: &AgentSites, address: &str) -> (Result<Url, Refused>, Option<Site>) {
+    let not = || Refused::NotOpenable {
+        address: address.to_owned(),
+    };
+    let Ok(url) = alo_url::parse(address) else {
+        return (Err(not()), None);
+    };
+    if !matches!(url.scheme.as_str(), "http" | "https") {
+        return (Err(not()), None);
+    }
+    match sites.reach(&url) {
+        Err(site) => {
+            let refused = Refused::NotGranted {
+                tab: address.to_owned(),
+                site: site.clone(),
+            };
+            (Err(refused), Some(site))
+        }
+        Ok(site) => (Ok(url), Some(site)),
+    }
+}
+
+/// Send the page in tab `id` to `to`, which the caller wrote as `address`,
+/// and name the tab where it arrived — when an agent kept to `sites` may
+/// reach it there.
+fn go<P: Pages>(
+    pages: &mut P,
+    sites: &AgentSites,
+    id: P::Tab,
+    address: &str,
+    to: &Url,
+) -> (Answer, Did) {
+    let action = match pages.go(id, to) {
+        Ok(action) => action,
+        Err(Unanswered::NotOffered) => {
+            let refused = Refused::NotOffered { ask: "open" };
+            return (Answer::Refused(refused.clone()), Did::Refused(refused));
+        }
+        Err(why) => {
+            let refused = Refused::NotOpened {
+                address: address.to_owned(),
+                said: unanswered_said(&why),
+            };
+            return (Answer::Refused(refused.clone()), Did::Refused(refused));
+        }
+    };
+    pages.catch_up();
+    let did = Did::Went {
+        action,
+        to: to.to_string(),
+    };
+    let arrived = pages
+        .shown()
+        .into_iter()
+        .find(|(each, _)| *each == id)
+        .map(|(_, at)| at);
+    match arrived {
+        Some(at) if sites.allows(&at) => (
+            Answer::Opened {
+                tab: at.to_string(),
+            },
+            did,
+        ),
+        // Sent on by its server to where agents are kept from: the page
+        // went, and is not named to the agent.
+        _ => {
+            let refused = Refused::NotOpened {
+                address: address.to_owned(),
+                said: "it went on to a site agents may not reach".to_owned(),
+            };
+            (Answer::Refused(refused), did)
+        }
+    }
+}
+
+/// Look for `text` in the page in tab `id`.
+fn find_in<P: Pages>(pages: &mut P, id: P::Tab, tab: String, text: String) -> (Answer, Did) {
+    if let Err(refused) = loaded(pages, id, &tab) {
+        return (Answer::Refused(refused.clone()), Did::Refused(refused));
+    }
+    let refused = match pages.read(id) {
+        Ok(_) if !still_at(pages, id, &tab) => Refused::NoSuchTab { tab },
+        Ok(snapshot) => {
+            let found = crate::agent_find::find(&snapshot, &text);
+            let did = Did::Found {
+                document: pages.document(id),
+                found: found.nodes.len() + found.more,
+            };
+            let answer = Answer::Found {
+                tab,
+                text,
+                found: found.nodes,
+                more: found.more,
+            };
+            return (answer, did);
+        }
+        Err(why) => unanswered(tab, why, "find"),
+    };
+    (Answer::Refused(refused.clone()), Did::Refused(refused))
+}
+
+/// Save the page in tab `id` as a PDF at `file`, which the person's
+/// directories let be written.
+fn print<P: Pages>(
+    pages: &mut P,
+    id: P::Tab,
+    tab: String,
+    file: &std::path::Path,
+) -> (Answer, Did) {
+    if let Err(refused) = loaded(pages, id, &tab) {
+        return (Answer::Refused(refused.clone()), Did::Refused(refused));
+    }
+    let document = pages.document(id);
+    let path = file.to_string_lossy().into_owned();
+    let refused = match pages.print_pdf(id) {
+        // Printed, and by then the tab shows another page: the PDF is not
+        // of the address judged, and is not written.
+        Ok(_) if !still_at(pages, id, &tab) => Refused::NoSuchTab { tab },
+        Ok(bytes) if !bytes.starts_with(agent_saves::HEADER) => Refused::NotCarriedOut {
+            tab,
+            said: "what the renderer answered is not a PDF, and nothing was written".to_owned(),
+        },
+        Ok(bytes) => match agent_saves::save(file, &bytes) {
+            Ok(()) => {
+                let did = Did::Printed {
+                    document,
+                    path: path.clone(),
+                    bytes: bytes.len(),
+                };
+                let answer = Answer::Printed {
+                    tab,
+                    path,
+                    bytes: bytes.len(),
+                };
+                return (answer, did);
+            }
+            Err(why) => unsaved(path, why),
+        },
+        Err(why) => unanswered(tab, why, "print_pdf"),
+    };
+    (Answer::Refused(refused.clone()), Did::Refused(refused))
+}
+
+/// Why a page was not saved at `path`, as the kind that crosses.
+fn unsaved(path: String, why: Unsaved) -> Refused {
+    match why {
+        Unsaved::NotAPath => Refused::NotAPath { path },
+        Unsaved::NotAllowedThere => Refused::NotAllowedThere { path },
+        Unsaved::Exists => Refused::Exists { path },
+        Unsaved::NotWritten(said) => Refused::NotWritten { path, said },
     }
 }
 
@@ -238,7 +537,7 @@ fn read<P: Pages>(pages: &mut P, id: P::Tab, tab: String) -> (Answer, Did) {
             };
             return (Answer::Tree { tab, snapshot }, did);
         }
-        Err(why) => unanswered(tab, why),
+        Err(why) => unanswered(tab, why, "read"),
     };
     (Answer::Refused(refused.clone()), Did::Refused(refused))
 }
@@ -269,7 +568,7 @@ fn act<P: Pages>(
     let (action, acted) = match pages.act(id, target, verb) {
         Ok(answered) => answered,
         Err(why) => {
-            let refused = unanswered(tab, why);
+            let refused = unanswered(tab, why, "act");
             return (Answer::Refused(refused.clone()), Did::Refused(refused));
         }
     };
@@ -297,13 +596,25 @@ fn act<P: Pages>(
     }
 }
 
-/// Why the tab at `tab` did not answer, as the kind that crosses.
-fn unanswered(tab: String, why: Unanswered) -> Refused {
+/// Why the tab at `tab` did not answer `ask`, as the kind that crosses.
+fn unanswered(tab: String, why: Unanswered, ask: &'static str) -> Refused {
     match why {
         Unanswered::Gone(said) => Refused::TabGone { tab, said },
         Unanswered::NotCarriedOut(said) => Refused::NotCarriedOut { tab, said },
         Unanswered::Password(node) => Refused::Password { tab, node },
         Unanswered::CardDetails(node) => Refused::CardDetails { tab, node },
+        Unanswered::NotOffered => Refused::NotOffered { ask },
+    }
+}
+
+/// Why a tab did not do what it was asked, in words, for a person.
+fn unanswered_said(why: &Unanswered) -> String {
+    match why {
+        Unanswered::Gone(said) | Unanswered::NotCarriedOut(said) => said.clone(),
+        Unanswered::Password(node) | Unanswered::CardDetails(node) => {
+            format!("{node} cannot be acted on by an agent")
+        }
+        Unanswered::NotOffered => "its renderer does not do it".to_owned(),
     }
 }
 
@@ -339,7 +650,7 @@ mod tests {
     }
 
     fn served(tabs: &mut Tabs, record: &mut AgentRecord, ask: Ask) -> Answer {
-        serve(tabs, record, &AgentSites::Every, Caller(0), Ok(ask)).answer
+        serve(tabs, record, &AgentScope::default(), Caller(0), Ok(ask)).answer
     }
 
     fn url(address: &str) -> alo_url::Url {
@@ -407,7 +718,14 @@ mod tests {
             let read = Ask::Read {
                 tab: tab.to_owned(),
             };
-            serve(&mut tabs, &mut record, &sites, Caller(0), Ok(read)).answer
+            serve(
+                &mut tabs,
+                &mut record,
+                &AgentScope::from(sites.clone()),
+                Caller(0),
+                Ok(read),
+            )
+            .answer
         };
         let refused = |tab: &str| {
             Answer::Refused(Refused::NotGranted {
@@ -458,7 +776,13 @@ mod tests {
             target: Target::Named("Buy".to_owned()),
             verb: Verb::Activate,
         };
-        let served = serve(&mut tabs, &mut record, &sites, Caller(1), Ok(act));
+        let served = serve(
+            &mut tabs,
+            &mut record,
+            &AgentScope::from(sites.clone()),
+            Caller(1),
+            Ok(act),
+        );
         assert_eq!(served.acted, None, "nothing to draw again: nothing ran");
         assert!(matches!(
             served.answer,
@@ -476,7 +800,13 @@ mod tests {
         tabs.open(url("https://example.org/private"));
         tabs.open(url("https://shop.example.com/"));
         tabs.open(url("data:text/html,hi"));
-        let listed = serve(&mut tabs, &mut record, &sites, Caller(0), Ok(Ask::Tabs));
+        let listed = serve(
+            &mut tabs,
+            &mut record,
+            &AgentScope::from(sites.clone()),
+            Caller(0),
+            Ok(Ask::Tabs),
+        );
         assert_eq!(
             listed.answer,
             Answer::Tabs(vec!["https://shop.example.com/".to_owned()])
@@ -497,7 +827,13 @@ mod tests {
         let read = Ask::Read {
             tab: "not an address".to_owned(),
         };
-        let served = serve(&mut tabs, &mut record, &sites, Caller(0), Ok(read));
+        let served = serve(
+            &mut tabs,
+            &mut record,
+            &AgentScope::from(sites.clone()),
+            Caller(0),
+            Ok(read),
+        );
         assert!(matches!(
             served.answer,
             Answer::Refused(Refused::NotAnAddress { .. })
@@ -514,7 +850,7 @@ mod tests {
         let served = serve(
             &mut tabs,
             &mut record,
-            &AgentSites::Every,
+            &AgentScope::default(),
             Caller(4),
             Err(Refused::NotJson),
         );
@@ -603,7 +939,13 @@ mod tests {
                 verb: Verb::Activate,
             },
         ] {
-            let served = serve(&mut pages, &mut record, &kept(), Caller(0), Ok(ask));
+            let served = serve(
+                &mut pages,
+                &mut record,
+                &AgentScope::from(kept()),
+                Caller(0),
+                Ok(ask),
+            );
             assert!(matches!(
                 served.answer,
                 Answer::Refused(Refused::NotGranted { .. })
@@ -627,7 +969,13 @@ mod tests {
         let read = Ask::Read {
             tab: "https://example.com/a".to_owned(),
         };
-        let served = serve(&mut pages, &mut record, &kept(), Caller(0), Ok(read));
+        let served = serve(
+            &mut pages,
+            &mut record,
+            &AgentScope::from(kept()),
+            Caller(0),
+            Ok(read),
+        );
         assert_eq!(
             served.answer,
             Answer::Refused(Refused::NoSuchTab {
@@ -647,7 +995,13 @@ mod tests {
         let read = Ask::Read {
             tab: "https://example.org/b".to_owned(),
         };
-        let served = serve(&mut pages, &mut record, &kept(), Caller(0), Ok(read));
+        let served = serve(
+            &mut pages,
+            &mut record,
+            &AgentScope::from(kept()),
+            Caller(0),
+            Ok(read),
+        );
         assert!(matches!(
             served.answer,
             Answer::Refused(Refused::NotGranted { .. })
@@ -686,7 +1040,13 @@ mod tests {
         let renderer = Ask::Renderer {
             tab: "https://example.com/".to_owned(),
         };
-        let served = serve(&mut pages, &mut record, &kept(), Caller(1), Ok(renderer));
+        let served = serve(
+            &mut pages,
+            &mut record,
+            &AgentScope::from(kept()),
+            Caller(1),
+            Ok(renderer),
+        );
         assert_eq!(
             served.answer,
             Answer::Renderer {
@@ -701,7 +1061,13 @@ mod tests {
         let renderer = Ask::Renderer {
             tab: "https://example.net/".to_owned(),
         };
-        let served = serve(&mut pages, &mut record, &kept(), Caller(1), Ok(renderer));
+        let served = serve(
+            &mut pages,
+            &mut record,
+            &AgentScope::from(kept()),
+            Caller(1),
+            Ok(renderer),
+        );
         assert!(
             matches!(served.answer, Answer::Refused(Refused::NotGranted { .. })),
             "kept to its sites, as a read is"
@@ -721,7 +1087,13 @@ mod tests {
             target: Target::Named("Buy".to_owned()),
             verb: Verb::Activate,
         };
-        let served = serve(&mut pages, &mut record, &kept(), Caller(0), Ok(act));
+        let served = serve(
+            &mut pages,
+            &mut record,
+            &AgentScope::from(kept()),
+            Caller(0),
+            Ok(act),
+        );
         assert_eq!(
             served.answer,
             Answer::Refused(Refused::NotCarriedOut {
@@ -730,6 +1102,348 @@ mod tests {
             })
         );
         assert_eq!(served.acted, Some(()), "the tab may have changed");
+    }
+
+    /// One tab of a Chromium that goes where it is sent — or on to `lands`
+    /// — prints `pdf`, and whose page names one link *Next page*, counting
+    /// every time it is looked at.
+    struct Paper {
+        at: alo_url::Url,
+        lands: Option<alo_url::Url>,
+        pdf: Vec<u8>,
+        looked: usize,
+    }
+
+    impl Paper {
+        fn at(address: &str) -> Self {
+            Self {
+                at: url(address),
+                lands: None,
+                pdf: b"%PDF-1.7 a page".to_vec(),
+                looked: 0,
+            }
+        }
+    }
+
+    impl Pages for Paper {
+        type Tab = ();
+
+        fn catch_up(&mut self) {
+            self.looked += 1;
+        }
+
+        fn shown(&self) -> Vec<((), alo_url::Url)> {
+            vec![((), self.at.clone())]
+        }
+
+        fn rendered_by(&self, (): ()) -> RenderedBy {
+            RenderedBy::Carried {
+                product: "Chrome/0".to_owned(),
+            }
+        }
+
+        fn document(&self, (): ()) -> Option<DocumentId> {
+            Some(alo_net::cause::Identities::default().a_document())
+        }
+
+        fn read(&mut self, (): ()) -> Result<Box<Snapshot>, Unanswered> {
+            self.looked += 1;
+            let node = |id, role, name: Option<&str>, children| SnapshotNode {
+                id: alo_box::BoxId::from_wire(id),
+                role,
+                name: name.map(str::to_owned),
+                states: alo_box::States::default(),
+                placeholder: None,
+                marker: None,
+                rect: alo_layout::Rect::default(),
+                rects: Vec::new(),
+                offscreen: false,
+                scrolls: false,
+                children,
+            };
+            let link = node(
+                5,
+                alo_box::Role::Known(alo_box::KnownRole::Link),
+                Some("Next page"),
+                Vec::new(),
+            );
+            Ok(Box::new(Snapshot {
+                root: Some(node(1, alo_box::Role::Generic, Some("A page"), vec![link])),
+            }))
+        }
+
+        fn act(
+            &mut self,
+            (): (),
+            _: &Target,
+            _: &Verb,
+        ) -> Result<(alo_net::cause::ActionId, Acted), Unanswered> {
+            self.looked += 1;
+            Err(Unanswered::NotCarriedOut("not here".to_owned()))
+        }
+
+        fn go(
+            &mut self,
+            (): (),
+            to: &alo_url::Url,
+        ) -> Result<alo_net::cause::ActionId, Unanswered> {
+            self.looked += 1;
+            self.at = self.lands.take().unwrap_or_else(|| to.clone());
+            Ok(alo_net::cause::Identities::default().an_action())
+        }
+
+        fn print_pdf(&mut self, (): ()) -> Result<Vec<u8>, Unanswered> {
+            self.looked += 1;
+            Ok(self.pdf.clone())
+        }
+    }
+
+    /// A directory of a test's own, a page let saved in it.
+    fn saving_in(name: &str) -> (std::path::PathBuf, AgentScope) {
+        let directory =
+            std::env::temp_dir().join(format!("alo-serving-{}-{name}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&directory);
+        std::fs::create_dir_all(&directory).unwrap_or_default();
+        let directory = std::fs::canonicalize(&directory).unwrap_or(directory);
+        let saves = crate::agent_saves::AgentSaves::named([directory.clone()]).unwrap_or_default();
+        (directory, AgentScope::new(kept(), saves))
+    }
+
+    #[test]
+    fn a_page_is_saved_as_a_pdf_only_where_the_person_allowed() {
+        let (directory, scope) = saving_in("allowed");
+        let mut pages = Paper::at("https://example.com/");
+        let mut record = AgentRecord::new();
+        let file = directory.join("page.pdf");
+        let path = file.to_string_lossy().into_owned();
+        let print = |path: &str| Ask::PrintPdf {
+            tab: "https://example.com/".to_owned(),
+            path: path.to_owned(),
+        };
+        let served = serve(&mut pages, &mut record, &scope, Caller(0), Ok(print(&path)));
+        assert_eq!(
+            served.answer,
+            Answer::Printed {
+                tab: "https://example.com/".to_owned(),
+                path: path.clone(),
+                bytes: 15,
+            }
+        );
+        assert_eq!(std::fs::read(&file).unwrap_or_default(), b"%PDF-1.7 a page");
+        assert!(matches!(
+            record.entries().last().map(|entry| &entry.did),
+            Some(Did::Printed { bytes: 15, .. })
+        ));
+        // Asked again, nothing is written over it.
+        let served = serve(&mut pages, &mut record, &scope, Caller(0), Ok(print(&path)));
+        assert_eq!(
+            served.answer,
+            Answer::Refused(Refused::Exists { path: path.clone() })
+        );
+        // Anywhere else, and with no directory allowed, refused before any
+        // tab is looked at — a tab nobody has open alike.
+        let looked = pages.looked;
+        let elsewhere = std::env::temp_dir().join("elsewhere.pdf");
+        let elsewhere = elsewhere.to_string_lossy().into_owned();
+        for (scope, path) in [
+            (&scope, elsewhere.clone()),
+            (
+                &AgentScope::from(kept()),
+                directory.join("b.pdf").to_string_lossy().into_owned(),
+            ),
+        ] {
+            let served = serve(&mut pages, &mut record, scope, Caller(0), Ok(print(&path)));
+            assert_eq!(
+                served.answer,
+                Answer::Refused(Refused::NotAllowedThere { path: path.clone() })
+            );
+        }
+        let nobody = Ask::PrintPdf {
+            tab: "https://example.com/nobody".to_owned(),
+            path: elsewhere,
+        };
+        assert!(matches!(
+            serve(&mut pages, &mut record, &scope, Caller(0), Ok(nobody)).answer,
+            Answer::Refused(Refused::NotAllowedThere { .. })
+        ));
+        assert_eq!(pages.looked, looked, "no tab was looked at");
+        let _ = std::fs::remove_dir_all(&directory);
+    }
+
+    #[test]
+    fn what_is_not_a_pdf_is_never_written_and_a_renderer_that_prints_none_says_so() {
+        let (directory, scope) = saving_in("not-a-pdf");
+        let mut pages = Paper::at("https://example.com/");
+        pages.pdf = b"<html>".to_vec();
+        let file = directory.join("page.pdf");
+        let print = Ask::PrintPdf {
+            tab: "https://example.com/".to_owned(),
+            path: file.to_string_lossy().into_owned(),
+        };
+        let served = serve(
+            &mut pages,
+            &mut AgentRecord::new(),
+            &scope,
+            Caller(0),
+            Ok(print.clone()),
+        );
+        assert!(matches!(
+            served.answer,
+            Answer::Refused(Refused::NotCarriedOut { .. })
+        ));
+        assert!(!file.exists());
+        // A renderer that does not print — this engine's — is not offered.
+        let mut pages = Moving {
+            at: url("https://example.com/"),
+            then: None,
+            looked: 0,
+        };
+        let served = serve(
+            &mut pages,
+            &mut AgentRecord::new(),
+            &scope,
+            Caller(0),
+            Ok(print),
+        );
+        assert_eq!(
+            served.answer,
+            Answer::Refused(Refused::NotOffered { ask: "print_pdf" })
+        );
+        assert!(!file.exists());
+        let _ = std::fs::remove_dir_all(&directory);
+    }
+
+    #[test]
+    fn a_tab_is_sent_only_to_an_address_an_agent_may_open_and_named_where_it_arrived() {
+        let scope = AgentScope::from(kept());
+        let mut pages = Paper::at("https://example.com/");
+        let mut record = AgentRecord::new();
+        let open = |address: &str| Ask::Open {
+            tab: Some("https://example.com/".to_owned()),
+            address: address.to_owned(),
+        };
+        // Refused before any tab is looked at: not an address, not http,
+        // and a site agents are kept from.
+        for (address, kind) in [
+            ("not an address", "NotOpenable"),
+            ("file:///etc/passwd", "NotOpenable"),
+            ("javascript:alert(1)", "NotOpenable"),
+            ("https://example.org/", "NotGranted"),
+        ] {
+            let served = serve(
+                &mut pages,
+                &mut record,
+                &scope,
+                Caller(0),
+                Ok(open(address)),
+            );
+            assert!(
+                matches!(&served.answer, Answer::Refused(refused) if refused.kind() == kind),
+                "{address}: {:?}",
+                served.answer
+            );
+        }
+        assert_eq!(pages.looked, 0, "no tab was looked at");
+        let served = serve(
+            &mut pages,
+            &mut record,
+            &scope,
+            Caller(0),
+            Ok(open("https://www.example.com/next")),
+        );
+        assert_eq!(
+            served.answer,
+            Answer::Opened {
+                tab: "https://www.example.com/next".to_owned()
+            }
+        );
+        assert!(matches!(
+            record.entries().last().map(|entry| &entry.did),
+            Some(Did::Went { .. })
+        ));
+        // Sent on by its server to a site agents are kept from: not named.
+        pages.lands = Some(url("https://example.org/elsewhere"));
+        let served = serve(
+            &mut pages,
+            &mut record,
+            &scope,
+            Caller(0),
+            Ok(Ask::Open {
+                tab: Some("https://www.example.com/next".to_owned()),
+                address: "https://example.com/again".to_owned(),
+            }),
+        );
+        assert!(
+            matches!(&served.answer, Answer::Refused(Refused::NotOpened { said, .. })
+                if !said.contains("example.org")),
+            "{:?}",
+            served.answer
+        );
+    }
+
+    #[test]
+    fn a_new_tab_is_not_offered_where_only_the_conversation_opens_one() {
+        let scope = AgentScope::from(kept());
+        let mut pages = Paper::at("https://example.com/");
+        let mut record = AgentRecord::new();
+        let new = |address: &str| Ask::Open {
+            tab: None,
+            address: address.to_owned(),
+        };
+        assert_eq!(
+            serve(
+                &mut pages,
+                &mut record,
+                &scope,
+                Caller(0),
+                Ok(new("https://example.com/"))
+            )
+            .answer,
+            Answer::Refused(Refused::NotOffered { ask: "open" })
+        );
+        assert!(matches!(
+            serve(
+                &mut pages,
+                &mut record,
+                &scope,
+                Caller(0),
+                Ok(new("https://example.org/"))
+            )
+            .answer,
+            Answer::Refused(Refused::NotGranted { .. })
+        ));
+        assert_eq!(
+            serve(&mut pages, &mut record, &scope, Caller(0), Ok(Ask::NewTab)).answer,
+            Answer::Refused(Refused::NotOffered { ask: "new_tab" })
+        );
+        assert_eq!(pages.looked, 0);
+    }
+
+    #[test]
+    fn words_are_found_by_name_and_answered_without_a_place() {
+        let mut pages = Paper::at("https://example.com/");
+        let mut record = AgentRecord::new();
+        let served = serve(
+            &mut pages,
+            &mut record,
+            &AgentScope::from(kept()),
+            Caller(0),
+            Ok(Ask::Find {
+                tab: "https://example.com/".to_owned(),
+                text: "next".to_owned(),
+            }),
+        );
+        let Answer::Found { found, more, .. } = served.answer else {
+            panic!("not found: {:?}", served.answer);
+        };
+        assert_eq!(more, 0);
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].name, "Next page");
+        assert_eq!(found[0].node.as_usize(), 5);
+        assert!(matches!(
+            record.entries().last().map(|entry| &entry.did),
+            Some(Did::Found { found: 1, .. })
+        ));
     }
 
     #[test]

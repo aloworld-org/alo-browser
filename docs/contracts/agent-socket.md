@@ -36,6 +36,14 @@ application made by the system it runs on, and it is not that system's grant.
 No agent can name, widen or read the sites. They hold for every agent
 connected and end when the browser does.
 
+A person who starts alo with `--data DIR` (queue item 957, ADR 0112 § 5)
+moves the socket with everything else that alo keeps, to
+
+    DIR/alo-browser/agent.sock
+
+so a second alo started with another directory is reached at its own
+socket, and never at the first's. Each prints its path as below.
+
 `alo` prints the path when its window opens, and `alo --chrome` once the
 page is open in Chrome; either first says which renderer draws the page.
 `alo --conversation` prints it as its window opens, and its socket reaches
@@ -251,6 +259,75 @@ browser's own to show any of it in until item 642.
 | `Submitted` | `method` (`"GET"`/`"POST"`), `to` |
 | `NotSubmitted` | `invalid`: `[{"control","constraint","message"}]`, where `control` is a node or `null` and `constraint` is the validity name (`valueMissing`, …), or `null` when the renderer gave the words and not the constraint. Through Chrome it is always `null` and `invalid` holds one control, the first, with the words of the bubble Chrome draws beside it (queue item 631) |
 
+### `find`: words on a page, by name
+
+    {"v":1,"id":5,"ask":"find","tab":"https://example.com/","text":"next"}
+    {"answer":"found","found":[{"name":"Next page","node":14,"role":"link"}],"id":5,"more":0,
+     "said":"\"next\" is in link \"Next page\"","tab":"https://example.com/","text":"next","v":1}
+
+(Queue item 956, ADR 0112 § 4. Shown on two lines here; on the wire it is
+one.) A person's *Find on page*, answered from the tree `read` answers:
+every node whose name holds `text`, compared in lower case, in the order a
+person reads them — never the tree's root, the document, whose name is the
+page's title; never a node whose nearest ancestor found has the same name
+(a link's text inside the link). Each is its `node`, `role` and `name`, and
+**no position**: where it is drawn is `read`'s to say, and no verb takes
+it. At most 256 are answered; `more` says how many more there were.
+`text` is at most 1,024 characters and not only spaces (`BadField`). The
+tab is named, found and kept to the sites exactly as for `read`.
+
+### `print_pdf`: the page saved as a PDF
+
+    {"v":1,"id":6,"ask":"print_pdf","tab":"https://example.com/","path":"/Users/ada/Saved/page.pdf"}
+    {"answer":"printed","bytes":31812,"id":6,"path":"/Users/ada/Saved/page.pdf",
+     "said":"the page at https://example.com/ was saved as a PDF of 31812 bytes at /Users/ada/Saved/page.pdf",
+     "tab":"https://example.com/","v":1}
+
+(Queue item 956.) The page as Chromium prints it, backgrounds included,
+written by the browser process — never by a renderer — as a **new** file
+at `path`, readable by its person alone. `path` must be absolute, with no
+`.` or `..` in it, and name a file ending in `.pdf` (`NotAPath`); the
+directory it is in, with every link followed, must be one a person allowed
+when they started the browser with `alo --agent-saves DIR` (as often as
+they like), or inside one (`NotAllowedThere`). **With none allowed, every
+path is refused.** These two are judged after the tab's site and before
+any tab is looked at. Nothing is ever written over: a file or a link
+already there is `Exists`. The answer's `path` is the file made, its
+directory's links followed. A renderer that answers with something that
+is not a PDF has nothing written (`NotCarriedOut`). This browser's own
+engine prints no PDF (`NotOffered`). On alo OS a file will leave through
+the document portal instead (ADR 0112).
+
+### `open`: a page, in a tab or a new one
+
+    {"v":1,"id":7,"ask":"open","tab":"https://example.com/","address":"https://example.com/next"}
+    {"answer":"opened","id":7,"said":"opened https://example.com/next","tab":"https://example.com/next","v":1}
+
+(Queue item 956.) `address` must be an `http` or `https` address
+(`NotOpenable`) on a site agents may reach (`NotGranted`, whose `tab` is
+then the address) — judged after the tab's site and before any tab is
+looked at. **With `tab`**, that tab's page goes to the address, as an
+action of the agent's in the record, and the answer's `tab` is where it
+arrived: the name it goes by from then. A page its server sends on to a
+site agents may not reach is answered `NotOpened` and never named.
+**Without `tab`**, a new tab: in `alo --conversation`, a new chat whose
+card shows the page, opened as a person's *Open in new chat* opens one —
+answered once the card has opened, with the address it opened at; a
+server's redirect is then said by `tabs`. Where only one tab is held
+(`alo --chrome`, and this browser's own window) a new tab is `NotOffered`.
+
+### `new_tab`: a tab with nothing in it
+
+    {"v":1,"id":8,"ask":"new_tab"}
+    {"answer":"new_tab","id":8,"said":"a new chat is open, with no page in it","v":1}
+
+(Queue item 956.) In `alo --conversation`, a new chat on the first screen,
+as *New chat* and ⌘T make one; the card that was live is closed, so
+`tabs` then answers none until a page is opened. Elsewhere `NotOffered`.
+
+Neither `open` nor `new_tab` takes a coordinate, an index or a tab's
+position: a tab is named by its address, and a new one by nothing.
+
 ## Refusals
 
 A refusal is **a kind and its own fields**, never a sentence to parse:
@@ -302,6 +379,13 @@ caller must never depend on it.
 | `CardDetails` | `tab`, `node` | `put_text` was aimed at a field of a card's details — its number, security code or expiry — or an option chosen in such a list, on a page shown as a card in the conversation (queue item 826, ADR 0099): no agent types or chooses them there — paying details are the person's — and nothing was done. Judged on the element itself, whatever the page names it: its `autocomplete` (`cc-number`, `cc-csc`, `cc-exp`, `cc-exp-month`, `cc-exp-year`), or its `name`, `id`, `placeholder`, `aria-label` or name in the tree holding a name such a field goes by (*card number*, *cvc*, *security code*, *expiry*, …). A card's holder's name is not refused. `alo --chrome` and this engine's tabs do not refuse it |
 | `TreeTooDeep` | `tab`, `most` | |
 | `TooManyCallers` | `most` | |
+| `NotOpenable` | `address` | `open`'s address is not an `http` or `https` one (queue item 956) |
+| `NotOffered` | `ask` | What answers this socket does not do that ask: a new tab outside the conversation, a PDF of this engine's page |
+| `NotOpened` | `address` | The page asked for did not open, went on to a site agents may not reach, or another page was asked for before it opened. `said` says which |
+| `NotAPath` | `path` | `print_pdf`'s path is not an absolute one of a `.pdf` file with no `.` or `..` |
+| `NotAllowedThere` | `path` | Not in a directory the person allowed with `--agent-saves`, or in none that is there. Judged before any tab is looked at |
+| `Exists` | `path` | Something is at the path already; nothing is written over it |
+| `NotWritten` | `path` | The file could not be written, and nothing of it is left. `said` says why |
 
 Two kinds share the name `Ambiguous`, as ADR 0055 § 5 asks. The page's
 carries `target`, and the interface's carries `tab` and `count`.
@@ -317,7 +401,9 @@ The browser process records every request: which connection asked, the tab it
 named, that address's site whenever it is an address, and what came of it. A
 refused request has its site recorded too. A read records how many nodes of which document it
 read. A verb records the target, the verb, the action id it was given, and its
-outcome or refusal. A refused request is recorded as refused. A request that
+outcome or refusal. A page sent somewhere records the action and where;
+a new tab asked for, where to; a `find`, how many nodes it found; a PDF
+saved, its path and length. A refused request is recorded as refused. A request that
 reached a tab records which renderer drew its page: this browser's engine, or
 Chrome and the version it gives itself.
 

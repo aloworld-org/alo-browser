@@ -81,6 +81,7 @@ use alo_window::chrome_profile::Swept;
 use alo_window::chrome_serving::{ChromeServing, Unserved};
 use alo_window::closing::Closing;
 use alo_window::conductor::{Conductor, Fonts};
+use alo_window::data_dir::DataDir;
 use alo_window::inbox::Orders;
 use alo_window::message::Order;
 use alo_window::opening::{CHROME_AT, CHROME_SIZE, Opening, Renderer};
@@ -103,6 +104,21 @@ fn main() -> ExitCode {
         eprintln!("alo: {said}");
     }
     let opening = decided.opening;
+    // A data directory a person named is made or refused before anything
+    // starts (queue item 957): an alo that cannot keep its own never takes
+    // another's places.
+    if let Some(named) = opening.data.as_deref() {
+        match DataDir::at(named) {
+            Ok(data) => eprintln!(
+                "alo: everything this alo keeps is kept in {}",
+                data.root().display()
+            ),
+            Err(why) => {
+                eprintln!("alo: --data: {why}");
+                return ExitCode::from(2);
+            }
+        }
+    }
     if opening.conversation {
         return in_the_conversation(&opening, decided.chromium, bundle.as_ref());
     }
@@ -168,7 +184,7 @@ fn in_this_engine(opening: &Opening) -> ExitCode {
                 // The first tab, before the window has a size: the conductor
                 // holds it until the window says one.
                 let _ = orders.send(first);
-                listening = listen(&orders, &opening.agents);
+                listening = listen(&orders, &opening.agents, socket_of(opening));
                 conductor = Some(started);
                 orders
             }
@@ -200,6 +216,9 @@ fn in_this_engine(opening: &Opening) -> ExitCode {
 /// address chosen in it opened in the Chromium `chromium` names, searching
 /// with the key the application `bundle` carries, or this Mac's keychain's.
 fn in_the_conversation(opening: &Opening, chromium: Chromium, bundle: Option<&Bundle>) -> ExitCode {
+    // Everything this alo keeps in one directory a person named (queue
+    // item 957), which `main` made or refused to start without.
+    let data = (opening.data.as_deref()).and_then(|named| DataDir::at(named).ok());
     let renderers = match renderers(opening.fonts) {
         Ok(renderers) => renderers,
         Err(failed) => return failed,
@@ -221,12 +240,16 @@ fn in_the_conversation(opening: &Opening, chromium: Chromium, bundle: Option<&Bu
         "alo: the browser's own interface is drawn by {}",
         RenderedBy::ThisEngine
     );
-    // Where its chats are kept (queue item 757, ADR 0092): the directory a
-    // person named, or alo's own; said, so a hand run knows which it wrote.
-    let chats = opening
-        .chats
-        .clone()
-        .map_or_else(alo_window::chat_store::for_this_person, Ok);
+    // Where its chats (queue item 757, ADR 0092), keys and cards' sign-ins
+    // (ADR 0111) are kept: under the data directory a person named (queue
+    // item 957), or the directories a hand run named, or alo's own and the
+    // person's keychain; said, so a hand run knows which it wrote.
+    let keeping = alo_window::data_dir::keeping(
+        data.as_ref(),
+        opening.chats.clone(),
+        opening.sign_ins.as_deref(),
+    );
+    let chats = keeping.chats.clone();
     // Which services it asks (ADR 0106 § 3): the person's lines in the
     // settings beside the chats, over the application's own defaults, over
     // Brave and OpenAI — each asked with the person's own key, the
@@ -253,18 +276,23 @@ fn in_the_conversation(opening: &Opening, chromium: Chromium, bundle: Option<&Bu
         services.search.name(),
         services.answers.name()
     );
-    let keys = alo_window::service_keys::Keys::for_this_application(bundle);
+    // A person's own keys only where there is a keychain to keep them in
+    // (queue item 957): under a data directory, the application's alone.
+    let resources = bundle.map(|bundle| bundle.resources().to_path_buf());
+    let keys = match keeping.keychain.clone() {
+        Some(keychain) => alo_window::service_keys::Keys::in_keychain(
+            keychain,
+            &alo_window::keychain::this_person(),
+            resources,
+        ),
+        None => alo_window::service_keys::Keys::carried_only(resources),
+    };
     let search = alo_window::services_made::search(&services, &keys);
     let answer = alo_window::services_made::ai(&services, &keys);
     if let Ok(directory) = &chats {
         eprintln!("alo: chats are kept in {}", directory.display());
     }
-    // Where its cards' sign-ins are kept (ADR 0111): the directory a hand
-    // run named, its key in a keychain file there, or alo's own beside the
-    // chats, its key in the person's keychain; said, with why when not.
-    let sign_ins = std::sync::Arc::new(alo_window::sign_ins::SignIns::for_this_alo(
-        opening.sign_ins.as_deref(),
-    ));
+    let sign_ins = keeping.sign_ins.clone();
     eprintln!(
         "{}",
         alo_window::conversation_sign_ins::told(&sign_ins.kept_as())
@@ -274,38 +302,36 @@ fn in_the_conversation(opening: &Opening, chromium: Chromium, bundle: Option<&Bu
     // as the window's event loop ends, quit included (item 688).
     // alo's own agent (queue item 704, ADR 0096) reaches the card by the
     // same relay, through the same orders: no road of its own.
-    let (reaching, listening, agent) =
-        match alo_window::conversation_agents::relay(opening.agents.clone()) {
-            Ok((orders, reaching)) => {
-                let listening = listen(&orders, &opening.agents);
-                // It begins with no page open through the box's own search
-                // (queue item 821), and opens only sites agents are kept
-                // to.
-                let agent = answer.clone().map(|provider| {
-                    alo_window::conversation_agent::Agent::new(provider, orders)
-                        .searching_with(search.clone().ok())
-                        .kept_to(opening.agents.clone())
-                });
-                (reaching, listening, agent)
-            }
-            Err(why) => {
-                eprintln!(
-                    "alo: no agent can reach this browser: no thread to reach a card by: {why}"
-                );
-                (
-                    alo_window::conversation_agents::Reaching::default(),
-                    None,
-                    Err(format!("no thread to reach a card by ({why})")),
-                )
-            }
-        };
+    let (reaching, listening, agent) = match alo_window::conversation_agents::relay(opening.scope())
+    {
+        Ok((orders, reaching)) => {
+            let listening = listen(&orders, &opening.agents, keeping.socket.clone());
+            // It begins with no page open through the box's own search
+            // (queue item 821), and opens only sites agents are kept
+            // to.
+            let agent = answer.clone().map(|provider| {
+                alo_window::conversation_agent::Agent::new(provider, orders)
+                    .searching_with(search.clone().ok())
+                    .kept_to(opening.agents.clone())
+            });
+            (reaching, listening, agent)
+        }
+        Err(why) => {
+            eprintln!("alo: no agent can reach this browser: no thread to reach a card by: {why}");
+            (
+                alo_window::conversation_agents::Reaching::default(),
+                None,
+                Err(format!("no thread to reach a card by ({why})")),
+            )
+        }
+    };
     let closing = Closing::of(|| stop_listening(listening));
     match alo_window::window::conversation(
         opening.scale,
         renderers,
         chromium,
         (search, answer, defaults, keys),
-        (chats, sign_ins),
+        (chats, sign_ins, keeping.keychain.clone()),
         (reaching, closing, agent),
     ) {
         Ok(()) => ExitCode::SUCCESS,
@@ -350,13 +376,13 @@ fn in_chrome(opening: &Opening, watching: bool, chromium: Chromium) -> Result<Ex
         page,
         CHROME_SIZE,
         CHROME_AT,
-        opening.agents.clone(),
+        opening.scope(),
         Box::new(move |news| tell.send(news).is_ok()),
     );
     let serving = started?;
     say_where_chrome_is(&serving);
     let orders = serving.orders();
-    let listening = listen(&orders, &opening.agents);
+    let listening = listen(&orders, &opening.agents, socket_of(opening));
     if watching {
         close_when_input_ends(orders.clone());
         eprintln!(
@@ -397,6 +423,13 @@ fn in_chrome(opening: &Opening, watching: bool, chromium: Chromium) -> Result<Ex
         }
         Ok(()) => ExitCode::SUCCESS,
     })
+}
+
+/// Where the socket goes when `opening` named a data directory (queue item
+/// 957): in it — which `main` made, or refused to start without.
+fn socket_of(opening: &Opening) -> Option<std::path::PathBuf> {
+    let named = opening.data.as_deref()?;
+    DataDir::at(named).ok().map(|data| data.socket())
 }
 
 /// The renderers this program starts — the renderer built beside it, with
@@ -486,8 +519,14 @@ fn close_when_input_ends(orders: Orders) {
 fn listen(
     orders: &alo_window::inbox::Orders,
     sites: &alo_window::agent_sites::AgentSites,
+    at: Option<std::path::PathBuf>,
 ) -> Option<alo_window::agents::Listening> {
-    let placed = alo_window::socket_place::prepared()
+    // In the data directory a person named (queue item 957), or the
+    // person's runtime directory.
+    let placed = at
+        .map_or_else(alo_window::socket_place::prepared, |at| {
+            alo_window::socket_place::prepare(&at)
+        })
         .map_err(|why| why.to_string())
         .and_then(|path| {
             alo_window::agents::Listening::at(&path, orders.clone())
@@ -525,7 +564,11 @@ fn stop_listening(listening: Option<alo_window::agents::Listening>) {
 /// No socket: on Windows how an agent reaches this browser is undecided
 /// (ADR 0055 § 1).
 #[cfg(not(unix))]
-fn listen(_: &alo_window::inbox::Orders, _: &alo_window::agent_sites::AgentSites) -> Option<()> {
+fn listen(
+    _: &alo_window::inbox::Orders,
+    _: &alo_window::agent_sites::AgentSites,
+    _: Option<std::path::PathBuf>,
+) -> Option<()> {
     eprintln!("alo: no agent can reach this browser: on Windows how one would is undecided");
     None
 }

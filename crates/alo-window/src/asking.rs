@@ -24,6 +24,7 @@
 //! request may nest and how deeply a tree may be answered are all here, and
 //! each is refused rather than truncated.
 
+use crate::agent_find::FoundNode;
 use crate::pages::RenderedBy;
 use alo_agent::{Outcome, Refusal, Target, Verb};
 use alo_renderer::Snapshot;
@@ -102,14 +103,51 @@ pub enum Ask {
         /// What to do.
         verb: Verb,
     },
+    /// Open the page at `address` (queue item 956, ADR 0112 § 4): in the
+    /// tab at `tab`, which then goes there, or — with no tab named — in a
+    /// new one, which in the conversation is a new chat whose card shows
+    /// it.
+    Open {
+        /// The tab it opens in, as the caller wrote it, or none for a new
+        /// one.
+        tab: Option<String>,
+        /// Where to, as the caller wrote it: an `http` or `https` address.
+        address: String,
+    },
+    /// A new tab with nothing in it: in the conversation, a new chat on the
+    /// first screen, as *New chat* is (queue item 956).
+    NewTab,
+    /// The nodes of the page in the tab at `tab` whose names hold `text`
+    /// (queue item 956): a person's *Find on page*, answered by name and
+    /// never by place ([`crate::agent_find`]).
+    Find {
+        /// The tab's address, as the caller wrote it.
+        tab: String,
+        /// The words, at most [`MOST_NAME`] characters, not none.
+        text: String,
+    },
+    /// The page in the tab at `tab` saved as a PDF at `path`, a new file in
+    /// a directory the person allowed ([`crate::agent_saves`], queue item
+    /// 956).
+    PrintPdf {
+        /// The tab's address, as the caller wrote it.
+        tab: String,
+        /// The file to make, as the caller wrote it.
+        path: String,
+    },
 }
 
 impl Ask {
     /// The tab it names, if it names one.
     pub fn tab(&self) -> Option<&str> {
         match self {
-            Ask::Tabs => None,
-            Ask::Read { tab } | Ask::Renderer { tab } | Ask::Act { tab, .. } => Some(tab),
+            Ask::Tabs | Ask::NewTab | Ask::Open { tab: None, .. } => None,
+            Ask::Read { tab }
+            | Ask::Renderer { tab }
+            | Ask::Act { tab, .. }
+            | Ask::Open { tab: Some(tab), .. }
+            | Ask::Find { tab, .. }
+            | Ask::PrintPdf { tab, .. } => Some(tab),
         }
     }
 }
@@ -143,6 +181,37 @@ pub enum Answer {
         /// What the page's script said while it ran, as the renderer said it
         /// (`FromRenderer::Acted`).
         issues: Vec<String>,
+    },
+    /// A page was opened, and this is the address its tab is named by now
+    /// — where it went, which a redirect may have changed.
+    Opened {
+        /// The tab's address now.
+        tab: String,
+    },
+    /// A new tab with nothing in it is open: in the conversation, a new
+    /// chat on the first screen, which no tab is named by until a page is
+    /// opened in it.
+    NewTab,
+    /// What a `find` found ([`crate::agent_find`]).
+    Found {
+        /// The tab, as the caller named it.
+        tab: String,
+        /// The words, as the caller wrote them.
+        text: String,
+        /// The nodes whose names hold them, at most
+        /// [`crate::agent_find::MOST_FOUND`], in reading order.
+        found: Vec<FoundNode>,
+        /// How many more there were.
+        more: usize,
+    },
+    /// The page was saved as a PDF.
+    Printed {
+        /// The tab, as the caller named it.
+        tab: String,
+        /// The file made, with every link in its directory followed.
+        path: String,
+        /// How many bytes it holds.
+        bytes: usize,
     },
     /// It was refused, and this is why.
     Refused(Refused),
@@ -278,6 +347,52 @@ pub enum Refused {
         /// How many may be.
         most: usize,
     },
+    /// The address to open is not one: not a URL, or not an `http` or
+    /// `https` one, which is all an agent opens.
+    NotOpenable {
+        /// What it was named by.
+        address: String,
+    },
+    /// What answers this socket does not do this: a tab of this engine's
+    /// own is not saved as a PDF, and only the conversation opens a new
+    /// tab (queue item 956).
+    NotOffered {
+        /// The ask, by its name on the wire.
+        ask: &'static str,
+    },
+    /// A page asked to open in a new tab did not open, or another opened
+    /// in its place first.
+    NotOpened {
+        /// The address asked for.
+        address: String,
+        /// Why, in words, for a person.
+        said: String,
+    },
+    /// The path is not an absolute one of a `.pdf` file with no `.` or
+    /// `..` in it.
+    NotAPath {
+        /// What it was named by.
+        path: String,
+    },
+    /// The path is not in a directory the person allowed a page saved in
+    /// (`alo --agent-saves DIR`), or in none that is there. Judged before
+    /// any tab is looked at.
+    NotAllowedThere {
+        /// What it was named by.
+        path: String,
+    },
+    /// Something is at the path already, and nothing is written over it.
+    Exists {
+        /// What it was named by.
+        path: String,
+    },
+    /// The file could not be written; nothing of it is left.
+    NotWritten {
+        /// What it was named by.
+        path: String,
+        /// Why, in words, for a person.
+        said: String,
+    },
     /// The page refused the verb, with one of `verb.rs`'s refusals as it is.
     Verb {
         /// The tab.
@@ -298,6 +413,18 @@ impl Answer {
         match self {
             Answer::Tabs(_) | Answer::Tree { .. } => None,
             Answer::Renderer { rendered_by, .. } => Some(rendered_by.to_string()),
+            Answer::Opened { tab } => Some(format!("opened {tab}")),
+            Answer::NewTab => Some("a new chat is open, with no page in it".to_owned()),
+            Answer::Found {
+                text, found, more, ..
+            } => Some(match (found.len() + more, found.first()) {
+                (0, _) | (_, None) => format!("nothing on the page is named with {text:?}"),
+                (1, Some(one)) => format!("{text:?} is in {} {:?}", one.role.as_str(), one.name),
+                (count, Some(_)) => format!("{text:?} is in {count} things on the page"),
+            }),
+            Answer::Printed { tab, path, bytes } => Some(format!(
+                "the page at {tab} was saved as a PDF of {bytes} bytes at {path}"
+            )),
             Answer::Done { outcome, .. } => Some(outcome.to_string()),
             Answer::Refused(refused) => Some(refused.to_string()),
         }
@@ -329,6 +456,13 @@ impl Refused {
             Refused::CardDetails { .. } => "CardDetails",
             Refused::TreeTooDeep { .. } => "TreeTooDeep",
             Refused::TooManyCallers { .. } => "TooManyCallers",
+            Refused::NotOpenable { .. } => "NotOpenable",
+            Refused::NotOffered { .. } => "NotOffered",
+            Refused::NotOpened { .. } => "NotOpened",
+            Refused::NotAPath { .. } => "NotAPath",
+            Refused::NotAllowedThere { .. } => "NotAllowedThere",
+            Refused::Exists { .. } => "Exists",
+            Refused::NotWritten { .. } => "NotWritten",
             Refused::Verb { refusal, .. } => refusal_kind(refusal),
         }
     }
@@ -437,6 +571,33 @@ impl fmt::Display for Refused {
             Refused::TooManyCallers { most } => {
                 write!(f, "{most} agents are connected already")
             }
+            Refused::NotOpenable { address } => write!(
+                f,
+                "{address:?} is not an http or https address, which is all an agent opens"
+            ),
+            Refused::NotOffered { ask } => {
+                write!(f, "this browser does not answer {ask:?} here")
+            }
+            Refused::NotOpened { address, said } => {
+                write!(f, "{address} was not opened: {said}")
+            }
+            Refused::NotAPath { path } => write!(
+                f,
+                "{path:?} is not an absolute path of a .pdf file with no . or .. in it"
+            ),
+            Refused::NotAllowedThere { path } => write!(
+                f,
+                "{path:?} is not in a directory this browser's person allowed a page saved in"
+            ),
+            Refused::Exists { path } => {
+                write!(
+                    f,
+                    "something is at {path:?} already, and nothing is written over it"
+                )
+            }
+            Refused::NotWritten { path, said } => {
+                write!(f, "{path:?} could not be written: {said}")
+            }
             Refused::Verb { refusal, .. } => write!(f, "{refusal}"),
         }
     }
@@ -492,6 +653,41 @@ mod tests {
             }
             .tab(),
             Some("about:blank")
+        );
+        assert_eq!(Ask::NewTab.tab(), None);
+        let open = |tab: Option<&str>| Ask::Open {
+            tab: tab.map(str::to_owned),
+            address: "https://example.com/".to_owned(),
+        };
+        assert_eq!(open(None).tab(), None);
+        assert_eq!(open(Some("about:blank")).tab(), Some("about:blank"));
+    }
+
+    #[test]
+    fn what_was_found_is_said_by_how_many_and_where() {
+        use alo_box::{KnownRole, Role};
+        let found = |found: Vec<FoundNode>, more| Answer::Found {
+            tab: "https://example.com/".to_owned(),
+            text: "next".to_owned(),
+            found,
+            more,
+        };
+        let link = FoundNode {
+            node: BoxId::from_index_for_tests(4),
+            role: Role::Known(KnownRole::Link),
+            name: "Next page".to_owned(),
+        };
+        assert_eq!(
+            found(Vec::new(), 0).said().as_deref(),
+            Some("nothing on the page is named with \"next\"")
+        );
+        assert_eq!(
+            found(vec![link.clone()], 0).said().as_deref(),
+            Some("\"next\" is in link \"Next page\"")
+        );
+        assert_eq!(
+            found(vec![link], 2).said().as_deref(),
+            Some("\"next\" is in 3 things on the page")
         );
     }
 }

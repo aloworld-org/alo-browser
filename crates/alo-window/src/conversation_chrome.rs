@@ -216,6 +216,10 @@ pub enum Went {
     /// What alo did with a cookie banner on the card's page (ADR 0108,
     /// queue item 920).
     Consent(crate::consent_answer::Answered),
+    /// What the page shown as a card is called, by Chrome's word, told as
+    /// that changes while it streams (queue item 958): a stranger's string,
+    /// handed on as data.
+    Titled(String),
 }
 
 impl Went {
@@ -246,6 +250,7 @@ impl Went {
             Self::Told(told) => format!("the card's Chromium told {told:?}"),
             Self::Caret(caret) => format!("the card's page has its caret at {caret:?}"),
             Self::Consent(answered) => answered.said(),
+            Self::Titled(title) => format!("the card's page is called {title:?}"),
             Self::ListPressed => {
                 "a list pressed on the card's page: the card expanded, its menu opened there"
                     .to_owned()
@@ -683,6 +688,7 @@ fn heard_from(again: Sender<Work>, number: u64) -> TellFrame {
             ToFrame::ListPressed => again.send(Work::Told(number, Went::ListPressed)),
             ToFrame::Caret(caret) => again.send(Work::Told(number, Went::Caret(caret))),
             ToFrame::Consent(answered) => again.send(Work::Told(number, Went::Consent(answered))),
+            ToFrame::Named(named) => again.send(Work::Told(number, Went::Titled(named.title))),
             _ => Ok(()),
         };
         true
@@ -714,7 +720,7 @@ fn in_chrome(
         // Agents reach the live card through the conversation's socket,
         // kept to the sites a person named (queue item 716); and the
         // sign-ins kept are given to it (ADR 0111).
-        (reaching.sites.clone(), pinned.cloned(), kept.cloned()),
+        (reaching.scope.clone(), pinned.cloned(), kept.cloned()),
         told,
     )
     .map_err(|why| why.to_string())?;

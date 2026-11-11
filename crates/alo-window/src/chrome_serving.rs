@@ -107,7 +107,7 @@
 
 use crate::agent_lines::AgentLine;
 use crate::agent_record::{AgentRecord, Caller};
-use crate::agent_sites::AgentSites;
+use crate::agent_scope::AgentScope;
 use crate::asking::{Answer, Ask, Refused};
 use crate::beside::Chromium;
 use crate::chrome::{self, Chrome, Failed, Unstarted};
@@ -249,7 +249,11 @@ impl ChromeServing {
     ///
     /// [`Unserved`], when Chrome does not start, say which it is, or open
     /// the page — Chrome is closed again — or no thread could be started.
-    pub fn start(opening: Opening, size: (u32, u32), sites: AgentSites) -> Result<Self, Unserved> {
+    pub fn start(
+        opening: Opening,
+        size: (u32, u32),
+        sites: impl Into<AgentScope>,
+    ) -> Result<Self, Unserved> {
         Self::begin(
             opening,
             size,
@@ -257,6 +261,22 @@ impl ChromeServing {
             sites,
             None,
         )
+    }
+
+    /// [`ChromeServing::start`], headless, in the Chromium `chromium` names
+    /// — the machine's Chrome, or the one the application carries — so that
+    /// a test reads the socket through either (queue item 956).
+    ///
+    /// # Errors
+    ///
+    /// As [`ChromeServing::start`].
+    pub fn start_from(
+        chromium: Chromium,
+        opening: Opening,
+        size: (u32, u32),
+        sites: impl Into<AgentScope>,
+    ) -> Result<Self, Unserved> {
+        Self::begin(opening, size, (chromium, Drawn::Headless), sites, None)
     }
 
     /// [`ChromeServing::start`], headless, with what each agent's verb was
@@ -271,7 +291,7 @@ impl ChromeServing {
     pub fn start_telling(
         opening: Opening,
         size: (u32, u32),
-        sites: AgentSites,
+        sites: impl Into<AgentScope>,
         frame: TellFrame,
     ) -> Result<Self, Unserved> {
         Self::begin(
@@ -300,7 +320,7 @@ impl ChromeServing {
         opening: Opening,
         size: (u32, u32),
         (left, top): (i32, i32),
-        sites: AgentSites,
+        sites: impl Into<AgentScope>,
         frame: TellFrame,
     ) -> Result<Self, Unserved> {
         Self::begin(
@@ -335,7 +355,7 @@ impl ChromeServing {
         opening: Opening,
         size: (u32, u32),
         (left, top): (i32, i32),
-        sites: AgentSites,
+        sites: impl Into<AgentScope>,
         told: TellFrame,
     ) -> Result<Self, Unserved> {
         Self::begin(
@@ -390,7 +410,7 @@ impl ChromeServing {
         opening: Opening,
         size: (u32, u32),
         scale: Scale,
-        sites: AgentSites,
+        sites: impl Into<AgentScope>,
         told: TellFrame,
     ) -> Result<Self, Unserved> {
         Self::start_as_a_pinned_card(chromium, opening, (size, scale), sites, None, told)
@@ -408,7 +428,7 @@ impl ChromeServing {
         chromium: Chromium,
         opening: Opening,
         (size, scale): ((u32, u32), Scale),
-        (sites, pinned, kept): (AgentSites, Option<Pinned>, Option<Arc<SignIns>>),
+        (sites, pinned, kept): (impl Into<AgentScope>, Option<Pinned>, Option<Arc<SignIns>>),
         told: TellFrame,
     ) -> Result<Self, Unserved> {
         let (left, top) = chrome_window::PARKED;
@@ -425,7 +445,7 @@ impl ChromeServing {
                     scale: Some(scale),
                 },
             ),
-            (sites, pinned, kept),
+            (sites.into(), pinned, kept),
             Some(told),
         )
     }
@@ -441,7 +461,7 @@ impl ChromeServing {
         chromium: Chromium,
         opening: Opening,
         (size, scale): ((u32, u32), Scale),
-        sites: AgentSites,
+        sites: impl Into<AgentScope>,
         pinned: Option<Pinned>,
         told: TellFrame,
     ) -> Result<Self, Unserved> {
@@ -459,7 +479,7 @@ impl ChromeServing {
                     scale: Some(scale),
                 },
             ),
-            (sites, pinned, None),
+            (sites.into(), pinned, None),
             Some(told),
         )
     }
@@ -470,10 +490,10 @@ impl ChromeServing {
         opening: Opening,
         size: (u32, u32),
         named: (Chromium, Drawn),
-        sites: AgentSites,
+        sites: impl Into<AgentScope>,
         frame: Option<TellFrame>,
     ) -> Result<Self, Unserved> {
-        Self::begin_pinned(opening, size, named, (sites, None, None), frame)
+        Self::begin_pinned(opening, size, named, (sites.into(), None, None), frame)
     }
 
     /// [`ChromeServing::begin`], the Chromium taking the name `pinned`
@@ -482,7 +502,7 @@ impl ChromeServing {
         opening: Opening,
         size: (u32, u32),
         (chromium, drawn): (Chromium, Drawn),
-        (sites, pinned, kept): (AgentSites, Option<Pinned>, Option<Arc<SignIns>>),
+        (sites, pinned, kept): (AgentScope, Option<Pinned>, Option<Arc<SignIns>>),
         frame: Option<TellFrame>,
     ) -> Result<Self, Unserved> {
         let (orders, results, inbox) = inbox::inbox();
@@ -628,7 +648,7 @@ fn serve_in_chrome(
     (opening, kept): (Opening, Option<Arc<SignIns>>),
     size: (u32, u32),
     (chromium, drawn, pinned): (&Chromium, Drawn, Option<&Pinned>),
-    sites: &AgentSites,
+    sites: &AgentScope,
     frame: Option<&(dyn Fn(ToFrame) -> bool + Send)>,
     inbox: &Receiver<Arrival>,
     tell: &Sender<Result<Started, Unserved>>,
@@ -887,7 +907,7 @@ fn placing(tab: &mut Tab<'_>, drawn: Drawn) -> Result<Option<Placed>, Unplaced> 
 struct Serving<'s, 'c> {
     pages: &'s mut ChromePages<'c>,
     record: &'s mut AgentRecord,
-    sites: &'s AgentSites,
+    sites: &'s AgentScope,
     /// The frame told what agents did, if there is one.
     frame: Option<&'s (dyn Fn(ToFrame) -> bool + Send)>,
     /// The mark over a shown Chrome's page, which a headless one has none of.

@@ -588,6 +588,8 @@ fn as_asked(entry: &alo_window::agent_record::Entry) -> String {
             format!("{action} in {document:?}: {verb:?} {target}: {came_to}")
         }
         Did::Refused(refused) => format!("refused {refused:?}"),
+        // The asks of queue item 956, which this order makes none of.
+        other => format!("{other:?}"),
     };
     format!(
         "{} at {:?} on {:?}: {did}",

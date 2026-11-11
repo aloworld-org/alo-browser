@@ -51560,3 +51560,59 @@ scale one; a sheet read whole in the window; ten diagrams.net runs (950).
 Every alo, Chromium and test server started was closed.
 
 The next unused queue number is **955**.
+
+## 2026-11-11 — ADR 0112: alo OS's default browser; queue items 955–958 (956 and 957 closed, 958 open)
+
+**The owner's decision** (11 November 2026, with the alo OS coordinator's
+eleven requirements): alo browser becomes alo OS's default browser once it
+passes alo OS's bar on an alo OS machine; Firefox stays the default until
+then; a person can always choose another. Recorded as **ADR 0112**, with
+each requirement's status today (cited by file), the bar, the questions
+sent to the coordinator (palette and the agent's terracotta → deep teal,
+the logo's teal, Manrope against Inter, OpenURI and a running instance, a
+qemu image) and the plan in order. `ROADMAP.md`'s alo OS passage amended:
+the slot is sought at alo OS's bar, not at stage 2's exit gate (which is
+unchanged); the macOS-only surface is eighteen files, not three, and a
+card on Wayland needs Chromium drawing off screen (959, needs ADR).
+Queued 959–972, each saying whether it needs an alo OS machine.
+
+**Built.** 956: the socket's `open` (in a tab named by address, or — in
+the conversation — a new chat, as *Open in new chat*), `new_tab` (*New
+chat*), `find` (nodes by number, role and name, never a position) and
+`print_pdf` (Chromium's `Page.printToPDF`, written by the browser process
+as a new `0600` file only under a directory allowed with `--agent-saves`,
+never over a file or link, only if it begins `%PDF-`). Contract updated,
+additive; `alo-ask --plain` prints each. 957: `alo --data DIR` — chats,
+settings, sign-ins, every key (a keychain file of the directory's own)
+and the socket under one private directory — **amended at the
+coordinator's word before the gate:** a keychain file unlocked by a
+password written in the repository protects nothing, so under `--data`
+no key is kept at all until 969: sign-ins in memory for the run
+(*Settings*: kept only until alo quits), a person's own service keys not
+kept (*Settings*: *Your own keys can't be kept in this data folder yet*;
+the carried keys still work), chats not kept; `keychain.rs` and
+`sign_in_key.rs` back as they were, so no such keychain path is left in
+product code. 958: the conversation's window
+called by the live card's page's title (handed to the window server only
+off macOS, ADR 0024 § 4), the card's Chromium read for its title at most
+once a second while streamed; `app_id` `org.aloworld.Browser` asked for on
+Linux.
+
+**Tests.** `cargo test -p alo-window --lib`: 1025 passed. fmt clean;
+`clippy -p alo-window --all-targets --all-features -D warnings` clean.
+Through the machine's Chrome and alo's CEF host (CEF 156.0.14), screen
+unlocked and live: `a_page_opened_found_and_printed_by_an_agent_through_chrome`,
+`a_new_chat_opened_by_an_agent_outside_through_chrome` (both new),
+`a_page_as_a_card_through_chrome` (its list of what a card tells now
+includes the title), `an_agent_reaching_a_page_the_conversation_opened_through_chrome`,
+`the_agent_at_work_on_a_card_through_chrome`,
+`the_cards_back_and_forward_through_chrome`; and
+`two_alos_with_their_own_data_in_the_window` (nothing secret written
+under either directory), `an_agent_outside_the_browser`,
+`an_agent_kept_to_a_site`, `alo_ask_written_plainly` — all passing. The
+new shown tests are in nextest's lists. The full gate was not run (the
+owner gates). **Not verified:** anything on Linux — the `app_id` code was
+never compiled (no Linux target here), so 958 stays open; the window's
+title as a compositor draws it.
+
+The next unused queue number is **974**.

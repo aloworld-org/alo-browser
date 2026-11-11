@@ -484,6 +484,10 @@ pub enum Command {
     /// `Page.getNavigationHistory`: the tab's session history, and which of
     /// its entries the page is (queue item 737). Read by [`history`].
     ReadHistory,
+    /// `Page.printToPDF`: the page printed as a PDF, as Chromium's own
+    /// *Save as PDF* prints it, backgrounds included, handed back whole in
+    /// base64 (queue item 956). Read by [`pdf`].
+    PrintToPdf,
     /// `Page.navigateToHistoryEntry`: go to the entry of the tab's session
     /// history numbered `entry`, as the browser's own *Back* and *Forward*
     /// do — not the page's script.
@@ -587,6 +591,7 @@ impl Command {
             Self::FrameSeen { .. } => "Page.screencastFrameAck",
             Self::StopCasting => "Page.stopScreencast",
             Self::ReadHistory => "Page.getNavigationHistory",
+            Self::PrintToPdf => "Page.printToPDF",
             Self::GoToEntry { .. } => "Page.navigateToHistoryEntry",
             Self::ReadTheDom => "DOM.enable",
             Self::LoadAgain => "Page.reload",
@@ -654,7 +659,7 @@ impl Command {
             }
             Self::TellOfStages => put("enabled", Value::Bool(true)),
             Self::PauseEveryRequest => put("patterns", every_request()),
-            Self::LayOutAt { .. } | Self::Cast { .. } => {
+            Self::LayOutAt { .. } | Self::Cast { .. } | Self::PrintToPdf => {
                 self.drawing()
                     .into_iter()
                     .for_each(|(name, value)| put(name, value));
@@ -725,8 +730,8 @@ impl Command {
     }
 
     /// The `params` of a command saying how the page is drawn: the size it
-    /// is laid out at, or the frames streamed of it — and none for any
-    /// other.
+    /// is laid out at, the frames streamed of it, or how it is printed —
+    /// and none for any other.
     fn drawing(&self) -> Vec<(&'static str, Value)> {
         match self {
             Self::LayOutAt { width, height } => vec![
@@ -741,6 +746,10 @@ impl Command {
                 ("maxWidth", Value::from(*width)),
                 ("maxHeight", Value::from(*height)),
                 ("everyNthFrame", Value::from(1)),
+            ],
+            Self::PrintToPdf => vec![
+                ("printBackground", Value::Bool(true)),
+                ("transferMode", Value::from("ReturnAsBase64")),
             ],
             _ => Vec::new(),
         }
@@ -1468,6 +1477,22 @@ pub fn navigated(result: &[u8]) -> Result<Result<String, String>, Malformed> {
         None => text(fields.get("loaderId"), "loaderId").map(Ok),
         reason => text(reason, "errorText").map(Err),
     }
+}
+
+/// The bytes of the PDF a reply's `result` to `Page.printToPDF` holds, in
+/// base64 as its `data` (queue item 956). Whether they are a PDF is the
+/// caller's to judge.
+///
+/// # Errors
+///
+/// [`Malformed`], for a result with no `data` that is base64.
+pub fn pdf(result: &[u8]) -> Result<Vec<u8>, Malformed> {
+    let fields = object(result)?;
+    fields
+        .get("data")
+        .and_then(Value::as_str)
+        .and_then(crate::chrome_screencast::decoded)
+        .ok_or(Malformed::BadField { field: "data" })
 }
 
 /// A tab's session history, as `Page.getNavigationHistory` answers it:
@@ -3068,6 +3093,18 @@ mod tests {
 
     fn bad<T>(field: &'static str) -> Result<T, Malformed> {
         Err(Malformed::BadField { field })
+    }
+
+    #[test]
+    fn a_page_is_printed_as_a_pdf_and_its_bytes_read_back() {
+        assert_eq!(
+            written(8, Some("S"), &Command::PrintToPdf),
+            br#"{"id":8,"method":"Page.printToPDF","params":{"printBackground":true,"transferMode":"ReturnAsBase64"},"sessionId":"S"}"#
+        );
+        assert_eq!(pdf(br#"{"data":"JVBERi0xLjQ="}"#), Ok(b"%PDF-1.4".to_vec()));
+        assert_eq!(pdf(br#"{"data":"not base64!"}"#), bad("data"));
+        assert_eq!(pdf(br#"{"stream":"1"}"#), bad("data"));
+        assert_eq!(pdf(br#"{"data":7}"#), bad("data"));
     }
 
     #[test]

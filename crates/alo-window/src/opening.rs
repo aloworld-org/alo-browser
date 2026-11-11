@@ -44,7 +44,18 @@
 //! engine's window's, and are kept; and `--agent-site` keeps the agents
 //! its socket lets reach the page it shows to those sites, as with
 //! `--chrome` (queue item 716).
+//!
+//! And it is where a person allows the directories an agent may have a page
+//! saved in as a PDF (`--agent-saves DIR`, queue item 956,
+//! [`crate::agent_saves`]): none, unless they name one.
+//!
+//! And it is where a person names one directory for everything this alo
+//! keeps (`--data DIR`, queue item 957, [`crate::data_dir`]): its chats,
+//! sign-ins, settings, keys and agent socket, so that a second alo started
+//! with another is an instance of its own.
 
+use crate::agent_saves::AgentSaves;
+use crate::agent_scope::AgentScope;
 use crate::agent_sites::AgentSites;
 use crate::chrome_serving;
 use crate::conductor::Fonts;
@@ -57,8 +68,10 @@ use std::path::{Path, PathBuf};
 
 /// How to use `alo`, as it is said when it was used wrongly.
 pub const USAGE: &str = "usage: alo [--frozen-fonts] [--scale FACTOR] [--agent-site ADDRESS ...] \
-     [PAGE.html [SHEET.css ...]]\n       alo --chrome [--agent-site ADDRESS ...] (ADDRESS | PAGE.html)\n       \
-     alo --conversation [--frozen-fonts] [--scale FACTOR] [--chats DIR] [--sign-ins DIR] [--agent-site ADDRESS ...]";
+     [--data DIR] [PAGE.html [SHEET.css ...]]\n       alo --chrome [--agent-site ADDRESS ...] \
+     [--agent-saves DIR ...] [--data DIR] (ADDRESS | PAGE.html)\n       \
+     alo --conversation [--frozen-fonts] [--scale FACTOR] [--data DIR | [--chats DIR] [--sign-ins DIR]] \
+     [--agent-site ADDRESS ...] [--agent-saves DIR ...]";
 
 /// The size, in CSS pixels, a page in Chrome is laid out at: the size ADR
 /// 0061 measured Chrome's frames at. Chrome's window is sized to hold the
@@ -117,6 +130,13 @@ pub struct Opening {
     /// keeps them in alo's own directory
     /// ([`crate::sign_ins::for_this_person`]).
     pub sign_ins: Option<PathBuf>,
+    /// The directories an agent may have a page saved in as a PDF
+    /// (`--agent-saves DIR`, queue item 956): none unless named.
+    pub saves: AgentSaves,
+    /// The one directory everything this alo keeps is kept in, when a
+    /// person named one (`--data DIR`, queue item 957): an absolute path.
+    /// [`None`] keeps each where alo keeps it.
+    pub data: Option<PathBuf>,
 }
 
 impl Opening {
@@ -167,6 +187,8 @@ impl Opening {
         let mut conversation = false;
         let mut chats = None;
         let mut sign_ins = None;
+        let mut saves = Vec::new();
+        let mut data = None;
         let mut arguments = arguments.into_iter();
         while let Some(argument) = arguments.next() {
             if argument == "--chrome" {
@@ -181,27 +203,16 @@ impl Opening {
                 };
                 sites.push(address);
             } else if argument == "--chats" {
-                let Some(directory) = arguments.next().map(PathBuf::from) else {
-                    return Err(format!("--chats names no directory\n{USAGE}"));
-                };
-                if !directory.is_absolute() {
-                    return Err(format!(
-                        "--chats {} is not an absolute path\n{USAGE}",
-                        directory.display()
-                    ));
-                }
-                chats = Some(directory);
+                chats = Some(absolute("--chats", arguments.next())?);
             } else if argument == "--sign-ins" {
+                sign_ins = Some(absolute("--sign-ins", arguments.next())?);
+            } else if argument == "--agent-saves" {
                 let Some(directory) = arguments.next().map(PathBuf::from) else {
-                    return Err(format!("--sign-ins names no directory\n{USAGE}"));
+                    return Err(format!("--agent-saves names no directory\n{USAGE}"));
                 };
-                if !directory.is_absolute() {
-                    return Err(format!(
-                        "--sign-ins {} is not an absolute path\n{USAGE}",
-                        directory.display()
-                    ));
-                }
-                sign_ins = Some(directory);
+                saves.push(directory);
+            } else if argument == "--data" {
+                data = Some(absolute("--data", arguments.next())?);
             } else if argument == "--scale" {
                 let Some(factor) = arguments.next() else {
                     return Err(format!("--scale names no factor\n{USAGE}"));
@@ -215,6 +226,14 @@ impl Opening {
         }
         let agents = AgentSites::named(sites.iter().map(String::as_str))
             .map_err(|why| format!("--agent-site: {why}\n{USAGE}"))?;
+        let saves =
+            AgentSaves::named(saves).map_err(|why| format!("--agent-saves: {why}\n{USAGE}"))?;
+        if data.is_some() && (chats.is_some() || sign_ins.is_some()) {
+            return Err(format!(
+                "--data names where everything alo keeps is kept, and is given without --chats \
+                 and --sign-ins\n{USAGE}"
+            ));
+        }
         let mut files = files.into_iter();
         let opening = Self {
             fonts,
@@ -226,6 +245,8 @@ impl Opening {
             conversation,
             chats,
             sign_ins,
+            saves,
+            data,
         };
         if !conversation && opening.sign_ins.is_some() {
             return Err(format!(
@@ -245,6 +266,12 @@ impl Opening {
             opening.refuse_beside_chrome()?;
         }
         Ok(opening)
+    }
+
+    /// What agents outside this browser are kept to: the sites named, and
+    /// the directories allowed for a page saved.
+    pub fn scope(&self) -> AgentScope {
+        AgentScope::new(self.agents.clone(), self.saves.clone())
     }
 
     /// What `--conversation` cannot be given, or nothing.
@@ -365,6 +392,26 @@ fn file_url(path: &Path) -> Result<Url, String> {
             absolute.display()
         )
     })
+}
+
+/// The directory `option` was given, `named`, which must be an absolute
+/// path.
+///
+/// # Errors
+///
+/// [`USAGE`] with what was wrong: no directory, or one that is not an
+/// absolute path.
+fn absolute(option: &str, named: Option<String>) -> Result<PathBuf, String> {
+    let Some(directory) = named.map(PathBuf::from) else {
+        return Err(format!("{option} names no directory\n{USAGE}"));
+    };
+    if !directory.is_absolute() {
+        return Err(format!(
+            "{option} {} is not an absolute path\n{USAGE}",
+            directory.display()
+        ));
+    }
+    Ok(directory)
 }
 
 #[cfg(test)]
@@ -643,6 +690,62 @@ mod tests {
     }
 
     #[test]
+    fn a_person_allows_the_directories_a_page_is_saved_in_and_none_otherwise() {
+        let directory = std::env::temp_dir();
+        let named = directory.to_string_lossy().into_owned();
+        let opening = Opening::from_arguments(arguments(&[
+            "--chrome",
+            "--agent-saves",
+            &named,
+            "https://example.com/",
+        ]))
+        .expect("these are arguments");
+        assert_eq!(opening.saves.directories().len(), 1);
+        assert_eq!(opening.scope().saves, opening.saves);
+        let none = Opening::from_arguments(arguments(&[])).expect("no arguments is fine");
+        assert!(none.saves.is_empty());
+        assert!(
+            Opening::from_arguments(arguments(&["--agent-saves"]))
+                .is_err_and(|why| why.contains("names no directory"))
+        );
+        assert!(
+            Opening::from_arguments(arguments(&["--agent-saves", "relative"]))
+                .is_err_and(|why| why.contains("not an absolute path"))
+        );
+        assert!(
+            Opening::from_arguments(arguments(&["--agent-saves", "/nowhere/at/all"]))
+                .is_err_and(|why| why.contains("could not be read"))
+        );
+    }
+
+    #[test]
+    fn one_directory_is_named_for_everything_kept_and_never_beside_the_two_it_replaces() {
+        let opening =
+            Opening::from_arguments(arguments(&["--conversation", "--data", "/tmp/alo-a"]))
+                .expect("these are arguments");
+        assert_eq!(opening.data, Some(PathBuf::from("/tmp/alo-a")));
+        let chrome = Opening::from_arguments(arguments(&[
+            "--chrome",
+            "--data",
+            "/tmp/alo-b",
+            "https://example.com/",
+        ]))
+        .expect("the socket moves for --chrome too");
+        assert_eq!(chrome.data, Some(PathBuf::from("/tmp/alo-b")));
+        for refused in [
+            &["--conversation", "--data"][..],
+            &["--conversation", "--data", "relative"],
+            &["--conversation", "--data", "/tmp/a", "--chats", "/tmp/b"],
+            &["--conversation", "--sign-ins", "/tmp/b", "--data", "/tmp/a"],
+        ] {
+            assert!(
+                Opening::from_arguments(arguments(refused)).is_err(),
+                "{refused:?}"
+            );
+        }
+    }
+
+    #[test]
     fn a_frozen_page_is_read_with_its_sheet_and_named_by_its_file() {
         let case = Path::new(env!("CARGO_MANIFEST_DIR")).join("../alo-corpus/cases/alo-sign-in");
         let opening = Opening {
@@ -655,6 +758,8 @@ mod tests {
             conversation: false,
             chats: None,
             sign_ins: None,
+            saves: AgentSaves::none(),
+            data: None,
         };
         let Ok(Order::Open {
             url,
@@ -682,6 +787,8 @@ mod tests {
             conversation: false,
             chats: None,
             sign_ins: None,
+            saves: AgentSaves::none(),
+            data: None,
         };
         assert!(
             opening

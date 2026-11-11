@@ -437,15 +437,17 @@ fn float(count: usize) -> f64 {
 fn streamed(told: &Receiver<ToFrame>, who: &str) {
     let (frames, other) = frames_within(told, WATCHED);
     // Where the page is, told as it is first streamed (queue item 742),
-    // whether it is loading (queue item 751), and where it can go back or
-    // forward to (queue item 737), are the card's own business; nothing
-    // else is told.
+    // whether it is loading (queue item 751), where it can go back or
+    // forward to (queue item 737), and what it is called — its own title,
+    // for the window's (queue item 958) — are the card's own business;
+    // nothing else is told.
     assert!(
-        other.iter().all(|news| matches!(
-            news,
-            ToFrame::Moved(_) | ToFrame::Loading(_) | ToFrame::Travel(_)
-        )),
-        "told something else: {other:?}"
+        other.iter().all(|news| match news {
+            ToFrame::Moved(_) | ToFrame::Loading(_) | ToFrame::Travel(_) => true,
+            ToFrame::Named(named) => named.title == "A card",
+            _ => false,
+        }),
+        "{who}: told something else: {other:?}"
     );
     let sizes: Vec<Option<(u32, u32)>> = frames.iter().map(|(_, png)| png_size(png)).collect();
     assert!(

@@ -6,6 +6,21 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **alo browser is on its way to being alo OS's default browser.** The
+  owner decided it will become the default on alo OS once it passes alo
+  OS's own bar on an alo OS machine; Firefox stays the default until then,
+  and you can always pick another browser. The plan is written down (ADR
+  0112). First steps, usable today: an agent outside alo can now **open a
+  page** — in a tab it names, or in a new chat — **open a new chat**,
+  **find words on a page** (answered by what holds them, never by where it
+  is on screen) and **save a page as a PDF**, but only into a folder you
+  allowed with `alo --agent-saves FOLDER`, and never over an existing
+  file. `alo --data FOLDER` runs a second, separate alo beside the
+  first, with its own settings and agent socket in that folder. Until it
+  has a proper place for secrets it keeps none: its sign-ins and chats
+  last only until it quits, and keys you type in Settings are not kept
+  (it says so); the keys alo comes with still work. On Linux the window
+  will be called after the page you are looking at.
 - **Pages in a card show their true colours on a laptop's own screen.** On
   a wide-colour display, such as a MacBook's, a page opened in the
   conversation looked washed out — its colours converted for the display

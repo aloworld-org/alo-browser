@@ -95,6 +95,10 @@ pub enum Unanswered {
     /// shown in the conversation, which no agent does (queue item 826, ADR
     /// 0099): the field, and nothing was done.
     CardDetails(alo_box::BoxId),
+    /// The renderer drawing the tab does not do what was asked of it —
+    /// this engine's tabs neither go to an address an agent names nor
+    /// save a page as a PDF (queue item 956) — and nothing was done.
+    NotOffered,
 }
 
 /// The open tabs an agent may be answered from.
@@ -144,4 +148,29 @@ pub trait Pages {
         target: &Target,
         verb: &Verb,
     ) -> Result<(ActionId, Acted), Unanswered>;
+
+    /// Send the page in `tab` to `address`, an `http` or `https` one an
+    /// agent named and may reach, as the action it answers with, and wait
+    /// for it to arrive (queue item 956). By default not done:
+    /// [`Unanswered::NotOffered`].
+    ///
+    /// # Errors
+    ///
+    /// [`Unanswered`], when the tab could not be asked or did not go.
+    fn go(&mut self, tab: Self::Tab, address: &Url) -> Result<ActionId, Unanswered> {
+        let _ = (tab, address);
+        Err(Unanswered::NotOffered)
+    }
+
+    /// The page in `tab` printed as a PDF, its bytes as the renderer gave
+    /// them (queue item 956). By default not done:
+    /// [`Unanswered::NotOffered`].
+    ///
+    /// # Errors
+    ///
+    /// [`Unanswered`], when the tab could not be asked or did not print.
+    fn print_pdf(&mut self, tab: Self::Tab) -> Result<Vec<u8>, Unanswered> {
+        let _ = tab;
+        Err(Unanswered::NotOffered)
+    }
 }

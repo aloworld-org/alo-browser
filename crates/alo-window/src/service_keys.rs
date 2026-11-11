@@ -29,6 +29,16 @@
 //! names the service by what it is, and the item by its service. Tests
 //! name a keychain file of their own ([`Keychain::File`]), never the
 //! person's.
+//!
+//! # No secret store: the application's keys alone
+//!
+//! An alo kept in a data directory of its own (`alo --data DIR`, ADR 0112
+//! § 5) has no secret store to keep a person's key in until queue item 969
+//! gives it one, and a keychain file unlocked by a password this repository
+//! writes protects nothing. So such an alo asks only with the keys the
+//! application carries ([`Keys::carried_only`]): no keychain is read or
+//! written, a person's own key is not kept ([`NOT_IN_THIS_FOLDER`], said in
+//! *Settings*), and there is none to remove.
 
 use crate::bundle::Bundle;
 use crate::carried_keys;
@@ -37,13 +47,19 @@ use crate::search_key::Key;
 use crate::services::Keyed;
 use std::path::PathBuf;
 
+/// What *Settings* says when a person's own key cannot be kept, in an alo
+/// kept in a data directory of its own (queue item 957): no provider's
+/// name, and the application's keys still work.
+pub const NOT_IN_THIS_FOLDER: &str = "Your own keys can\u{2019}t be kept in this data folder \
+     yet. The keys alo carries still work.";
+
 /// Where a service's key is had from: the keychain the person's own and
 /// the older items are in, for whom, and the application's resources, if
 /// alo runs inside one.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Keys {
-    /// The keychain asked.
-    keychain: Keychain,
+    /// The keychain asked, or none: the application's keys alone.
+    keychain: Option<Keychain>,
     /// The account its items are for.
     account: String,
     /// The application's `Contents/Resources`, if alo runs inside one.
@@ -78,8 +94,19 @@ impl Keys {
     /// `Contents/Resources` is `resources`: a test's own keychain file.
     pub fn in_keychain(keychain: Keychain, account: &str, resources: Option<PathBuf>) -> Self {
         Self {
-            keychain,
+            keychain: Some(keychain),
             account: account.to_owned(),
+            resources,
+        }
+    }
+
+    /// The keys the application whose `Contents/Resources` is `resources`
+    /// carries, and no keychain at all: for an alo kept in a data directory
+    /// of its own, which has no secret store yet (queue item 957).
+    pub fn carried_only(resources: Option<PathBuf>) -> Self {
+        Self {
+            keychain: None,
+            account: String::new(),
             resources,
         }
     }
@@ -93,7 +120,14 @@ impl Keys {
     /// given; the person's own not one a request can carry, or not read; a
     /// carried key that cannot be read.
     pub fn key(&self, keyed: Keyed) -> Result<Key, String> {
-        if let Some(written) = keychain::find(&self.keychain, keyed.service(), &self.account)? {
+        let Some(own) = &self.keychain else {
+            return match &self.resources {
+                Some(resources) => carried_keys::read(resources, keyed.slot())?,
+                None => None,
+            }
+            .ok_or_else(|| missing(keyed));
+        };
+        if let Some(written) = keychain::find(own, keyed.service(), &self.account)? {
             return Key::given(&written).ok_or_else(|| {
                 format!(
                     "the key given in Settings for {} is not one alo can send",
@@ -108,11 +142,11 @@ impl Keys {
         }
         // An older alo's item: read as it was then, any failure as none.
         let older = keychain::generic_password(keyed.older(), &self.account);
-        let older = match (&self.keychain, older) {
+        let older = match (own, older) {
             (Keychain::Theirs, Ok(written)) => Some(written),
             (Keychain::Theirs, Err(_)) => None,
             (Keychain::File(_), _) => {
-                keychain::find(&self.keychain, keyed.older(), &self.account).unwrap_or(None)
+                keychain::find(own, keyed.older(), &self.account).unwrap_or(None)
             }
         };
         older
@@ -152,8 +186,11 @@ impl Keys {
                 keyed.of()
             )
         })?;
+        let Some(own) = &self.keychain else {
+            return Err(NOT_IN_THIS_FOLDER.to_owned());
+        };
         keychain::keep(
-            &self.keychain,
+            own,
             (keyed.service(), &self.account, keyed.label()),
             key.header_value(),
         )
@@ -166,7 +203,10 @@ impl Keys {
     ///
     /// When the keychain did not remove it.
     pub fn remove(&self, keyed: Keyed) -> Result<bool, String> {
-        keychain::delete(&self.keychain, keyed.service(), &self.account)
+        match &self.keychain {
+            Some(own) => keychain::delete(own, keyed.service(), &self.account),
+            None => Ok(false),
+        }
     }
 }
 
@@ -361,5 +401,29 @@ mod tests {
             .err()
             .unwrap_or_default();
         assert!(!said.contains("not-real-0007"), "{said}");
+    }
+
+    #[test]
+    fn with_no_secret_store_only_the_applications_keys_are_asked_and_none_is_kept() {
+        let resources = carrying("carried-only", Keyed::BraveSearch, "carried-not-real-0957");
+        let keys = Keys::carried_only(Some(resources.clone()));
+        assert_eq!(
+            keys.key(Keyed::BraveSearch)
+                .map(|key| key.header_value().to_owned()),
+            Ok("carried-not-real-0957".to_owned())
+        );
+        assert_eq!(keys.kept(Keyed::BraveSearch), Ok(Kept::Carried));
+        assert_eq!(keys.kept(Keyed::OpenAi), Ok(Kept::None));
+        assert_eq!(
+            keys.keep(Keyed::BraveSearch, "not-a-real-key-0957"),
+            Err(NOT_IN_THIS_FOLDER.to_owned())
+        );
+        assert!(!NOT_IN_THIS_FOLDER.contains("Brave"));
+        assert_eq!(keys.remove(Keyed::BraveSearch), Ok(false));
+        // Still the carried one: nothing was kept anywhere.
+        assert_eq!(keys.kept(Keyed::BraveSearch), Ok(Kept::Carried));
+        let none = Keys::carried_only(None);
+        assert_eq!(none.key(Keyed::OpenAi).err(), Some(missing(Keyed::OpenAi)));
+        let _ = std::fs::remove_dir_all(&resources);
     }
 }

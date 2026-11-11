@@ -803,6 +803,61 @@ impl<'c> Tab<'c> {
         }
     }
 
+    /// Send the page to `address`, which an agent named and the browser
+    /// process let it reach, as an agent action minted here (ADR 0063):
+    /// what the page asks for on its way is caused by it. Waited for as the
+    /// tab was opened — until the page has loaded, or for a card until its
+    /// navigation has committed (queue item 956).
+    ///
+    /// # Errors
+    ///
+    /// [`Unopened::NotTheNetwork`] for an address not `http` or `https`, and
+    /// [`Unopened::NotNavigated`] for a frozen page, which answers only its
+    /// own address — both before anything is written to Chrome; or an
+    /// [`Unopened`] as [`Tab::open`] says.
+    pub fn go_for_agent(&mut self, address: &Url) -> Result<ActionId, Unopened> {
+        on_the_network(address)?;
+        if !self.is_from_the_network() {
+            return Err(Unopened::NotNavigated {
+                reason: "a frozen page is answered at its own address alone".to_owned(),
+            });
+        }
+        let action = self.acting();
+        self.url = address.to_string();
+        let until = if self.a_card {
+            Until::Committed
+        } else {
+            Until::Loaded
+        };
+        let before = self.navigations;
+        let went = self.go(until);
+        // A card's page is waited for only until it commits, which Chrome
+        // may tell before it says which document its own frame now holds:
+        // that is heard too, so the tab is named where it arrived.
+        if went.is_ok() {
+            let by = Instant::now() + self.chrome.patience();
+            while self.navigations == before && Instant::now() < by {
+                if self.next(by).is_err() {
+                    break;
+                }
+            }
+        }
+        self.done_acting();
+        went.map(|()| action)
+    }
+
+    /// The page printed as a PDF by Chromium itself (`Page.printToPDF`,
+    /// queue item 956): its bytes, which the caller judges.
+    ///
+    /// # Errors
+    ///
+    /// [`Failed`], when Chrome was not asked, declined — a Chromium that
+    /// does not print — or answered with no PDF in base64.
+    pub fn print_pdf(&mut self) -> Result<Vec<u8>, Failed> {
+        let printed = self.ask(&Command::PrintToPdf)?;
+        chrome_protocol::pdf(&printed).map_err(Failed::Malformed)
+    }
+
     /// How many times the tab's own frame has committed a document or moved
     /// within one, as Chrome last said: a count that changes whenever its
     /// session history may have (queue item 737).

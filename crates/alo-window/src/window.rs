@@ -172,6 +172,7 @@ use crate::ai_service::AiService;
 use crate::aim::{Aimed, aim, on_page};
 use crate::beside::Chromium;
 use crate::card_aim::Turned;
+use crate::chat_key::ChatKey;
 use crate::chat_store::ChatStore;
 use crate::chrome_follow::Follow;
 use crate::chrome_protocol::Bounds;
@@ -874,7 +875,9 @@ impl ApplicationHandler<ToFrame> for Framing<'_> {
 /// and keeps a person's own keys with `keys` (ADR 0106). Its chats are kept in the directory `chats` names,
 /// read from it as the window opens (queue item 757, ADR 0092), or, with
 /// none or one that cannot be opened, not kept, and said so; its cards'
-/// sign-ins in the jar `sign_ins` (ADR 0111). The card live
+/// sign-ins in the jar `sign_ins` (ADR 0111); the chats' key in `keychain`
+/// — or, under a data directory with no secret store (queue item 957),
+/// none, and the chats not kept. The card live
 /// is reached by agents as `reaching` says (queue item 716), and `closing`
 /// is run as the window's event loop ends — quit included, after which
 /// `AppKit` ends the process (item 688) — once every card is closed.
@@ -894,9 +897,10 @@ pub fn conversation(
         crate::services::Named,
         crate::service_keys::Keys,
     ),
-    (chats, sign_ins): (
+    (chats, sign_ins, keychain): (
         Result<PathBuf, String>,
         std::sync::Arc<crate::sign_ins::SignIns>,
+        Option<crate::keychain::Keychain>,
     ),
     (reaching, closing, agent): (
         Reaching,
@@ -915,6 +919,7 @@ pub fn conversation(
         Box::new(move |drawn| proxy.send_event(Heard::Drawn(drawn)).is_ok()),
     )
     .map_err(|why| format!("no thread to draw the chats panel and the first screen: {why}"))?;
+    hear_new_tabs(&reaching, event_loop.create_proxy());
     let proxy = event_loop.create_proxy();
     // Every card's Chromium given the sign-ins kept, and keeping its own
     // in the same jar (ADR 0111).
@@ -966,11 +971,11 @@ pub fn conversation(
         .with_services(defaults, keys)
         .with_sign_ins(sign_ins);
     // Where the chats are kept across launches (queue item 757, ADR 0092),
-    // sealed under the key in the person's keychain (queue item 790, ADR
-    // 0098), read before the window opens; with nowhere, or no key, said,
-    // and none kept.
+    // sealed under the key in `keychain` (queue item 790, ADR 0098), read
+    // before the window opens; with nowhere, or no key, said, and none
+    // kept.
     let state = match chats.and_then(|directory| {
-        let key = crate::chat_key::ChatKey::for_this_person()?;
+        let key = chat_key(keychain)?;
         ChatStore::open(&directory, key.key).map(|opened| (opened, key.made))
     }) {
         Ok(((store, opened), made)) => {
@@ -1073,6 +1078,11 @@ impl Conversing<'_> {
         let cursor = self.state.take_cursor();
         let ime = self.state.take_ime();
         if let Some(window) = &self.window {
+            // Called as the open card's page is, where the window server
+            // draws the title itself (queue item 958, `window_title`).
+            if let Some(title) = self.state.take_title() {
+                window.set_title(crate::window_title::shown(&title));
+            }
             // Input methods on the card's page (queue item 802): allowed
             // while it has the keyboard, the candidates under its caret.
             if let Some(allowed) = ime.allowed {
@@ -1121,9 +1131,10 @@ impl ApplicationHandler<Heard> for Conversing<'_> {
         // Never narrower than the tab row beside the rail, nor shorter than
         // the first screen's sites row (queue item 775).
         let attributes = WindowAttributes::default()
-            .with_title("alo")
+            .with_title(crate::window_title::ALONE)
             .with_inner_size(LogicalSize::new(CONVERSATION_SIZE.0, CONVERSATION_SIZE.1))
             .with_min_inner_size(LogicalSize::new(LEAST_SIZE.0, LEAST_SIZE.1));
+        let attributes = named(attributes);
         let window = match event_loop.create_window(attributes) {
             Ok(window) => Arc::new(window),
             Err(why) => {
@@ -1352,4 +1363,38 @@ fn pressed(event: &KeyEvent, modifiers: ModifiersState) -> Option<Press> {
         held: held(modifiers),
         repeat: event.repeat,
     })
+}
+
+/// The key the chats are sealed under, in `keychain` — or, with none, why
+/// none: a data directory has no secret store yet (queue item 957).
+fn chat_key(keychain: Option<crate::keychain::Keychain>) -> Result<ChatKey, String> {
+    let keychain = keychain.ok_or(crate::data_dir::NO_SECRET_STORE)?;
+    ChatKey::in_keychain(&keychain, &crate::keychain::this_person())
+}
+
+/// A new tab an agent outside asks for over the socket, judged by the
+/// relay, is the window's to open (queue item 956): handed to it by
+/// `proxy`.
+fn hear_new_tabs(reaching: &Reaching, proxy: winit::event_loop::EventLoopProxy<Heard>) {
+    reaching.reached.answered_by(Box::new(move |asked| {
+        proxy.send_event(Heard::NewTab(asked)).is_ok()
+    }));
+}
+
+/// `attributes`, naming the application to the window server where `winit`
+/// lets it be named (queue item 958, ADR 0112 § 1): on Linux, Wayland's
+/// `xdg_toplevel` `app_id` — the desktop entry's name,
+/// [`crate::window_title::APP_ID`]. On macOS the system names the
+/// application by its bundle's identifier, which is the same name, and
+/// there is nothing to set.
+#[cfg(target_os = "linux")]
+fn named(attributes: WindowAttributes) -> WindowAttributes {
+    use winit::platform::wayland::WindowAttributesExtWayland;
+    attributes.with_name(crate::window_title::APP_ID, crate::window_title::APP_ID)
+}
+
+/// `attributes` as they are: see the Linux build's.
+#[cfg(not(target_os = "linux"))]
+fn named(attributes: WindowAttributes) -> WindowAttributes {
+    attributes
 }
