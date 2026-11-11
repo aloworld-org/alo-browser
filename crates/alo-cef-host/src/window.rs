@@ -63,6 +63,19 @@
 //! Manager's strip — until the card is seen, then an ordinary one
 //! ([`Stage::listed`], `host.rs`, queue items 781 and 739).
 //!
+//! # With no window at all: the spike of queue item 959
+//!
+//! Told `--alo-windowless=WIDTHxHEIGHT@SCALE` beside `--app=`
+//! ([`crate::switches::windowless`]), which alo never gives, the host opens
+//! the page as a **windowless** browser ([`open_windowless`], ADR 0113,
+//! proposed): no window is made or placed, CEF asks the page's render
+//! handler ([`Drawn`]) its view's size and scale, and says each paint, which
+//! the spike says on the error output without reading a pixel
+//! (`windowless.rs`). The page's client is a parked card's for its life
+//! ([`Stage::Parked`]): what it tells is told, prompts dismissed, its own
+//! moves refused. CEF makes such a browser Alloy style, where every other
+//! page here is Chrome style.
+//!
 //! # Never sent to another program
 //!
 //! Every page's client cancels a navigation to a scheme Chromium does not
@@ -138,25 +151,29 @@
 use crate::after_menus::{Closing, GIVE_UP_AFTER, Now, Owed};
 use crate::parked::Stage;
 use crate::told::{self, Told};
+use crate::windowless::Viewport;
 use cef::{
     App, Browser, BrowserProcessHandler, BrowserSettings, BrowserView, BrowserViewDelegate,
     CefString, ChromeToolbarType, Client, CommandHandler, ContextMenuHandler, ContextMenuParams,
-    CursorInfo, CursorType, Display, DisplayHandler, Frame, ImplApp, ImplBrowser, ImplBrowserHost,
-    ImplBrowserProcessHandler, ImplBrowserView, ImplBrowserViewDelegate, ImplClient,
-    ImplCommandHandler, ImplContextMenuHandler, ImplContextMenuParams, ImplDisplay,
-    ImplDisplayHandler, ImplLifeSpanHandler, ImplPanel, ImplPanelDelegate, ImplPermissionHandler,
-    ImplPermissionPromptCallback, ImplRequest, ImplRequestHandler, ImplRunContextMenuCallback,
-    ImplTask, ImplView, ImplViewDelegate, ImplWindow, ImplWindowDelegate, LifeSpanHandler,
-    MenuModel, PermissionHandler, PermissionPromptCallback, PermissionRequestResult, Rect, Request,
-    RequestHandler, RunContextMenuCallback, RuntimeStyle, Size, State, Task, ThreadId, View,
-    Window, WindowDelegate, WindowOpenDisposition, WrapApp, WrapBrowserProcessHandler,
-    WrapBrowserViewDelegate, WrapClient, WrapCommandHandler, WrapContextMenuHandler,
-    WrapDisplayHandler, WrapLifeSpanHandler, WrapPermissionHandler, WrapRequestHandler, WrapTask,
-    WrapWindowDelegate, browser_view_create, browser_view_get_for_browser, display_get_alls,
-    display_get_count, post_delayed_task, post_task, window_create_top_level, wrap_app,
-    wrap_browser_process_handler, wrap_browser_view_delegate, wrap_client, wrap_command_handler,
-    wrap_context_menu_handler, wrap_display_handler, wrap_life_span_handler,
-    wrap_permission_handler, wrap_request_handler, wrap_task, wrap_window_delegate,
+    CursorInfo, CursorType, Display, DisplayHandler, DragData, DragOperationsMask, Frame, ImplApp,
+    ImplBrowser, ImplBrowserHost, ImplBrowserProcessHandler, ImplBrowserView,
+    ImplBrowserViewDelegate, ImplClient, ImplCommandHandler, ImplContextMenuHandler,
+    ImplContextMenuParams, ImplDisplay, ImplDisplayHandler, ImplLifeSpanHandler, ImplPanel,
+    ImplPanelDelegate, ImplPermissionHandler, ImplPermissionPromptCallback, ImplRenderHandler,
+    ImplRequest, ImplRequestHandler, ImplRunContextMenuCallback, ImplTask, ImplView,
+    ImplViewDelegate, ImplWindow, ImplWindowDelegate, LifeSpanHandler, MenuModel, PaintElementType,
+    PermissionHandler, PermissionPromptCallback, PermissionRequestResult, Rect, RenderHandler,
+    Request, RequestHandler, RunContextMenuCallback, RuntimeStyle, ScreenInfo, Size, State, Task,
+    ThreadId, View, Window, WindowDelegate, WindowInfo, WindowOpenDisposition, WrapApp,
+    WrapBrowserProcessHandler, WrapBrowserViewDelegate, WrapClient, WrapCommandHandler,
+    WrapContextMenuHandler, WrapDisplayHandler, WrapLifeSpanHandler, WrapPermissionHandler,
+    WrapRenderHandler, WrapRequestHandler, WrapTask, WrapWindowDelegate,
+    browser_host_create_browser, browser_view_create, browser_view_get_for_browser,
+    display_get_alls, display_get_count, post_delayed_task, post_task, window_create_top_level,
+    wrap_app, wrap_browser_process_handler, wrap_browser_view_delegate, wrap_client,
+    wrap_command_handler, wrap_context_menu_handler, wrap_display_handler, wrap_life_span_handler,
+    wrap_permission_handler, wrap_render_handler, wrap_request_handler, wrap_task,
+    wrap_window_delegate,
 };
 use std::cell::{Cell, RefCell};
 use std::os::raw::c_int;
@@ -173,20 +190,22 @@ const OPENED: Size = Size {
 
 /// The host's application: the browser process's handler, opening `page`
 /// once CEF is ready, when there is one — unseen and parked when it is a
-/// `card`'s.
-pub fn app(page: Option<String>, card: bool) -> App {
-    Host::new(page, card)
+/// `card`'s, or with no window at all at the viewport it is opened
+/// `windowless` at (the spike, [`crate::windowless`]).
+pub fn app(page: Option<String>, card: bool, windowless: Option<Viewport>) -> App {
+    Host::new(page, card, windowless)
 }
 
 wrap_app! {
     struct Host {
         page: Option<String>,
         card: bool,
+        windowless: Option<Viewport>,
     }
 
     impl App {
         fn browser_process_handler(&self) -> Option<BrowserProcessHandler> {
-            Some(Opener::new(self.page.clone(), self.card))
+            Some(Opener::new(self.page.clone(), self.card, self.windowless))
         }
     }
 }
@@ -195,12 +214,15 @@ wrap_browser_process_handler! {
     struct Opener {
         page: Option<String>,
         card: bool,
+        windowless: Option<Viewport>,
     }
 
     impl BrowserProcessHandler {
         fn on_context_initialized(&self) {
-            if let Some(page) = &self.page {
-                open(page, self.card);
+            match (&self.page, self.windowless) {
+                (Some(page), Some(viewport)) => open_windowless(page, viewport),
+                (Some(page), None) => open(page, self.card),
+                (None, _) => {}
             }
         }
 
@@ -208,7 +230,7 @@ wrap_browser_process_handler! {
             // Every page Chromium opens of its own — `Target.createTarget`,
             // a popup — is counted as the host's own are, so that
             // [`close_all`] closes it too. None is a card's window.
-            Some(Page::new(std::rc::Rc::new(Cell::new(None))))
+            Some(Page::new(std::rc::Rc::new(Cell::new(None)), None))
         }
     }
 }
@@ -221,7 +243,7 @@ fn open(page: &str, card: bool) {
     // follows it, and the page's client, which refuses the page's own moves
     // while it is unseen.
     let stage = std::rc::Rc::new(Cell::new(card.then_some(Stage::Opened)));
-    let mut client = Page::new(std::rc::Rc::clone(&stage));
+    let mut client = Page::new(std::rc::Rc::clone(&stage), None);
     let mut viewed = Viewed::new();
     let Some(view) = browser_view_create(
         Some(&mut client),
@@ -237,6 +259,133 @@ fn open(page: &str, card: bool) {
     let mut framed = Framed::new(view, stage);
     if window_create_top_level(Some(&mut framed)).is_none() {
         eprintln!("alo's CEF host: CEF made no window for the page");
+    }
+}
+
+/// Open `page` with no window at all, drawn at `viewport` through CEF's
+/// windowless rendering (the spike, [`crate::windowless`]), or say why not.
+/// The page is a card's that is never seen: what it tells is told to alo,
+/// its permission prompts dismissed and its own moves refused, as a parked
+/// card's are ([`Stage::Parked`], for its life — there is no window to
+/// place, so no *Expand*). CEF makes it Alloy style whatever is asked
+/// (`cef_types_runtime.h`), and gives it no parent view: none is needed to
+/// paint.
+fn open_windowless(page: &str, viewport: Viewport) {
+    let stage = std::rc::Rc::new(Cell::new(Some(Stage::Parked)));
+    let mut client = Page::new(stage, Some(viewport));
+    let info = WindowInfo::default().set_as_windowless(std::ptr::null_mut());
+    let settings = BrowserSettings {
+        windowless_frame_rate: crate::windowless::FRAME_RATE,
+        background_color: crate::windowless::GROUND,
+        ..settings(true)
+    };
+    if browser_host_create_browser(
+        Some(&info),
+        Some(&mut client),
+        Some(&CefString::from(page)),
+        Some(&settings),
+        None,
+        None,
+    ) != 1
+    {
+        eprintln!("alo's CEF host: CEF made no windowless browser for the page");
+    }
+}
+
+wrap_render_handler! {
+    struct Drawn {
+        viewport: Viewport,
+    }
+
+    impl RenderHandler {
+        fn view_rect(&self, _browser: Option<&mut Browser>, rect: Option<&mut Rect>) {
+            // The page's view, in CSS pixels, at the origin: nothing of it is
+            // anywhere on a screen.
+            if let Some(rect) = rect {
+                *rect = Rect {
+                    x: 0,
+                    y: 0,
+                    width: self.viewport.width,
+                    height: self.viewport.height,
+                };
+            }
+        }
+
+        fn screen_info(
+            &self,
+            _browser: Option<&mut Browser>,
+            screen_info: Option<&mut ScreenInfo>,
+        ) -> ::std::os::raw::c_int {
+            // The scale the page is drawn at is the viewport's, never a
+            // display's: there is no display under it.
+            let Some(screen_info) = screen_info else {
+                return 0;
+            };
+            let whole = Rect {
+                x: 0,
+                y: 0,
+                width: self.viewport.width,
+                height: self.viewport.height,
+            };
+            screen_info.device_scale_factor = self.viewport.scale;
+            screen_info.depth = 24;
+            screen_info.depth_per_component = 8;
+            screen_info.rect = whole.clone();
+            screen_info.available_rect = whole;
+            1
+        }
+
+        fn on_paint(
+            &self,
+            _browser: Option<&mut Browser>,
+            type_: PaintElementType,
+            dirty_rects: Option<&[Rect]>,
+            _buffer: *const u8,
+            width: ::std::os::raw::c_int,
+            height: ::std::os::raw::c_int,
+        ) {
+            // The pixels are behind the pointer, which the spike never reads
+            // (`windowless.rs`): the paint is said, for its cadence and size.
+            let what = if type_ == PaintElementType::POPUP {
+                crate::windowless::Painted::Popup
+            } else {
+                crate::windowless::Painted::View
+            };
+            let dirty = dirty_rects.map_or(0, <[Rect]>::len);
+            eprintln!(
+                "{}",
+                crate::windowless::painted(crate::windowless::now(), what, width, height, dirty)
+            );
+        }
+
+        fn on_popup_show(&self, _browser: Option<&mut Browser>, show: ::std::os::raw::c_int) {
+            let what = if show != 0 { "popup shown" } else { "popup hidden" };
+            eprintln!("{}", crate::windowless::said(crate::windowless::now(), what));
+        }
+
+        fn on_popup_size(&self, _browser: Option<&mut Browser>, rect: Option<&Rect>) {
+            if let Some(rect) = rect {
+                let what = format!(
+                    "popup at {} {} {}x{}",
+                    rect.x, rect.y, rect.width, rect.height
+                );
+                eprintln!("{}", crate::windowless::said(crate::windowless::now(), &what));
+            }
+        }
+
+        fn start_dragging(
+            &self,
+            _browser: Option<&mut Browser>,
+            _drag_data: Option<&mut DragData>,
+            _allowed_ops: DragOperationsMask,
+            _x: ::std::os::raw::c_int,
+            _y: ::std::os::raw::c_int,
+        ) -> ::std::os::raw::c_int {
+            // Said, and refused: CEF then ends the drag as cancelled. A
+            // windowless page has nowhere of its own to drag to.
+            eprintln!("{}", crate::windowless::said(crate::windowless::now(), "drag refused"));
+            0
+        }
     }
 }
 
@@ -266,9 +415,15 @@ wrap_client! {
     struct Page {
         // Where its window is, when it is a card's (`Framed`'s own).
         stage: std::rc::Rc<Cell<Option<Stage>>>,
+        // The viewport it is drawn at when it has no window (the spike).
+        windowless: Option<Viewport>,
     }
 
     impl Client {
+        fn render_handler(&self) -> Option<RenderHandler> {
+            self.windowless.map(Drawn::new)
+        }
+
         fn display_handler(&self) -> Option<DisplayHandler> {
             Some(Titled::new(std::rc::Rc::clone(&self.stage)))
         }

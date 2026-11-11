@@ -11,7 +11,8 @@
 //! page shown as a card, [`CARD`], the one switch that is alo's and not
 //! Chromium's. Chromium reads all the others itself; the host reads only
 //! four things, and none of them is a decision Chromium would make
-//! differently.
+//! differently. A fifth, [`windowless`], is a spike's (queue item 959):
+//! alo never starts the host with it.
 //!
 //! # Whose process this is
 //!
@@ -138,6 +139,21 @@ pub fn card(args: &[OsString]) -> bool {
     app(args).is_some() && args.iter().any(|arg| arg == CARD)
 }
 
+/// The viewport the host's page is opened windowless at, when alo asked
+/// for one — the last [`crate::windowless::SWITCH`], written as
+/// [`crate::windowless::Viewport::parse`] reads it — and only for a page
+/// shown at all ([`app`]): the spike of queue item 959 (ADR 0113,
+/// proposed). alo starts the host with it nowhere, so a page is windowless
+/// only when a person or a probe asks. Chromium does not know it, and
+/// passes over it.
+pub fn windowless(args: &[OsString]) -> Option<crate::windowless::Viewport> {
+    app(args)?;
+    args.iter()
+        .filter_map(|arg| value_of(arg, crate::windowless::SWITCH))
+        .next_back()
+        .and_then(crate::windowless::Viewport::parse)
+}
+
 /// Where, inside `profile`, the host's temporary files go.
 pub fn temporary(profile: &Path) -> PathBuf {
     profile.join(TEMPORARY)
@@ -248,6 +264,38 @@ mod tests {
         // A page's address that mentions the switch is not the switch.
         assert!(!card(&line(&["--app=https://a.test/?--alo-card"])));
         assert!(!card(&line(&["--app=data:,", "--alo-card=1"])));
+    }
+
+    #[test]
+    fn a_windowless_page_is_said_by_its_switch_and_only_for_a_page_shown() {
+        let viewport = windowless(&line(&["--app=data:,", "--alo-windowless=880x600@2"]));
+        assert_eq!(viewport.map(|v| (v.width, v.height)), Some((880, 600)));
+        // The last is the one taken, as Chromium takes the last of a switch.
+        let last = windowless(&line(&[
+            "--app=data:,",
+            "--alo-windowless=880x600@2",
+            "--alo-windowless=400x300@1",
+        ]));
+        assert_eq!(last.map(|v| (v.width, v.height)), Some((400, 300)));
+        assert_eq!(windowless(&line(&["--app=data:,"])), None, "off by default");
+        assert_eq!(
+            windowless(&line(&[
+                "--headless",
+                "about:blank",
+                "--alo-windowless=880x600@2"
+            ])),
+            None
+        );
+        assert_eq!(
+            windowless(&line(&["--app=data:,", "--alo-windowless=880x600"])),
+            None,
+            "a viewport not written so"
+        );
+        // A page's address that mentions the switch is not the switch.
+        assert_eq!(
+            windowless(&line(&["--app=https://a.test/?--alo-windowless=880x600@2"])),
+            None
+        );
     }
 
     #[test]

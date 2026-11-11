@@ -23,7 +23,9 @@
 //! `--app=` (queue item 727) and the pages it closes when it ends, and
 //! [`application_mac`]. A window holding a page alo shows as a card opens
 //! unseen and parked, and is seen once alo puts it where a person is to see
-//! it ([`parked`], [`unseen_mac`], queue item 771).
+//! it ([`parked`], [`unseen_mac`], queue item 771). Asked for with a
+//! switch alo never gives, a page opens with no window at all
+//! ([`windowless`], a spike, queue item 959).
 //!
 //! It is one program in two roles ([`switches::Role`]): the browser process
 //! alo starts, and each helper CEF starts from the copies of it in the
@@ -57,6 +59,7 @@ mod switches;
 mod told;
 mod unseen_mac;
 mod window;
+mod windowless;
 
 use std::ffi::OsString;
 use std::os::unix::process::CommandExt;
@@ -111,6 +114,7 @@ fn main() -> ExitCode {
         &profile,
         switches::app(&args),
         switches::card(&args),
+        switches::windowless(&args),
     )))
 }
 

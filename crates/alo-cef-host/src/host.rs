@@ -65,11 +65,13 @@
 //! and the process ends with [`MISSING`].
 
 use crate::parked::Stage;
+use crate::windowless::Viewport;
 use crate::{application_mac, menu_mac, switches, unseen_mac, window};
 use cef::args::Args;
 use cef::library_loader::LibraryLoader;
 use cef::sandbox::Sandbox;
 use cef::{CefString, LogSeverity, Settings};
+use std::os::raw::c_int;
 use std::path::{Path, PathBuf};
 
 /// The exit status when the framework or the sandbox library is missing.
@@ -136,8 +138,15 @@ pub fn helper(program: &Path) -> i32 {
 /// its own when alo asked for one (`--app=`, [`crate::window`]) — opened
 /// unseen and parked when it is a `card`'s ([`crate::parked`]): the
 /// process's exit status: 0 once the host has ended in order (Quit,
-/// `Browser.close`), or why it would not start.
-pub fn browser(program: &Path, profile: &Path, page: Option<String>, card: bool) -> i32 {
+/// `Browser.close`), or why it would not start. Opened `windowless`, the
+/// page has no window at all ([`crate::windowless`], a spike).
+pub fn browser(
+    program: &Path,
+    profile: &Path,
+    page: Option<String>,
+    card: bool,
+    windowless: Option<Viewport>,
+) -> i32 {
     let Some(frameworks) = frameworks(program, switches::Role::Browser) else {
         return MISSING;
     };
@@ -160,7 +169,8 @@ pub fn browser(program: &Path, profile: &Path, page: Option<String>, card: bool)
     // A card's host is an accessory application from before CEF starts —
     // so before it shows a window, which would make an ordinary one active
     // — until the card is seen (`window.rs`, queue items 781 and 739).
-    if card {
+    // A windowless page's host shows no window ever, so it is never listed.
+    if card || windowless.is_some() {
         unseen_mac::listed(Stage::Opened.listed());
     }
     let Some(bundle) = bundle(program) else {
@@ -176,9 +186,12 @@ pub fn browser(program: &Path, profile: &Path, page: Option<String>, card: bool)
         framework_dir_path: CefString::from(framework.to_string_lossy().as_ref()),
         // CEF's own log would be `debug.log` in the working directory.
         log_severity: LogSeverity::DISABLE,
+        // Only for the spike's switch; every other page is shown in a
+        // window, and CEF says this may cost rendering when unused.
+        windowless_rendering_enabled: c_int::from(windowless.is_some()),
         ..Settings::default()
     };
-    let mut app = window::app(page, card);
+    let mut app = window::app(page, card, windowless);
     if cef::initialize(
         Some(args.as_main_args()),
         Some(&settings),
