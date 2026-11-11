@@ -2633,8 +2633,8 @@ items where being right and being unusable are the same outcome.
       once (908), a Settings field edited as the box is (909) · Built:
       other sites' cookies refused by default, every site's or none as a
       person chooses, and a page's cookie banner answered with its refusal
-      by name, never a consent, in *Settings › Privacy* (920, ADR 0108; its
-      hand run on live sites owed) · Owed: a cookie choice used by the
+      by name, never a consent, in *Settings › Privacy* (920, ADR 0108; hand runs on live
+      sites 10–11 November 2026) · Owed: a cookie choice used by the
       open card at once (923), the platforms and languages not yet frozen
       (924)
 - [ ] A window, tabs, and a tab strip

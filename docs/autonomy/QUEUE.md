@@ -25314,7 +25314,7 @@ What stage 2's exit gate actually measures: a person using it.
   it costs a site are an ADR's to settle first. *Closes when:* a watched
   local page that changes is noticed within the interval, in a test, and
   a live page by hand.
-- [ ] **920. Cookies refused, and their banners answered (the owner's
+- [x] **920. Cookies refused, and their banners answered (the owner's
   word, 10 November 2026).** Two halves, one Settings section (*Privacy*):
   - *Cookies*: the person chooses what the Chromium alo carries keeps —
     another site's cookies refused (the default), every site's refused
@@ -25331,9 +25331,20 @@ What stage 2's exit gate actually measures: a person using it.
   answered with their refusal and pages without one are untouched, in
   tests; the cookie choice is shown in the cookies a test page receives;
   and by hand on live sites.
-  ***Built (batch 35, 10 November 2026); not ticked: the hand run on live
-  sites, and the gate, are owed*** (the screen was locked, then lent to
-  the owner's rehearsal). ADR 0108. **Cookies**: Chromium's own
+  ***Done (batch 35, 10 November 2026; hand runs 57 and 58, 10–11
+  November).*** Met: the frozen banners and the three cookie choices in
+  tests, through both Chromiums, in the gate at 68d4b72e; by hand in the
+  window, each choice clicked in *Settings › Privacy* and a local page's
+  reload sent nothing (*Refuse all*), the page's and its other-site
+  frame's cookies (*Keep all*), the page's own alone (the default); by
+  hand on 17 live sites, where alo pressed only refusals (booking.com,
+  edition.cnn.com, reddit.com) and said *left to you* on elpais.com.
+  **Not met live**: Sourcepoint's cross-site frame (bbc.com,
+  theguardian.com, spiegel.de, vrt.be), refusals in Dutch (ikea.com/be/nl)
+  and banners whose names alo does not know (hln.be, standaard.be,
+  lesoir.be — left unsaid rather than *left to you*), all queued as 924;
+  bbc.com's own bar with no box of its own, queued as 927. Partitioned
+  cookies are untried. ADR 0108. **Cookies**: Chromium's own
   `profile.cookie_controls_mode` and `profile.default_content_setting_values.cookies`
   written into each new Chromium's `Default/Preferences` before it starts
   (`chrome_cookies.rs`; measured on Chrome 157 and CEF 156) — used from

@@ -51240,13 +51240,43 @@ instead of the page: imdb.com, stackoverflow.com, zeit.de. **Cookies**
 (a local server's `127.0.0.1` page reloading itself, with a `localhost`
 frame setting `SameSite=None; Secure`): the default sent the page's own
 `top=1` back and the frame nothing; *Script sees: top=1*.
-**Not verified:** *Refuse all cookies* and *Keep all cookies* on that page
-— the screen locked mid-run (the clicks after it reached nothing, the
-server was never asked), so the run stopped there; the bar's line was seen
-only on pages that had already refused (no screenshot catches a banner
-before the refusal, about a second after load). fmt, `clippy -p alo-window
---all-targets --all-features -D warnings`, `alo-window --lib` (958), the
-two window-road settings/press tests: pass. **920 stays unticked**: the
-cookie choices by hand are owed, and the gate.
+The screen locked mid-run before the other two choices were tried (the
+clicks after it reached nothing, the server was never asked), so the run
+stopped there. fmt, `clippy -p alo-window --all-targets --all-features -D
+warnings`, `alo-window --lib` (958), the two window-road settings/press
+tests: pass. The gate then met at 68d4b72e (11 of 11 steps, 6,998 tests,
+the two cookie and banner tests among them).
+
+**Hand run, the rest (11 November 2026, 04:11–04:16; scratchpad
+`handrun58/`).** A release bundle rebuilt from 68d4b72e with no keys
+(`--keys-from` not named; the CEF distribution re-downloaded and checked
+against its pinned SHA-256, the scratch copy having been pruned),
+`--conversation --chats handrun58/chats`, its socket under a scratch
+`XDG_RUNTIME_DIR`; the screen unlocked (checked first; every click reached
+the window). Each choice clicked in
+*Settings › Privacy*, Settings closed, then the same local page opened from
+the box (`tools/cookieserve.py`; `cookies-server.log` is what the server
+was sent, `trees/cookies-*.txt` what the page said; each first load was
+sent nothing, so each page had a fresh Chromium):
+- *Refuse all cookies* (`cookies all` in `settings.txt`): the reload sent
+  nothing to either — *Sent: none*, *Script sees: none*, the frame *Frame
+  sent: none*.
+- *Keep all cookies* (`cookies keep`): the reload sent `top=1` to the page
+  and `frame=1` to the `localhost` frame — *Sent: top=1*, *Script sees:
+  top=1*, *Frame sent: frame=1*.
+- *Refuse other sites’ cookies · Default* (the line removed): `top=1` to the
+  page, nothing to the frame — *Frame sent: none*.
+The terminal said each choice as it was clicked. The card's bar, shown:
+*Cookie banner left to you* on elpais.com (its pay-or-accept, *ACCEPT AND
+CONTINUE* / *SUBSCRIBE AND DECLINE*, nothing pressed) and *Cookies
+refused* on booking.com (*Decline* pressed by alo; nothing accepted,
+signed in or submitted). Screenshots: `shots/03-refuse-all-chosen.png`,
+`06-keep-all-chosen.png`, `07-default-chosen.png`,
+`cookies-{refuse-all,keep-all,back-default}-c20s.png`, `elpais-b8s.png`,
+`booking-b8s.png`. No bug found. **Not verified**: partitioned cookies;
+a screenshot of a banner before alo refuses it. **920 ticked**: its
+*Closes when* is met — the frozen tests in the gate, the choice in what a
+test page is sent (in tests and by hand), and by hand on live sites, with
+the live misses queued (924, 927).
 
 The next unused queue number is **928** and the next ADR is **0109**.
