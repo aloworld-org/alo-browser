@@ -151,6 +151,55 @@ cannot follow*).
 Until they are answered, nothing in item 10's look changes, and item 4
 is built only as far as a separate instance.
 
+### Answered (the coordinator, on the owner's decisions, 12 November 2026)
+
+- **The app id** is `org.aloworld.Browser`: the Flatpak id, the
+  `xdg_toplevel` app_id and the `.desktop` name.
+- **1. The agent's colour — "Deep teal everywhere".** Deep teal `#0F6B72`
+  (dark `#77C8C6`) means *alo is acting* on every alo product and platform,
+  the Mac included; terracotta is retired from that role. It is always
+  drawn with alo's mark and a word, never colour alone. ADR 0074 § 2 is
+  amended by item 974.
+- **2. The logo — "Allowed: a logo is a mark".** The owner's teal-gradient
+  logo stays as it is.
+- **3. The typeface — "Manrope".** Manrope is final for alo's interfaces,
+  Geist Mono for monospace; the conversation moves off Inter as its
+  default (item 975, amending ADR 0084).
+- **4. OpenURI.** alo OS will answer `OpenURI.OpenURI` for http and https
+  by opening the person's chosen default browser (owed on alo OS's side,
+  their #1167). A second launch on the **same** profile hands its address
+  to the running instance, which opens it and comes forward; a launch with
+  a **different** `--data DIR` — alo's own copy — stays a separate
+  instance (item 976).
+- **5. No image is handed out**, by alo OS's rule, until signing is in
+  place. The loop instead: this repository publishes a Linux artifact (a
+  Flatpak bundle, or at first a tarball or a minimal test binary) with its
+  SHA-256; the coordinator installs it on a fresh image in qemu (no GPU,
+  4 GB, 1280 × 800, Wayland only, no Xwayland), runs exactly the
+  measurement named, and sends back screenshots, journal lines and which
+  bar items passed, each marked measured once. Publishing an artifact is
+  outward-facing and asks the owner first.
+- **The roads.** alo OS's "Three equal roads" (its `features.md`, the
+  owner, 6 November 2026), its terminal commands (`alo-app`, its ADR
+  0147) and the own-copy rule (`work-in-alos-copy`, its
+  `application-door.md`, #1163) are newer than the copy read here. alo's
+  copy starts the application with a profile of its own and counts only
+  that copy's traffic: `--data DIR` is what alo's copy will pass, and alo's
+  copy is signed in once by the person and stays signed in (item 969).
+- **The adapter.** alo OS's `app-adapters.md` is current. Our socket's
+  JSON lines are the *application's automation interface* road, the best
+  one; no D-Bus service is needed from the browser. The adapter is Rust,
+  implementing alo OS's `Adapter` trait, mapping its typed verbs onto the
+  socket's asks, and never offering a verb that runs code a model wrote.
+  The coordinator proposes this repository writes it (item 977; where its
+  code lives is the owner's to decide, since this repository never edits
+  alo OS's).
+- **The accessibility tree.** alo OS found an Electron app publishing
+  only its top-level window unless started with
+  `--force-renderer-accessibility`, and now adds that switch for
+  Chromium-family apps it launches; this browser keeps Chromium's tree
+  reaching the bus in item 965.
+
 ## The plan, in order
 
 | Order | What | Items | Needs |

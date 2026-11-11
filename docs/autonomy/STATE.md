@@ -51615,4 +51615,4 @@ owner gates). **Not verified:** anything on Linux — the `app_id` code was
 never compiled (no Linux target here), so 958 stays open; the window's
 title as a compositor draws it.
 
-The next unused queue number is **974**.
+The next unused queue number is **978**.

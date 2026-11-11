@@ -26485,8 +26485,10 @@ the rest runs on this Mac. Order: ADR 0112's *The plan, in order*.
   every refusal a person reads come from the catalogue, with English and
   one other language whole.
 - [ ] **971. alo OS's look: palette, the agent's colour, the logo and the
-  typeface (ADR 0112 requirement 10).** *blocked: the coordinator's
-  answers to ADR 0112's questions 1–3.* Nothing changes before them.
+  typeface (ADR 0112 requirement 10).** Answered by the coordinator on the
+  owner's decisions, 12 November 2026 (ADR 0112, *Answered*): deep teal
+  for alo acting everywhere, the logo kept, Manrope with Geist Mono. Built
+  as 974 and 975; the browser's own chrome in alo OS's navy is 974's too.
 - [ ] **972. The bar, run whole on a clean alo OS image (ADR 0112, *The
   bar*).** Each of the nine measured and recorded with the image, the
   machine and the date; the judgement is alo OS's. *Depends on 960–970.
@@ -26498,6 +26500,30 @@ the rest runs on this Mac. Order: ADR 0112's *The plan, in order*.
   developer build's alone (or refuse it in a bundled application), so no
   product path keeps anything under a written password. *Closes when:* the
   application refuses `--sign-ins`, in a test, and ADR 0111 § 6 says so.
+- [ ] **974. Deep teal is alo acting, everywhere (ADR 0112, *Answered* 1).**
+  Terracotta is retired from *the agent is acting*: deep teal `#0F6B72`
+  (dark `#77C8C6`), always with alo's mark and a word, never colour
+  alone; the browser's own chrome takes alo OS's navy `#102A43` where ADR
+  0074 used its ink. ADR 0074 § 2 amended. *Closes when:* every place the
+  agent at work is drawn uses the teal with the mark and a word, in
+  reference renders, and no terracotta is left for that role.
+- [ ] **975. Manrope, and Geist Mono (ADR 0112, *Answered* 3).** The
+  conversation's interface draws in Manrope by default, its monospace in
+  Geist Mono; ADR 0084 amended (whether the other faces stay as a
+  person's choice in *Settings* is said there). Fonts carried under their
+  licences. *Closes when:* the reference renders draw in Manrope and a
+  test asserts the face resolved.
+- [ ] **976. A second launch hands its address to the running alo (ADR
+  0112, *Answered* 4).** On the same profile, a second `alo` with an
+  address hands it to the running one, which opens it in a new card and
+  comes forward, and exits; with a different `--data DIR` it stays a
+  separate instance. *Closes when:* both, in a test with two processes.
+- [ ] **977. alo OS's adapter for the browser (ADR 0112, *Answered*,
+  the adapter).** Rust implementing alo OS's `Adapter` trait, mapping
+  its typed verbs (open, new tab, read page, find, fill a field, press a
+  control, print to PDF) onto the socket's asks, never a verb that runs
+  code a model wrote. *blocked: the owner's decision on where its code
+  lives* (this repository never edits alo OS's; MPL-2.0 is compatible).
 
 ## After stage 4
 
