@@ -51494,4 +51494,69 @@ wide gamut (the parked-by-every-display test stands in for it); an
 expanded card read off the screen (Chrome's own window told sRGB was
 measured unchanged; the CEF host's own window was not).
 
-The next unused queue number is **953**.
+The next unused queue number is **955**.
+
+## 2026-11-11 — hand run 61: sign-ins (935) and the canvas apps (939–942) in alo's window
+
+**How.** Screen unlocked and live (the menu-bar clock moved between two
+captures a minute apart). HEAD 9736904b: `cargo build --release --locked`,
+the CEF host, and `alo-bundle --keys-from keychain` (keys never printed)
+into the session scratchpad's `handrun61/app`. alo run as `--conversation
+--chats handrun61/chats --sign-ins handrun61/sign-ins`, driven by keys
+(`osascript`) and `cliclick` presses on its window, 1,280 × 852 on the
+built-in Retina at two; every card the Chromium alo carries (CEF 156.0.14,
+*alo Chromium.app*, told `--force-color-profile=srgb`). One run at a time;
+alo quit and restarted between apps to keep one or two Chromiums alive on
+this 8 GB Mac. Screenshots in `handrun61/shots/`, each agent run's frames
+in `handrun61/runs/*/`. Seconds are from Return on *Ask alo about "…"* to
+the card's working ring gone, read every ~0.9 s.
+
+**935 — sign-ins.** A local test site of the scratchpad's own
+(`signin_site.py` on 127.0.0.1: a name form that sets a 24-hour cookie,
+and *Signed in as …* when it comes back). Signed in by typing into the
+card (`05`). The card closed and the address opened again — a new
+Chromium, started after the close — still signed in (`07`). alo quit with
+⌘Q and started with the same flags: still signed in (`09`), the sealed jar
+kept (`sign-ins.sealed`, 155 bytes). *Settings › Privacy › Forget all
+sign-ins* (⌘,, End, the button): the row said *Every sign-in on this Mac
+was forgotten…* and `sign-ins.sealed` was gone (`12`). The open card's own
+Chromium, unchanged (same process), asked the site again by a link on the
+page: no cookie sent, *Signed out* (`16`–`18`, the site's log). The card
+closed and opened again: signed out (`19`). ADR 0111 is accepted, so 935
+is ticked. Seen in passing: ⌘R in a card does not reload its page (no such
+key is designed), and typing the open card's address again into the same
+chat opens it in a new Chromium in the same card's place.
+
+**939 — *Summarise this doc*** on the public doc: **2 of 2**, 1 step each.
+The step said *Opening Google Docs' own reading view of this doc, read
+only*, the card went to `…/mobilebasic`, and the result — an accurate
+five-point summary of the sharing guide, with its 2013 date — ended *Read
+in Google Docs' own reading view of this doc: …/mobilebasic*. About 11–16 s
+(the first run was timed by 5-second captures) and 11.3 s.
+
+**940 — *What is in C29?*** on the public sheet: **2 of 2, exactly**
+*C29 contains: Spending for dec 2012*, 2 steps (*Select cell C29*, *Go to
+cell C29*), 7.6 s each; the Name box read *C29* and the formula bar the
+value. The whole sheet through `/htmlview` was not run in the window.
+
+**941 — *Rename the Warehouse box to Distribution centre*** on a
+diagrams.net board made from three boxes of our own XML in its `#R`
+address (Supplier → Warehouse → Shop): **2 of 2**. At the card's width
+diagrams.net hides *Extras*, so both runs took the *Diagram* menu's search
+to *Find/Replace* and *Replace All* (*1 matches replaced*); 8 steps 27.3 s,
+9 steps 23.0 s. The board then showed *Distribution centre*. Neither board
+was stuck *Starting...* (950 stays open: two runs are not ten).
+
+**942 — *Draw a flowchart of the order process*** on excalidraw.com's own
+blank board: **2 of 2** through *More tools › Mermaid to Excalidraw* and
+*Insert*, 5 steps each, 13.9 s and 22.0 s; flowcharts with decisions for
+stock and payment on the board, and the result said what it inserted. No
+run used *Text to diagram*.
+
+Nothing was signed into on a real site, nothing posted, and the doc and
+sheet were only read. 935 and 939–942 ticked; 943, 945–951 stay open. No
+bug found, nothing queued. **Not verified:** the gate (no code changed);
+scale one; a sheet read whole in the window; ten diagrams.net runs (950).
+Every alo, Chromium and test server started was closed.
+
+The next unused queue number is **955**.

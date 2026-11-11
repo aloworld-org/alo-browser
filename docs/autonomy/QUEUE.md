@@ -25593,7 +25593,7 @@ What stage 2's exit gate actually measures: a person using it.
   needs nothing of 928–933. *Closes when:* the table of results and its
   method are in `docs/` (a benchmark page), run twice on different days,
   and each failure is a queue item or a reason.
-- [ ] **935. A person's sign-ins kept between runs (ADR 0110 § 7).**
+- [x] **935. A person's sign-ins kept between runs (ADR 0110 § 7).**
   Today every Chromium starts on a new profile, removed with it (ADR
   0069), so *already signed in* holds only inside one card's Chromium. One
   click from anywhere needs sign-ins kept. Decide in an ADR, against ADR
@@ -25616,6 +25616,13 @@ What stage 2's exit gate actually measures: a person using it.
   `sign_ins_kept_through_chrome.rs`, `sign_ins_kept_from_card_to_card_through_chrome.rs`
   (both Chromiums), the jar's, key's, line's and protocol's units, the
   section's numbers, reference, ring, tree and presses. Cut: 945–948.
+  ***Done (11 November 2026): ADR 0111 accepted by the owner.*** By hand
+  in alo's window (the Chromium alo carries, `--sign-ins` in the
+  scratchpad): signed in to a local test site in a card, the card closed
+  and opened again (a new Chromium) — still signed in; alo quit and
+  started again — still signed in; *Forget all sign-ins* — the open card's
+  own Chromium signed out at its next request, a new card signed out, the
+  sealed file gone (STATE, *hand run 61*).
 - [ ] **936. What an app's page already loaded, read only (the owner's
   word, 11 November 2026, ADR 0110 § 0).** Not decided. A privacy ADR
   first, on reading the responses an app's own page fetched through CDP's
@@ -25671,7 +25678,7 @@ What stage 2's exit gate actually measures: a person using it.
   the page hearing nothing), the wire's every key and a twelfth refused,
   the socket's and the tool's keys and malformed ones, the gate's Enter in
   a form's field. A modifier is 949.
-- [ ] **939. A Google Doc read through its own reading view (ADR 0109
+- [x] **939. A Google Doc read through its own reading view (ADR 0109
   § 1).** Docs' edit view gives the tree 6.9% of a doc's words; its own
   `/mobilebasic` 99.8%. When the card is a doc, the model is told the
   app's own views of it (`app_views.rs`) — named, with their address —
@@ -25687,7 +25694,10 @@ What stage 2's exit gate actually measures: a person using it.
   doc* done 2 of 2 by alo's own agent through a stand-in for the window's
   relay over headless Chrome (1 step, 16.0 s and 12.2 s; ADR 0109's
   amendment). **Owed:** the run in alo's window — the screen was locked.
-- [ ] **940. A Google Sheets cell by the Name box, and a whole sheet by
+  ***Done (11 November 2026).*** In alo's window, through the Chromium alo
+  carries: 2 of 2, 1 step each, the reading view named in the step and the
+  result; about 11–16 s and 11.3 s (STATE, *hand run 61*).
+- [x] **940. A Google Sheets cell by the Name box, and a whole sheet by
   `/htmlview` (ADR 0109 § 1).** *What is in C29?* answered through the
   Name box (text put in, Enter pressed — 938) and the formula bar read;
   a whole sheet read through `/htmlview` and its frame (937, 939).
@@ -25701,7 +25711,11 @@ What stage 2's exit gate actually measures: a person using it.
   through the stand-in; the page shaped as Sheets driven in
   `a_key_pressed_by_name_through_chrome.rs`. **Owed:** the run in alo's
   window.
-- [ ] **941. A diagrams.net box renamed through *Edit Diagram* (ADR 0109
+  ***Done (11 November 2026).*** In alo's window, through the Chromium alo
+  carries: *Spending for dec 2012* 2 of 2, 2 steps, 7.6 s each (STATE,
+  *hand run 61*). The whole sheet through `/htmlview` was not run in the
+  window.
+- [x] **941. A diagrams.net box renamed through *Edit Diagram* (ADR 0109
   § 1).** *Extras* → *Edit Diagram...* → the XML in its field → *Apply*:
   the verbs there are. *Closes when:* a page of the tests' own shaped as
   that dialog is driven so through Chrome; and by hand, on a blank local
@@ -25714,7 +25728,12 @@ What stage 2's exit gate actually measures: a person using it.
   the other 3 stuck on a board still *Starting...* (950); 1 of 2 told
   nothing. **Owed:** the run in alo's window; a narrow window hides
   *Extras* (949); a long diagram (951).
-- [ ] **942. An Excalidraw diagram drawn through *Mermaid to Excalidraw*
+  ***Done (11 November 2026).*** In alo's window, through the Chromium alo
+  carries, the window 1,280 wide: renamed 2 of 2, both through the
+  *Diagram* menu's search and *Find/Replace* (*Extras* hidden at the
+  card's width), 8 and 9 steps, 27.3 s and 23.0 s; the board then showed
+  *Distribution centre* (STATE, *hand run 61*). 949–951 stay open.
+- [x] **942. An Excalidraw diagram drawn through *Mermaid to Excalidraw*
   (ADR 0109 § 1).** *More tools* → *Mermaid to Excalidraw* → the named
   field → *Insert*. The board is a canvas: what was drawn is not in the
   tree, and reading it from the app's storage is ADR 0109 § 2, not
@@ -25727,6 +25746,9 @@ What stage 2's exit gate actually measures: a person using it.
   Drawn 4 of 4 told the way (5 steps, about 13 s, three of them; one used
   the app's AI *Text to diagram*, which the way now forbids), 1 of 2 told
   nothing. **Owed:** the run in alo's window.
+  ***Done (11 November 2026).*** In alo's window, through the Chromium alo
+  carries: drawn 2 of 2 through *More tools › Mermaid to Excalidraw* and
+  *Insert*, 5 steps each, 13.9 s and 22.0 s (STATE, *hand run 61*).
 - [ ] **943. Acting in a frame of another site (cut from 937).** 937 reads
   a cross-site frame's document and refuses a verb on it, because a press
   there is aimed through the frame's own session, and the page's hit test
@@ -25796,6 +25818,17 @@ What stage 2's exit gate actually measures: a person using it.
   display, every wide-gamut one among them) and
   `a_card_drawn_before_its_page_loads_through_chrome.rs` passing through
   both Chromiums with the built-in panel left of the external one.
+- [ ] **953. A card's page reloaded by a person (seen in hand run 61).**
+  ⌘R in a card does nothing today: no key to reload a card's page is
+  designed. Decide the key and where it is said (the card's bar), then
+  reload the card's own Chromium as a person's reload. *Closes when:* ⌘R
+  and the bar's reload reload a card's page, in a test through both
+  Chromiums.
+- [ ] **954. An open card's address typed again (seen in hand run 61).**
+  Typing an open card's address into the same chat starts a new Chromium
+  in that card's place. Decide whether it should bring the open card to
+  view instead, and do that. *Closes when:* the decided behaviour holds in
+  a test, with no second Chromium started for an address already open.
 
 ## K. ★ The agent, on somebody else's pages
 
