@@ -2,7 +2,8 @@
 
 **Status:** Accepted in part (the owner, 11 November 2026): points 1, 3 and 4
 of the decision are accepted; point 2, reading an app's own saved document
-through CDP's storage domains, stays proposed. Not built.
+through CDP's storage domains, stays proposed. Point 1 built by queue items
+937–942 (11 November 2026, the amendment below); point 2 not built.
 **Date:** 2026-11-11
 **Context:** ADR 0002 (the layout tree is the agent's tree; no verb takes a
 coordinate); ADR 0058 (Chromium is a renderer we drive; no script of ours in
@@ -121,3 +122,134 @@ whole tree took 20–57 ms on every page.
   whether the apps keep these formats is not known. Excalidraw's localStorage
   key and tldraw's `TLDRAW_DOCUMENT_v2…` database are internal to the apps
   and may change without notice.
+
+## Amendment — 11 November 2026: point 1 built (queue items 937–942)
+
+Point 1 is built as the tree we already read and the verbs we already
+have, plus one verb and two kinds of hint. Nothing new runs in a page, no
+verb takes a position, and nothing reads an app's storage (point 2 stays
+proposed and unbuilt).
+
+### What was built
+
+1. **A page's frames are in the agent's tree** (937, `chrome_iframes.rs`).
+   `Accessibility.getFullAXTree` reads one document, and an `<iframe>` is an
+   `Iframe` node with no children: measured on Sheets' `/htmlview`, whose
+   grid is a frame of its own site. Each frame's document is read now and
+   put under its `<iframe>` as its one child, by `chrome_tree`'s own rules.
+   - A frame of the page's own process is read through its `frameId`, on
+     the session that holds its parent. Chrome numbers every node of one
+     process from one count (measured: the page's nodes and its frame's
+     never meet), and draws them where they are in the window. So a verb
+     acts in such a frame by name exactly as on the page: the test page's
+     own-site frame took `put_text` and a press, and its listeners heard
+     both.
+   - A frame of another site is a target of its own, already held by ADR
+     0060's rules (`chrome_hold`), and is read through its own session. Its
+     process counts from one too, so its ids are made apart: the frame's
+     number times 2³² plus Chrome's own, below 2⁵³ so a client reading JSON
+     as doubles reads it exactly. Its rectangles are moved by the
+     `<iframe>`'s content box (`DOM.getBoxModel`). **A verb on one is
+     refused before anything is sent** (`Unacted::InAnotherSitesFrame`, on
+     the socket `NotCarriedOut`). The page's hit test finds only the
+     `<iframe>` there (measured: `DOM.getNodeForLocation` at the frame's
+     button answers the `<iframe>`), so a press would have to be aimed and
+     checked through the frame's own session. That is queue item 943.
+   - It is bounded at 32 frames, 4 deep. A frame Chrome declines to read
+     is an `Iframe` with no children.
+2. **`press`, a key by name** (938, `alo-agent`'s `key.rs`). Sheets' Name
+   box goes to a cell only on Return. The verb takes a node and one key of
+   a closed list: `Enter`, `Escape`, `Tab`, the four arrows, `Home`, `End`,
+   `PageUp`, `PageDown`. The node is given the keyboard (`DOM.focus`) and
+   the key is sent as a person's press of it with nothing held. Enter goes
+   down with its `"\r"`, and on macOS each key carries its editing command,
+   as `card_input` sends a person's key. It takes a field or a thing that is
+   operated (`NotOperable` otherwise). It is refused as `KeyUnbuilt` on
+   this engine's own pages. The person's gate holds Enter wherever
+   `activate` would be held, and in a form's field, which Enter sends. No
+   letter, Space, Backspace, Delete or modifier is a key: text goes in by
+   `put_text`, a press by `activate`, and a Delete on a board deletes what
+   is selected, which no key's name says. It is on the socket
+   (`"verb":"press","key":…`), on the wire to this engine's renderer, and a
+   tool of alo's own agent (`press`). ADR 0096 § 2's tools are now four
+   verbs and the two that begin.
+3. **An app's own views, offered by name** (939, 940; `app_views.rs`). When
+   the card is a Google Doc (`/document/d/ID/…`) or a Google Sheet
+   (`/spreadsheets/d/ID/…`), the request to the model carries the page's
+   `views`: *Google Docs' own reading view of this doc* at `…/mobilebasic`,
+   or *Google Sheets' own view of the whole spreadsheet* at `…/htmlview`.
+   The agent **opens one as it opens any site**: in a card the person sees,
+   judged by `agent_opening`. That is never a hidden read. A view it opens
+   is named in alo's words, whatever the model wrote: the step says
+   *Opening Google Docs' own reading view of this doc, read only*, and the
+   result ends *Read in … : ADDRESS*. Read only.
+4. **An app's own ways, as a hint** (941, 942; `app_ways.rs`). On
+   app.diagrams.net and excalidraw.com the request carries the page's
+   `ways`. These are alo's words naming the app's own menus and dialogs
+   that take the board as words: diagrams.net's *Extras › Edit Diagram...*
+   and *Edit › Find/Replace*, and Excalidraw's *More tools › Mermaid to
+   Excalidraw* and *Insert*. Excalidraw's way also says not to use its
+   *Text to diagram*, which sends the words to Excalidraw's own AI service.
+   A way is only a hint: the agent still finds every menu and field by its
+   name in the tree, through the same verbs and gate. Nothing here presses
+   anything or reads the canvas.
+
+### What was measured
+
+**How.** alo's own agent ran each first task — `conversation_agent::Agent`
+with its model (`gpt-6.1-terra`, the key from this Mac's keychain, never
+printed), its tools, its gate and its verbs. It ran on the live public page,
+through **a stand-in for the window's relay** over one headless tab of the
+machine's Chrome 157 (the scratchpad's `harness/`, outside the repository). The
+stand-in answered the run's `tabs`, `read` and `act` asks from a `Tab` kept
+to a card's rules (`keep_passwords`, `show_as_a_card`), and opened what the
+run opened. The page box was the split view's in the design's window, 798 ×
+740, unless said. The screen was locked through every run, so **no run was in
+alo's window or the Chromium alo carries**. That run is owed (below).
+Nothing was signed into. The doc and sheet are the public, view-only ones
+above, and were only read. The boards were new: excalidraw.com's own blank
+board, and a diagrams.net board made from three boxes of our own XML in its
+`#R` address. Seconds run from the task asked to the run's end. They include
+the stand-in's 4 s after each page opened and the run's own 2.4 s settle.
+
+| App | Task | Told | Runs | Came to | Steps | Seconds | Tokens in/out |
+|---|---|---|---|---|---|---|---|
+| Google Docs | *Summarise this doc* | the view | 2 | **done, both**: the reading view opened, and an accurate summary with *Read in Google Docs' own reading view…* | 1 | 16.0, 12.2 | 8,443/264; 8,523/272 |
+| Google Sheets | *What is in C29?* | — | 2 | **done, both, exactly**: *Spending for dec 2012*, which the sheet's own CSV export holds at C29. `put_text` *C29* into the unnamed field in the group *Naamvak (⌘ + J)* (Chrome's Dutch here), then `press` Enter, then the formula bar read | 2 | 6.8, 5.9 | 9,542/117; 9,629/127 |
+| Google Sheets | *Which cities are listed in this whole spreadsheet?* | the view | 1 | **done**: `/htmlview` opened and its grid read through the frame. The tree's words held **100%** (2,485 of 2,485) of the CSV export's words. The answer, cut at 2,000 characters, listed the cities by country | 2 | 20.9 | 34,007/957 |
+| diagrams.net | *Rename the Warehouse box to Distribution centre* | nothing | 1 at 798 | **stuck**: at 798 wide the app hides *Extras* and *Edit*, and the boxes are SVG text no verb takes | 6 | 12.5 | 25,196/450 |
+| diagrams.net | same | nothing | 1 at 1,280 × 800 | **done**: *Edit › Find/Replace*, the label replaced. The board then reads *Distribution centre* | 10 | 21.3 | 41,212/624 |
+| diagrams.net | same | the way | 2 at 798 | **done, both**: the *Diagram* menu's search found *Find*, and the label was replaced | 11, 10 | 23.9, 18.1 | 47,164/736; 44,483/559 |
+| diagrams.net | same | the way | 4 at 1,280 × 800 | **1 done** through *Extras › Edit Diagram...*: the XML read, the label changed, *Apply*. **3 stuck**: the app was still *Starting...*, its tree a `document` and one image, 8–20 s after load (queue item 950) | 5 (done) | 13.9 (done) | 24,061/650 (done) |
+| Excalidraw | *Draw a flowchart of the order process* | nothing | 2 | **1 done** through *More tools › Mermaid to Excalidraw* and *Insert*; **1 stuck** after picking the text tool, finding no way to place shapes | 10; 2 | 23.1; 6.2 | 34,017/920; 7,838/234 |
+| Excalidraw | same | the way | 4 | **done, all four**: a flowchart of 10–17 shapes on the board (`final.png`). One run used *Text to diagram* (the app's AI) while the Mermaid field was still loading, so the way now says not to. The two runs after that change used Mermaid | 9, 5, 5, 5 | 20.1, 13.5, 13.7, 12.8 | 31,020/677; 19,410/578; 19,853/444; 19,955/479 |
+
+**What a run says of a canvas.** Excalidraw draws on a canvas. After
+*Insert* the dialog is gone from the tree and no word of the flowchart is
+in it, so the run says what it inserted, never that it saw it. The
+pictures in `handrun60/*/final.png` are the stand-in's screencast frames,
+taken for this record and never sent to the model.
+
+### Not done, and queued
+
+- **The runs in alo's window**, with the Chromium alo carries, by hand: owed
+  by 939–942, because the screen was locked. So those four stay open.
+- **Acting in another site's frame**: 943.
+- **A shortcut a control's own name holds** (*Name box (⌘ + J)*, and
+  diagrams.net's narrow layout, which hides *Extras*): 949, an amendment
+  first.
+- **A page still starting**, which the agent has no step to wait for: 950.
+- **A diagram longer than one `put_text`** (2,048 characters; the
+  three-box board's XML was 1,072): 951.
+- **Tests on frozen copies of the apps.** Sheets, Docs, diagrams.net and
+  Excalidraw cannot be frozen: each is megabytes of the app's own script,
+  and two are Google's pages. So the tests drive pages **written for the
+  test in the shape measured**: an unnamed field in a group named *Name
+  box*, whose own `keydown` listener moves a formula bar
+  (`a_key_pressed_by_name_through_chrome.rs`); *Extras › Edit Diagram...*
+  over an SVG board, and *More tools › Mermaid to Excalidraw* over a canvas
+  (`an_apps_own_dialog_driven_by_name_through_chrome.rs`); a test server's
+  page holding a frame from its own site and one from another
+  (`a_pages_frames_read_into_its_tree_through_chrome.rs`). Each says it is
+  written for the test. What the apps themselves do is the runs' record
+  above.

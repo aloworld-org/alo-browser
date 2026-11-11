@@ -94,6 +94,9 @@ pub enum Chord {
     /// character, which is how a segment of Chrome's date field is filled
     /// (queue item 632).
     Digit(Digit),
+    /// A key an agent pressed by name (queue item 938): sent as a person's
+    /// press of that key with nothing held is, editing command and all.
+    Press(alo_agent::Key),
 }
 
 /// One of the ten digits.
@@ -205,6 +208,19 @@ pub enum Command {
     },
     /// `Accessibility.getFullAXTree`: the whole tree of the page.
     ReadTree,
+    /// `Accessibility.getFullAXTree` of the document one frame holds — a
+    /// frame of the page's own process, asked through the session that
+    /// holds it (ADR 0109 § 1, queue item 937).
+    ReadFrameTree {
+        /// The frame, by Chrome's `frameId`.
+        frame: String,
+    },
+    /// `DOM.getBoxModel`: a node's boxes, of which a frame's content box is
+    /// where the document it holds is drawn ([`content_box`]).
+    BoxModel {
+        /// The node, by Chrome's `backendNodeId`.
+        node: u64,
+    },
     /// `DOM.getContentQuads`: where a node was drawn.
     WhereDrawn {
         /// The node, by Chrome's `backendNodeId`.
@@ -495,6 +511,18 @@ pub enum Command {
         /// Its rules.
         text: String,
     },
+    /// `Storage.getCookies`: every cookie the Chromium holds, answered as
+    /// [`cookies`] reads them (ADR 0111 § 2).
+    ReadCookies,
+    /// `Storage.setCookies`: these cookies put into the Chromium's jar, as
+    /// a card's starts (ADR 0111 § 2).
+    PutCookies {
+        /// The cookies, as they were kept.
+        cookies: Vec<crate::kept_cookie::KeptCookie>,
+    },
+    /// `Storage.clearCookies`: every cookie the Chromium holds removed —
+    /// *Forget all sign-ins* (ADR 0111 § 5).
+    ClearCookies,
 }
 
 impl Command {
@@ -521,7 +549,8 @@ impl Command {
             Self::Fulfil { .. } => "Fetch.fulfillRequest",
             Self::Continue { .. } => "Fetch.continueRequest",
             Self::Refuse { .. } => "Fetch.failRequest",
-            Self::ReadTree => "Accessibility.getFullAXTree",
+            Self::ReadTree | Self::ReadFrameTree { .. } => "Accessibility.getFullAXTree",
+            Self::BoxModel { .. } => "DOM.getBoxModel",
             Self::WhereDrawn { .. } => "DOM.getContentQuads",
             Self::Window => "Page.getLayoutMetrics",
             Self::Describe { .. }
@@ -563,6 +592,9 @@ impl Command {
             Self::LoadAgain => "Page.reload",
             Self::MakeSheet { .. } => "CSS.createStyleSheet",
             Self::FillSheet { .. } => "CSS.setStyleSheetText",
+            Self::ReadCookies => "Storage.getCookies",
+            Self::PutCookies { .. } => "Storage.setCookies",
+            Self::ClearCookies => "Storage.clearCookies",
         }
     }
 
@@ -596,7 +628,10 @@ impl Command {
             | Self::StopCasting
             | Self::ReadHistory
             | Self::ReadTheDom
-            | Self::LoadAgain => {}
+            | Self::LoadAgain
+            | Self::ReadCookies
+            | Self::ClearCookies => {}
+            Self::PutCookies { cookies } => put("cookies", cookies_written(cookies)),
             Self::GoToEntry { entry } => put("entryId", Value::from(*entry)),
             Self::FrameSeen { frame } => put("sessionId", Value::from(*frame)),
             Self::IdsOf { nodes } => put("backendNodeIds", Value::from(nodes.clone())),
@@ -635,8 +670,10 @@ impl Command {
             }
             Self::WhereDrawn { node }
             | Self::Describe { node }
+            | Self::BoxModel { node }
             | Self::ScrollIntoView { node }
             | Self::Focus { node } => put("backendNodeId", Value::from(*node)),
+            Self::ReadFrameTree { frame } => put("frameId", Value::from(frame.as_str())),
             Self::DescribeValue { object } => put("objectId", Value::from(object.as_str())),
             Self::Mark { node, border } => {
                 put("backendNodeId", Value::from(*node));
@@ -831,6 +868,7 @@ fn key(chord: Chord, down: bool) -> Vec<(&'static str, Value)> {
         Chord::SelectAll => ("a", "KeyA", 65, "selectAll", TOGGLE),
         Chord::DeleteBackward => ("Backspace", "Backspace", 8, "deleteBackward", 0),
         Chord::Digit(digit) => return typed(digit, down),
+        Chord::Press(key) => return pressed(key, down),
     };
     let mut fields = vec![
         (
@@ -849,6 +887,33 @@ fn key(chord: Chord, down: bool) -> Vec<(&'static str, Value)> {
         fields.push(("commands", Value::Array(vec![Value::from(command)])));
     }
     fields
+}
+
+/// The `params` of `Input.dispatchKeyEvent` for an agent's press of `key`
+/// (queue item 938): as a person's press of it with no modifier held, so
+/// the page hears the same `keydown` and `keyup`, and Return its `"\r"`.
+fn pressed(key: alo_agent::Key, down: bool) -> Vec<(&'static str, Value)> {
+    use alo_agent::Key;
+    let key = match key {
+        Key::Enter => Keyed::Return,
+        Key::Escape => Keyed::Escape,
+        Key::Tab => Keyed::Tab,
+        Key::ArrowUp => Keyed::Arrow(Arrow::Up),
+        Key::ArrowDown => Keyed::Arrow(Arrow::Down),
+        Key::ArrowLeft => Keyed::Arrow(Arrow::Left),
+        Key::ArrowRight => Keyed::Arrow(Arrow::Right),
+        Key::Home => Keyed::Home,
+        Key::End => Keyed::End,
+        Key::PageUp => Keyed::PageUp,
+        Key::PageDown => Keyed::PageDown,
+    };
+    persons_key(
+        &PersonsKey {
+            key,
+            held: keys::Held::NOTHING,
+        },
+        down,
+    )
 }
 
 /// The `params` of `Input.dispatchKeyEvent` for `digit`, typed: going down
@@ -1286,6 +1351,110 @@ pub fn sheet_made(result: &[u8]) -> Result<String, Malformed> {
     text(object(result)?.get("styleSheetId"), "styleSheetId")
 }
 
+/// The most cookies [`cookies`] reads: Chromium's own store holds at most
+/// 3,300.
+pub const MOST_COOKIES: usize = 4000;
+
+/// A reply's `result` to `Storage.getCookies`, read as the cookies a
+/// sign-in is kept as (ADR 0111 § 2): a partitioned cookie — keyed to the
+/// page it was set under (CHIPS) — passed over, as is one that is not a
+/// cookie the protocol describes, and at most [`MOST_COOKIES`].
+///
+/// # Errors
+///
+/// [`Malformed`], for a result with no `cookies` list.
+pub fn cookies(result: &[u8]) -> Result<Vec<crate::kept_cookie::KeptCookie>, Malformed> {
+    let fields = object(result)?;
+    let Some(Value::Array(listed)) = fields.get("cookies") else {
+        return Err(Malformed::BadField { field: "cookies" });
+    };
+    Ok(listed
+        .iter()
+        .filter_map(cookie_read)
+        .take(MOST_COOKIES)
+        .collect())
+}
+
+/// One cookie of `Storage.getCookies`, if it is one and not partitioned.
+fn cookie_read(value: &Value) -> Option<crate::kept_cookie::KeptCookie> {
+    use crate::kept_cookie::{KeptCookie, Priority, SameSite, Scheme};
+    let fields = value.as_object()?;
+    if fields.get("partitionKey").is_some_and(|key| !key.is_null()) {
+        return None;
+    }
+    let said = |name: &'static str| text(fields.get(name), name).ok();
+    let flag = |name: &str| fields.get(name).and_then(Value::as_bool);
+    let session = flag("session")?;
+    let expires = if session {
+        None
+    } else {
+        Some(
+            fields
+                .get("expires")?
+                .as_f64()
+                .filter(|at| at.is_finite())?,
+        )
+    };
+    let same_site = match fields.get("sameSite") {
+        None => None,
+        Some(word) => Some(SameSite::of_word(word.as_str()?)?),
+    };
+    Some(KeptCookie {
+        name: said("name")?,
+        value: said("value")?,
+        domain: said("domain")?,
+        path: said("path")?,
+        expires,
+        http_only: flag("httpOnly")?,
+        secure: flag("secure")?,
+        same_site,
+        priority: fields
+            .get("priority")
+            .and_then(Value::as_str)
+            .map_or(Some(Priority::Medium), Priority::of_word)?,
+        source_scheme: fields
+            .get("sourceScheme")
+            .and_then(Value::as_str)
+            .map_or(Some(Scheme::Unset), Scheme::of_word)?,
+        source_port: fields
+            .get("sourcePort")
+            .map_or(Some(-1), Value::as_i64)
+            .filter(|port| (-1..=65535).contains(port))?,
+    })
+}
+
+/// `cookies` as `Storage.setCookies` takes them: a session's with no
+/// `expires`.
+fn cookies_written(cookies: &[crate::kept_cookie::KeptCookie]) -> Value {
+    Value::Array(
+        cookies
+            .iter()
+            .map(|cookie| {
+                let mut one = Map::new();
+                let mut put = |name: &str, value: Value| {
+                    one.insert(name.to_owned(), value);
+                };
+                put("name", Value::from(cookie.name.as_str()));
+                put("value", Value::from(cookie.value.as_str()));
+                put("domain", Value::from(cookie.domain.as_str()));
+                put("path", Value::from(cookie.path.as_str()));
+                put("secure", Value::Bool(cookie.secure));
+                put("httpOnly", Value::Bool(cookie.http_only));
+                if let Some(same_site) = cookie.same_site {
+                    put("sameSite", Value::from(same_site.word()));
+                }
+                if let Some(expires) = cookie.expires {
+                    put("expires", Value::from(expires));
+                }
+                put("priority", Value::from(cookie.priority.word()));
+                put("sourceScheme", Value::from(cookie.source_scheme.word()));
+                put("sourcePort", Value::from(cookie.source_port));
+                Value::Object(one)
+            })
+            .collect(),
+    )
+}
+
 /// Whether a `Page.navigate` went: the loader the new page is loaded by
 /// when it did, or the reason Chrome gave when it did not.
 ///
@@ -1639,6 +1808,49 @@ pub fn quads(result: &[u8]) -> Result<Vec<[f64; 8]>, Malformed> {
             Ok(corners)
         })
         .collect()
+}
+
+/// The frame a reply's `result` to `DOM.describeNode` says the node holds,
+/// by Chrome's `frameId` — Chrome names one for a frame's element, an
+/// `<iframe>` — or [`None`] for a node holding none (queue item 937).
+///
+/// # Errors
+///
+/// [`Malformed`], for a result with no `node`, or a `frameId` that is not
+/// text.
+pub fn frame_of(result: &[u8]) -> Result<Option<String>, Malformed> {
+    let Some(Value::Object(node)) = object(result)?.get("node").cloned() else {
+        return Err(Malformed::BadField { field: "node" });
+    };
+    match node.get("frameId") {
+        None => Ok(None),
+        frame => text(frame, "frameId").map(Some),
+    }
+}
+
+/// A reply's `result` to `DOM.getBoxModel`: the node's content box, as one
+/// quad's four corners in CSS pixels of the window (queue item 937).
+///
+/// # Errors
+///
+/// [`Malformed`], for a result with no `model` whose `content` is eight
+/// finite numbers.
+pub fn content_box(result: &[u8]) -> Result<[f64; 8], Malformed> {
+    let bad = Malformed::BadField { field: "content" };
+    let Some(Value::Object(model)) = object(result)?.get("model").cloned() else {
+        return Err(Malformed::BadField { field: "model" });
+    };
+    let Some(Value::Array(numbers)) = model.get("content") else {
+        return Err(bad);
+    };
+    let mut corners = [0.0; 8];
+    if numbers.len() != corners.len() {
+        return Err(bad);
+    }
+    for (corner, number) in corners.iter_mut().zip(numbers) {
+        *corner = number.as_f64().filter(|n| n.is_finite()).ok_or(bad)?;
+    }
+    Ok(corners)
 }
 
 /// The window a page sits in, from `Page.getLayoutMetrics`'s
@@ -3249,6 +3461,36 @@ mod tests {
             }),
             r#"{"id":9,"method":"Input.dispatchKeyEvent","params":{"code":"Digit5","key":"5","modifiers":0,"type":"keyUp","windowsVirtualKeyCode":53},"sessionId":"S"}"#
         );
+        // An agent's key by name is a person's press of it (queue item
+        // 938): Return goes down with its text, as a form hears it.
+        assert_eq!(
+            at(&Command::Key {
+                chord: Chord::Press(alo_agent::Key::Enter),
+                down: true
+            }),
+            r#"{"id":9,"method":"Input.dispatchKeyEvent","params":{"code":"Enter","key":"Enter","modifiers":0,"text":"\r","type":"keyDown","unmodifiedText":"\r","windowsVirtualKeyCode":13},"sessionId":"S"}"#
+        );
+        assert_eq!(
+            at(&Command::Key {
+                chord: Chord::Press(alo_agent::Key::Escape),
+                down: false
+            }),
+            r#"{"id":9,"method":"Input.dispatchKeyEvent","params":{"code":"Escape","key":"Escape","modifiers":0,"type":"keyUp","windowsVirtualKeyCode":27},"sessionId":"S"}"#
+        );
+        for (command, method) in [
+            (
+                Command::ReadFrameTree {
+                    frame: "F".to_owned(),
+                },
+                r#"{"id":9,"method":"Accessibility.getFullAXTree","params":{"frameId":"F"},"sessionId":"S"}"#,
+            ),
+            (
+                Command::BoxModel { node: 4 },
+                r#"{"id":9,"method":"DOM.getBoxModel","params":{"backendNodeId":4},"sessionId":"S"}"#,
+            ),
+        ] {
+            assert_eq!(at(&command), method);
+        }
         assert_eq!(Digit::of('0'), Some(Digit(b'0')));
         assert_eq!(Digit::of('a'), None);
         assert_eq!(Digit::of('٣'), None, "a digit of another script");
@@ -3892,6 +4134,29 @@ mod tests {
             vec!["[0,0,0,0,0,0,0,0]"; MOST_QUADS + 1].join(",")
         );
         assert_eq!(quads(too_many.as_bytes()), bad("quads"));
+        // A frame's element names its frame, and its content box is eight
+        // numbers (queue item 937); anything else is refused.
+        assert_eq!(
+            frame_of(br#"{"node":{"nodeName":"IFRAME","frameId":"D05F"}}"#),
+            Ok(Some("D05F".to_owned()))
+        );
+        assert_eq!(frame_of(br#"{"node":{"nodeName":"DIV"}}"#), Ok(None));
+        assert_eq!(frame_of(br#"{"node":{"frameId":7}}"#), bad("frameId"));
+        assert_eq!(frame_of(b"{}"), bad("node"));
+        assert_eq!(
+            content_box(
+                br#"{"model":{"content":[43,114.875,343,114.875,343,264.875,43,264.875]}}"#
+            ),
+            Ok([43.0, 114.875, 343.0, 114.875, 343.0, 264.875, 43.0, 264.875])
+        );
+        for not_one in [
+            &br"{}"[..],
+            br#"{"model":{}}"#,
+            br#"{"model":{"content":[1,2,3]}}"#,
+            br#"{"model":{"content":[1,2,3,4,5,6,7,"8"]}}"#,
+        ] {
+            assert!(content_box(not_one).is_err(), "{not_one:?}");
+        }
         assert_eq!(
             quads(br#"{"quads":[[1e999,0,0,0,0,0,0,0]]}"#),
             Err(Malformed::NotJson)
@@ -4872,6 +5137,90 @@ mod tests {
                 down: true
             })
             .contains(r#""code":"Escape","key":"Escape","modifiers":0,"type":"rawKeyDown","windowsVirtualKeyCode":27"#)
+        );
+    }
+
+    #[test]
+    fn cookies_read_are_those_kept_and_written_back_as_chromium_takes_them() {
+        use crate::kept_cookie::{Priority, SameSite, Scheme};
+        let result = br#"{"cookies":[
+            {"name":"first","value":"1","domain":"127.0.0.1","path":"/","expires":1800000000.5,
+             "size":6,"httpOnly":true,"secure":false,"session":false,"sameSite":"Lax",
+             "priority":"High","sameParty":false,"sourceScheme":"NonSecure","sourcePort":8080},
+            {"name":"s","value":"2","domain":".example.com","path":"/a","expires":-1,"size":2,
+             "httpOnly":false,"secure":true,"session":true,"priority":"Medium",
+             "sourceScheme":"Secure","sourcePort":443},
+            {"name":"chips","value":"3","domain":"x.test","path":"/","expires":-1,"size":2,
+             "httpOnly":false,"secure":true,"session":true,"priority":"Medium",
+             "sourceScheme":"Secure","sourcePort":443,
+             "partitionKey":{"topLevelSite":"https://y.test","hasCrossSiteAncestor":false}},
+            {"name":"odd","value":"4","domain":"x.test","path":"/","session":false,
+             "httpOnly":false,"secure":false},
+            {"name":"odd","value":"5","domain":"x.test","path":"/","expires":1,"session":false,
+             "httpOnly":false,"secure":false,"sameSite":"Sometimes"},
+            "not a cookie"
+        ]}"#;
+        let read = cookies(result).expect("read");
+        assert_eq!(read.len(), 2, "{read:?}");
+        let [first, session] = [&read[0], &read[1]];
+        assert_eq!(first.name, "first");
+        assert_eq!(first.expires, Some(1_800_000_000.5));
+        assert!(first.http_only && !first.secure);
+        assert_eq!(first.same_site, Some(SameSite::Lax));
+        assert_eq!(first.priority, Priority::High);
+        assert_eq!(first.source_scheme, Scheme::NonSecure);
+        assert_eq!(first.source_port, 8080);
+        assert_eq!(session.expires, None, "a session's, whatever its -1");
+        assert_eq!(session.same_site, None);
+        assert_eq!(session.domain, ".example.com");
+        assert_eq!(
+            cookies(br#"{"other":[]}"#),
+            Err(Malformed::BadField { field: "cookies" })
+        );
+        let message = String::from_utf8(written(
+            4,
+            None,
+            &Command::PutCookies {
+                cookies: read.clone(),
+            },
+        ))
+        .expect("text");
+        assert!(
+            message.contains(r#""method":"Storage.setCookies""#),
+            "{message}"
+        );
+        assert!(message.contains(r#""expires":1800000000.5"#), "{message}");
+        assert_eq!(
+            message.matches("\"expires\"").count(),
+            1,
+            "a session's has none"
+        );
+        assert!(message.contains(r#""sameSite":"Lax""#));
+        assert!(message.contains(r#""sourcePort":8080"#));
+        assert!(!message.contains("sessionId"));
+        // Read back as Chromium would answer them, they are the same.
+        let answered = message
+            .split_once(r#""params":"#)
+            .map(|(_, params)| params.trim_end_matches('}').to_owned() + "}")
+            .unwrap_or_default();
+        let again = cookies(
+            answered
+                .replace(
+                    r#""httpOnly":false,"#,
+                    r#""httpOnly":false,"session":true,"#,
+                )
+                .replace(r#""httpOnly":true,"#, r#""httpOnly":true,"session":false,"#)
+                .as_bytes(),
+        )
+        .expect("read again");
+        assert_eq!(again, read);
+        assert!(
+            String::from_utf8_lossy(&written(5, None, &Command::ReadCookies))
+                .contains("Storage.getCookies")
+        );
+        assert!(
+            String::from_utf8_lossy(&written(6, None, &Command::ClearCookies))
+                .contains("Storage.clearCookies")
         );
     }
 }

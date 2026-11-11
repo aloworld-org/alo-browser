@@ -391,9 +391,21 @@ fn parked(serving: &ChromeServing, who: &str, unseen: bool, scale: Scale) -> Res
              strip: {shown:?}"
         );
     } else {
+        // The window server pulls a parked window back until a strip of it
+        // is on the leftmost display (`PARKED`), wherever that display is:
+        // left of the main one, or the main one itself.
+        let leftmost = alo_window::window_server::displays()
+            .map_err(|why| format!("{why:?}"))?
+            .iter()
+            .map(|display| display.bounds.left)
+            .min()
+            .ok_or("no display")?;
         assert!(
-            window.left + window.width <= 0 && i64::from(PARKED.0) <= window.left,
-            "{who}'s window was not parked: {window:?}"
+            i64::from(PARKED.0) <= window.left
+                && window.left < leftmost
+                && window.left + window.width - leftmost < window.width / 2,
+            "{who}'s window was not parked left of the leftmost display, at {leftmost}: \
+             {window:?}"
         );
         assert!(
             shown

@@ -55,6 +55,7 @@
 //! [`Refusal::NotSubmittable`] when what stopped it is something this
 //! engine does not build yet.
 
+use crate::key::Key;
 use crate::reading::{Candidate, Reading, is_called};
 use alo_box::{BoxId, KnownRole, Role};
 use alo_dom::constraint::Constraint;
@@ -127,6 +128,9 @@ pub enum Verb {
     PutText(String),
     /// Scroll it.
     Scroll(ScrollBy),
+    /// Give it the keyboard and press a key on it, as a person does: one of
+    /// a closed list, by name (queue item 938, [`crate::key`]).
+    Press(Key),
 }
 
 /// What happened, in enough detail to be a record.
@@ -190,6 +194,15 @@ pub enum Outcome {
         /// How far.
         by: ScrollBy,
     },
+    /// A key was pressed on a thing that had been given the keyboard
+    /// (queue item 938). What the page did with it is the page's: the
+    /// outcome says only that the key reached the node, as a person's.
+    KeyPressed {
+        /// Which node.
+        node: BoxId,
+        /// Which key.
+        key: Key,
+    },
     /// A submit button was pressed and its form asked to be sent (ADR 0051
     /// § 6). Where the tab then goes is the browser process's to decide.
     Submitted {
@@ -252,6 +265,7 @@ impl Outcome {
             | Outcome::TextCanceled { node, .. }
             | Outcome::Chosen { node, .. }
             | Outcome::Scrolled { node, .. }
+            | Outcome::KeyPressed { node, .. }
             | Outcome::Submitted { node, .. }
             | Outcome::NotSubmitted { node, .. } => *node,
         }
@@ -281,6 +295,7 @@ impl fmt::Display for Outcome {
                 chosen: false,
             } => write!(f, "activated {node}, and it is not chosen in {list}"),
             Outcome::Scrolled { node, by } => write!(f, "scrolled {node} {by}"),
+            Outcome::KeyPressed { node, key } => write!(f, "pressed {key} on {node}"),
             Outcome::Submitted { node, method, to } => {
                 write!(
                     f,
@@ -372,6 +387,15 @@ pub enum Refusal {
     Chooses {
         /// Which node.
         node: BoxId,
+    },
+    /// A key was to be pressed on a page of this engine's own, which takes
+    /// no key from an agent yet (queue item 938): only a page in Chrome
+    /// does. Refused rather than taken for another verb.
+    KeyUnbuilt {
+        /// Which node.
+        node: BoxId,
+        /// Which key.
+        key: Key,
     },
     /// It has no more content than room, so there is nothing to scroll.
     DoesNotScroll {
@@ -472,6 +496,11 @@ impl fmt::Display for Refusal {
                  instead",
             ),
             Refusal::DoesNotScroll { node } => write!(f, "{node} has nothing to scroll"),
+            Refusal::KeyUnbuilt { node, key } => write!(
+                f,
+                "{key} was not pressed on {node}: this browser presses keys only on a page in \
+                 Chrome",
+            ),
             Refusal::TooLong { node, most, length } => write!(
                 f,
                 "{node} takes at most {most} characters, and the text is {length} long",
@@ -520,6 +549,7 @@ pub fn perform<R: Reading + ?Sized>(
         Verb::Activate => activate(page, &node),
         Verb::PutText(text) => put_text(page, &node, text),
         Verb::Scroll(by) => scroll(&node, *by),
+        Verb::Press(key) => press(&node, *key),
     }
 }
 
@@ -705,6 +735,23 @@ fn length_in_a_field(text: &str) -> usize {
         .replace('\r', "\n")
         .encode_utf16()
         .count()
+}
+
+/// A key pressed on `node`: one that takes the keyboard — a field, or a
+/// thing that is operated — and does not say it is disabled. What the key
+/// then does is the page's (queue item 938).
+fn press(node: &Candidate, key: Key) -> Result<Outcome, Refusal> {
+    let role = node.role.clone();
+    if !is_a_field(&role) && !node.states.takes_text && !is_operable(&role) {
+        return Err(Refusal::NotOperable {
+            node: node.id,
+            role,
+        });
+    }
+    if node.states.disabled {
+        return Err(Refusal::Disabled { node: node.id });
+    }
+    Ok(Outcome::KeyPressed { node: node.id, key })
 }
 
 fn scroll(node: &Candidate, by: ScrollBy) -> Result<Outcome, Refusal> {
@@ -1173,6 +1220,47 @@ mod tests {
         assert_eq!(
             kind(named("Loose"), Verb::Activate),
             "done: activated box#16 \"Loose\""
+        );
+    }
+
+    #[test]
+    fn a_key_is_pressed_on_what_takes_the_keyboard_and_on_nothing_else() {
+        let page = described();
+        let named = |name: &str| Target::Named(name.to_owned());
+        let press = |name: &str, key: Key| {
+            perform(&page, &named(name), &Verb::Press(key)).map(|done| done.to_string())
+        };
+        // A field and a control take the keyboard; what the key does then is
+        // the page's (queue item 938).
+        assert_eq!(
+            press("Short", Key::Enter),
+            Ok("pressed Enter on box#8".to_owned())
+        );
+        assert_eq!(
+            press("Next", Key::Tab),
+            Ok("pressed Tab on box#10".to_owned())
+        );
+        // Words take none, and a control that says it is disabled is not
+        // pressed on.
+        assert!(matches!(
+            press("Words", Key::Escape),
+            Err(Refusal::NotOperable { .. })
+        ));
+        assert!(matches!(
+            press("Off", Key::Enter),
+            Err(Refusal::Disabled { .. })
+        ));
+        assert!(matches!(
+            press("Nothing", Key::Enter),
+            Err(Refusal::NotFound { .. })
+        ));
+        assert_eq!(
+            Refusal::KeyUnbuilt {
+                node: BoxId::from_index_for_tests(8),
+                key: Key::Escape
+            }
+            .to_string(),
+            "Escape was not pressed on box#8: this browser presses keys only on a page in Chrome"
         );
     }
 

@@ -53,12 +53,14 @@
 //! list, twelve rows, row three selected."*
 
 pub mod apply;
+pub mod key;
 pub mod name;
 pub mod reading;
 pub mod tree;
 pub mod verb;
 
 pub use apply::{Change, apply, chosen_after};
+pub use key::Key;
 pub use name::accessible_name;
 pub use reading::{Candidate, ListOf, Reading};
 pub use tree::{AgentNode, AgentTree, write_described};

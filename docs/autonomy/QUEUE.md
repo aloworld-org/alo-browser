@@ -25602,6 +25602,20 @@ What stage 2's exit gate actually measures: a person using it.
   0098's key in the keychain), for which sites, how a person sees and
   forgets them, and what the agent may never do with them. No build until
   the owner accepts it. *Closes when:* the ADR is accepted or refused.
+  ***Built behind ADR 0111 (proposed), 11 November 2026, on the
+  supervisor's word — not ticked: it closes when the owner accepts or
+  refuses the ADR.*** The cards' cookies kept in one jar of the browser
+  process's own (`sign_ins.rs`), given to each card's Chromium before its
+  page opens and read back every 2 s and as it closes
+  (`chrome_sign_ins.rs`, `Storage.setCookies`/`getCookies`/`clearCookies`
+  on the browser's target); what expires sealed in `Sign-ins/sign-ins.sealed`
+  under Application Support, key `alo-sign-ins` in the keychain
+  (`sign_in_key.rs`); a session's never written; every Chromium still on a
+  thrown-away profile. *Settings › Privacy › Sign-ins* with **Forget all
+  sign-ins**; `alo --sign-ins DIR` for hand runs. Tests:
+  `sign_ins_kept_through_chrome.rs`, `sign_ins_kept_from_card_to_card_through_chrome.rs`
+  (both Chromiums), the jar's, key's, line's and protocol's units, the
+  section's numbers, reference, ring, tree and presses. Cut: 945–948.
 - [ ] **936. What an app's page already loaded, read only (the owner's
   word, 11 November 2026, ADR 0110 § 0).** Not decided. A privacy ADR
   first, on reading the responses an app's own page fetched through CDP's
@@ -25611,6 +25625,177 @@ What stage 2's exit gate actually measures: a person using it.
   bodies, personal data), how a person turns it off, and why it is not
   the hidden-API route ADR 0110 refuses. *Closes when:* the ADR is
   accepted or refused.
+- [x] **937. A page's frames in the agent's tree (ADR 0109 § 1).** Google
+  Sheets' `/htmlview` holds its grid in a frame of its own, and
+  `Accessibility.getFullAXTree` reads one document: the `<iframe>` is a
+  node with no children. Read each frame's document under its `<iframe>`
+  (`chrome_iframes.rs`): a frame of the page's own process through its
+  `frameId`, its nodes' ids Chrome's (one count for the process) so a verb
+  acts on them by name as on any node; a frame of another site through
+  its held target's own session, its ids made apart by the frame's number
+  and its places moved by its `<iframe>`'s content box — read only, a verb
+  on one refused before anything is sent (ADR 0060's frame rules: every
+  frame is still held). Bounded: 32 frames, 4 deep. *Closes when:*
+  through Chrome, a page of a test server's own with a frame from its own
+  site and one from another shows both documents under their `<iframe>`s;
+  text put into and a press of a button in the same-site frame are heard
+  by that frame; a verb on the other site's node is refused and nothing
+  reaches it; and the socket reads the same tree.
+  ***Done (11 November 2026).*** `chrome_iframes.rs`, read from
+  `Tab::read_whole` — the read the socket (`chrome_pages`) and alo's agent
+  are both answered from. `a_pages_frames_read_into_its_tree_through_chrome.rs`:
+  both frames' documents under their `Iframe`s; *C29* put into the
+  own-site frame's field and *Go* pressed, both heard there; the other
+  site's button refused as `InAnotherSitesFrame` and `/pressed-in-other`
+  never asked for; its rectangle inside its frame's content box. On the
+  live Sheets `/htmlview` the tree held 100% of the sheet's words.
+  Acting in the other site's frame is 943.
+- [x] **938. A key pressed by name, `press` (ADR 0109 § 1).** Google
+  Sheets' Name box moves to a cell only on Return. A verb `press` with one
+  of a closed list of keys — Enter, Escape, Tab, the four arrows, Home,
+  End, Page Up, Page Down — aimed at a node by its number or its name,
+  never a position (ADR 0002): the node given the keyboard, the key sent
+  as a person's, and the outcome *pressed Enter on …*. On the socket, for
+  alo's own agent (a tool `press`), refused by name on this engine's own
+  pages, and held by the person's gate where Enter would send a form or
+  press what a press would be asked for. *Closes when:* through Chrome,
+  a field's own Return listener hears Enter and the page changes as it
+  says; the gate holds Enter in a form's field; the socket, the wire and
+  the model's tool each read and write it, with malformed keys refused.
+  ***Done (11 November 2026).*** `alo-agent`'s `key.rs` and `Verb::Press`,
+  `Outcome::KeyPressed`, `Refusal::KeyUnbuilt`; carried out in
+  `chrome_act` as `DOM.focus` and a person's key (`Chord::Press`). Tests:
+  `a_key_pressed_by_name_through_chrome.rs` (Enter heard as a trusted
+  Return, the formula bar read back; Escape heard; words refused
+  `NotOperable`), `an_agents_key_on_this_engines_page.rs` (`KeyUnbuilt`,
+  the page hearing nothing), the wire's every key and a twelfth refused,
+  the socket's and the tool's keys and malformed ones, the gate's Enter in
+  a form's field. A modifier is 949.
+- [ ] **939. A Google Doc read through its own reading view (ADR 0109
+  § 1).** Docs' edit view gives the tree 6.9% of a doc's words; its own
+  `/mobilebasic` 99.8%. When the card is a doc, the model is told the
+  app's own views of it (`app_views.rs`) — named, with their address —
+  and opens one as any site is opened, in a card the person sees; the
+  step and the result say which view was read. Read only. *Closes when:*
+  the views of a Docs and a Sheets address are named in tests, and none
+  for any other; the request carries them; a run that opens one says so
+  in its step and its result; and by hand, *Summarise this doc* on the
+  public doc the spike used, with steps and seconds recorded.
+  **Built, measured, open (11 November 2026):** `app_views.rs`, the
+  request's `views`, the step and result naming the view
+  (`conversation_agent`'s and `agent_protocol`'s tests). *Summarise this
+  doc* done 2 of 2 by alo's own agent through a stand-in for the window's
+  relay over headless Chrome (1 step, 16.0 s and 12.2 s; ADR 0109's
+  amendment). **Owed:** the run in alo's window — the screen was locked.
+- [ ] **940. A Google Sheets cell by the Name box, and a whole sheet by
+  `/htmlview` (ADR 0109 § 1).** *What is in C29?* answered through the
+  Name box (text put in, Enter pressed — 938) and the formula bar read;
+  a whole sheet read through `/htmlview` and its frame (937, 939).
+  *Closes when:* a page of the tests' own shaped as the spike found
+  Sheets — an unnamed field in a group named *Name box*, a formula bar
+  that changes on Return — is driven so through Chrome; and by hand, on
+  the public sheet the spike used, with steps and seconds recorded.
+  **Built, measured, open (11 November 2026):** C29 read exactly 2 of 2
+  (`put_text`, `press` Enter, the formula bar; 6.8 s and 5.9 s) and the
+  whole sheet through `/htmlview` (2 steps, 20.9 s), by alo's own agent
+  through the stand-in; the page shaped as Sheets driven in
+  `a_key_pressed_by_name_through_chrome.rs`. **Owed:** the run in alo's
+  window.
+- [ ] **941. A diagrams.net box renamed through *Edit Diagram* (ADR 0109
+  § 1).** *Extras* → *Edit Diagram...* → the XML in its field → *Apply*:
+  the verbs there are. *Closes when:* a page of the tests' own shaped as
+  that dialog is driven so through Chrome; and by hand, on a blank local
+  board of app.diagrams.net, *Rename the Warehouse box* done by alo's
+  agent, with steps and seconds recorded.
+  **Built, measured, open (11 November 2026):** `app_ways.rs`; the dialog's
+  shape driven in `an_apps_own_dialog_driven_by_name_through_chrome.rs`.
+  Renamed in 3 of 6 runs told the way (*Find/Replace* at 798 wide twice,
+  *Edit Diagram* at 1,280 once; 10–11 steps, 18–24 s; 5 steps, 13.9 s),
+  the other 3 stuck on a board still *Starting...* (950); 1 of 2 told
+  nothing. **Owed:** the run in alo's window; a narrow window hides
+  *Extras* (949); a long diagram (951).
+- [ ] **942. An Excalidraw diagram drawn through *Mermaid to Excalidraw*
+  (ADR 0109 § 1).** *More tools* → *Mermaid to Excalidraw* → the named
+  field → *Insert*. The board is a canvas: what was drawn is not in the
+  tree, and reading it from the app's storage is ADR 0109 § 2, not
+  accepted — so the run says what it inserted, never that it saw it.
+  *Closes when:* a page of the tests' own shaped as that dialog is driven
+  so through Chrome; and by hand, on a blank excalidraw.com board, *Draw
+  a flowchart of the order process*, with steps and seconds recorded.
+  **Built, measured, open (11 November 2026):** `app_ways.rs`; the dialog's
+  shape driven in `an_apps_own_dialog_driven_by_name_through_chrome.rs`.
+  Drawn 4 of 4 told the way (5 steps, about 13 s, three of them; one used
+  the app's AI *Text to diagram*, which the way now forbids), 1 of 2 told
+  nothing. **Owed:** the run in alo's window.
+- [ ] **943. Acting in a frame of another site (cut from 937).** 937 reads
+  a cross-site frame's document and refuses a verb on it, because a press
+  there is aimed through the frame's own session, and the page's hit test
+  (`DOM.getNodeForLocation`) finds only the `<iframe>` (measured against
+  Chrome 157). Carry each verb out through the frame's held session —
+  focus, keys and text there; a press at the node's middle moved by the
+  `<iframe>`'s content box, checked by the frame's own hit test and by
+  the `<iframe>` being what the page's finds — and the gate and the
+  record naming the frame's site. *Depends on 937.* *Closes when:* the
+  test server's other-site frame takes text and a press by name, and a
+  frame covered in the page refuses as `Covered`.
+- [ ] **949. A shortcut an app's own tree names, pressed by name (cut from
+  938).** Apps name their shortcuts in their controls' names — Sheets'
+  *Name box (⌘ + J)*, diagrams.net's *Undo (⌘+Z)* — and some of what they
+  do has no other road where the page is narrow: diagrams.net at the split
+  view's 798-wide page box hides *Extras* and *Edit*, leaving *Find* only
+  through its menu's search. `press` takes no modifier (`alo-agent`'s
+  `key.rs` says why). Decide, in an ADR 0109 amendment, whether a chord a
+  control's own name holds may be pressed on that control by name — never
+  a chord the agent makes up — and how the gate judges one whose app says
+  nothing of what it does. *Depends on 938.*
+- [ ] **950. A run on a page still starting (found by 941's runs).**
+  diagrams.net at a 1,280-wide page box was still *Starting...* — its
+  tree a `document` and one image — 20 seconds after it loaded, in three
+  of four runs, and alo's agent, which has no step that waits, said it was
+  stuck. Find what it waited on (a request the gate or ADR 0094's lists
+  refused, `Tab::refusals`/`Tab::blocked`, or headless Chrome alone), and
+  decide whether a run reads again after a pause when a page's tree is
+  nearly empty and its `busy`/progress says it is starting, before asking
+  the model. *Closes when:* the cause is named, and the board is read on
+  every one of ten runs, or the run says plainly it is waiting.
+- [ ] **951. A diagram longer than one `put_text` (cut from 941).**
+  diagrams.net's *Edit Diagram* takes the whole diagram's XML, and the
+  agent types at most 2,048 characters a step (`agent_protocol`'s
+  `LONGEST_TEXT`): the three-box board measured is 1,072, so a board of
+  more than about six boxes cannot be rewritten whole that way, and its
+  *Find/Replace* (which renamed the box in four of the runs) is the road
+  for a label. Measure the sizes boards reach and decide between a larger
+  bound for a field that holds a document, and keeping to *Find/Replace*.
+- [ ] **945. A card or chat that keeps nothing (cut from 935, ADR 0111
+  § 9).** A forgetful card: opened with no jar, its sign-ins gone with its
+  Chromium, marked so on its bar. Needs a way to ask for one (the box, a
+  menu) and its mark's numbers and reference. *Depends on 935.*
+- [ ] **946. Forget one site's sign-ins (cut from 935).** *Settings ›
+  Privacy › Sign-ins* lists the sites kept (by registrable domain, never a
+  cookie's value) with *Forget* on each, and the open card's Chromium told
+  as *Forget all* tells it. *Depends on 935.*
+- [ ] **947. A site's own storage kept with its sign-in, if a page needs
+  it (cut from 935, ADR 0111 § 9).** Only when a benchmark site (934) is
+  found signed out at the next card because it keeps its session in
+  `localStorage` or IndexedDB; an ADR 0111 amendment first, against ADR
+  0011. *Depends on 934, 935.*
+- [ ] **948. Partitioned cookies kept (cut from 935).** `Storage.getCookies`
+  gives a CHIPS cookie with its `partitionKey`; today it is passed over.
+  Kept and put back with its partition, measured through both Chromiums.
+  *Depends on 935.*
+- [x] **952. A card's colours, whatever display it is parked by (found
+  when the displays were rearranged, 11 November 2026).** Parked by a wide
+  gamut panel — a laptop's own — a card's Chromium streamed in the
+  display's space and alo's window matched it again: `#2a9d8f` shown as
+  (98, 153, 143) where Chrome's own window shows (79, 155, 143). Every
+  card's Chromium is told `--force-color-profile=srgb` (ADR 0076's sixth
+  amendment, measured on the built-in panel through both Chromiums: the
+  card then matches Chrome's own window on all eight colours read).
+  *Closed by:* `a_cards_colours_in_srgb_on_every_display_through_chrome.rs`
+  (the switch on the command line; the exact colour parked by every
+  display, every wide-gamut one among them) and
+  `a_card_drawn_before_its_page_loads_through_chrome.rs` passing through
+  both Chromiums with the built-in panel left of the external one.
 
 ## K. ★ The agent, on somebody else's pages
 

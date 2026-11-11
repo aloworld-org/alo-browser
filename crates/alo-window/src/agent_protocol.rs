@@ -73,8 +73,9 @@
 //! its last step is its last. Nothing here panics on any input.
 
 use crate::answer_protocol::Spent;
+use crate::app_views::View;
 use crate::json_depth;
-use alo_agent::{ScrollBy, Verb};
+use alo_agent::{Key, ScrollBy, Verb};
 use alo_box::BoxId;
 use alo_renderer::agent_plan::{Plan, Stands};
 use core::fmt;
@@ -125,7 +126,14 @@ number of a node in the tree you were given now; never a position. To send a for
 its button. When no page is open, or the task needs another site, call search with a few \
 words to find sites - its results come back numbered as the step's outcome - then open with \
 the number of a result, or open with an address the person named or that you know; you are \
-told how many more sites you may open, and following a link inside a site opens none. Never \
+told how many more sites you may open, and following a link inside a site opens none. A page \
+may come with views: the app's own read-only views of the same document, which hold its words \
+where the editor does not. To read or summarise a whole doc or sheet, open its view by its \
+address and read it there, and say in step which view you open. A page may come with ways: \
+the app's own named menus and dialogs that take words where its canvas shows none; follow \
+them by name. To press a key on a node - \
+Enter in a field that acts on Return, such as a sheet's Name box after you put a cell's name \
+in it, or Escape to close a menu - call press with the node's number and the key. Never \
 open an address on this machine or its network unless the person wrote it. In step, say what you are doing in a few plain words a person reads, such as \
 Typing \"Kampala\" into Search Wikipedia; in why, say why only when you chose between things; \
 and when you open another page, say in why what you read on this page that you will still \
@@ -187,6 +195,14 @@ pub struct Asking<'a> {
     pub left: usize,
     /// How many more sites it may open (queue items 821, 878).
     pub sites_left: usize,
+    /// The app's own views of the page's document, which read better than
+    /// its editor (queue item 939, [`crate::app_views`]): sent with the
+    /// page, by name and address, when there are any.
+    pub views: &'a [View],
+    /// The app's own named ways of taking words, for an app that draws on
+    /// a canvas (queue items 941 and 942, [`crate::app_ways`]): sent with
+    /// the page when there are any.
+    pub ways: &'a [&'static str],
 }
 
 /// A tool of the model's, as `OpenAI` is told of it.
@@ -205,8 +221,8 @@ fn tool(name: &str, description: &str, properties: &Value, required: &[&str]) ->
     })
 }
 
-/// The seven tools: the three verbs, the two that begin (queue item 821),
-/// `done` and `stuck`.
+/// The eight tools: the four verbs — `press` among them (queue item 938) —
+/// the two that begin (queue item 821), `done` and `stuck`.
 pub fn tools() -> Value {
     let node = json!({ "type": "integer", "description": "The node's number in the tree." });
     let step = json!({ "type": "string", "description": "What you are doing, in a few plain words a person reads." });
@@ -249,6 +265,23 @@ pub fn tools() -> Value {
                 "on": on
             }),
             &["node", "to", "step", "why", "plan", "on"],
+        ),
+        tool(
+            "press",
+            "Give the node the keyboard and press one key on it, such as Enter in a field that acts on Return, or Escape to close a menu.",
+            &json!({
+                "node": node,
+                "key": {
+                    "type": "string",
+                    "enum": Key::ALL.iter().map(|key| key.name()).collect::<Vec<_>>(),
+                    "description": "The key."
+                },
+                "step": step,
+                "why": why,
+                "plan": plan,
+                "on": on
+            }),
+            &["node", "key", "step", "why", "plan", "on"],
         ),
         tool(
             "search",
@@ -328,7 +361,21 @@ pub fn request_body(model: &str, asking: &Asking<'_>) -> Vec<u8> {
     let page = if asking.address.is_empty() {
         Value::Null
     } else {
-        json!({ "address": asking.address, "tree": asking.tree })
+        let mut page = Map::new();
+        page.insert("address".to_owned(), Value::from(asking.address));
+        page.insert("tree".to_owned(), Value::from(asking.tree));
+        if !asking.views.is_empty() {
+            let views: Vec<Value> = asking
+                .views
+                .iter()
+                .map(|view| json!({ "name": view.name, "address": view.address }))
+                .collect();
+            page.insert("views".to_owned(), Value::Array(views));
+        }
+        if !asking.ways.is_empty() {
+            page.insert("ways".to_owned(), json!(asking.ways));
+        }
+        Value::Object(page)
     };
     let asked = json!({
         "asked": asking.asked.trim(),
@@ -650,25 +697,13 @@ fn call_of(name: &str, arguments: &Map<String, Value>) -> Result<Call, Unread> {
                 on: on_of(arguments),
             })
         }
-        "activate" | "put_text" | "scroll" => {
+        "activate" | "put_text" | "scroll" | "press" => {
             let node = arguments
                 .get("node")
                 .and_then(Value::as_u64)
                 .and_then(|node| usize::try_from(node).ok())
                 .ok_or(Unread::BadArguments("names no node"))?;
-            let verb = match name {
-                "activate" => Verb::Activate,
-                "put_text" => {
-                    let typed = text("text").ok_or(Unread::BadArguments("has no text"))?;
-                    if typed.chars().count() > LONGEST_TEXT {
-                        return Err(Unread::BadArguments("has a text too long to type"));
-                    }
-                    Verb::PutText(typed.to_owned())
-                }
-                _ => Verb::Scroll(scrolled(
-                    text("to").ok_or(Unread::BadArguments("says nowhere to scroll"))?,
-                )?),
-            };
+            let verb = verb_of(name, arguments)?;
             let step = kept(text("step").unwrap_or_default(), MOST_LINE);
             Ok(Call::Act {
                 node: BoxId::from_wire(node),
@@ -681,6 +716,31 @@ fn call_of(name: &str, arguments: &Map<String, Value>) -> Result<Call, Unread> {
         }
         other => Err(Unread::UnknownTool(other.to_owned())),
     }
+}
+
+/// The verb the tool `name` — `activate`, `put_text`, `press` or `scroll`
+/// — called with `arguments` is.
+fn verb_of(name: &str, arguments: &Map<String, Value>) -> Result<Verb, Unread> {
+    let text = |field: &str| arguments.get(field).and_then(Value::as_str);
+    Ok(match name {
+        "activate" => Verb::Activate,
+        "put_text" => {
+            let typed = text("text").ok_or(Unread::BadArguments("has no text"))?;
+            if typed.chars().count() > LONGEST_TEXT {
+                return Err(Unread::BadArguments("has a text too long to type"));
+            }
+            Verb::PutText(typed.to_owned())
+        }
+        // One key of the list the tool offers, by its name (queue item 938).
+        "press" => Verb::Press(
+            text("key")
+                .and_then(Key::named)
+                .ok_or(Unread::BadArguments("names no key alo presses"))?,
+        ),
+        _ => Verb::Scroll(scrolled(
+            text("to").ok_or(Unread::BadArguments("says nowhere to scroll"))?,
+        )?),
+    })
 }
 
 /// The plan given with a step, if one was: the model's words, kept as
@@ -797,6 +857,50 @@ mod tests {
     }
 
     #[test]
+    fn an_apps_own_views_and_ways_go_with_its_page_and_only_when_there_are_any() {
+        // Queue items 939, 941 and 942.
+        let views = [View {
+            name: crate::app_views::DOCS,
+            address: "https://docs.google.com/document/d/abc/mobilebasic".to_owned(),
+        }];
+        let page = |views: &[View], ways: &[&'static str]| {
+            let body = request_body(
+                "a-model",
+                &Asking {
+                    asked: "summarise this doc",
+                    plan: None,
+                    address: "https://docs.google.com/document/d/abc/edit",
+                    tree: "[1] document\n",
+                    steps: &[],
+                    left: 20,
+                    sites_left: 3,
+                    views,
+                    ways,
+                },
+            );
+            let body: Value = serde_json::from_slice(&body).unwrap();
+            let content: Value =
+                serde_json::from_str(body["input"][0]["content"].as_str().unwrap()).unwrap();
+            content["page"].clone()
+        };
+        let with = page(&views, &[crate::app_ways::EXCALIDRAW]);
+        assert_eq!(
+            with["views"],
+            json!([{ "name": crate::app_views::DOCS, "address": "https://docs.google.com/document/d/abc/mobilebasic" }])
+        );
+        assert_eq!(with["ways"], json!([crate::app_ways::EXCALIDRAW]));
+        let without = page(&[], &[]);
+        let mut keys: Vec<&str> = without
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        keys.sort_unstable();
+        assert_eq!(keys, ["address", "tree"]);
+    }
+
+    #[test]
     fn the_request_holds_what_was_asked_the_page_and_the_steps_and_nothing_else() {
         let steps = [Taken {
             step: "Typing \u{201c}Ada\u{201d} into Name".to_owned(),
@@ -814,6 +918,8 @@ mod tests {
                 steps: &steps,
                 left: 19,
                 sites_left: 3,
+                views: &[],
+                ways: &[],
             },
         );
         let body: Value = serde_json::from_slice(&body).unwrap();
@@ -847,7 +953,7 @@ mod tests {
         assert_eq!(
             names,
             [
-                "activate", "put_text", "scroll", "search", "open", "done", "stuck"
+                "activate", "put_text", "scroll", "press", "search", "open", "done", "stuck"
             ]
         );
         assert!(
@@ -905,6 +1011,34 @@ mod tests {
                 output: 80
             })
         );
+        // A key, by its name, from the list the tool offers (queue item
+        // 938); any other is refused, never guessed at.
+        assert_eq!(
+            read_call(
+                "press",
+                &json!({ "node": 35, "key": "Enter", "step": "Going to C29", "why": "", "plan": null, "on": 1 }),
+            ),
+            Ok(Call::Act {
+                node: BoxId::from_wire(35),
+                verb: Verb::Press(Key::Enter),
+                step: "Going to C29".to_owned(),
+                why: String::new(),
+                plan: None,
+                on: 0,
+            })
+        );
+        for key in [json!("Return"), json!("Delete"), json!(13), Value::Null] {
+            assert!(
+                matches!(
+                    read_call(
+                        "press",
+                        &json!({ "node": 35, "key": key, "step": "", "why": "" })
+                    ),
+                    Err(Unread::BadArguments(_))
+                ),
+                "{key}"
+            );
+        }
         let pressed = read_call(
             "activate",
             &json!({ "node": 9, "step": "Pressing Send", "why": "it sends" }),
@@ -978,7 +1112,8 @@ mod tests {
             asked.sort_unstable();
             assert_eq!(named, asked, "{name}");
             assert_eq!(tool["parameters"]["additionalProperties"], json!(false));
-            let verb = ["activate", "put_text", "scroll", "search", "open"].contains(&name);
+            let verb =
+                ["activate", "put_text", "scroll", "press", "search", "open"].contains(&name);
             assert_eq!(required.contains(&"plan"), verb, "{name}");
             assert_eq!(required.contains(&"on"), verb, "{name}");
             if verb {
@@ -1042,6 +1177,8 @@ mod tests {
                 steps: &steps,
                 left: 18,
                 sites_left: 3,
+                views: &[],
+                ways: &[],
             },
         );
         let body: Value = serde_json::from_slice(&body).unwrap();
@@ -1099,6 +1236,8 @@ mod tests {
                 steps: &steps,
                 left: 17,
                 sites_left: 3,
+                views: &[],
+                ways: &[],
             },
         );
         let body: Value = serde_json::from_slice(&body).unwrap();
@@ -1244,6 +1383,8 @@ mod tests {
                 steps: &[],
                 left: 20,
                 sites_left: 3,
+                views: &[],
+                ways: &[],
             },
         );
         let body: Value = serde_json::from_slice(&body).unwrap();

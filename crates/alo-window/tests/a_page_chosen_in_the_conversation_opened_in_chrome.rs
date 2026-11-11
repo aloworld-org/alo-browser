@@ -208,9 +208,20 @@ fn go(
         return Err(format!("not said to be drawn by Chrome: {}", shown.by));
     }
     let window = shown.window.ok_or("a shown Chrome's window was not read")?;
-    // Parked left of every display while the page is a card.
-    if window.left + window.width > 0 {
-        return Err(format!("Chrome's window is not parked: {window:?}"));
+    // Parked left of every display while the page is a card: the window
+    // server pulls it back until a strip of it is on the leftmost display,
+    // wherever that display is.
+    let leftmost = alo_window::window_server::displays()
+        .map_err(|why| format!("{why:?}"))?
+        .iter()
+        .map(|display| display.bounds.left)
+        .min()
+        .ok_or("no display")?;
+    if window.left >= leftmost || window.left + window.width - leftmost >= window.width / 2 {
+        return Err(format!(
+            "Chrome's window is not parked left of the leftmost display, at {leftmost}: \
+             {window:?}"
+        ));
     }
     let png = framed(told)?;
     if !png.starts_with(b"\x89PNG\r\n\x1a\n") {

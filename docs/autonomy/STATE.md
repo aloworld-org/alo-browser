@@ -51327,3 +51327,171 @@ needs none of the others), **935** (sign-ins kept between runs, an ADR),
 CHANGELOG line: nothing a person uses has changed (as for ADR 0109).
 
 The next unused queue number is **937** and the next ADR is **0111**.
+
+## 2026-11-11 — queue 935: sign-ins kept between runs (ADR 0111 proposed; 945–948 cut)
+
+**Not ticked.** 935 closes when the owner accepts or refuses ADR 0111;
+it was built behind the proposed ADR on the supervisor's word, because
+the owner's benchmark (934) needs a person signed in once. Done beside
+another worker's ADR 0109 items in the same tree, not gated here: the
+supervisor gates both.
+
+**Decided (ADR 0111).** Not a kept Chromium profile: CEF 156's
+`root_cache_path` is one process's (a singleton lock), alo starts a
+Chromium per card, a profile keeps everything ADR 0011 refuses, and
+Chromium's own encryption at rest needs its `Chromium Safe Storage`
+keychain item (`components/os_crypt/common/keychain_password_mac.mm`;
+the name is in CEF 156.0.14's framework; CEF 156 adds
+`keychain_service_name`), whose dialog on a rebuilt ad-hoc host is why
+the host runs `--use-mock-keychain` (ADR 0079 § 8a). Instead **a jar of
+alo's own**: each card's Chromium, still on a thrown-away profile, is
+given the jar's cookies with `Storage.setCookies` before its page opens
+and read with `Storage.getCookies` every 2 s and as it closes; what
+expires is sealed (XChaCha20-Poly1305, `chat_seal::seal_as`) in
+`~/Library/Application Support/org.aloworld.Browser/Sign-ins/sign-ins.sealed`
+under its own keychain key `alo-sign-ins`; a session's is never written.
+One alo at a time holds `sign-ins.lock`; a second keeps its own in memory.
+
+**Built.** `kept_cookie.rs`, `sign_ins.rs`, `sign_in_key.rs`,
+`chrome_sign_ins.rs`, `conversation_sign_ins.rs`; three `Storage` commands
+and `cookies()` in `chrome_protocol.rs`; `Tab::ask_browser`;
+`ChromeServing::start_as_a_kept_card`; `ChromeOpener::start_kept`;
+`window::conversation` takes the jar; `alo --sign-ins DIR` (key in a
+keychain file in DIR). *Settings › Privacy* gains a third row,
+**Sign-ins**, its line and **Forget all sign-ins** (Tab after *Cookie
+banners*, Space/Return or a press; claimed as `Privacy { at: 5 }`).
+
+**Tests.** `sign_ins_kept_through_chrome.rs` (both Chromiums, headless):
+another Chromium on the jar sent `sid` and the session's `tab`; the jar
+re-read (a restart) sends `sid` alone; *Refuse all cookies* sends none;
+signed out removes it; *Forget all* with a card open empties its
+Chromium at the next look, removes the file, and the old key opens
+nothing; the person's own `sign-ins.sealed` asserted untouched.
+`sign_ins_kept_from_card_to_card_through_chrome.rs` (both, as cards,
+`threads-required = 2`): a card closed at once keeps its cookie by the
+look as it closes, the next card's first request carries it, a card
+with no jar is sent nothing. Mutations caught: the look on close removed
+(card test fails, `[]` kept), the `setCookies` removed (headless test
+fails, nothing sent). Units: the line format and hostile lines, changes,
+the store (restart, second alo, other key left, forget, hostile files),
+the key in a scratch keychain, the protocol reading and writing cookies,
+the arguments, the window's press. Renderer: the section's numbers (page
+1202, the row 98, the button 138.42×28), two references
+(`settings-privacy.png` rewritten — the row added; `settings-sign-ins.png`
+new), the ring, the tree, the presses; the wire's tags.
+
+**Hand run 59: not done.** The screen was locked at every check this
+session (`CGSSessionScreenIsLocked`), so no window was driven and no
+screenshot taken. Ready for it: `scratchpad/signin_site.py` (a local
+sign-in form, never a real site's), and the steps — bundle without keys,
+`--conversation --chats handrun59/chats --sign-ins handrun59/sign-ins`,
+sign in, quit, reopen, still signed in; *Forget all sign-ins*, reload,
+signed out. Owed before 935's hand claims are made.
+
+**fmt / clippy / tests.** My files rustfmt-clean; `cargo clippy -p
+alo-window -p alo-renderer --all-targets` reports nothing in them (the
+other worker's in-progress files still fail it). `alo-window` lib 987
+passed; `alo-renderer` 117 suites passed; the two new Chrome tests, and
+`cookies_refused_as_chosen_through_chrome`, `cookie_banners_answered_through_chrome`,
+`a_killed_browsers_chrome_profile`, `chats_kept_across_launches`,
+`a_font_chosen_in_settings_in_the_window` passed through both Chromiums.
+One lib failure seen once and fixed: a jar re-read refused its own lock
+let go of a moment before — a child's copy of the descriptor between
+`fork` and `exec` — now tried again for 500 ms (`LOCK_PATIENCE`).
+
+**ROADMAP:** the cookies line gains *Built* sign-ins kept and *Owed* the
+ADR's acceptance and 945–948. Next unused queue number **949**; next ADR
+**0112**.
+
+## 2026-11-11 — ADR 0109 point 1: a canvas app read and worked through its own words (937–942 built; 937, 938 ticked)
+
+Contracts read: `CLAUDE.md`, `LOOP.md`, ADR 0002, 0058, 0060 (frame rules:
+every frame still held), 0096, 0109 (points 1, 3 and 4 accepted; point 2 —
+an app's storage — **not built**), `docs/contracts/agent-socket.md`.
+Worked beside the session building 935 / ADR 0111 in the same tree; its
+files were left alone, and my hunks in `chrome_protocol.rs` and
+`chrome_tab.rs` are apart from its own.
+
+**Built.** `chrome_iframes.rs` (937): each `<iframe>`'s document read under
+it — a same-site frame through `Accessibility.getFullAXTree`'s `frameId`,
+its ids the process's own and acted in by name; a cross-site frame through
+its held target's session, ids `number × 2³² + id`, rectangles moved by the
+`<iframe>`'s content box (`DOM.getBoxModel`), and any verb on it refused
+(`Unacted::InAnotherSitesFrame`) before anything is sent. `ReadFrameTree`,
+`BoxModel`, `frame_of`, `content_box` in `chrome_protocol.rs`;
+`Holding::session_of`; `Tab::frame_session`, `frame_numbers`, `ask_frame`.
+`alo-agent`'s `key.rs` and `Verb::Press` / `Outcome::KeyPressed` /
+`Refusal::KeyUnbuilt` (938), carried out by `chrome_act` (`Chord::Press`,
+a person's key with nothing held), on the socket (`"press"`, `"key"`), the
+wire (verb tag 3, outcome 8, refusal 13), alo's agent's tool `press`, the
+gate (Enter held as a press and in a form's field), refused on this
+engine's pages. `app_views.rs` (939, 940): Docs' `/mobilebasic` and
+Sheets' `/htmlview` sent as the page's `views`, opened as any site, the
+step and the result naming the view in alo's words. `app_ways.rs` (941,
+942): diagrams.net's *Edit Diagram* / *Find/Replace* and Excalidraw's
+*Mermaid to Excalidraw* sent as `ways`, hints the agent follows by name.
+
+**Tests.** `a_pages_frames_read_into_its_tree_through_chrome.rs` (a test
+server's page with a same-site and a cross-site frame: both read, the own
+frame typed into and pressed, the other's press refused and its request
+never made), `a_key_pressed_by_name_through_chrome.rs` (a page shaped as
+Sheets' Name box: text moves nothing, Enter moves the formula bar, Escape
+heard, words refused), `an_apps_own_dialog_driven_by_name_through_chrome.rs`
+(diagrams.net's and Excalidraw's dialogs, written for the test in the
+shapes measured — the apps cannot be frozen), `alo-renderer`'s
+`an_agents_key_on_this_engines_page.rs` and the wire's keys; units for
+`key.rs`, `perform`'s press, `chrome_iframes`, `app_views`, `app_ways`,
+the socket's and the tool's keys, the request's views and ways, the gate's
+Enter, and a run that opens a doc's view and says so. fmt (my files),
+`clippy -p alo-agent -p alo-renderer -p alo-window --all-targets
+--all-features -D warnings`: clean. The full gate was not run (the owner
+gates both sessions' work together).
+
+**Measured (ADR 0109's amendment has the table).** alo's own agent, its
+real model and key (keychain, never printed), on the live public pages,
+through a stand-in for the window's relay over headless Chrome 157
+(the scratchpad's `harness/`, outside the repository; trees, frames and
+`run.txt` per run in `handrun60/*/`). Docs *Summarise this doc*: 2 of 2,
+1 step. Sheets *What is in C29?*: 2 of 2 exact, 2 steps, ~6 s; a whole
+sheet through `/htmlview`: the tree held 100% of the CSV's words.
+diagrams.net *Rename the Warehouse box*: told the way, 3 of 6 (3 stuck on
+a board still *Starting...*); told nothing, 1 of 2. Excalidraw *Draw a
+flowchart of the order process*: told the way, 4 of 4; told nothing, 1 of
+2. One told-the-way run used Excalidraw's AI *Text to diagram*; the way
+now says not to. **Not verified: any run in alo's window or the Chromium
+alo carries** — the screen was locked from the first check to the last,
+so 939–942 stay open.
+
+**Queued:** 943 acting in another site's frame (cut from 937), 949 a
+shortcut a control's own name holds, 950 a run on a page still starting,
+951 a diagram longer than one `put_text`. ROADMAP's *Across frames* line
+moved (Built/Owed).
+
+The next unused queue number is **952**.
+
+## 2026-11-11 — queue item 952: a card's colours, whatever display it is parked by
+
+**Found** when the displays were rearranged (the VG27VQM now right of the
+built-in panel): the machine Chrome's card window, parked at `PARKED`,
+came to rest on the built-in wide-gamut panel, and
+`a_card_drawn_before_its_page_loads_through_chrome` read `#2a9d8f` as
+(79, 155, 143). Measured end to end on that panel (ADR 0076's sixth
+amendment has the table): Chrome's own window shows (79, 155, 143); alo's
+card showed (98, 153, 143) — matched twice; with the card's Chromium told
+`--force-color-profile=srgb`, (79, 155, 143), all eight stripes as Chrome's
+own window, through the machine's Chrome and the Chromium alo carries.
+
+**Built.** `chrome::SRGB`, added by `as_a_card` for both Chromiums; the CEF
+host passes it on untouched. **Tests:** the unit test of `as_a_card`;
+`a_cards_colours_in_srgb_on_every_display_through_chrome.rs` (both
+Chromiums: the switch on the process's command line; parked by every
+display, the frame's middle exactly `#2a9d8f`; every Display P3 display
+parked by), added to nextest's shown-Chrome list; three mutations caught.
+`a_card_drawn_before_its_page_loads_through_chrome.rs` passes through both.
+fmt (my files) and `clippy -p alo-window --all-targets` clean; the full gate
+not run (the owner gates). **Not verified:** a Mac whose only display is
+wide gamut (the parked-by-every-display test stands in for it); an
+expanded card read off the screen (Chrome's own window told sRGB was
+measured unchanged; the CEF host's own window was not).
+
+The next unused queue number is **953**.

@@ -2636,7 +2636,11 @@ items where being right and being unusable are the same outcome.
       by name, never a consent, in *Settings › Privacy* (920, ADR 0108; hand runs on live
       sites 10–11 November 2026) · Owed: a cookie choice used by the
       open card at once (923), the platforms and languages not yet frozen
-      (924)
+      (924) · Built: a person's sign-ins kept between cards and runs as
+      the cards' cookies, sealed in a jar of alo's own, forgotten from
+      *Settings › Privacy* (935, ADR 0111 proposed) · Owed: the owner's
+      acceptance of ADR 0111, a forgetful card (945), forgetting one site
+      (946), site storage (947), partitioned cookies (948)
 - [ ] A window, tabs, and a tab strip
       · Built: the window (296, `alo-window`, binary `alo`, decided in ADR
       0024). `winit` and `softbuffer` are rented through safe functions
@@ -2854,6 +2858,17 @@ items where being right and being unusable are the same outcome.
       of its fields would be refused before pressing, as Chrome's
       accessibility tree says it (queue item 476, iteration 301)
 - [ ] Across frames, without becoming a way around the same-origin policy
+      · Built: through Chrome, each `<iframe>`'s document read under it as
+      the agent's tree (queue item 937, ADR 0109 § 1): a frame of the
+      page's own site read and acted in by name, its nodes the page's
+      process's; a frame of another site read through the target ADR 0060
+      already holds, its ids kept apart, and every verb there refused
+      before anything is sent; 32 frames, 4 deep. With it a key pressed by
+      name (938), and an app's own views and ways told to alo's agent
+      (939–942) — measured on Google Docs, Google Sheets, diagrams.net and
+      Excalidraw, not yet in alo's own window
+      · Owed: acting in another site's frame, aimed and hit-tested through
+      that frame (943); the runs in alo's window (939–942)
 - [ ] Under grants, and recorded: what it read, what it did, on whose approval — `alo-os` ADR 0001's model reaching the web
       · Built: the record half for an agent outside the browser (queue item
       496): the browser process writes what each one read and did, refused

@@ -149,7 +149,7 @@ use crate::submit;
 use crate::transition::{self, Left};
 use crate::view::PageView;
 use alo_agent::{AgentTree, apply, chosen_after, perform};
-use alo_agent::{Outcome, Target, Verb};
+use alo_agent::{Outcome, Refusal, Target, Verb};
 use alo_bindings::Visibility;
 use alo_bindings::navigating::{self, By, Navigation, NotFollowed};
 use alo_box::BoxTree;
@@ -420,7 +420,7 @@ impl Renderer {
             return FromRenderer::Failed(Failure::NothingLoaded);
         };
         let tree = AgentTree::new(document, &drawing.boxes, &drawing.layout);
-        let outcome = match perform(&tree, target, verb) {
+        let outcome = match perform(&tree, target, verb).and_then(carried_here) {
             Ok(outcome) => outcome,
             Err(refusal) => return FromRenderer::Refused(refusal),
         };
@@ -1221,4 +1221,14 @@ fn asks(held: &mut Held) -> Vec<FetchAsk> {
         .into_iter()
         .map(FetchAsk::from)
         .collect()
+}
+
+/// `outcome`, decided by `perform`, if this engine carries it out: a key is
+/// pressed only on a page in Chrome (queue item 938), and this engine's own
+/// pages say so rather than take it for another verb.
+fn carried_here(outcome: Outcome) -> Result<Outcome, Refusal> {
+    match outcome {
+        Outcome::KeyPressed { node, key } => Err(Refusal::KeyUnbuilt { node, key }),
+        outcome => Ok(outcome),
+    }
 }

@@ -4,7 +4,9 @@
 
 //! A kept chat sealed under the person's key, and opened again (queue item
 //! 790, ADR 0098): the one file that names the rented cipher,
-//! `chacha20poly1305` — `RustCrypto`'s `XChaCha20-Poly1305`.
+//! `chacha20poly1305` — `RustCrypto`'s `XChaCha20-Poly1305`. The kept
+//! sign-ins are sealed by it too, under a key of their own, as a file of
+//! another format ([`seal_as`], ADR 0111 § 3).
 //!
 //! # What a sealed file is
 //!
@@ -132,22 +134,69 @@ fn seal_with(
     plain: &[u8],
     nonce: [u8; NONCE_BYTES],
 ) -> Result<Vec<u8>, String> {
+    sealed_in(key, (MAGIC, &associated(number)), plain, nonce)
+        .map_err(|()| "the chat could not be sealed".to_owned())
+}
+
+/// `plain` sealed under `key` with `nonce`, after `magic`, `aad` its
+/// associated data.
+fn sealed_in(
+    key: &Key,
+    (magic, aad): (&[u8], &[u8]),
+    plain: &[u8],
+    nonce: [u8; NONCE_BYTES],
+) -> Result<Vec<u8>, ()> {
     let cipher = XChaCha20Poly1305::new(key.0.as_slice().into());
-    let aad = associated(number);
     let sealed = cipher
-        .encrypt(
-            XNonce::from_slice(&nonce),
-            Payload {
-                msg: plain,
-                aad: &aad,
-            },
-        )
-        .map_err(|_| "the chat could not be sealed".to_owned())?;
-    let mut out = Vec::with_capacity(MAGIC.len() + NONCE_BYTES + sealed.len());
-    out.extend_from_slice(MAGIC);
+        .encrypt(XNonce::from_slice(&nonce), Payload { msg: plain, aad })
+        .map_err(|_| ())?;
+    let mut out = Vec::with_capacity(magic.len() + NONCE_BYTES + sealed.len());
+    out.extend_from_slice(magic);
     out.extend_from_slice(&nonce);
     out.extend_from_slice(&sealed);
     Ok(out)
+}
+
+/// What `sealed` holds after `magic`, opened under `key` with `aad` its
+/// associated data.
+fn opened_in(key: &Key, (magic, aad): (&[u8], &[u8]), sealed: &[u8]) -> Result<Vec<u8>, Unsealed> {
+    let rest = sealed.strip_prefix(magic).ok_or(Unsealed::NotSealed)?;
+    if rest.len() < NONCE_BYTES + TAG_BYTES {
+        return Err(Unsealed::NotSealed);
+    }
+    let (nonce, ciphertext) = rest.split_at(NONCE_BYTES);
+    let cipher = XChaCha20Poly1305::new(key.0.as_slice().into());
+    cipher
+        .decrypt(
+            XNonce::from_slice(nonce),
+            Payload {
+                msg: ciphertext,
+                aad,
+            },
+        )
+        .map_err(|_| Unsealed::NotOpened)
+}
+
+/// `plain` sealed under `key` as a file that begins `magic` — which is
+/// its associated data too, so a file of another format does not open as
+/// this one — with a fresh nonce: what is not a chat (ADR 0111 § 3).
+///
+/// # Errors
+///
+/// Why it could not be sealed: no random bytes, or the cipher refusing.
+pub fn seal_as(key: &Key, magic: &[u8], plain: &[u8]) -> Result<Vec<u8>, String> {
+    let mut nonce = [0; NONCE_BYTES];
+    random(&mut nonce)?;
+    sealed_in(key, (magic, magic), plain, nonce).map_err(|()| "it could not be sealed".to_owned())
+}
+
+/// What [`seal_as`] sealed under `key` as a file beginning `magic`.
+///
+/// # Errors
+///
+/// [`Unsealed`]: not such a file, or not opened under this key.
+pub fn open_as(key: &Key, magic: &[u8], sealed: &[u8]) -> Result<Vec<u8>, Unsealed> {
+    opened_in(key, (magic, magic), sealed)
 }
 
 /// The chat numbered `number`, opened from `sealed` under `key`.
@@ -156,22 +205,7 @@ fn seal_with(
 ///
 /// [`Unsealed`]: not a sealed chat, or not opened under this key.
 pub fn open(key: &Key, number: u64, sealed: &[u8]) -> Result<Vec<u8>, Unsealed> {
-    let rest = sealed.strip_prefix(MAGIC).ok_or(Unsealed::NotSealed)?;
-    if rest.len() < NONCE_BYTES + TAG_BYTES {
-        return Err(Unsealed::NotSealed);
-    }
-    let (nonce, ciphertext) = rest.split_at(NONCE_BYTES);
-    let cipher = XChaCha20Poly1305::new(key.0.as_slice().into());
-    let aad = associated(number);
-    cipher
-        .decrypt(
-            XNonce::from_slice(nonce),
-            Payload {
-                msg: ciphertext,
-                aad: &aad,
-            },
-        )
-        .map_err(|_| Unsealed::NotOpened)
+    opened_in(key, (MAGIC, &associated(number)), sealed)
 }
 
 #[cfg(test)]
@@ -228,6 +262,31 @@ mod tests {
             Err(Unsealed::NotSealed)
         );
         assert_eq!(open(&key, 2, WORDS), Err(Unsealed::NotSealed));
+    }
+
+    #[test]
+    fn what_is_sealed_as_another_format_opens_as_that_format_alone() {
+        const OTHER: &[u8] = b"alo sealed other 1\n";
+        let key = Key::of([5; KEY_BYTES]);
+        let sealed = seal_as(&key, OTHER, WORDS).expect("sealed");
+        assert!(sealed.starts_with(OTHER));
+        assert_eq!(open_as(&key, OTHER, &sealed).as_deref(), Ok(WORDS));
+        assert_eq!(
+            open_as(&Key::of([6; KEY_BYTES]), OTHER, &sealed),
+            Err(Unsealed::NotOpened)
+        );
+        // Neither a chat's file nor this one opens as the other.
+        assert_eq!(open(&key, 0, &sealed), Err(Unsealed::NotSealed));
+        let chat = seal(&key, 0, WORDS).expect("sealed");
+        assert_eq!(open_as(&key, OTHER, &chat), Err(Unsealed::NotSealed));
+        // The magic is bound in: the same bytes under another magic do not
+        // open.
+        let mut renamed = b"alo sealed elsew 1\n".to_vec();
+        renamed.extend_from_slice(sealed.get(OTHER.len()..).unwrap_or_default());
+        assert_eq!(
+            open_as(&key, b"alo sealed elsew 1\n", &renamed),
+            Err(Unsealed::NotOpened)
+        );
     }
 
     #[test]

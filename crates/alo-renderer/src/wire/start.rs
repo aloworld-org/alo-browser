@@ -38,7 +38,7 @@ use crate::card::Card;
 use crate::card_menu::{CardMenu, MenuItem};
 use crate::conversation_scroll::{Bar, MOST};
 use crate::results::MOST_PICTURE_BYTES;
-use crate::settings_privacy::{Banners, Cookies, Privacy};
+use crate::settings_privacy::{Banners, Cookies, Privacy, SignInsShown};
 use crate::settings_services::{
     Entry, EntryRow, LONGEST_TYPED, MOST_DOTS, ServicePress, ServicesShown, Typed,
 };
@@ -80,6 +80,8 @@ impl Writer {
             // *Privacy*'s two (queue item 920).
             (true, Some(SettingsKeyed::Cookies)) => 8,
             (true, Some(SettingsKeyed::Banners)) => 9,
+            // *Forget all sign-ins* (ADR 0111).
+            (true, Some(SettingsKeyed::ForgetSignIns)) => 10,
         });
         if let (true, Some(SettingsKeyed::Service(on))) = (start.settings, start.settings_keyed) {
             self.service_press(on);
@@ -170,12 +172,12 @@ impl Writer {
         if let Some(services) = &start.services {
             self.services(services);
         }
-        self.privacy(start.privacy);
+        self.privacy(start.privacy, start.sign_ins);
     }
 
     /// *Privacy* (queue item 920), if it is drawn: each choice by its
-    /// place.
-    fn privacy(&mut self, privacy: Option<Privacy>) {
+    /// place; then what its *Sign-ins* says (ADR 0111).
+    fn privacy(&mut self, privacy: Option<Privacy>, sign_ins: SignInsShown) {
         self.bool(privacy.is_some());
         if let Some(privacy) = privacy {
             self.tag(match privacy.cookies {
@@ -188,6 +190,14 @@ impl Writer {
                 Banners::Leave => 1,
             });
         }
+        // What *Sign-ins* says (ADR 0111), whether or not it is drawn.
+        self.tag(match sign_ins {
+            SignInsShown::Kept => 0,
+            SignInsShown::Forgotten => 1,
+            SignInsShown::ByAnother => 2,
+            SignInsShown::NotKept => 3,
+            SignInsShown::Unopened => 4,
+        });
     }
 
     /// Something of *Search and answers*: its kind, then its place or its
@@ -409,7 +419,7 @@ impl Reader<'_> {
         }
         let settings_bar = self.bar()?;
         let services = self.services_drawn(settings_keyed)?;
-        let privacy = self.privacy_drawn(settings_keyed)?;
+        let (privacy, sign_ins) = self.privacy_drawn(settings_keyed)?;
         Ok(Start {
             greeting,
             sites,
@@ -433,15 +443,17 @@ impl Reader<'_> {
             settings_bar,
             services,
             privacy,
+            sign_ins,
         })
     }
 
     /// *Privacy*, if it is drawn — refused if the keyboard is on it as
-    /// `keyed` says and it is not (queue item 920).
+    /// `keyed` says and it is not (queue item 920) — and what its
+    /// *Sign-ins* says (ADR 0111).
     fn privacy_drawn(
         &mut self,
         keyed: Option<SettingsKeyed>,
-    ) -> Result<Option<Privacy>, Unreadable> {
+    ) -> Result<(Option<Privacy>, SignInsShown), Unreadable> {
         let privacy = if self.bool()? {
             let cookies = match self.tag()? {
                 0 => Cookies::RefuseOthers,
@@ -459,13 +471,27 @@ impl Reader<'_> {
             None
         };
         if privacy.is_none()
-            && matches!(keyed, Some(SettingsKeyed::Cookies | SettingsKeyed::Banners))
+            && matches!(
+                keyed,
+                Some(
+                    SettingsKeyed::Cookies | SettingsKeyed::Banners | SettingsKeyed::ForgetSignIns
+                )
+            )
         {
             return Err(unreadable(
                 "the keyboard on a section of Settings not drawn",
             ));
         }
-        Ok(privacy)
+        // What *Sign-ins* says (ADR 0111).
+        let sign_ins = match self.tag()? {
+            0 => SignInsShown::Kept,
+            1 => SignInsShown::Forgotten,
+            2 => SignInsShown::ByAnother,
+            3 => SignInsShown::NotKept,
+            4 => SignInsShown::Unopened,
+            other => return Err(unreadable(format!("what of sign-ins tagged {other}"))),
+        };
+        Ok((privacy, sign_ins))
     }
 
     /// Whether it is *Settings*, and what of it the keyboard is on, as
@@ -482,6 +508,7 @@ impl Reader<'_> {
             7 => (true, Some(SettingsKeyed::Service(self.service_press()?))),
             8 => (true, Some(SettingsKeyed::Cookies)),
             9 => (true, Some(SettingsKeyed::Banners)),
+            10 => (true, Some(SettingsKeyed::ForgetSignIns)),
             other => return Err(unreadable(format!("a Settings tagged {other}"))),
         })
     }

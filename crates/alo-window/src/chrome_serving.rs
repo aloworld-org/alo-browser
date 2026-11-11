@@ -60,6 +60,15 @@
 //! tells the frame [`Follow::Closed`] and ends the thread, and Chrome with
 //! it. Every sender of orders gone ends it too.
 //!
+//! # The sign-ins kept
+//!
+//! A card started with a jar ([`ChromeServing::start_as_a_kept_card`],
+//! ADR 0111) has the jar's cookies put into its Chromium before its page
+//! opens, and this thread looks at its Chromium's cookies every
+//! [`chrome_sign_ins::EVERY`] between orders, and once more as it ends,
+//! making what changed to the jar ([`crate::chrome_sign_ins`]). What could
+//! not be is said on the terminal, and the card goes on.
+//!
 //! # What the frame shows of the page
 //!
 //! In the same cycle, after where the frame stands, this thread reads what
@@ -112,6 +121,7 @@ use crate::chrome_park;
 use crate::chrome_pin::Pinned;
 use crate::chrome_profile::Swept;
 use crate::chrome_protocol::Named;
+use crate::chrome_sign_ins;
 use crate::chrome_tab::{Tab, Unopened};
 use crate::chrome_window::{self, Placed, Unplaced};
 use crate::frame_told::ToFrame;
@@ -120,10 +130,12 @@ use crate::message::{Order, TabOrder};
 use crate::pages::RenderedBy;
 use crate::scale::Scale;
 use crate::serving::serve;
+use crate::sign_ins::SignIns;
 use alo_url::Url;
 use core::fmt;
 use std::io::ErrorKind;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
@@ -384,6 +396,40 @@ impl ChromeServing {
         Self::start_as_a_pinned_card(chromium, opening, (size, scale), sites, None, told)
     }
 
+    /// [`ChromeServing::start_as_a_pinned_card`], its Chromium given the
+    /// sign-ins `kept` holds before its page opens and keeping its own in
+    /// it as it runs (ADR 0111, [`crate::chrome_sign_ins`]); with none, as
+    /// that.
+    ///
+    /// # Errors
+    ///
+    /// As [`ChromeServing::start_shown`].
+    pub fn start_as_a_kept_card(
+        chromium: Chromium,
+        opening: Opening,
+        (size, scale): ((u32, u32), Scale),
+        (sites, pinned, kept): (AgentSites, Option<Pinned>, Option<Arc<SignIns>>),
+        told: TellFrame,
+    ) -> Result<Self, Unserved> {
+        let (left, top) = chrome_window::PARKED;
+        Self::begin_pinned(
+            opening,
+            size,
+            (
+                chromium,
+                Drawn::Shown {
+                    left,
+                    top,
+                    framed: false,
+                    front: false,
+                    scale: Some(scale),
+                },
+            ),
+            (sites, pinned, kept),
+            Some(told),
+        )
+    }
+
     /// [`ChromeServing::start_as_a_card`], its Chromium taking the name
     /// `pinned` holds as the address it holds, never asking a resolver for
     /// it (queue item 881, [`crate::chrome_pin`]): a page alo's agent opens.
@@ -413,7 +459,7 @@ impl ChromeServing {
                     scale: Some(scale),
                 },
             ),
-            (sites, pinned),
+            (sites, pinned, None),
             Some(told),
         )
     }
@@ -427,7 +473,7 @@ impl ChromeServing {
         sites: AgentSites,
         frame: Option<TellFrame>,
     ) -> Result<Self, Unserved> {
-        Self::begin_pinned(opening, size, named, (sites, None), frame)
+        Self::begin_pinned(opening, size, named, (sites, None, None), frame)
     }
 
     /// [`ChromeServing::begin`], the Chromium taking the name `pinned`
@@ -436,7 +482,7 @@ impl ChromeServing {
         opening: Opening,
         size: (u32, u32),
         (chromium, drawn): (Chromium, Drawn),
-        (sites, pinned): (AgentSites, Option<Pinned>),
+        (sites, pinned, kept): (AgentSites, Option<Pinned>, Option<Arc<SignIns>>),
         frame: Option<TellFrame>,
     ) -> Result<Self, Unserved> {
         let (orders, results, inbox) = inbox::inbox();
@@ -448,7 +494,7 @@ impl ChromeServing {
             .name("alo-chrome".to_owned())
             .spawn(move || {
                 serve_in_chrome(
-                    opening,
+                    (opening, kept),
                     size,
                     (&chromium, drawn, pinned.as_ref()),
                     &sites,
@@ -549,12 +595,14 @@ struct Started {
 /// Start the Chromium `chromium` names drawing as `drawn` says — a card's
 /// taking the name `pinned` holds as its address — and ask it which it is:
 /// its product, as it says itself, and whose it is — the machine's Chrome,
-/// or the application's own (ADR 0077).
+/// or the application's own (ADR 0077) — given the sign-ins `kept` holds,
+/// if there is a jar (ADR 0111).
 fn named_chrome(
     chromium: &Chromium,
     drawn: Drawn,
     pinned: Option<&Pinned>,
-) -> Result<(Chrome, RenderedBy), Unserved> {
+    kept: Option<Arc<SignIns>>,
+) -> Result<(Chrome, RenderedBy, Option<chrome_sign_ins::Keeping>), Unserved> {
     let chrome = match drawn {
         Drawn::Shown {
             scale: Some(scale), ..
@@ -568,14 +616,16 @@ fn named_chrome(
         Chromium::Machines => RenderedBy::Chrome { product },
         Chromium::Carried(_) => RenderedBy::Carried { product },
     };
-    Ok((chrome, rendered_by))
+    // The sign-ins kept, given before any page opens (ADR 0111).
+    let keeping = given_to(&mut chrome, kept);
+    Ok((chrome, rendered_by, keeping))
 }
 
 /// Start Chrome, open the page, say whether that worked — and which Chrome
 /// it is — on `tell`, and answer agents until told to close, telling
 /// `frame`, if there is one, where the frame around Chrome's window stands.
 fn serve_in_chrome(
-    opening: Opening,
+    (opening, kept): (Opening, Option<Arc<SignIns>>),
     size: (u32, u32),
     (chromium, drawn, pinned): (&Chromium, Drawn, Option<&Pinned>),
     sites: &AgentSites,
@@ -584,7 +634,7 @@ fn serve_in_chrome(
     tell: &Sender<Result<Started, Unserved>>,
 ) -> AgentRecord {
     let mut record = AgentRecord::new();
-    let (mut chrome, rendered_by) = match named_chrome(chromium, drawn, pinned) {
+    let (mut chrome, rendered_by, mut keeping) = match named_chrome(chromium, drawn, pinned, kept) {
         Ok(named) => named,
         Err(why) => {
             let _ = tell.send(Err(why));
@@ -641,12 +691,10 @@ fn serve_in_chrome(
     // whether its window is still parked (queue item 771).
     let mut fitted = chrome_card::Fitted::parked(size, scaled);
     loop {
-        let until = chrome_card::until(
-            pages.tab(),
-            following.as_ref().map(|follower| follower.next),
-        );
+        let next = following.as_ref().map(|follower| follower.next);
+        let until = looked_by(keeping.as_mut(), pages.tab_mut(), next);
         let Some(arrived) = arrivals(inbox, until) else {
-            chrome_card::stop(pages.tab_mut(), frame);
+            ending(pages.tab_mut(), frame, keeping.as_mut());
             return record;
         };
         for arrival in chrome_card::to_carry_out(arrived) {
@@ -669,8 +717,8 @@ fn serve_in_chrome(
                 }
                 Arrival::Order(Order::CloseEverything | Order::Tabs(TabOrder::CloseSelected)) => {
                     // A stream is stopped, and Chrome's word on it heard,
-                    // before its page goes.
-                    chrome_card::stop(pages.tab_mut(), frame);
+                    // before its page goes — and its sign-ins kept.
+                    ending(pages.tab_mut(), frame, keeping.as_mut());
                     if let Some(follower) = following.as_mut() {
                         // A Chrome that does not close its page is closed
                         // with this thread, its window with it.
@@ -680,7 +728,7 @@ fn serve_in_chrome(
                     return record;
                 }
                 Arrival::Abandoned => {
-                    chrome_card::stop(pages.tab_mut(), frame);
+                    ending(pages.tab_mut(), frame, keeping.as_mut());
                     return record;
                 }
                 // The window's other orders, which Chrome's own window
@@ -694,9 +742,80 @@ fn serve_in_chrome(
             && Instant::now() >= follower.next
             && follower.follow(pages.tab_mut()) == Follow::Closed
         {
-            return record;
+            return looked_last(record, keeping.as_mut(), pages.tab_mut());
         }
     }
+}
+
+/// `record`, once the card's Chromium's cookies were looked at once more
+/// as its window went, if it keeps its sign-ins.
+fn looked_last(
+    record: AgentRecord,
+    keeping: Option<&mut chrome_sign_ins::Keeping>,
+    tab: &mut Tab<'_>,
+) -> AgentRecord {
+    looked(keeping, tab, true);
+    record
+}
+
+/// The jar `kept`, if there is one, given to `chrome` before any page
+/// opens (ADR 0111); one that could not be is said, and the card opens
+/// signed in to nothing.
+fn given_to(chrome: &mut Chrome, kept: Option<Arc<SignIns>>) -> Option<chrome_sign_ins::Keeping> {
+    let jar = kept?;
+    chrome_sign_ins::given(chrome, jar)
+        .inspect_err(|why| {
+            eprintln!(
+                "alo: the card opens signed in to nothing: the sign-ins kept were not given to \
+                 its Chromium ({why})"
+            );
+        })
+        .ok()
+}
+
+/// When the thread holding `tab` next looks at Chrome, waiting `until`
+/// ([`chrome_card::until`]): no later than its Chromium's cookies are next
+/// to be looked at, when it keeps them — and they are looked at first, if
+/// it is time.
+fn looked_by(
+    keeping: Option<&mut chrome_sign_ins::Keeping>,
+    tab: &mut Tab<'_>,
+    until: Option<Instant>,
+) -> Option<Instant> {
+    let until = chrome_card::until(tab, until);
+    let Some(keeping) = keeping else {
+        return until;
+    };
+    looked(Some(&mut *keeping), tab, false);
+    let next = keeping.next();
+    Some(until.map_or(next, |until| until.min(next)))
+}
+
+/// The card's Chromium's cookies looked at — `now`, or if it is time — if
+/// it keeps its sign-ins, and what could not be said.
+fn looked(keeping: Option<&mut chrome_sign_ins::Keeping>, tab: &mut Tab<'_>, now: bool) {
+    let Some(keeping) = keeping else {
+        return;
+    };
+    let looked = if now {
+        keeping.look(tab)
+    } else {
+        keeping.look_if_due(tab)
+    };
+    if let Err(why) = looked {
+        eprintln!("alo: {why}");
+    }
+}
+
+/// A card's thread ending: its stream stopped, and Chrome's word on it
+/// heard, before its page goes — and its sign-ins looked at once more.
+fn ending(
+    tab: &mut Tab<'_>,
+    frame: Option<&(dyn Fn(ToFrame) -> bool + Send)>,
+    keeping: Option<&mut chrome_sign_ins::Keeping>,
+) {
+    chrome_card::stop(tab, frame);
+    looked(keeping, tab, true);
 }
 
 /// Open `opening` in `chrome` at `size`, for a Chrome drawing as `drawn`

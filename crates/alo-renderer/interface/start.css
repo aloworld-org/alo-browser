@@ -2197,6 +2197,27 @@ ol.result {
   line-height: 17px;
 }
 
+/* *Forget all sign-ins* (ADR 0111): under the row's quiet line, drawn as
+   *Search and answers*' buttons are, as wide as its words. */
+.pbtn {
+  align-self: flex-start;
+  height: 28px;
+  margin-top: 4px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 26px;
+  font-weight: 600;
+}
+
+.pbtn.keyed {
+  box-shadow: 0 0 0 3px rgba(27, 36, 51, 0.33);
+}
+
 /* What the last *Keep* or *Remove* came to, under the box. */
 .psaid {
   margin-top: 10px;

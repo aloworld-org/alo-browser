@@ -1355,7 +1355,7 @@ Settled here, as the design left them open:
   24 under *Search and answers*: **Privacy**, 15 px 600, and in quiet 13.5
   px *What sites may keep on this Mac, and how alo answers their cookie
   banners. A cookie choice is used from the next page alo opens.*; 14
-  under it *alo at work*'s white box of two rows ruled off as its are,
+  under it *alo at work*'s white box of three rows ruled off as its are,
   each 10 above and below, its name (13.5 px 600) over its choices, one
   under another 2 apart, each 28 tall and drawn as *Ask before opening*'s
   (a radio 16 across, its words 13 px, quiet or the ink when chosen, its
@@ -1365,8 +1365,17 @@ Settled here, as the design left them open:
     will fail: a site cannot remember you.*, and **Keep all cookies**.
   - **Cookie banners** — **Answer with the most private choice ·
     Default** and **Leave them to me**.
+  - **Sign-ins** (item 935, ADR 0111) — its name, 4 under it in quiet
+    12.5 px the line the browser process sends: *Signed-in sites are kept
+    on this Mac, sealed under a key in your keychain, until you forget
+    them.*, or after a press *Every sign-in on this Mac was forgotten.
+    Sites you sign in to from now on are kept again.*, or why they are
+    not kept (another alo open, no key, a file that does not open); 4
+    under it the button **Forget all sign-ins**, 28 tall, as wide as its
+    words, drawn as *Search and answers*' buttons. The row 98 tall.
   **By keys**: Tab goes on from *Search and answers*' last stop to
-  *Cookies*, then *Cookie banners*, then round to the ×; on either → ↑
+  *Cookies*, then *Cookie banners*, then *Forget all sign-ins* (Space or
+  Return presses it), then round to the ×; on either group → ↑
   choose the next and ← ↓ the one before, round. The ring around the
   choice made, as on *Ask before opening*. **Effect**: a cookie choice is
   told to the whole browser process at once and used by every Chromium
@@ -1375,11 +1384,13 @@ Settled here, as the design left them open:
   with. A banners' choice is used from the next page loaded, the open
   card's included. **To an agent**: a region named *Privacy*, radio groups
   *Cookies* and *Cookie banners* each holding a radio named by its choice,
-  the one made checked; the line under *Refuse all cookies* read after it.
+  the one made checked; the line under *Refuse all cookies* read after it;
+  a button *Forget all sign-ins* described by the line over it.
   **Kept**: `cookies all|keep` and `banners leave` at the end of
   `settings.txt`, each only when it is not the default. In the design's
-  window, without *Search and answers*, what the panel holds is 1104 in a
-  room of 692.
+  window, without *Search and answers*, what the panel holds is 1202 in a
+  room of 692. *Forget all sign-ins* is kept nowhere: it is done — the
+  jar, the file and the open card's cookies emptied, the key replaced.
 
 ## Colours
 

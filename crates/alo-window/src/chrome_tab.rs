@@ -102,6 +102,7 @@ use crate::chrome::{Chrome, Failed};
 use crate::chrome_cosmetic::Cosmetic;
 use crate::chrome_gate::{self, Refusal};
 use crate::chrome_hold::{Holding, Kind, Unheld};
+use crate::chrome_iframes::FrameNumbers;
 use crate::chrome_loading::Loading;
 use crate::chrome_owed::{self, Owed};
 use crate::chrome_protocol::{
@@ -144,6 +145,9 @@ pub struct Tab<'c> {
     cosmetic: Cosmetic,
     /// The frames and workers of the tab, held.
     holding: Holding,
+    /// The number each frame of another site read into the tree was given
+    /// (queue item 937, [`crate::chrome_iframes`]).
+    frame_numbers: FrameNumbers,
     /// The requests this tab answered and awaits Chrome's word on, and
     /// whether each was the page.
     answering: HashMap<u64, bool>,
@@ -447,6 +451,7 @@ impl<'c> Tab<'c> {
             went: Vec::new(),
             cosmetic: Cosmetic::default(),
             holding: Holding::default(),
+            frame_numbers: FrameNumbers::default(),
             answering: HashMap::new(),
             telling: HashMap::new(),
             requested: Vec::new(),
@@ -630,14 +635,64 @@ impl<'c> Tab<'c> {
     }
 
     /// The page read as [`Tab::read`] reads it, and Chrome's tree it was
-    /// read from.
+    /// read from — with the tree of each frame in it, read into it under
+    /// its `<iframe>` ([`crate::chrome_iframes`], queue item 937).
     pub(crate) fn read_whole(&mut self) -> Result<(Snapshot, Vec<AxNode>), Unread> {
-        let nodes =
+        let mut nodes =
             chrome_protocol::ax_nodes(&self.ask(&Command::ReadTree)?).map_err(Failed::Malformed)?;
         let window =
             chrome_protocol::window(&self.ask(&Command::Window)?).map_err(Failed::Malformed)?;
-        let snapshot = chrome_tree::snapshot(&nodes, window, &mut |node| self.drawn(node))?;
+        let mut snapshot = chrome_tree::snapshot(&nodes, window, &mut |node| self.drawn(node))?;
+        self.read_frames(&mut snapshot, &mut nodes, window)?;
         Ok((snapshot, nodes))
+    }
+
+    /// The session the frame of another site `frame` is held through, by
+    /// its `frameId` — which is its target's id — if it is held (queue
+    /// item 937).
+    pub(crate) fn frame_session(&self, frame: &str) -> Option<String> {
+        self.holding.session_of(frame, Kind::Frame)
+    }
+
+    /// The numbers given to the frames of other sites read (queue item
+    /// 937).
+    pub(crate) fn frame_numbers(&mut self) -> &mut FrameNumbers {
+        &mut self.frame_numbers
+    }
+
+    /// Send `command` to the frame of another site held as `session` and
+    /// wait for its result, answering every request paused meanwhile: its
+    /// result, or Chrome's refusal — or [`None`] once the frame has ended
+    /// or stopped before it answered (queue item 937).
+    ///
+    /// # Errors
+    ///
+    /// [`Failed`], when Chrome cannot be asked or does not answer in time.
+    pub(crate) fn ask_frame(
+        &mut self,
+        session: &str,
+        command: &Command,
+    ) -> Result<Option<Result<Vec<u8>, Failed>>, Failed> {
+        let asked = self.chrome.send(Some(session), command)?;
+        let until = Instant::now() + self.chrome.patience();
+        loop {
+            let message = self.next(until)?;
+            let gone = self.holding.kind(session).is_none() || self.holding.is_stopped(session);
+            match message {
+                Some(Message::Reply { id, result, .. }) if id == asked => {
+                    return Ok(match result {
+                        Ok(result) => Some(Ok(result)),
+                        Err(_) if gone => None,
+                        Err(declined) => Some(Err(Failed::Declined(declined))),
+                    });
+                }
+                Some(Message::Skipped { id: Some(id), .. }) if id == asked => {
+                    return Err(Failed::TooLong);
+                }
+                _ if gone => return Ok(None),
+                _ => {}
+            }
+        }
     }
 
     /// The navigations the page's own frame asked for since this was last
@@ -811,6 +866,19 @@ impl<'c> Tab<'c> {
         }
         let asked = self.chrome.send(Some(&self.session), command)?;
         self.answer_to(asked, true)
+    }
+
+    /// Send `command` to the tab's Chromium itself rather than through the
+    /// tab's session — the browser's own target, as `Storage`'s cookies are
+    /// asked (ADR 0111 § 2) — and wait for its result, answering every
+    /// request paused meanwhile.
+    ///
+    /// # Errors
+    ///
+    /// As [`Tab::ask`], but never [`Failed::Detached`].
+    pub(crate) fn ask_browser(&mut self, command: &Command) -> Result<Vec<u8>, Failed> {
+        let asked = self.chrome.send(None, command)?;
+        self.answer_to(asked, false)
     }
 
     /// Wait for the result of the command sent as `asked`, answering every

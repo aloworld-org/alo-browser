@@ -6,6 +6,40 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Pages in a card show their true colours on a laptop's own screen.** On
+  a wide-colour display, such as a MacBook's, a page opened in the
+  conversation looked washed out — its colours converted for the display
+  twice. Each card's browser now draws in standard colour, so a card looks
+  as the same page does in Chrome's own window. (ADR 0076, amended.)
+- **alo's agent reads Google Docs and Sheets, and works diagrams.net and
+  Excalidraw, through the apps' own words.** These apps draw on a canvas,
+  so their editors show the agent little. Now, on a Google Doc, the agent
+  is told of the doc's own reading view and opens it in a card you see;
+  its answer ends by saying which view it read. On a Google Sheet it goes
+  to a cell through the sheet's Name box, with a new step that presses a
+  key (Enter, Escape, Tab, the arrows, Home, End, Page Up or Page Down) by
+  name. Or it reads the whole sheet through the sheet's own view, whose
+  grid sits in a frame. **A page's frames are now in the tree** an agent
+  reads, and a frame from the page's own site is acted in by name; a frame
+  from another site is read only, for now. On diagrams.net and Excalidraw
+  the agent is told the app's own menus and dialogs that take words — Edit
+  Diagram and Find/Replace, Mermaid to Excalidraw — and still finds each by
+  its name. What it draws on a canvas it says it inserted, never that it
+  saw. Agents on the socket can press keys too (`"verb":"press"`). (ADR
+  0109, amended.)
+- **Sites you sign in to stay signed in.** Until now every page alo opened
+  started on a browser that forgot everything as it closed, so you were
+  signed out the next time. Now the cookies a site keeps you signed in with
+  are kept on this Mac, sealed under a key in your keychain, and given to
+  every page alo opens — a card closed and another opened, or alo quit and
+  opened again. Nothing else is kept: no history, no cache, no site
+  storage, and a session's cookies only until alo quits. *Settings ›
+  Privacy* has a new row, **Sign-ins**, saying whether they are kept, with
+  **Forget all sign-ins**, which empties them, the open card's too, and
+  replaces the key so an old copy never opens. Your cookie choice still
+  decides what a site is sent. A second alo opened at once keeps its own
+  until it quits. alo's agent still never types a password. (ADR 0111;
+  `--sign-ins DIR` keeps them in a scratch directory for a hand run.)
 - **Cookies refused, and cookie banners answered for you.** A new
   *Settings › Privacy* section. **Cookies**: alo now refuses other sites'
   cookies by default — the advertisers' and trackers' that ride along on a

@@ -137,6 +137,9 @@ pub struct Start {
     /// choices of cookies and of cookie banners, as made — none draws no
     /// section.
     pub privacy: Option<crate::settings_privacy::Privacy>,
+    /// What *Privacy*'s row *Sign-ins* says of the sign-ins kept (ADR
+    /// 0111), drawn while *Privacy* is.
+    pub sign_ins: crate::settings_privacy::SignInsShown,
 }
 
 /// What of *Settings* the keyboard is on (queue item 856,
@@ -166,6 +169,8 @@ pub enum SettingsKeyed {
     Cookies,
     /// The radio group *Cookie banners*, at the choice made.
     Banners,
+    /// *Forget all sign-ins* (ADR 0111): Space or Return presses it.
+    ForgetSignIns,
 }
 
 impl SettingsKeyed {
@@ -229,6 +234,7 @@ impl Default for Start {
             settings_bar: None,
             services: None,
             privacy: None,
+            sign_ins: crate::settings_privacy::SignInsShown::Kept,
         }
     }
 }

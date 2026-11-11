@@ -127,12 +127,14 @@ use crate::agent_record::Caller;
 use crate::agent_sites::AgentSites;
 use crate::ai_service::{AI_SERVICE, AiService};
 use crate::answer_protocol::Spent;
+use crate::app_views::{self, View};
+use crate::app_ways;
 use crate::asking::{Answer, Ask, Refused};
 use crate::chrome_pin::Pinned;
 use crate::inbox::Orders;
 use crate::message::Order;
 use crate::search_service::SearchService;
-use alo_agent::{Outcome, Target, Verb};
+use alo_agent::{Key, Outcome, Target, Verb};
 use alo_box::BoxId;
 use alo_net::Pool;
 use alo_net::cause::Identities;
@@ -441,6 +443,8 @@ impl Agent {
             had_page: false,
             begins,
             signing_in: false,
+            offered: Vec::new(),
+            viewed: Vec::new(),
         };
         let thread = std::thread::Builder::new()
             .name("alo-conversation-agent".to_owned())
@@ -562,6 +566,12 @@ struct Running {
     begins: Begins,
     /// Whether it is held because a page asked the person to sign in.
     signing_in: bool,
+    /// The app's own views of the page it last chose a step on (queue
+    /// item 939): what an address it opens is named by.
+    offered: Vec<View>,
+    /// The app's own views it opened and read, by name and address, said
+    /// with its result.
+    viewed: Vec<View>,
 }
 
 /// Why a run ends where it does: what it says last, or nothing when it was
@@ -654,7 +664,11 @@ impl Running {
                 },
             };
             match call {
-                Call::Done { result } => return Some(Said::Done { result }),
+                Call::Done { result } => {
+                    return Some(Said::Done {
+                        result: self.with_views_read(result),
+                    });
+                }
                 Call::Stuck { why, choices } => return Some(Said::Stuck { why, choices }),
                 Call::Act {
                     node,
@@ -861,6 +875,11 @@ impl Running {
         let (tab, tree) = page.map_or((String::new(), String::new()), |(tab, snapshot)| {
             (tab.to_owned(), agent_page::text(snapshot))
         });
+        // The app's own views of what the card shows, said with the page
+        // (queue item 939).
+        let url = alo_url::parse(&tab).ok();
+        self.offered = url.as_ref().map(app_views::of).unwrap_or_default();
+        let ways = url.as_ref().map(app_ways::of).unwrap_or_default();
         let asking = Asking {
             asked: &self.asked,
             plan: self.plan.as_ref(),
@@ -869,6 +888,8 @@ impl Running {
             steps: &self.steps,
             left: usize::from(self.limits.actions).saturating_sub(self.verbs()),
             sites_left: usize::from(self.limits.sites).saturating_sub(self.visited.opened_count()),
+            views: &self.offered,
+            ways: &ways,
         };
         let stepped = self
             .agent
@@ -901,6 +922,8 @@ impl Running {
                 Verb::Activate => "Pressing",
                 Verb::PutText(_) => "Typing into",
                 Verb::Scroll(_) => "Scrolling",
+                Verb::Press(Key::Enter) => "Pressing Enter on",
+                Verb::Press(_) => "Pressing a key on",
             };
             format!("{doing} node {}", node.as_usize())
         } else {
@@ -908,7 +931,7 @@ impl Running {
         };
         let typed = match &verb {
             Verb::PutText(text) => Some(text.clone()),
-            Verb::Activate | Verb::Scroll(_) => None,
+            Verb::Activate | Verb::Scroll(_) | Verb::Press(_) => None,
         };
         if !self.say(Said::Step {
             line: line.clone(),
@@ -941,9 +964,16 @@ impl Running {
         let mut went = false;
         let came_to = match &answer {
             Answer::Done { outcome, .. } => {
+                // Enter may send a form, or follow what it is on, as a press
+                // may (queue item 938).
                 if matches!(
                     outcome,
-                    Outcome::Followed { .. } | Outcome::Submitted { .. }
+                    Outcome::Followed { .. }
+                        | Outcome::Submitted { .. }
+                        | Outcome::KeyPressed {
+                            key: Key::Enter,
+                            ..
+                        }
                 ) {
                     std::thread::sleep(SETTLE);
                     went = true;
@@ -1006,14 +1036,21 @@ impl Running {
         line: String,
         why: String,
     ) -> Result<(), Ended> {
-        let line = if line.is_empty() {
-            match begin {
+        // One of the app's own views is opened by alo's words, naming it,
+        // whatever the model wrote (queue item 939).
+        let view = match begin {
+            Begin::Address(address) => alo_renderer::typed::address(address)
+                .and_then(|url| app_views::named(&self.offered, &url).cloned()),
+            Begin::Search(_) | Begin::Result(_) => None,
+        };
+        let line = match (&view, line.is_empty()) {
+            (Some(view), _) => format!("Opening {}, read only", view.name),
+            (None, true) => match begin {
                 Begin::Search(words) => format!("Searching for \u{201c}{words}\u{201d}"),
                 Begin::Result(number) => format!("Opening result {number}"),
                 Begin::Address(address) => format!("Opening {address}"),
-            }
-        } else {
-            line
+            },
+            (None, false) => line,
         };
         if !self.say(Said::Step {
             line: line.clone(),
@@ -1025,6 +1062,14 @@ impl Running {
         let came_to = match begin {
             Begin::Search(words) => self.search(pool, words)?,
             Begin::Result(_) | Begin::Address(_) => self.open(begin)?,
+        };
+        let came_to = match view {
+            Some(view) if came_to.starts_with("Opened ") => {
+                let said = format!("{came_to} It is {}, read only.", view.name);
+                self.viewed.push(view);
+                said
+            }
+            _ => came_to,
         };
         self.steps.push(Taken {
             step: line,
@@ -1128,6 +1173,19 @@ impl Running {
         Ok(format!(
             "Opened {at}: it is the page you are given now, a card in the person's conversation."
         ))
+    }
+
+    /// `result`, with the app's own views the run read said after it, so
+    /// the person knows which view their answer came from (queue item 939).
+    fn with_views_read(&self, result: String) -> String {
+        let mut said = result;
+        for view in &self.viewed {
+            said.push_str("\n\nRead in ");
+            said.push_str(view.name);
+            said.push_str(": ");
+            said.push_str(&view.address);
+        }
+        said
     }
 
     /// Ask the person `what`, and wait for their answer: go on after
@@ -2060,6 +2118,61 @@ mod tests {
                 .any(|said| matches!(said, Said::Asking { .. })),
             "{:?}",
             ran.said
+        );
+    }
+
+    #[test]
+    fn a_docs_own_reading_view_is_offered_opened_by_name_and_said_with_the_result() {
+        // Queue item 939: the doc's card is told of the app's own view of
+        // it, and the run that opens it says which view it read.
+        let doc = "https://docs.google.com/document/d/1_jnAifzWv0llivFWolSXxdcFJ4ksjG8eM3MdNjTqAcY";
+        let ran = begun(
+            "summarise this doc",
+            vec![
+                calling(
+                    "open",
+                    &format!(
+                        r#"{{"result":null,"address":"{doc}/edit","step":"Opening the doc","why":"","plan":null,"on":1}}"#
+                    ),
+                ),
+                calling(
+                    "open",
+                    &format!(
+                        r#"{{"result":null,"address":"{doc}/mobilebasic","step":"Reading it","why":"","plan":null,"on":1}}"#
+                    ),
+                ),
+                calling("done", r#"{"result":"It is about budgets."}"#),
+            ],
+            page(),
+            Limits::default(),
+            Run::not_now,
+        );
+        assert_eq!(
+            ran.opened,
+            vec![format!("{doc}/edit"), format!("{doc}/mobilebasic")]
+        );
+        // Sent with the doc's page, by name and address, and not before it.
+        assert!(!ran.bodies[0].contains("mobilebasic"));
+        assert!(
+            ran.bodies[1].contains(r#"\"views\":[{\"address\":"#)
+                && ran.bodies[1].contains(&format!("{doc}/mobilebasic"))
+                && ran.bodies[1].contains(crate::app_views::DOCS),
+            "{}",
+            ran.bodies[1]
+        );
+        // The step is alo's words, naming the view, whatever the model wrote;
+        // and so is the line after the result.
+        assert!(
+            steps_of(&ran.said).contains(&format!("Opening {}, read only", crate::app_views::DOCS))
+        );
+        assert_eq!(
+            ran.said.last(),
+            Some(&Said::Done {
+                result: format!(
+                    "It is about budgets.\n\nRead in {}: {doc}/mobilebasic",
+                    crate::app_views::DOCS
+                )
+            })
         );
     }
 

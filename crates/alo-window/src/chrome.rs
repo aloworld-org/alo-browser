@@ -130,18 +130,33 @@ pub fn told_its_scale(chromium: &Chromium) -> bool {
     !matches!(chromium, Chromium::Carried(_))
 }
 
+/// The switch every card's Chromium is started with so that it draws in
+/// sRGB, whatever display its window is parked by (ADR 0076's sixth
+/// amendment, queue item 952). Left to itself Chromium draws in the colour
+/// space of the display its window is on, and so does its screencast: on a
+/// wide-gamut panel `#2a9d8f` arrived as (79, 155, 143), which alo's window
+/// — whose pixels the window server matches to the display as sRGB (ADR
+/// 0105) — matched a second time, showing (98, 153, 143) where Chrome's own
+/// window shows (79, 155, 143) (measured on this Mac's built-in panel).
+/// Told sRGB, the frame is the page's own colours and alo's window shows
+/// them as Chrome's does; an expanded card's window, shown by the window
+/// server itself, is matched by it as it was.
+pub const SRGB: &str = "--force-color-profile=srgb";
+
 /// What a card's Chromium is started with beside every Chromium's
 /// switches: for the machine's Chrome, the conversation window's `scale`
 /// ([`scaled`], ADR 0090), which it then keeps; for the Chromium alo
 /// carries, [`CARD`] and no scale, which a switch would fix for its life
 /// (measured, queue item 772) — its window is parked by a display at the
-/// scale instead ([`told_its_scale`]).
+/// scale instead ([`told_its_scale`]). Both are told to draw in sRGB
+/// ([`SRGB`]).
 pub fn as_a_card(chromium: &Chromium, scale: Scale) -> Vec<String> {
-    if told_its_scale(chromium) {
-        vec![scaled(scale)]
+    let own = if told_its_scale(chromium) {
+        scaled(scale)
     } else {
-        vec![CARD.to_owned()]
-    }
+        CARD.to_owned()
+    };
+    vec![own, SRGB.to_owned()]
 }
 
 /// How many messages read from Chrome are held for an answer to be found
@@ -767,14 +782,26 @@ mod tests {
         assert!(!told_its_scale(&carried));
         assert_eq!(
             as_a_card(&Chromium::Machines, Scale::TWO),
-            ["--force-device-scale-factor=2"]
+            [
+                "--force-device-scale-factor=2",
+                "--force-color-profile=srgb"
+            ]
         );
         assert_eq!(
             as_a_card(&Chromium::Machines, Scale::ONE),
-            ["--force-device-scale-factor=1"]
+            [
+                "--force-device-scale-factor=1",
+                "--force-color-profile=srgb"
+            ]
         );
         // Told, it would keep the scale for its life (queue item 772).
-        assert_eq!(as_a_card(&carried, Scale::ONE), ["--alo-card"]);
-        assert_eq!(as_a_card(&carried, Scale::TWO), ["--alo-card"]);
+        assert_eq!(
+            as_a_card(&carried, Scale::ONE),
+            ["--alo-card", "--force-color-profile=srgb"]
+        );
+        assert_eq!(
+            as_a_card(&carried, Scale::TWO),
+            ["--alo-card", "--force-color-profile=srgb"]
+        );
     }
 }

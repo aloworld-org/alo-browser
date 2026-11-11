@@ -31,7 +31,7 @@
 //! Ctrl-D at a terminal.
 //!
 //! `alo --conversation [--frozen-fonts] [--scale FACTOR] [--chats DIR]
-//! [--agent-site ADDRESS ...]` opens the browser's own interface as a
+//! [--sign-ins DIR] [--agent-site ADDRESS ...]` opens the browser's own interface as a
 //! conversation instead (ADR 0074, queue item 709): the chats panel down
 //! the left and the first screen beside it, each drawn by a confined
 //! renderer of this engine's, in a window of the design's size. It holds
@@ -259,6 +259,16 @@ fn in_the_conversation(opening: &Opening, chromium: Chromium, bundle: Option<&Bu
     if let Ok(directory) = &chats {
         eprintln!("alo: chats are kept in {}", directory.display());
     }
+    // Where its cards' sign-ins are kept (ADR 0111): the directory a hand
+    // run named, its key in a keychain file there, or alo's own beside the
+    // chats, its key in the person's keychain; said, with why when not.
+    let sign_ins = std::sync::Arc::new(alo_window::sign_ins::SignIns::for_this_alo(
+        opening.sign_ins.as_deref(),
+    ));
+    eprintln!(
+        "{}",
+        alo_window::conversation_sign_ins::told(&sign_ins.kept_as())
+    );
     // The socket an agent reaches the card live by (queue item 716), kept
     // to the sites named, stopped and removed once every card is closed —
     // as the window's event loop ends, quit included (item 688).
@@ -295,7 +305,7 @@ fn in_the_conversation(opening: &Opening, chromium: Chromium, bundle: Option<&Bu
         renderers,
         chromium,
         (search, answer, defaults, keys),
-        chats,
+        (chats, sign_ins),
         (reaching, closing, agent),
     ) {
         Ok(()) => ExitCode::SUCCESS,

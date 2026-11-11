@@ -13,7 +13,11 @@
 //! keyboard on *Cookies*); the keyboard's ring on either group moving
 //! nothing; an agent reading both as radio groups, each choice a radio by
 //! its name, the one made checked; and a press on each choice claimed by
-//! its place.
+//! its place. And the row *Sign-ins* (ADR 0111): its numbers, the ring on
+//! *Forget all sign-ins*, the button read by its name and pressed at the
+//! place after the choices, and its reference
+//! (`references/settings-sign-ins.png`, just forgotten, the keyboard on
+//! the button).
 //!
 //! The section is drawn here without *Search and answers*, which stands
 //! between them in the window (its numbers are `settings_search_and_answers.rs`'s).
@@ -28,7 +32,9 @@ use alo_paint::{Point, from_png};
 use alo_renderer::conversation_claim::Claim;
 use alo_renderer::frame::frame_to_png;
 use alo_renderer::interface_face::InterfaceFace;
-use alo_renderer::settings_privacy::{Banners, Cookies, Privacy, PrivacyPress};
+use alo_renderer::settings_privacy::{
+    Banners, Cookies, FORGET_ALL, Privacy, PrivacyPress, SignInsShown,
+};
 use alo_renderer::settings_privacy_document::{BANNERS, COOKIES, TITLE};
 use alo_renderer::start::{SettingsKeyed, Start};
 use alo_renderer::{Frame, FromRenderer, Renderer, Snapshot, SnapshotNode, ToRenderer};
@@ -197,8 +203,8 @@ fn holds(name: &str, frame: Option<&Frame>) -> Result<(), String> {
 }
 
 /// How far *Settings* scrolls in its panel at the design's room with
-/// *Privacy* drawn under *alo at work*: a page of 1104 in a room of 692.
-const AT_ITS_FOOT: f32 = 412.0;
+/// *Privacy* drawn under *alo at work*: a page of 1202 in a room of 692.
+const AT_ITS_FOOT: f32 = 510.0;
 
 /// *Settings* at the design's room, scrolled to its foot, *Privacy*'s
 /// choices `made`, the keyboard on `keyed`.
@@ -224,55 +230,67 @@ fn privacy_stands_under_alo_at_work_in_numbers() {
         None,
     ))));
     let at = |class: &str| boxes_of(&drawn.renderer, class);
-    // The page, 1104 tall, scrolled up 412 to its foot.
-    assert_eq!(at("spage"), vec![px(160.0, -316.0, 720.0, 1104.0)]);
+    // The page, 1202 tall, scrolled up 510 to its foot.
+    assert_eq!(at("spage"), vec![px(160.0, -414.0, 720.0, 1202.0)]);
     // 24 under *alo at work*: its heading, its line of two, then the box
     // 14 under it, 664 wide.
-    assert_eq!(at("pgroup").get(2), Some(&px(188.0, 432.0, 664.0, 328.0)));
-    assert_eq!(at("pabout").get(2), Some(&px(188.0, 456.0, 664.0, 36.0)));
-    assert_eq!(at("limits").get(1), Some(&px(188.0, 506.0, 664.0, 254.0)));
-    // Two rows, the second ruled off by its own pixel: 10 above, the
-    // row's name 20, 4, its choices, 10 under.
+    assert_eq!(at("pgroup").get(2), Some(&px(188.0, 334.0, 664.0, 426.0)));
+    assert_eq!(at("pabout").get(2), Some(&px(188.0, 358.0, 664.0, 36.0)));
+    assert_eq!(at("limits").get(1), Some(&px(188.0, 408.0, 664.0, 352.0)));
+    // Three rows, each after the first ruled off by its own pixel: 10
+    // above, the row's name 20, 4, its choices, 10 under — and *Sign-ins*
+    // (ADR 0111): its name, 4, its line 17, 4, the button 28 four under
+    // it, 10.
     assert_eq!(
         at("lrow prow"),
         vec![
-            px(205.0, 507.0, 630.0, 149.0),
-            px(205.0, 656.0, 630.0, 103.0)
+            px(205.0, 409.0, 630.0, 149.0),
+            px(205.0, 558.0, 630.0, 103.0),
+            px(205.0, 661.0, 630.0, 98.0)
         ]
     );
+    // *Forget all sign-ins* at the row's left, as wide as its words.
+    assert_eq!(at("pbtn"), vec![px(205.0, 721.0, 138.421_88, 28.0)]);
     assert_eq!(
         at("privopts"),
         vec![
-            px(205.0, 541.0, 630.0, 105.0),
-            px(205.0, 691.0, 630.0, 58.0)
+            px(205.0, 443.0, 630.0, 105.0),
+            px(205.0, 593.0, 630.0, 58.0)
         ]
     );
     // Each choice 28 tall, 2 apart, its room 8 past the row's either
     // side; the one with a line under its words 45.
     assert_eq!(
         at("privopt on"),
-        vec![px(197.0, 541.0, 646.0, 28.0), px(197.0, 691.0, 646.0, 28.0)]
+        vec![px(197.0, 443.0, 646.0, 28.0), px(197.0, 593.0, 646.0, 28.0)]
     );
     assert_eq!(
         at("privopt"),
         vec![
-            px(197.0, 571.0, 646.0, 45.0),
-            px(197.0, 618.0, 646.0, 28.0),
-            px(197.0, 721.0, 646.0, 28.0)
+            px(197.0, 473.0, 646.0, 45.0),
+            px(197.0, 520.0, 646.0, 28.0),
+            px(197.0, 623.0, 646.0, 28.0)
         ]
     );
     // The line under *Refuse all cookies*, 22 in from the radio's edge.
-    assert_eq!(at("pnote"), vec![px(227.0, 594.0, 323.531_25, 17.0)]);
+    // And *Sign-ins*' line, on one line at the row's left.
+    assert_eq!(
+        at("pnote"),
+        vec![
+            px(227.0, 496.0, 323.531_25, 17.0),
+            px(205.0, 696.0, 630.0, 17.0)
+        ]
+    );
     // Each radio 16 across, 6 down in its choice.
     let radios: Vec<String> = at("dot").into_iter().skip(8).collect();
     assert_eq!(
         radios,
         vec![
-            px(205.0, 547.0, 16.0, 16.0),
-            px(205.0, 577.0, 16.0, 16.0),
-            px(205.0, 624.0, 16.0, 16.0),
-            px(205.0, 697.0, 16.0, 16.0),
-            px(205.0, 727.0, 16.0, 16.0)
+            px(205.0, 449.0, 16.0, 16.0),
+            px(205.0, 479.0, 16.0, 16.0),
+            px(205.0, 526.0, 16.0, 16.0),
+            px(205.0, 599.0, 16.0, 16.0),
+            px(205.0, 629.0, 16.0, 16.0)
         ]
     );
     assert!(
@@ -290,7 +308,7 @@ fn privacy_as_the_reference() {
     ))));
     assert_eq!(
         boxes_of(&drawn.renderer, "privopt on keyed"),
-        vec![px(197.0, 571.0, 646.0, 45.0)]
+        vec![px(197.0, 473.0, 646.0, 45.0)]
     );
     assert_eq!(holds("settings-privacy.png", drawn.frame.as_ref()), Ok(()));
 }
@@ -383,6 +401,62 @@ fn an_agent_reads_both_groups_each_choice_by_its_name() {
         "{inside_outline}"
     );
     assert!(!inside_outline.contains("Default"), "{inside_outline}");
+    // *Forget all sign-ins*, a button by its name, and the line saying
+    // where the sign-ins are, read (ADR 0111).
+    let buttons: Vec<Option<String>> = read(&inside, "button")
+        .iter()
+        .map(|node| node.name.clone())
+        .collect();
+    assert_eq!(buttons, vec![Some(FORGET_ALL.into())]);
+    assert!(
+        inside_outline.contains(SignInsShown::Kept.said()),
+        "{inside_outline}"
+    );
+}
+
+#[test]
+fn the_keyboards_ring_on_forget_all_sign_ins_moves_nothing() {
+    let unkeyed = draw(ToRenderer::Start(Box::new(privacy(OTHERWISE, None))));
+    let drawn = draw(ToRenderer::Start(Box::new(privacy(
+        OTHERWISE,
+        Some(SettingsKeyed::ForgetSignIns),
+    ))));
+    assert_eq!(
+        boxes_of(&drawn.renderer, "pbtn keyed"),
+        boxes_of(&unkeyed.renderer, "pbtn")
+    );
+    assert_eq!(
+        boxes_of(&drawn.renderer, "privopt on keyed"),
+        Vec::<String>::new()
+    );
+    let (Some(frame), Some(before)) = (drawn.frame.as_ref(), unkeyed.frame.as_ref()) else {
+        panic!("nothing painted");
+    };
+    let Some(rect) = rects_of(&drawn.renderer, "pbtn keyed").into_iter().next() else {
+        panic!("no ringed button");
+    };
+    let middle = rect.top() + rect.size.height / 2.0;
+    let ring = pixel(frame, rect.left() - 2.0, middle);
+    let paper = pixel(before, rect.left() - 2.0, middle);
+    assert!(ring[0] < paper[0], "{ring:?} {paper:?}");
+    assert_eq!(
+        pixel(frame, rect.left() - 6.0, middle),
+        pixel(before, rect.left() - 6.0, middle)
+    );
+}
+
+#[test]
+fn sign_ins_forgotten_as_the_reference() {
+    let drawn = draw(ToRenderer::Start(Box::new(Start {
+        sign_ins: SignInsShown::Forgotten,
+        ..privacy(Privacy::default(), Some(SettingsKeyed::ForgetSignIns))
+    })));
+    assert_eq!(
+        boxes_of(&drawn.renderer, "pbtn keyed"),
+        vec![px(205.0, 721.0, 138.421_88, 28.0)],
+        "the longer line still on one"
+    );
+    assert_eq!(holds("settings-sign-ins.png", drawn.frame.as_ref()), Ok(()));
 }
 
 #[test]
@@ -394,14 +468,18 @@ fn a_press_on_each_choice_is_claimed_by_its_place() {
     ))));
     let _ = renderer.handle(ToRenderer::Paint);
     for (x, y, claim) in [
-        (213.0, 555.0, Some(Claim::Privacy { at: 0 })),
-        (400.0, 600.0, Some(Claim::Privacy { at: 1 })),
-        (800.0, 632.0, Some(Claim::Privacy { at: 2 })),
-        (300.0, 705.0, Some(Claim::Privacy { at: 3 })),
-        (213.0, 735.0, Some(Claim::Privacy { at: 4 })),
-        // A row's name, and the box between choices, are nothing to press.
-        (230.0, 527.0, None),
-        (300.0, 617.0, None),
+        (213.0, 457.0, Some(Claim::Privacy { at: 0 })),
+        (400.0, 502.0, Some(Claim::Privacy { at: 1 })),
+        (800.0, 534.0, Some(Claim::Privacy { at: 2 })),
+        (300.0, 607.0, Some(Claim::Privacy { at: 3 })),
+        (213.0, 637.0, Some(Claim::Privacy { at: 4 })),
+        // *Forget all sign-ins*, after them all (ADR 0111).
+        (260.0, 735.0, Some(Claim::Privacy { at: 5 })),
+        // A row's name, the box between choices, and *Sign-ins*' line,
+        // are nothing to press.
+        (500.0, 704.0, None),
+        (230.0, 429.0, None),
+        (300.0, 519.0, None),
     ] {
         assert_eq!(
             renderer.handle(ToRenderer::ConversationPress(Point::new(x, y))),
@@ -418,6 +496,7 @@ fn a_press_on_each_choice_is_claimed_by_its_place() {
             PrivacyPress::Cookies(Cookies::KeepAll),
             PrivacyPress::Banners(Banners::Answer),
             PrivacyPress::Banners(Banners::Leave),
+            PrivacyPress::ForgetSignIns,
         ]
     );
 }

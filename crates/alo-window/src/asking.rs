@@ -347,6 +347,7 @@ pub fn refusal_kind(refusal: &Refusal) -> &'static str {
         Refusal::Unbuilt { .. } => "Unbuilt",
         Refusal::Chooses { .. } => "Chooses",
         Refusal::DoesNotScroll { .. } => "DoesNotScroll",
+        Refusal::KeyUnbuilt { .. } => "KeyUnbuilt",
         Refusal::TooLong { .. } => "TooLong",
         Refusal::Unchecked { .. } => "Unchecked",
         Refusal::NotSubmittable { .. } => "NotSubmittable",
@@ -362,6 +363,7 @@ pub fn outcome_kind(outcome: &Outcome) -> &'static str {
         Outcome::TextCanceled { .. } => "TextCanceled",
         Outcome::Chosen { .. } => "Chosen",
         Outcome::Scrolled { .. } => "Scrolled",
+        Outcome::KeyPressed { .. } => "KeyPressed",
         Outcome::Submitted { .. } => "Submitted",
         Outcome::NotSubmitted { .. } => "NotSubmitted",
     }

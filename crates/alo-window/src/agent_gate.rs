@@ -31,7 +31,7 @@
 //! Asking more than is needed — a *Search* button inside a form — is the
 //! side it errs on.
 
-use alo_agent::Verb;
+use alo_agent::{Key, Verb};
 use alo_box::{BoxId, KnownRole, Role};
 use alo_renderer::agent_paying::Paying;
 use alo_renderer::{Snapshot, SnapshotNode};
@@ -100,9 +100,14 @@ pub struct Question {
 /// Whether `verb` on `node` of `snapshot`, the page at `host`, is held for
 /// the person, and what they are asked if it is.
 pub fn asked(snapshot: &Snapshot, node: BoxId, verb: &Verb, host: &str) -> Option<Question> {
-    if !matches!(verb, Verb::Activate) {
-        return None;
-    }
+    // Enter is a press as a click is (queue item 938): on a button it
+    // presses it, on a link it follows it, and in a form's field it sends
+    // the form. No other key is held.
+    let enter = match verb {
+        Verb::Activate => false,
+        Verb::Press(Key::Enter) => true,
+        Verb::PutText(_) | Verb::Scroll(_) | Verb::Press(_) => return None,
+    };
     let path = path_to(snapshot, node)?;
     let pressed = *path.last()?;
     let called = words_of(pressed);
@@ -118,7 +123,7 @@ pub fn asked(snapshot: &Snapshot, node: BoxId, verb: &Verb, host: &str) -> Optio
             .is_some()
     {
         Held::Pays
-    } else if is_a_button(pressed)
+    } else if (is_a_button(pressed) || (enter && takes_text(pressed)))
         && path
             .iter()
             .any(|above| above.role == Role::Known(KnownRole::Form))
@@ -146,9 +151,10 @@ pub fn asked(snapshot: &Snapshot, node: BoxId, verb: &Verb, host: &str) -> Optio
         Held::Deletes => "It may delete or cancel something.",
         Held::SendsAForm => "It sends the form on this page.",
     };
+    let press = if enter { "Press Enter on" } else { "Press" };
     Some(Question {
         held,
-        what: format!("Press {named}{on}? {why}"),
+        what: format!("{press} {named}{on}? {why}"),
         paying: (held == Held::Pays).then(|| crate::agent_paying::of(snapshot, node, host)),
     })
 }
@@ -193,6 +199,15 @@ fn words_of(node: &SnapshotNode) -> String {
 /// Whether `node` is a button.
 fn is_a_button(node: &SnapshotNode) -> bool {
     node.role == Role::Known(KnownRole::Button)
+}
+
+/// Whether `node` is a field text goes into, where Enter sends its form.
+fn takes_text(node: &SnapshotNode) -> bool {
+    node.states.takes_text
+        || matches!(
+            node.role,
+            Role::Known(KnownRole::TextBox | KnownRole::SearchBox | KnownRole::ComboBox)
+        )
 }
 
 /// Whether `said` holds one of `words` as a word of its own, whatever its
@@ -323,6 +338,47 @@ mod tests {
             asked(&page(), BoxId::from_wire(5), &typing, "a.example"),
             None
         );
+    }
+
+    #[test]
+    fn enter_is_held_where_a_press_would_be_and_in_a_forms_field_and_no_other_key_is() {
+        let enter = |node: usize, key: Key| {
+            asked(
+                &page(),
+                BoxId::from_wire(node),
+                &Verb::Press(key),
+                "a.example",
+            )
+        };
+        // Queue item 938: Enter in a form's field sends the form, and Enter
+        // on what a press would be asked for is asked the same.
+        let field = enter(3, Key::Enter);
+        assert_eq!(
+            field.as_ref().map(|asked| asked.held),
+            Some(Held::SendsAForm)
+        );
+        assert_eq!(
+            field.map(|asked| asked.what),
+            Some(
+                "Press Enter on \u{201c}Search\u{201d} on a.example? It sends the form on this \
+                 page."
+                    .to_owned()
+            )
+        );
+        assert_eq!(
+            enter(5, Key::Enter).map(|asked| asked.held),
+            Some(Held::Sends)
+        );
+        assert_eq!(
+            enter(6, Key::Enter).map(|asked| asked.held),
+            Some(Held::Pays)
+        );
+        assert_eq!(enter(11, Key::Enter), None);
+        // No other key sends, pays or deletes.
+        for key in Key::ALL.into_iter().filter(|key| *key != Key::Enter) {
+            assert_eq!(enter(3, key), None, "{key}");
+            assert_eq!(enter(5, key), None, "{key}");
+        }
     }
 
     #[test]

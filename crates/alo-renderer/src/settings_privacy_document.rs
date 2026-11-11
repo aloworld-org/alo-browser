@@ -10,13 +10,16 @@
 //! # What is drawn
 //!
 //! The section's heading and one quiet line; then one white box, as *alo
-//! at work*'s, of two rows ruled off from each other: **Cookies**, its
+//! at work*'s, of three rows ruled off from each other: **Cookies**, its
 //! name over three choices one under another — *Refuse other sites’
 //! cookies* (the default), *Refuse all cookies* with the quiet line saying
 //! signing in will then fail, *Keep all cookies* — and **Cookie banners**,
 //! its name over two: *Answer with the most private choice* (the default)
 //! and *Leave them to me*. Each choice a radio drawn as the faces' are, in
-//! the ink.
+//! the ink. Then **Sign-ins** (ADR 0111): its name over the quiet line
+//! saying whether they are kept on this Mac ([`SignInsShown::said`]), and
+//! the button **Forget all sign-ins** under it, drawn as *Search and
+//! answers*' buttons are.
 //!
 //! # What an agent reads
 //!
@@ -25,21 +28,23 @@
 //! The words drawn beside a radio are hidden from an agent, which reads
 //! the radio by its name; the line under *Refuse all cookies* is read
 //! after it, as text, and named its description (`aria-describedby`) for
-//! a reader that takes one. Never a coordinate.
+//! a reader that takes one. *Forget all sign-ins* is a button, named so,
+//! described by the line over it. Never a coordinate.
 //!
 //! # Where the keyboard is
 //!
-//! On a radio group, at its choice made: ringed, by the class `keyed`,
-//! once Tab has put it there.
+//! On a radio group, at its choice made, or on the button: ringed, by the
+//! class `keyed`, once Tab has put it there.
 //!
 //! # What a press is on
 //!
 //! Each choice — its radio, its words, the room around them — is of the
 //! class `privopt` (`privopt on` when made), claimed by its place among
 //! them all ([`Privacy::pressables`]) as [`crate::conversation_claim`]'s
-//! `Privacy`, and decided by the browser process against what it painted.
+//! `Privacy`, and decided by the browser process against what it painted;
+//! the button, `pbtn`, is the place after the choices'.
 
-use crate::settings_privacy::{Banners, Cookies, Privacy};
+use crate::settings_privacy::{Banners, Cookies, FORGET_ALL, Privacy, SignInsShown};
 use crate::start::SettingsKeyed;
 use crate::start_document::{Unbuilt, append, attribute, element};
 use alo_dom::{Document, NodeId};
@@ -57,11 +62,15 @@ pub const COOKIES: &str = "Cookies";
 /// What the banners' row and radio group are named.
 pub const BANNERS: &str = "Cookie banners";
 
+/// What the sign-ins' row is named.
+pub const SIGN_INS: &str = "Sign-ins";
+
 /// What stands after a default choice's words.
 const DEFAULT: &str = "Default";
 
-/// The section for `privacy`, the keyboard on `keyed`, made for *Settings*
-/// to put under *Search and answers*.
+/// The section for `privacy`, its sign-ins as `sign_ins` says, the
+/// keyboard on `keyed`, made for *Settings* to put under *Search and
+/// answers*.
 ///
 /// # Errors
 ///
@@ -69,7 +78,7 @@ const DEFAULT: &str = "Default";
 /// cause.
 pub fn make(
     document: &mut Document,
-    privacy: Privacy,
+    (privacy, sign_ins): (Privacy, SignInsShown),
     keyed: Option<SettingsKeyed>,
 ) -> Result<NodeId, Unbuilt> {
     let section = element(document, "section")?;
@@ -114,8 +123,39 @@ pub fn make(
         keyed == Some(SettingsKeyed::Banners),
     )?;
     append(document, rows, row)?;
+    let row = signed_in(
+        document,
+        sign_ins,
+        keyed == Some(SettingsKeyed::ForgetSignIns),
+    )?;
+    append(document, rows, row)?;
     append(document, section, rows)?;
     Ok(section)
+}
+
+/// The row *Sign-ins*: its name, the line `sign_ins` says, and the button
+/// that forgets them all, ringed when `keyed`.
+fn signed_in(
+    document: &mut Document,
+    sign_ins: SignInsShown,
+    keyed: bool,
+) -> Result<NodeId, Unbuilt> {
+    let row = element(document, "div")?;
+    attribute(document, row, "class", "lrow prow")?;
+    let name = words(document, "p", "lname", SIGN_INS)?;
+    append(document, row, name)?;
+    let said = words(document, "p", "pnote", sign_ins.said())?;
+    attribute(document, said, "id", "signins-said")?;
+    append(document, row, said)?;
+    let button = words(
+        document,
+        "button",
+        if keyed { "pbtn keyed" } else { "pbtn" },
+        FORGET_ALL,
+    )?;
+    attribute(document, button, "aria-describedby", "signins-said")?;
+    append(document, row, button)?;
+    Ok(row)
 }
 
 /// One choice as it is drawn.
@@ -214,6 +254,43 @@ mod tests {
         .expect("built")
     }
 
+    #[test]
+    fn the_sign_ins_row_says_what_the_browser_said_and_holds_the_one_button() {
+        for shown in SignInsShown::ALL {
+            let document = build(&Start {
+                settings: true,
+                privacy: Some(Privacy::default()),
+                sign_ins: shown,
+                ..Start::default()
+            })
+            .expect("built");
+            let text = document.text_content(document.root());
+            assert!(
+                text.contains(SIGN_INS) && text.contains(shown.said()),
+                "{text}"
+            );
+            let buttons: Vec<_> = document
+                .descendants(document.root())
+                .filter(|&node| {
+                    of(&document, node, "class").is_some_and(|class| class.starts_with("pbtn"))
+                })
+                .collect();
+            assert_eq!(buttons.len(), 1);
+            let button = buttons[0];
+            assert_eq!(document.text_content(button), FORGET_ALL);
+            assert_eq!(
+                of(&document, button, "aria-describedby").as_deref(),
+                Some("signins-said")
+            );
+        }
+        let keyed = settings(Privacy::default(), Some(SettingsKeyed::ForgetSignIns));
+        assert_eq!(of_class(&keyed, "pbtn keyed"), 1);
+        assert_eq!(of_class(&keyed, "privopt on keyed"), 0);
+        let unkeyed = settings(Privacy::default(), Some(SettingsKeyed::Cookies));
+        assert_eq!(of_class(&unkeyed, "pbtn keyed"), 0);
+        assert_eq!(of_class(&unkeyed, "pbtn"), 1);
+    }
+
     fn of(document: &Document, node: NodeId, name: &str) -> Option<String> {
         document.attribute_by_name(node, name).map(str::to_owned)
     }
@@ -266,7 +343,12 @@ mod tests {
             .filter(|&node| of(&document, node, "aria-describedby").is_some())
             .map(|node| of(&document, node, "aria-label"))
             .collect::<Vec<_>>();
-        assert_eq!(described, vec![Some(Cookies::RefuseAll.said().into())]);
+        // And *Forget all sign-ins*, a button named by its words, by the
+        // line over it (ADR 0111).
+        assert_eq!(
+            described,
+            vec![Some(Cookies::RefuseAll.said().into()), None]
+        );
         // The defaults say so.
         assert!(text.contains("Refuse other sites\u{2019} cookies \u{b7} Default"));
         assert!(text.contains("Answer with the most private choice \u{b7} Default"));

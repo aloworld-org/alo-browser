@@ -11,6 +11,7 @@
 //! renderer is treated as bytes a stranger chose, because if a page found a way
 //! to steer that process, the stranger is the page.
 
+use alo_agent::Key;
 use alo_agent::verb::{Invalid, Outcome, Refusal, ScrollBy, Target, Verb};
 use alo_bindings::Visibility;
 use alo_bindings::navigating::Submission;
@@ -1327,7 +1328,8 @@ fn a_conversation_the_renderer_should_not_draw_is_refused() {
         refused(&far)
     );
     // A turn tagged as nothing this engine draws: the tag after the turns'
-    // count, rewritten — back past *Privacy*'s flag (queue item 920),
+    // count, rewritten — back past what *Privacy*'s *Sign-ins* says (ADR
+    // 0111), *Privacy*'s flag (queue item 920),
     // *Search and answers*' flag (queue item
     // 905), *Settings*' bar's flag and its offset (queue item 886), the
     // bar's flag (none), the offset, the failure's two empty strings and
@@ -1341,7 +1343,7 @@ fn a_conversation_the_renderer_should_not_draw_is_refused() {
     ));
     let tag = bytes
         .len()
-        .checked_sub(1 + 1 + 1 + 4 + 1 + 4 + 2 * 8 + 1)
+        .checked_sub(1 + 1 + 1 + 1 + 4 + 1 + 4 + 2 * 8 + 1)
         .unwrap_or_else(|| panic!("a turn was written"));
     let _ = bytes.get(tag).map(|written| assert_eq!(*written, 3));
     if let Some(written) = bytes.get_mut(tag) {
@@ -2341,6 +2343,54 @@ fn a_tag_nobody_knows_is_refused_rather_than_ignored() {
     assert!(why.contains("tagged 99"), "{why:?}");
 }
 
+/// A key pressed by name, what it did and its refusal cross, every key of
+/// the eleven (queue item 938).
+#[test]
+fn a_key_pressed_what_it_did_and_its_refusal_cross() {
+    for key in Key::ALL {
+        let original = ToRenderer::Act {
+            target: Target::Named("Name box".to_owned()),
+            verb: Verb::Press(key),
+        };
+        let back = read_to_renderer(&write_to_renderer(&original))
+            .unwrap_or_else(|why| panic!("{original:?} did not survive: {why}"));
+        assert_eq!(back, original);
+        for original in [
+            FromRenderer::Acted {
+                outcome: Outcome::KeyPressed { node: id(6), key },
+                issues: Vec::new(),
+                objections: Vec::new(),
+                navigation: None,
+                fetches: Vec::new(),
+                sheets: Vec::new(),
+            },
+            FromRenderer::Refused(Refusal::KeyUnbuilt { node: id(19), key }),
+        ] {
+            let back = read_from_renderer(&write_from_renderer(&original))
+                .unwrap_or_else(|why| panic!("{original:?} did not survive: {why}"));
+            assert_eq!(back, original);
+        }
+    }
+}
+
+/// A key past the eleven a verb presses is refused by name, never read as
+/// another (queue item 938).
+#[test]
+fn a_key_nobody_knows_is_refused() {
+    let mut bytes = write_to_renderer(&ToRenderer::Act {
+        target: Target::Node(id(7)),
+        verb: Verb::Press(Key::PageDown),
+    });
+    let last = bytes.len() - 1;
+    assert_eq!(bytes[last], 10, "Page Down is the eleventh key");
+    bytes[last] = 11;
+    let why = read_to_renderer(&bytes)
+        .err()
+        .map(|why| why.why)
+        .unwrap_or_default();
+    assert!(why.contains("a key tagged 11"), "{why:?}");
+}
+
 /// Whether a value is in question is one of three answers (ADR 0051 § 6);
 /// a fourth is refused by name rather than read as one of them.
 #[test]
@@ -3222,7 +3272,7 @@ fn settings_and_where_the_keyboard_is_on_it_cross_and_nothing_else_does() {
     assert_eq!(differing.len(), 1, "{differing:?}");
     let at = differing.first().copied().unwrap_or_default();
     assert_eq!((back.get(at), font.get(at)), (Some(&2), Some(&3)));
-    for hostile in [10_u8, 255] {
+    for hostile in [11_u8, 255] {
         let mut bytes = font.clone();
         if let Some(byte) = bytes.get_mut(at) {
             *byte = hostile;
@@ -3317,8 +3367,28 @@ fn privacy_and_a_cards_cookie_banner_cross_as_sent() {
             }
         }
     }
-    // The keyboard on either group of a *Privacy* not drawn is refused.
-    for keyed in [SettingsKeyed::Cookies, SettingsKeyed::Banners] {
+    // What *Sign-ins* says crosses as itself, the keyboard on *Forget all
+    // sign-ins* too (ADR 0111).
+    for sign_ins in alo_renderer::settings_privacy::SignInsShown::ALL {
+        let crossing = ToRenderer::Start(Box::new(Start {
+            settings: true,
+            settings_keyed: Some(SettingsKeyed::ForgetSignIns),
+            privacy: Some(Privacy::default()),
+            sign_ins,
+            ..Start::default()
+        }));
+        assert_eq!(
+            read_to_renderer(&write_to_renderer(&crossing)).ok(),
+            Some(crossing.clone())
+        );
+    }
+    // The keyboard on either group, or the button, of a *Privacy* not
+    // drawn is refused.
+    for keyed in [
+        SettingsKeyed::Cookies,
+        SettingsKeyed::Banners,
+        SettingsKeyed::ForgetSignIns,
+    ] {
         let refused = read_to_renderer(&write_to_renderer(&ToRenderer::Start(Box::new(Start {
             settings: true,
             settings_keyed: Some(keyed),
@@ -3332,18 +3402,30 @@ fn privacy_and_a_cards_cookie_banner_cross_as_sent() {
             "{refused}"
         );
     }
-    // The last two bytes are the choices: a third banners' is no tag.
-    let mut bytes = write_to_renderer(&ToRenderer::Start(Box::new(Start {
+    // The two bytes before the last are the choices: a third banners' is
+    // no tag; the last is what *Sign-ins* says, and a sixth is none.
+    let written = write_to_renderer(&ToRenderer::Start(Box::new(Start {
         settings: true,
         privacy: Some(Privacy::default()),
         ..Start::default()
     })));
-    if let Some(last) = bytes.last_mut() {
-        *last = 2;
+    let mut bytes = written.clone();
+    let banners = bytes.len().saturating_sub(2);
+    if let Some(byte) = bytes.get_mut(banners) {
+        *byte = 2;
     }
     let refused = read_to_renderer(&bytes).expect_err("refused");
     assert!(
         refused.to_string().contains("a choice of banners tagged 2"),
+        "{refused}"
+    );
+    let mut bytes = written;
+    if let Some(last) = bytes.last_mut() {
+        *last = 5;
+    }
+    let refused = read_to_renderer(&bytes).expect_err("refused");
+    assert!(
+        refused.to_string().contains("what of sign-ins tagged 5"),
         "{refused}"
     );
     // A card's word on its page's cookie banner, each, and none.

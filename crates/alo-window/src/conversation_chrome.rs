@@ -66,6 +66,14 @@
 //! The address, and nothing else a person typed: Chrome is told the
 //! [`Url`] the box decided, as `alo --chrome` is told the one it was named.
 //!
+//! # Sign-ins kept from one card to the next
+//!
+//! Each card's Chromium is new, and removed as it closes; what carries a
+//! person's sign-ins to the next card, and across alo's starts, is one jar
+//! for every card ([`ChromeOpener::start_kept`], ADR 0111): given to each
+//! card's Chromium before its page opens, and kept from it as it runs and
+//! as it closes ([`crate::chrome_sign_ins`]).
+//!
 //! # Closed with the window
 //!
 //! [`ChromeOpener::finish`] is called as the conversation's window closes:
@@ -87,8 +95,10 @@ use crate::frame_told::{ToFrame, Uncast};
 use crate::message::CardOrder;
 use crate::opening::{CHROME_AT, CHROME_SIZE};
 use crate::scale::Scale;
+use crate::sign_ins::SignIns;
 use alo_url::Url;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread::JoinHandle;
 
@@ -398,9 +408,32 @@ impl ChromeOpener {
         reaching: Reaching,
         tell: TellWent,
     ) -> std::io::Result<Self> {
+        Self::start_kept(chromium, reaching, None, tell)
+    }
+
+    /// [`ChromeOpener::start_reached`], each card's Chromium given the
+    /// sign-ins `kept` holds as it starts and keeping its own in it (ADR
+    /// 0111, [`crate::chrome_sign_ins`]): one jar for every card. With
+    /// none, a card keeps nothing past its own Chromium.
+    ///
+    /// # Errors
+    ///
+    /// What the system said when no thread could be started.
+    pub fn start_kept(
+        chromium: Chromium,
+        reaching: Reaching,
+        kept: Option<Arc<SignIns>>,
+        tell: TellWent,
+    ) -> std::io::Result<Self> {
         Self::starting_with(
             Box::new(move |url, streamed, pinned, told| {
-                in_chrome(&chromium, &reaching, (url, pinned), streamed, told)
+                in_chrome(
+                    &chromium,
+                    (&reaching, kept.as_ref()),
+                    (url, pinned),
+                    streamed,
+                    told,
+                )
             }),
             tell,
         )
@@ -669,19 +702,19 @@ fn ask_of(open: Option<&Open>, order: CardOrder) {
 /// (ADR 0090), as `streamed` says, held as `alo --chrome` holds its page.
 fn in_chrome(
     chromium: &Chromium,
-    reaching: &Reaching,
+    (reaching, kept): (&Reaching, Option<&Arc<SignIns>>),
     (url, pinned): (&Url, Option<&Pinned>),
     streamed: Streamed,
     told: TellFrame,
 ) -> Result<Held, String> {
-    let serving = ChromeServing::start_as_a_pinned_card(
+    let serving = ChromeServing::start_as_a_kept_card(
         chromium.clone(),
         Opening::Network(url.clone()),
         (streamed.page, streamed.scale),
         // Agents reach the live card through the conversation's socket,
-        // kept to the sites a person named (queue item 716).
-        reaching.sites.clone(),
-        pinned.cloned(),
+        // kept to the sites a person named (queue item 716); and the
+        // sign-ins kept are given to it (ADR 0111).
+        (reaching.sites.clone(), pinned.cloned(), kept.cloned()),
         told,
     )
     .map_err(|why| why.to_string())?;

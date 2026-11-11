@@ -276,6 +276,15 @@ impl Holding {
         targets
     }
 
+    /// The session the target `target` of kind `kind` is held through, if
+    /// it is held here and has not stopped (queue item 937).
+    pub fn session_of(&self, target: &str, kind: Kind) -> Option<String> {
+        self.kinds
+            .iter()
+            .find(|(_, held)| held.kind == kind && held.target == target && !held.stopped)
+            .map(|(session, _)| session.clone())
+    }
+
     /// Whether `id` is a command sent to hold a target.
     pub fn awaits(&self, id: u64) -> bool {
         self.awaiting.contains_key(&id)

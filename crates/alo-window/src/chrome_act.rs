@@ -129,13 +129,14 @@ use crate::chrome_bubble;
 use crate::chrome_choose::{Choosing, Unwalked};
 use crate::chrome_date::{self, Digits, Part};
 use crate::chrome_hit;
+use crate::chrome_iframes;
 use crate::chrome_protocol::{self, AxNode, Chord, Command, Digit, Mouse, Within};
 use crate::chrome_reading::ChromeReading;
 use crate::chrome_tab::Tab;
 use crate::chrome_tree::Unread;
 use crate::chrome_unfocusable::Unfocusable;
 use alo_agent::verb::{Invalid, Target, Verb, find, perform};
-use alo_agent::{Outcome, Reading, Refusal};
+use alo_agent::{Key, Outcome, Reading, Refusal};
 use alo_box::{BoxId, KnownRole, Role};
 use alo_dom::submission::Method;
 use alo_net::cause::ActionId;
@@ -236,6 +237,12 @@ pub enum Unacted {
         /// The field.
         node: BoxId,
     },
+    /// The node is in a frame of another site, which is read into the tree
+    /// and not yet acted in (queue items 937 and 943): nothing was sent.
+    InAnotherSitesFrame {
+        /// Which node.
+        node: BoxId,
+    },
     /// It was decided, and is not a thing this path carries out.
     ///
     /// Reached only by an outcome no decision on Chrome's page makes today —
@@ -293,6 +300,11 @@ impl fmt::Display for Unacted {
                 "{node} holds a card's details, and alo types or chooses no card's number, \
                  security code or expiry on a page in the conversation: paying details are the \
                  person's, so nothing was done"
+            ),
+            Self::InAnotherSitesFrame { node } => write!(
+                f,
+                "{node} is in a frame from another site, which alo reads and does not act in \
+                 yet, so nothing was done"
             ),
             Self::Untypable { node, why } => {
                 write!(f, "{why}, so nothing was typed into {node}")
@@ -381,6 +393,12 @@ impl Tab<'_> {
         let (snapshot, nodes) = self.read_whole()?;
         let reading = ChromeReading::of(&snapshot);
         let aimed = find(&reading, target).map_err(Unacted::Refused)?;
+        // A node of another site's frame is numbered apart from the page's,
+        // and asked of through no session here: refused before anything is
+        // sent (queue item 937).
+        if chrome_iframes::in_another_sites_frame(aimed.id) {
+            return Err(Unacted::InAnotherSitesFrame { node: aimed.id });
+        }
         let dom = dom_of(aimed.id);
         let described = chrome_protocol::described(&self.ask(&Command::Describe { node: dom })?)?;
         let mut reading = reading.with_element(aimed.id, &described);
@@ -411,7 +429,7 @@ impl Tab<'_> {
                 Verb::Activate if aimed.role == Role::Known(KnownRole::Option) => {
                     reading.list_above(aimed.id)
                 }
-                Verb::Activate | Verb::Scroll(_) => None,
+                Verb::Activate | Verb::Scroll(_) | Verb::Press(_) => None,
             };
             if let Some(field) = field
                 && reading.is_a_card_detail(field)
@@ -460,6 +478,7 @@ impl Tab<'_> {
                 };
                 self.choose(&nodes, choosing)
             }
+            Outcome::KeyPressed { node, key } => self.press_key(node, key),
             outcome @ (Outcome::Scrolled { .. }
             | Outcome::TextCanceled { .. }
             | Outcome::Submitted { .. }
@@ -686,6 +705,18 @@ impl Tab<'_> {
         Ok(taken(node, text, &before, &after))
     }
 
+    /// Give `node` the keyboard and press `key` on it, as a person who
+    /// clicked into it and pressed the key does (queue item 938): the page
+    /// hears the key, and what it does with it is the page's.
+    fn press_key(&mut self, node: BoxId, key: Key) -> Result<Outcome, Unacted> {
+        self.ask(&Command::Focus { node: dom_of(node) })?;
+        self.chord(Chord::Press(key))?;
+        // Answered once the renderer has answered a question asked after
+        // the key, so that whatever the key asked for has been told of.
+        self.ask(&Command::Window)?;
+        Ok(Outcome::KeyPressed { node, key })
+    }
+
     /// A key down and up again.
     fn chord(&mut self, chord: Chord) -> Result<(), Failed> {
         self.ask(&Command::Key { chord, down: true })?;
@@ -715,6 +746,7 @@ fn about(decided: &Outcome) -> &'static str {
     match decided {
         Outcome::TextPut { .. } | Outcome::TextCanceled { .. } => "the text",
         Outcome::Scrolled { .. } => "the scroll",
+        Outcome::KeyPressed { .. } => "the key",
         Outcome::Activated { .. }
         | Outcome::Followed { .. }
         | Outcome::Chosen { .. }

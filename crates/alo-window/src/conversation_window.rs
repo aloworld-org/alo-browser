@@ -235,6 +235,9 @@ pub struct ConversationWindow {
     /// Where a person's own keys are kept and read (ADR 0106 § 4, queue
     /// item 905): the person's keychain, a test's, or nowhere.
     keys: Option<crate::service_keys::Keys>,
+    /// The sign-ins every card keeps (ADR 0111), when the window was given
+    /// them: forgotten by *Settings › Privacy*'s *Forget all sign-ins*.
+    sign_ins: Option<std::sync::Arc<crate::sign_ins::SignIns>>,
     /// What the card's page was streamed at when *Settings* came to stand
     /// in its place, or would be had the window been seen meanwhile: asked
     /// for again once the card is back on the screen (ADR 0076, queue item
@@ -418,6 +421,7 @@ impl ConversationWindow {
             switches: None,
             settings: None,
             keys: None,
+            sign_ins: None,
             under_settings: None,
             slide: Slide::default(),
             sheet_frame: None,
@@ -860,6 +864,32 @@ impl ConversationWindow {
             std::mem::take(&mut self.conversation).serving(page.under(defaults, kept));
         self.keys = Some(keys);
         self
+    }
+
+    /// The same window, its cards' sign-ins kept in `sign_ins` (ADR 0111):
+    /// *Settings › Privacy* says whether they are kept on this Mac, and
+    /// *Forget all sign-ins* forgets them.
+    #[must_use]
+    pub fn with_sign_ins(mut self, sign_ins: std::sync::Arc<crate::sign_ins::SignIns>) -> Self {
+        let _ = self
+            .conversation
+            .show_sign_ins(crate::conversation_sign_ins::shown(&sign_ins.kept_as()));
+        self.sign_ins = Some(sign_ins);
+        self
+    }
+
+    /// Forget every sign-in, if a person pressed *Forget all sign-ins*
+    /// (ADR 0111 § 5): what came of it said in the row and on the
+    /// terminal.
+    fn forget_if_asked(&mut self) {
+        if !self.conversation.take_forget_asked() {
+            return;
+        }
+        let (shown, line) = crate::conversation_sign_ins::forget(self.sign_ins.as_deref());
+        let _ = self.conversation.show_sign_ins(shown);
+        self.said.push(line);
+        self.ask_drawn();
+        self.redraw = true;
     }
 
     /// Do what *Search and answers* asked (queue item 905): its choices
@@ -2052,6 +2082,7 @@ impl ConversationWindow {
         }
         self.keep_face();
         self.do_services();
+        self.forget_if_asked();
         self.follow_runs();
         // Shown in a window too narrow for it, the panel slides over the
         // conversation as the sheet; a chat chosen in it, New chat or Hide
@@ -2710,6 +2741,7 @@ impl ConversationWindow {
                 }
                 self.keep_face();
                 self.do_services();
+                self.forget_if_asked();
                 self.ask_drawn();
                 self.redraw = true;
             }
@@ -4891,6 +4923,74 @@ mod tests {
         // The process's choice, set by the press, put back for the rest of
         // this program's tests.
         crate::privacy_chosen::process().set(alo_renderer::settings_privacy::Privacy::default());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// ADR 0111 § 5: *Forget all sign-ins* pressed in the window empties
+    /// the jar its cards keep, says so in the row and on the terminal, and
+    /// keeps no choice in the settings file.
+    #[test]
+    fn forget_all_sign_ins_pressed_empties_the_jar_and_is_said() {
+        use crate::kept_cookie::{Changes, KeptCookie, Priority, Scheme};
+        use alo_renderer::settings_privacy::{PrivacyPress, SignInsShown};
+        let root = std::env::temp_dir().join(format!("alo-window-sign-ins-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let file = root.join("settings.txt");
+        let jar = std::sync::Arc::new(crate::sign_ins::SignIns::kept_in(
+            &root.join("Sign-ins"),
+            Ok(crate::chat_seal::Key::of([3; crate::chat_seal::KEY_BYTES])),
+        ));
+        let cookie = KeptCookie {
+            name: "sid".to_owned(),
+            value: "ana".to_owned(),
+            domain: "127.0.0.1".to_owned(),
+            path: "/".to_owned(),
+            expires: Some(4_000_000_000.0),
+            http_only: true,
+            secure: false,
+            same_site: None,
+            priority: Priority::Medium,
+            source_scheme: Scheme::NonSecure,
+            source_port: 80,
+        };
+        let made = jar.change(&Changes {
+            gone: Vec::new(),
+            made: vec![cookie],
+        });
+        assert_eq!(made, Ok(()));
+        let mut window = window()
+            .with_settings(crate::settings_file::read(&file), Some(file.clone()))
+            .with_sign_ins(jar.clone());
+        window.heard(Heard::Drawn(Drawn::Pressed(Part::Panel, Decided::Settings)));
+        assert_eq!(
+            window
+                .conversation
+                .start(Size::new(1040.0, 820.0), Scale::ONE)
+                .sign_ins,
+            SignInsShown::Kept
+        );
+        window.heard(Heard::Drawn(Drawn::Pressed(
+            Part::Start,
+            Decided::Privacy(PrivacyPress::ForgetSignIns),
+        )));
+        assert_eq!(jar.cookies(), Vec::new());
+        assert_eq!(jar.forgotten(), 1);
+        assert!(!root.join("Sign-ins").join(crate::sign_ins::FILE).exists());
+        assert_eq!(
+            window
+                .conversation
+                .start(Size::new(1040.0, 820.0), Scale::ONE)
+                .sign_ins,
+            SignInsShown::Forgotten
+        );
+        assert!(
+            window
+                .take_said()
+                .iter()
+                .any(|line| line.starts_with("Privacy: every sign-in was forgotten")),
+        );
+        assert!(!file.exists(), "no choice to keep");
+        window.finish();
         let _ = std::fs::remove_dir_all(&root);
     }
 

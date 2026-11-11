@@ -155,6 +155,7 @@ pub fn apply(document: &mut Document, boxes: &BoxTree, outcome: &Outcome) -> Vec
         // this to carry one.
         Outcome::Followed { .. }
         | Outcome::Scrolled { .. }
+        | Outcome::KeyPressed { .. }
         | Outcome::TextCanceled { .. }
         | Outcome::Submitted { .. }
         | Outcome::NotSubmitted { .. } => vec![Change::Nothing],

@@ -39,6 +39,7 @@ use crate::page::Page;
 use crate::screen::Screen;
 use crate::snapshot::{Snapshot, SnapshotNode};
 use crate::violations::{MOST_OBJECTIONS, Objection};
+use alo_agent::Key;
 use alo_agent::verb::{Outcome, Refusal, ScrollBy, Target, Verb};
 use alo_bindings::Visibility;
 use alo_box::invalid::Invalid;
@@ -105,6 +106,16 @@ impl std::error::Error for Unreadable {}
 
 fn unreadable(why: impl Into<String>) -> Unreadable {
     Unreadable { why: why.into() }
+}
+
+/// A key's tag: its place in [`Key::ALL`], which holds eleven (queue item
+/// 938).
+fn key_tag(key: Key) -> u8 {
+    Key::ALL
+        .iter()
+        .position(|one| *one == key)
+        .and_then(|at| u8::try_from(at).ok())
+        .unwrap_or(u8::MAX)
 }
 
 // --- Writing -----------------------------------------------------------------
@@ -422,6 +433,10 @@ pub fn write_to_renderer(message: &ToRenderer) -> Vec<u8> {
                     writer.tag(2);
                     writer.scroll(*by);
                 }
+                Verb::Press(key) => {
+                    writer.tag(3);
+                    writer.tag(key_tag(*key));
+                }
             }
         }
         ToRenderer::Fetched(fetched) => {
@@ -655,6 +670,12 @@ impl Writer {
                 writer.id(*list);
                 writer.bool(*chosen);
             }
+            // Tagged after the option chosen (queue item 938).
+            Outcome::KeyPressed { node, key } => {
+                writer.tag(8);
+                writer.id(*node);
+                writer.tag(key_tag(*key));
+            }
         }
     }
 
@@ -708,6 +729,11 @@ impl Writer {
             Refusal::Chooses { node } => {
                 writer.tag(12);
                 writer.id(*node);
+            }
+            Refusal::KeyUnbuilt { node, key } => {
+                writer.tag(13);
+                writer.id(*node);
+                writer.tag(key_tag(*key));
             }
             Refusal::TooLong { .. }
             | Refusal::Unchecked { .. }
@@ -988,6 +1014,15 @@ impl<'a> Reader<'a> {
         }
     }
 
+    /// A key, by its place in [`Key::ALL`] (queue item 938).
+    fn key(&mut self) -> Result<Key, Unreadable> {
+        let tag = self.tag()?;
+        Key::ALL
+            .get(usize::from(tag))
+            .copied()
+            .ok_or_else(|| unreadable(format!("a key tagged {tag}")))
+    }
+
     fn outcome(&mut self) -> Result<Outcome, Unreadable> {
         match self.tag()? {
             0 => Ok(Outcome::Activated {
@@ -1014,6 +1049,10 @@ impl<'a> Reader<'a> {
                 node: self.id()?,
                 list: self.id()?,
                 chosen: self.bool()?,
+            }),
+            8 => Ok(Outcome::KeyPressed {
+                node: self.id()?,
+                key: self.key()?,
             }),
             other => self.submitted(other),
         }
@@ -1053,6 +1092,10 @@ impl<'a> Reader<'a> {
                 kind: self.text()?,
             }),
             12 => Ok(Refusal::Chooses { node: self.id()? }),
+            13 => Ok(Refusal::KeyUnbuilt {
+                node: self.id()?,
+                key: self.key()?,
+            }),
             other => self.form_refusal(other),
         }
     }
@@ -1329,6 +1372,7 @@ pub fn read_to_renderer(bytes: &[u8]) -> Result<ToRenderer, Unreadable> {
                 0 => Verb::Activate,
                 1 => Verb::PutText(reader.text()?),
                 2 => Verb::Scroll(reader.scroll()?),
+                3 => Verb::Press(reader.key()?),
                 other => return Err(unreadable(format!("a verb tagged {other}"))),
             };
             ToRenderer::Act { target, verb }

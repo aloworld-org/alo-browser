@@ -487,9 +487,16 @@ fn pressables(part: Part) -> &'static [(&'static [&'static str], Pressable)] {
             // and button by its place among them all, ringed or not.
             (SERVICES, Pressable::Placed(|at| Claim::Service { at })),
             // *Privacy* (queue item 920): each choice by its place among
-            // them all, ringed or not.
+            // them all, ringed or not, and *Forget all sign-ins* after them
+            // (ADR 0111).
             (
-                &["privopt", "privopt on", "privopt on keyed"],
+                &[
+                    "privopt",
+                    "privopt on",
+                    "privopt on keyed",
+                    "pbtn",
+                    "pbtn keyed",
+                ],
                 Pressable::Placed(|at| Claim::Privacy { at }),
             ),
             // An offer for what was typed, whichever is chosen and whether

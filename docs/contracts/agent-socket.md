@@ -152,6 +152,16 @@ The answer is `{"answer":"tree","id":…,"tab":…,"tree":NODE,"v":1}`. `tree` i
 A length is written as the shortest number that reads back as the same 32-bit
 float: `23.2`, not `23.200000762939453`.
 
+**A page's frames are in its tree** (queue item 937, ADR 0109 § 1). Through
+Chrome, an `<iframe>` is a node of role `Iframe` whose one child is the
+`document` its frame holds, read by the same rules as the page's own. A
+frame of the page's own site is acted in by name, as the rest of the page
+is. A frame of another site is read and not acted in yet: its nodes' `node`
+numbers are its frame's number times 2³² plus Chrome's own, kept apart from
+the page's, and below 2⁵³; a verb aimed at one is `NotCarriedOut`, before
+anything is sent (queue item 943). At most 32 frames are read, 4 deep; the
+rest, and a frame Chrome will not read, are an `Iframe` with no children.
+
 ### `renderer`: which renderer draws a tab
 
     {"v":1,"id":4,"ask":"renderer","tab":"https://httpbin.org/forms/post"}
@@ -195,6 +205,15 @@ with the same refusals before any tab is looked at.
 - `"activate"`
 - `"put_text"`, with `"text"`
 - `"scroll"`, with `"scroll"`: a number of pixels, `"start"` or `"end"`
+- `"press"`, with `"key"`: one of `Enter`, `Escape`, `Tab`, `ArrowUp`,
+  `ArrowDown`, `ArrowLeft`, `ArrowRight`, `Home`, `End`, `PageUp`,
+  `PageDown`, spelled exactly so (queue item 938). The node is given the
+  keyboard and the key pressed on it as a person's, with nothing held;
+  what the page does with it is the page's. It takes a field or a thing
+  that is operated, and is refused on anything else (`NotOperable`). No
+  letter, Space, Backspace, Delete or modifier: text goes in by
+  `put_text`, a press by `activate`. On this engine's own pages it is
+  refused as `KeyUnbuilt`
 
 To submit a form, activate its submit button. There is no submit verb (ADR
 0051 § 6).
@@ -227,6 +246,7 @@ browser's own to show any of it in until item 642.
 | `Followed` | `to` |
 | `TextPut`, `TextCanceled` | `text` |
 | `Scrolled` | `by` |
+| `KeyPressed` | `key` |
 | `Chosen` | `list`, the option's list; `chosen`, whether the option is a choice of it after the verb, read from the page — `false` when a toggle in a `multiple` list took it away or the page's listener put the old choice back (ADR 0064 § 3). `node` is the option, which a closed list holds undrawn, so the window rings the list instead. Through Chrome a list Chrome draws (a `size`, or `multiple`) is chosen in by a click on the option, with ⌘ held on macOS in a `multiple` one, and `chosen` is read from Chrome's tree (queue item 660); a page's own `role=option` that is not a `<select>`'s is answered `Activated` |
 | `Submitted` | `method` (`"GET"`/`"POST"`), `to` |
 | `NotSubmitted` | `invalid`: `[{"control","constraint","message"}]`, where `control` is a node or `null` and `constraint` is the validity name (`valueMissing`, …), or `null` when the renderer gave the words and not the constraint. Through Chrome it is always `null` and `invalid` holds one control, the first, with the words of the bubble Chrome draws beside it (queue item 631) |
@@ -253,6 +273,7 @@ caller must never depend on it.
 | `Chooses` | `node`: a `<select>`, which takes no text — an option of it is activated instead (ADR 0064 § 4) |
 | `NotADate` | `node`, `text` |
 | `Unbuilt` | `node`, `field_kind` |
+| `KeyUnbuilt` | `node`, `key`: a key aimed at a page this engine drew, which takes no key from an agent yet (queue item 938) |
 | `TooLong` | `node`, `most`, `length` |
 | `Unchecked` | `node`, `control` (node or `null`), `constraint` |
 | `NotSubmittable` | `node`, `why` |
@@ -276,7 +297,7 @@ caller must never depend on it.
 | `Ambiguous` | `tab`, `count` | More than one tab is at that address. None is picked for you |
 | `NothingLoaded` | `tab` | |
 | `TabGone` | `tab` | The tab's renderer is gone, or could not answer. `said` says why |
-| `NotCarriedOut` | `tab` | The verb was decided and the renderer did not carry it out, so nothing was done: through Chrome, the node was drawn nowhere, its middle is under something else, the page went elsewhere while the verb was decided, or a date Chrome's date field would not hold as it was written — past `275760-09-13`, or a year of more than four digits that starts with `0` — was not typed (queue item 632), or an option of a closed `<select>`, which Chrome draws no box for and every key to which chooses options on the way, was not pressed (queue item 660). `said` says which |
+| `NotCarriedOut` | `tab` | The verb was decided and the renderer did not carry it out, so nothing was done: through Chrome, the node was drawn nowhere, its middle is under something else, the page went elsewhere while the verb was decided, or a date Chrome's date field would not hold as it was written — past `275760-09-13`, or a year of more than four digits that starts with `0` — was not typed (queue item 632), or an option of a closed `<select>`, which Chrome draws no box for and every key to which chooses options on the way, was not pressed (queue item 660), or the node is in a frame of another site, which is read and not acted in yet (queue item 937). `said` says which |
 | `Password` | `tab`, `node` | `put_text` was aimed at a password field of a page shown as a card in the conversation (`alo --conversation`, queue item 704, ADR 0096 § 6): no agent types a password there — signing in is the person's step — and nothing was typed. Judged on the element itself, before anything is sent to the page. `alo --chrome` and this engine's tabs do not refuse it |
 | `CardDetails` | `tab`, `node` | `put_text` was aimed at a field of a card's details — its number, security code or expiry — or an option chosen in such a list, on a page shown as a card in the conversation (queue item 826, ADR 0099): no agent types or chooses them there — paying details are the person's — and nothing was done. Judged on the element itself, whatever the page names it: its `autocomplete` (`cc-number`, `cc-csc`, `cc-exp`, `cc-exp-month`, `cc-exp-year`), or its `name`, `id`, `placeholder`, `aria-label` or name in the tree holding a name such a field goes by (*card number*, *cvc*, *security code*, *expiry*, …). A card's holder's name is not refused. `alo --chrome` and this engine's tabs do not refuse it |
 | `TreeTooDeep` | `tab`, `most` | |

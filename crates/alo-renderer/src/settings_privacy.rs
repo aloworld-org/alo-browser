@@ -5,16 +5,18 @@
 //! *Settings*' fourth section, **Privacy**, as data (ADR 0108, queue item
 //! 920): what the Chromium alo drives keeps of sites' cookies
 //! ([`Cookies`]), and whether alo answers a site's cookie banner with its
-//! most private choice ([`Banners`]) — drawn by
-//! [`crate::settings_privacy_document`], decided by the browser process.
+//! most private choice ([`Banners`]) — and whether the sign-ins are kept
+//! on this Mac, with **Forget all sign-ins** ([`SignInsShown`], ADR 0111,
+//! queue item 935) — drawn by [`crate::settings_privacy_document`],
+//! decided by the browser process.
 //!
 //! # What a press is on
 //!
-//! Every choice of the section, in the order it is drawn
+//! Everything of the section a person presses, in the order it is drawn
 //! ([`Privacy::pressables`]): the three of *Cookies*, then the two of
-//! *Cookie banners*. The browser process decides a press by its place
-//! among them, against the same list it painted, as *alo at work*'s are
-//! ([`crate::conversation_claim`]).
+//! *Cookie banners*, then *Forget all sign-ins*. The browser process
+//! decides a press by its place among them, against the same list it
+//! painted, as *alo at work*'s are ([`crate::conversation_claim`]).
 
 /// What the Chromium alo drives keeps of sites' cookies (ADR 0108 § 1).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
@@ -125,13 +127,72 @@ fn stepped<T: Copy + PartialEq>(all: &[T], now: T, on: bool) -> T {
     all.get(next).copied().unwrap_or(now)
 }
 
-/// Something of the section a person presses: a choice.
+/// What the row *Sign-ins* says of the sign-ins kept (ADR 0111 § 5): the
+/// browser process's to say, never a renderer's.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum SignInsShown {
+    /// Kept on this Mac, sealed: the default.
+    #[default]
+    Kept,
+    /// Every one forgotten, just now.
+    Forgotten,
+    /// Kept by another alo that is open: this one's until it quits.
+    ByAnother,
+    /// Not kept on this Mac: kept until alo quits.
+    NotKept,
+    /// What is kept does not open with the key in the keychain.
+    Unopened,
+}
+
+impl SignInsShown {
+    /// Each, in no order a person sees.
+    pub const ALL: [SignInsShown; 5] = [
+        SignInsShown::Kept,
+        SignInsShown::Forgotten,
+        SignInsShown::ByAnother,
+        SignInsShown::NotKept,
+        SignInsShown::Unopened,
+    ];
+
+    /// What the row says.
+    pub fn said(self) -> &'static str {
+        match self {
+            Self::Kept => {
+                "Signed-in sites are kept on this Mac, sealed under a key in your keychain, \
+                 until you forget them."
+            }
+            Self::Forgotten => {
+                "Every sign-in on this Mac was forgotten. Sites you sign in to from now on are \
+                 kept again."
+            }
+            Self::ByAnother => {
+                "Another alo that is open keeps the sign-ins. This one keeps its own until it \
+                 quits."
+            }
+            Self::NotKept => {
+                "Sign-ins are kept only until alo quits: they could not be kept on this Mac."
+            }
+            Self::Unopened => {
+                "The sign-ins kept on this Mac do not open with the key in your keychain. \
+                 Forget all sign-ins to keep them again."
+            }
+        }
+    }
+}
+
+/// What the button that forgets every sign-in says, and is named.
+pub const FORGET_ALL: &str = "Forget all sign-ins";
+
+/// Something of the section a person presses: a choice, or the button.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PrivacyPress {
     /// This choice of cookies.
     Cookies(Cookies),
     /// This choice of banners.
     Banners(Banners),
+    /// *Forget all sign-ins* (ADR 0111 § 5): not a choice, a deed the
+    /// browser process does.
+    ForgetSignIns,
 }
 
 /// The section's two choices, as they are made.
@@ -144,21 +205,23 @@ pub struct Privacy {
 }
 
 impl Privacy {
-    /// Every choice a person may press, in the order it is drawn.
+    /// Everything a person may press, in the order it is drawn.
     pub fn pressables() -> Vec<PrivacyPress> {
         Cookies::ALL
             .into_iter()
             .map(PrivacyPress::Cookies)
             .chain(Banners::ALL.into_iter().map(PrivacyPress::Banners))
+            .chain([PrivacyPress::ForgetSignIns])
             .collect()
     }
 
-    /// The same, with `pressed` chosen.
+    /// The same, with `pressed` chosen — the same when it is not a choice.
     #[must_use]
     pub fn choosing(self, pressed: PrivacyPress) -> Self {
         match pressed {
             PrivacyPress::Cookies(cookies) => Self { cookies, ..self },
             PrivacyPress::Banners(banners) => Self { banners, ..self },
+            PrivacyPress::ForgetSignIns => self,
         }
     }
 }
@@ -177,7 +240,13 @@ mod tests {
                 PrivacyPress::Cookies(Cookies::KeepAll),
                 PrivacyPress::Banners(Banners::Answer),
                 PrivacyPress::Banners(Banners::Leave),
+                PrivacyPress::ForgetSignIns,
             ]
+        );
+        // Forgetting is not a choice: nothing is made.
+        assert_eq!(
+            Privacy::default().choosing(PrivacyPress::ForgetSignIns),
+            Privacy::default()
         );
         let made = Privacy::default().choosing(PrivacyPress::Cookies(Cookies::KeepAll));
         assert_eq!(made.cookies, Cookies::KeepAll);
@@ -207,6 +276,20 @@ mod tests {
                 .is_some_and(|note| note.contains("Signing in"))
         );
         assert_eq!(Cookies::RefuseOthers.note(), None);
+    }
+
+    #[test]
+    fn each_sign_ins_line_is_its_own_and_says_where_they_are() {
+        let said: std::collections::HashSet<_> =
+            SignInsShown::ALL.iter().map(|each| each.said()).collect();
+        assert_eq!(said.len(), SignInsShown::ALL.len());
+        assert!(said.iter().all(|each| !each.contains("  ")), "{said:?}");
+        assert!(
+            SignInsShown::default()
+                .said()
+                .starts_with("Signed-in sites are kept on this Mac")
+        );
+        assert!(SignInsShown::Unopened.said().contains(FORGET_ALL));
     }
 
     #[test]

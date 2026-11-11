@@ -29,14 +29,16 @@ use crate::asking::{
 use crate::json_depth;
 use crate::pages::RenderedBy;
 use alo_agent::verb::Invalid as Unmet;
-use alo_agent::{Outcome, Refusal, ScrollBy, Target, Verb};
+use alo_agent::{Key, Outcome, Refusal, ScrollBy, Target, Verb};
 use alo_box::{BoxId, KnownRole, Role, States};
 use alo_layout::Rect;
 use alo_renderer::SnapshotNode;
 use serde_json::{Map, Value};
 
 /// Every field a request may carry, in any version this browser speaks.
-const FIELDS: [&str; 8] = ["v", "id", "ask", "tab", "target", "verb", "text", "scroll"];
+const FIELDS: [&str; 9] = [
+    "v", "id", "ask", "tab", "target", "verb", "text", "scroll", "key",
+];
 
 /// Read one line — without its newline — into a request.
 pub fn read(line: &[u8]) -> Request {
@@ -140,6 +142,7 @@ fn ask(fields: &Map<String, Value>) -> Result<Ask, Refused> {
             Verb::Activate => &["v", "id", "ask", "tab", "target", "verb"],
             Verb::PutText(_) => &["v", "id", "ask", "tab", "target", "verb", "text"],
             Verb::Scroll(_) => &["v", "id", "ask", "tab", "target", "verb", "scroll"],
+            Verb::Press(_) => &["v", "id", "ask", "tab", "target", "verb", "key"],
         },
     };
     if let Some(stray) = fields.keys().find(|key| !takes.contains(&key.as_str())) {
@@ -215,6 +218,16 @@ fn verb(fields: &Map<String, Value>) -> Result<Verb, Refused> {
                 .map(|pixels| Verb::Scroll(ScrollBy::Pixels(pixels)))
                 .ok_or(Refused::BadField { field: "scroll" }),
             Some(_) => Err(Refused::BadField { field: "scroll" }),
+        },
+        // One of a closed list of keys, by the DOM's name for it, spelled
+        // exactly (queue item 938): a key not in it is refused, never
+        // guessed at.
+        "press" => match fields.get("key") {
+            None => Err(Refused::MissingField { field: "key" }),
+            Some(Value::String(key)) => Key::named(key)
+                .map(Verb::Press)
+                .ok_or(Refused::BadField { field: "key" }),
+            Some(_) => Err(Refused::BadField { field: "key" }),
         },
         _ => Err(Refused::BadField { field: "verb" }),
     }
@@ -466,6 +479,9 @@ fn outcome(outcome: &Outcome) -> Value {
         Outcome::Scrolled { by, .. } => {
             fields.insert("by".to_owned(), scrolled(*by));
         }
+        Outcome::KeyPressed { key, .. } => {
+            fields.insert("key".to_owned(), Value::from(key.name()));
+        }
         Outcome::Chosen { list, chosen, .. } => {
             fields.insert("list".to_owned(), id(*list));
             fields.insert("chosen".to_owned(), Value::Bool(*chosen));
@@ -577,6 +593,10 @@ fn verb_refused(refusal: &Refusal, put: &mut impl FnMut(&str, Value)) {
         Refusal::Unbuilt { node, kind } => {
             put("node", id(*node));
             put("field_kind", Value::from(kind.as_str()));
+        }
+        Refusal::KeyUnbuilt { node, key } => {
+            put("node", id(*node));
+            put("key", Value::from(key.name()));
         }
         Refusal::TooLong { node, most, length } => {
             put("node", id(*node));
@@ -784,6 +804,38 @@ mod tests {
         assert_eq!(
             act(r#""verb":"hover""#),
             Err(Refused::BadField { field: "verb" })
+        );
+        // A key, by the DOM's name, from a closed list (queue item 938).
+        assert_eq!(
+            act(r#""verb":"press","key":"Enter""#),
+            Ok(Ask::Act {
+                tab: "t".to_owned(),
+                target: Target::Named("n".to_owned()),
+                verb: Verb::Press(Key::Enter),
+            })
+        );
+        assert_eq!(
+            act(r#""verb":"press""#),
+            Err(Refused::MissingField { field: "key" })
+        );
+        for not_one in [
+            r#""enter""#,
+            r#""Space""#,
+            r#""Delete""#,
+            "13",
+            r#"["Enter"]"#,
+        ] {
+            assert_eq!(
+                act(&format!(r#""verb":"press","key":{not_one}"#)),
+                Err(Refused::BadField { field: "key" }),
+                "{not_one}"
+            );
+        }
+        assert_eq!(
+            act(r#""verb":"press","key":"Enter","text":"x""#),
+            Err(Refused::UnknownField {
+                field: "text".to_owned()
+            })
         );
     }
 

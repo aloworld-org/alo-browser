@@ -873,7 +873,8 @@ impl ApplicationHandler<ToFrame> for Framing<'_> {
 /// answers* shows the application's `defaults` under the person's choices
 /// and keeps a person's own keys with `keys` (ADR 0106). Its chats are kept in the directory `chats` names,
 /// read from it as the window opens (queue item 757, ADR 0092), or, with
-/// none or one that cannot be opened, not kept, and said so. The card live
+/// none or one that cannot be opened, not kept, and said so; its cards'
+/// sign-ins in the jar `sign_ins` (ADR 0111). The card live
 /// is reached by agents as `reaching` says (queue item 716), and `closing`
 /// is run as the window's event loop ends — quit included, after which
 /// `AppKit` ends the process (item 688) — once every card is closed.
@@ -893,7 +894,10 @@ pub fn conversation(
         crate::services::Named,
         crate::service_keys::Keys,
     ),
-    chats: Result<PathBuf, String>,
+    (chats, sign_ins): (
+        Result<PathBuf, String>,
+        std::sync::Arc<crate::sign_ins::SignIns>,
+    ),
     (reaching, closing, agent): (
         Reaching,
         Closing<'_>,
@@ -912,9 +916,12 @@ pub fn conversation(
     )
     .map_err(|why| format!("no thread to draw the chats panel and the first screen: {why}"))?;
     let proxy = event_loop.create_proxy();
-    let chrome = ChromeOpener::start_reached(
+    // Every card's Chromium given the sign-ins kept, and keeping its own
+    // in the same jar (ADR 0111).
+    let chrome = ChromeOpener::start_kept(
         chromium,
         reaching,
+        Some(sign_ins.clone()),
         Box::new(move |went| proxy.send_event(Heard::Chrome(went)).is_ok()),
     )
     .map_err(|why| format!("no thread to open a page in Chrome: {why}"))?;
@@ -956,7 +963,8 @@ pub fn conversation(
         .with_search(searcher)
         .with_agent(agent, tell_agent)
         .with_settings(read, settings)
-        .with_services(defaults, keys);
+        .with_services(defaults, keys)
+        .with_sign_ins(sign_ins);
     // Where the chats are kept across launches (queue item 757, ADR 0092),
     // sealed under the key in the person's keychain (queue item 790, ADR
     // 0098), read before the window opens; with nowhere, or no key, said,

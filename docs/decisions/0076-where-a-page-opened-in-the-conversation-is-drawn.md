@@ -1,6 +1,6 @@
 # ADR 0076 — Where a page opened in the conversation is drawn
 
-**Status:** accepted — B, chosen by the owner on 30 October 2026; the card built by queue item 717 (31 October 2026, *Built* below), input by 718; B4's park amended by queue item 771 (1 November 2026, *Amended* below); the windows a parked card's Chromium opens beside it, by queue item 808 (1 November 2026, the third *Amended* below); what the carried Chromium tells beside the pipe, a link's strip and a closed list pressed, by queue items 799, 811, 798, 810 and 802 (7 November 2026, the fourth *Amended* below); where the frames are drawn, beneath the first screen by a renderer of their own, by queue item 869 and ADR 0100 (7 November 2026, the fifth *Amended* below)
+**Status:** accepted — B, chosen by the owner on 30 October 2026; the card built by queue item 717 (31 October 2026, *Built* below), input by 718; B4's park amended by queue item 771 (1 November 2026, *Amended* below); the windows a parked card's Chromium opens beside it, by queue item 808 (1 November 2026, the third *Amended* below); what the carried Chromium tells beside the pipe, a link's strip and a closed list pressed, by queue items 799, 811, 798, 810 and 802 (7 November 2026, the fourth *Amended* below); where the frames are drawn, beneath the first screen by a renderer of their own, by queue item 869 and ADR 0100 (7 November 2026, the fifth *Amended* below); every card's Chromium told to draw in sRGB, whatever display it is parked by, by queue item 952 (11 November 2026, the sixth *Amended* below)
 **Date:** 2026-10-30
 **Context:** ADR 0058 (Chromium is a renderer we drive); ADR 0059 (the
 product path and the engine path); ADR 0061 (Chrome draws the page in its own
@@ -1052,4 +1052,98 @@ path every `<img>` takes; the card reads to an agent as it did; and
 composed, it is the card drawn with its picture in it, within one level a
 channel on the rounded corners alone. The stream and its pace (ADR 0090)
 are unchanged.
+
+## Amended (11 November 2026, queue item 952): a card's Chromium draws in sRGB, whatever display it is parked by
+
+A Chromium draws its page — and streams its frames — in the colour space
+of the display its window is on. B4 parks a card's window off the screen
+and the window server keeps a strip of it on a display of its own choosing;
+the Chromium alo carries is parked by a display at the conversation's scale
+(ADR 0090 as amended). On this Mac, with the external VG27VQM (an sRGB-like
+panel) moved to the right of the built-in Retina panel (Color LCD, wide
+gamut, Display P3), the machine's Chrome parked at `PARKED` came to rest on
+the built-in panel, and `a_card_drawn_before_its_page_loads_through_chrome`
+read the page's `#2a9d8f` as (79, 155, 143). On most people's Macs — a
+laptop with its own panel and nothing else — that is where every card is
+parked.
+
+### Measured
+
+On the built-in panel at two, macOS 26.5, Google Chrome 157 and the CEF
+host (CEF 156.0.14), a page of eight flat sRGB stripes, each screen read by
+`screencapture -l` of the window (the display's own values), as ADR 0105
+compared windows. alo is `alo --conversation` with the page opened as a
+card by typing its address; through the Chromium alo carries, the
+application's own bundle, the Chromium's switches as built before and
+after. Scratchpad `colour/`.
+
+| Page (sRGB) | Chrome's own window | its window, told sRGB | alo's card, today | alo's card, its Chromium told sRGB |
+|---|---|---|---|---|
+| `#2a9d8f` (42, 157, 143) | (79, 155, 143) | (79, 155, 143) | **(98, 153, 143)** | (79, 155, 143) |
+| `#ff0000` | (234, 51, 35) | (234, 51, 35) | **(215, 69, 50)** | (234, 51, 35) |
+| `#00ff00` | (117, 251, 76) | (117, 251, 76) | **(153, 248, 104)** | (117, 251, 76) |
+| `#0000ff` | (0, 0, 245) | (0, 0, 245) | **(0, 0, 235)** | (0, 0, 245) |
+| `#f4f1ec` alo's paper | (243, 241, 236) | (244, 241, 236) | (243, 241, 236) | (244, 241, 236) |
+| `#e62828` | (211, 61, 52) | (211, 61, 52) | **(195, 73, 60)** | (211, 61, 52) |
+| `#808080` | (128, 128, 128) | (128, 128, 128) | (128, 128, 128) | (128, 128, 128) |
+| `#3366cc` | (64, 101, 197) | (64, 101, 197) | **(72, 100, 191)** | (64, 101, 197) |
+
+The same through the Chromium alo carries: today (98, 153, 143) and the
+rest as the fourth column, within one level (the paper (243, 241, 237),
+`#e62828` (195, 73, 61)); told sRGB, every stripe as the last column.
+
+**Why.** Parked by the wide-gamut panel, the frame arrives already in the
+display's space: the teal is (79, 155, 143) in the PNG (the probe:
+`Page.startScreencast` of the page, three runs each way, both Chromiums).
+alo's window is matched to the display by the window server as sRGB (ADR
+0105, the layer tagged device RGB), so a frame already in the display's
+space is matched a second time — washed out, by up to 36 levels in a
+channel. Told `--force-color-profile=srgb`, Chromium draws in sRGB
+whatever display it is on: the frame is (42, 157, 143), the page's own,
+and alo's window then shows exactly what Chrome's own window shows. Chrome's
+own window told sRGB is matched by the window server as before (the second
+column), so an expanded card — Chromium's own window shown — is unchanged.
+Parked by the VG27VQM the frame was the page's own either way.
+
+### Decided
+
+Every card's Chromium — the machine's Chrome and the Chromium alo carries —
+is started with `--force-color-profile=srgb` beside its scale or `--alo-card`
+(`chrome::SRGB`, in `chrome::as_a_card`). The CEF host passes it on to
+Chromium as it does every switch but its own (`alo-cef-host`'s
+`switches.rs`); nothing in the host changed.
+
+### Rejected
+
+- **Parking every card by an sRGB display.** A laptop alone has none.
+- **Matching the frame back to sRGB in alo** — the display's profile copied
+  into the engine, ADR 0105's rejected *Our own matching*, and each frame
+  rounded twice.
+- **Tagging the card's pixels with the display's space** — a second colour
+  space in one window of ours, and a layer of its own, which ADR 0105 left
+  unbuilt for its `unsafe`.
+
+### What it costs
+
+Nothing measured: a page's wide-gamut colours (`color(display-p3 …)`,
+P3 pictures) are drawn clipped to sRGB in a card, where Chrome's own window
+on a P3 panel shows them wider. alo's window is sRGB throughout (ADR 0105),
+so the card could not show them wider anyway.
+
+### Built and tested
+
+`crates/alo-window/src/chrome.rs`: `SRGB`, added by `as_a_card` for both
+Chromiums, and its unit test. `tests/a_cards_colours_in_srgb_on_every_display_through_chrome.rs`,
+through both Chromiums: the process's command line holds the switch, and
+the card's window is parked by every display it can be (past an edge where
+no display is, read back, the display holding the most of it the one
+asked), a frame streamed after each read at its middle — exactly `#2a9d8f`
+on each; every display `AppKit` says can show Display P3 must have been
+parked by, and with none the exact colour on every display is still
+asserted. Mutations, each caught on this Mac: the switch removed (the
+command line, and with that check lifted, (79, 155, 143) by the built-in
+panel through both Chromiums); the wide-gamut display passed over (*never
+parked by*). `a_card_drawn_before_its_page_loads_through_chrome.rs`, whose
+exact colour check is unchanged, passes through both Chromiums with the
+displays as they are.
 

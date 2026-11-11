@@ -93,6 +93,7 @@ impl Writer {
             | Outcome::TextPut { .. }
             | Outcome::Scrolled { .. }
             | Outcome::TextCanceled { .. }
+            | Outcome::KeyPressed { .. }
             | Outcome::Chosen { .. } => {}
         }
     }

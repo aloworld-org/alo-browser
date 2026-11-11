@@ -52,7 +52,7 @@ use crate::scrolled::Scrolled;
 use alo_renderer::agent_limits::{Asks, Limit, Limits, Stepped};
 use alo_renderer::conversation_scroll::Reach;
 use alo_renderer::interface_face::InterfaceFace;
-use alo_renderer::settings_privacy::{Privacy, PrivacyPress};
+use alo_renderer::settings_privacy::{Privacy, PrivacyPress, SignInsShown};
 use alo_renderer::start::SettingsKeyed;
 
 /// *Settings*: open or not, and the face chosen.
@@ -82,6 +82,11 @@ pub struct Settings {
     /// Whether a person changed them since this was last asked, so that
     /// they are to be kept.
     privacy_changed: bool,
+    /// What *Privacy*'s row *Sign-ins* says (ADR 0111).
+    sign_ins: SignInsShown,
+    /// What a person pressed that is no choice but a deed of the browser
+    /// process's — *Forget all sign-ins* — since this was last asked.
+    deed: Option<PrivacyPress>,
 }
 
 /// Where the keyboard was as *Settings* opened: what it is given back to as
@@ -140,8 +145,13 @@ impl Settings {
     }
 
     /// A choice of *Privacy* made: whether it is another, and so is to be
-    /// kept.
+    /// kept. *Forget all sign-ins* is no choice: it is asked of the browser
+    /// process ([`Settings::take_forget_asked`]), always.
     pub fn choose_privacy(&mut self, pressed: PrivacyPress) -> bool {
+        if pressed == PrivacyPress::ForgetSignIns {
+            self.deed = Some(pressed);
+            return true;
+        }
         let made = self.privacy.choosing(pressed);
         if made == self.privacy {
             return false;
@@ -155,6 +165,22 @@ impl Settings {
     /// asked, once.
     pub fn take_privacy_changed(&mut self) -> bool {
         core::mem::replace(&mut self.privacy_changed, false)
+    }
+
+    /// Whether a person pressed *Forget all sign-ins* since this was last
+    /// asked, once (ADR 0111 § 5).
+    pub fn take_forget_asked(&mut self) -> bool {
+        self.deed.take() == Some(PrivacyPress::ForgetSignIns)
+    }
+
+    /// What *Privacy*'s row *Sign-ins* says.
+    pub fn sign_ins(self) -> SignInsShown {
+        self.sign_ins
+    }
+
+    /// *Privacy*'s row *Sign-ins* to say `shown`: whether it said another.
+    pub fn show_sign_ins(&mut self, shown: SignInsShown) -> bool {
+        core::mem::replace(&mut self.sign_ins, shown) != shown
     }
 
     /// A press of *Fewer* or *More* (queue item 878): its number moved,
@@ -325,7 +351,10 @@ impl Settings {
                 let other = self.privacy.banners.stepped(on);
                 return self.choose_privacy(PrivacyPress::Banners(other));
             }
-            Some(SettingsKeyed::Close | SettingsKeyed::Service(_)) | None => return false,
+            Some(
+                SettingsKeyed::Close | SettingsKeyed::Service(_) | SettingsKeyed::ForgetSignIns,
+            )
+            | None => return false,
         }
         let faces = InterfaceFace::ALL;
         let at = faces

@@ -1588,6 +1588,7 @@ impl Conversation {
             settings_bar: None,
             services: None,
             privacy: None,
+            sign_ins: self.settings.sign_ins(),
         }
         .at_scale(scale.factor());
         if !self.settings.is_open() {
@@ -1603,6 +1604,7 @@ impl Conversation {
             settings_bar: scrolled.bar(Room::settings(viewport).height, scale.factor()),
             services: Some(self.services.shown()),
             privacy: Some(self.settings.privacy()),
+            sign_ins: self.settings.sign_ins(),
             ..start
         }
     }
@@ -1622,14 +1624,19 @@ impl Conversation {
             SettingsKey::Tab { back } => {
                 // Through *Search and answers* too, as it is drawn (905):
                 // into a field it moves to, out of one it leaves.
-                // Then *Privacy*'s two groups (queue item 920).
+                // Then *Privacy*'s two groups (queue item 920), and its
+                // *Forget all sign-ins* (ADR 0111).
                 let stops: Vec<SettingsKeyed> = self
                     .services
                     .shown()
                     .stops()
                     .into_iter()
                     .map(SettingsKeyed::Service)
-                    .chain([SettingsKeyed::Cookies, SettingsKeyed::Banners])
+                    .chain([
+                        SettingsKeyed::Cookies,
+                        SettingsKeyed::Banners,
+                        SettingsKeyed::ForgetSignIns,
+                    ])
                     .collect();
                 let moved = self.settings.tab_through(back, &stops);
                 let field = match self.settings.keyed() {
@@ -1660,6 +1667,9 @@ impl Conversation {
                     self.services_keyed_kept();
                     changed
                 }
+                Some(SettingsKeyed::ForgetSignIns) => self
+                    .settings
+                    .choose_privacy(alo_renderer::settings_privacy::PrivacyPress::ForgetSignIns),
                 _ => false,
             },
         }
@@ -2198,6 +2208,18 @@ impl Conversation {
     /// asked, once: they are then to be kept, and told to the process.
     pub fn take_privacy_changed(&mut self) -> bool {
         self.settings.take_privacy_changed()
+    }
+
+    /// Whether a person pressed *Forget all sign-ins* since this was last
+    /// asked, once (ADR 0111 § 5).
+    pub fn take_forget_asked(&mut self) -> bool {
+        self.settings.take_forget_asked()
+    }
+
+    /// *Settings › Privacy*'s row *Sign-ins* to say `shown` (ADR 0111):
+    /// whether it said another, and so is to be drawn again.
+    pub fn show_sign_ins(&mut self, shown: alo_renderer::settings_privacy::SignInsShown) -> bool {
+        self.settings.show_sign_ins(shown)
     }
 
     /// Whether a person changed alo's agent's limits in *Settings* since
@@ -4267,7 +4289,9 @@ mod tests {
     #[test]
     fn privacys_choices_are_made_by_a_press_or_the_arrows_and_kept_once() {
         use crate::settings_keys::SettingsKey;
-        use alo_renderer::settings_privacy::{Banners, Cookies, Privacy, PrivacyPress};
+        use alo_renderer::settings_privacy::{
+            Banners, Cookies, Privacy, PrivacyPress, SignInsShown,
+        };
         use alo_renderer::start::SettingsKeyed;
         let mut conversation = Conversation::default();
         assert!(conversation.showing().privacy.is_empty(), "not drawn");
@@ -4291,9 +4315,9 @@ mod tests {
         assert!(conversation.take_privacy_changed());
         assert!(!conversation.take_privacy_changed());
         // Tab: after the services' last stop, *Cookies*, *Cookie banners*,
-        // then round to *Close*.
+        // *Forget all sign-ins* (ADR 0111), then round to *Close*.
         let mut went = Vec::new();
-        for _ in 0..14 {
+        for _ in 0..15 {
             assert!(conversation.settings_key(SettingsKey::Tab { back: false }));
             went.extend(conversation.settings().keyed());
         }
@@ -4303,13 +4327,39 @@ mod tests {
                 &[
                     SettingsKeyed::Cookies,
                     SettingsKeyed::Banners,
+                    SettingsKeyed::ForgetSignIns,
                     SettingsKeyed::Close
                 ][..]
             ),
             "{went:?}"
         );
-        // ⇧Tab back to *Cookie banners*: → chooses *Leave them to me*, and
-        // → again round to the first.
+        // ⇧Tab back to *Forget all sign-ins*: Space asks for it, once, and
+        // the arrows do nothing there; a press of it asks too.
+        assert!(conversation.settings_key(SettingsKey::Tab { back: true }));
+        assert_eq!(
+            conversation.settings().keyed(),
+            Some(SettingsKeyed::ForgetSignIns)
+        );
+        assert!(!conversation.take_forget_asked());
+        assert!(!conversation.settings_key(SettingsKey::Step { on: true }));
+        assert!(conversation.settings_key(SettingsKey::Press));
+        assert!(conversation.take_forget_asked());
+        assert!(!conversation.take_forget_asked());
+        assert!(!conversation.take_privacy_changed(), "no choice was made");
+        assert!(conversation.act(Pressed::Privacy(PrivacyPress::ForgetSignIns)));
+        assert!(conversation.take_forget_asked());
+        // What the row says is the browser process's, drawn as told.
+        assert!(conversation.show_sign_ins(SignInsShown::Forgotten));
+        assert!(!conversation.show_sign_ins(SignInsShown::Forgotten));
+        assert_eq!(
+            conversation.start(room, Scale::ONE).sign_ins,
+            SignInsShown::Forgotten
+        );
+        // The pointer's press put the ring away: ⇧Tab from nothing is the
+        // last stop, *Forget all sign-ins*, and again *Cookie banners*,
+        // where → chooses *Leave them to me*, and → again round to the
+        // first.
+        assert!(conversation.settings_key(SettingsKey::Tab { back: true }));
         assert!(conversation.settings_key(SettingsKey::Tab { back: true }));
         assert_eq!(
             conversation.settings().keyed(),

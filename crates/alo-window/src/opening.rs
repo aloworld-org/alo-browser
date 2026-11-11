@@ -58,7 +58,7 @@ use std::path::{Path, PathBuf};
 /// How to use `alo`, as it is said when it was used wrongly.
 pub const USAGE: &str = "usage: alo [--frozen-fonts] [--scale FACTOR] [--agent-site ADDRESS ...] \
      [PAGE.html [SHEET.css ...]]\n       alo --chrome [--agent-site ADDRESS ...] (ADDRESS | PAGE.html)\n       \
-     alo --conversation [--frozen-fonts] [--scale FACTOR] [--chats DIR] [--agent-site ADDRESS ...]";
+     alo --conversation [--frozen-fonts] [--scale FACTOR] [--chats DIR] [--sign-ins DIR] [--agent-site ADDRESS ...]";
 
 /// The size, in CSS pixels, a page in Chrome is laid out at: the size ADR
 /// 0061 measured Chrome's frames at. Chrome's window is sized to hold the
@@ -111,6 +111,12 @@ pub struct Opening {
     /// path. [`None`] keeps them in alo's own directory
     /// ([`crate::chat_store::for_this_person`]).
     pub chats: Option<PathBuf>,
+    /// Where the cards' sign-ins are kept across launches, when a hand run
+    /// named somewhere (`--sign-ins DIR`, ADR 0111): an absolute path, its
+    /// key in a keychain file there, never the person's keychain. [`None`]
+    /// keeps them in alo's own directory
+    /// ([`crate::sign_ins::for_this_person`]).
+    pub sign_ins: Option<PathBuf>,
 }
 
 impl Opening {
@@ -138,7 +144,10 @@ impl Opening {
     /// the chats panel and the first screen, drawn by this engine.
     /// `--chats DIR` beside it keeps its chats in that directory, an
     /// absolute path, rather than alo's own (ADR 0092 § 1): what a hand run
-    /// or a test that must not touch a person's chats names.
+    /// or a test that must not touch a person's chats names. `--sign-ins
+    /// DIR` keeps the cards' sign-ins there, their key in a keychain file of
+    /// that directory's own (ADR 0111 § 6): a hand run's, never the
+    /// person's.
     ///
     /// # Errors
     ///
@@ -147,8 +156,8 @@ impl Opening {
     /// with no factor or one that is not measured, or a sheet with no page;
     /// and with `--chrome`, no page, or a scale, the frozen fonts or a sheet
     /// beside it; and with `--conversation`, a page, a sheet or `--chrome`
-    /// beside it; and `--chats` with no directory, one that is not an
-    /// absolute path, or without `--conversation`.
+    /// beside it; and `--chats` or `--sign-ins` with no directory, one that
+    /// is not an absolute path, or without `--conversation`.
     pub fn from_arguments(arguments: impl IntoIterator<Item = String>) -> Result<Self, String> {
         let mut fonts = Fonts::AsAsked;
         let mut files = Vec::new();
@@ -157,6 +166,7 @@ impl Opening {
         let mut renderer = Renderer::ThisEngine;
         let mut conversation = false;
         let mut chats = None;
+        let mut sign_ins = None;
         let mut arguments = arguments.into_iter();
         while let Some(argument) = arguments.next() {
             if argument == "--chrome" {
@@ -181,6 +191,17 @@ impl Opening {
                     ));
                 }
                 chats = Some(directory);
+            } else if argument == "--sign-ins" {
+                let Some(directory) = arguments.next().map(PathBuf::from) else {
+                    return Err(format!("--sign-ins names no directory\n{USAGE}"));
+                };
+                if !directory.is_absolute() {
+                    return Err(format!(
+                        "--sign-ins {} is not an absolute path\n{USAGE}",
+                        directory.display()
+                    ));
+                }
+                sign_ins = Some(directory);
             } else if argument == "--scale" {
                 let Some(factor) = arguments.next() else {
                     return Err(format!("--scale names no factor\n{USAGE}"));
@@ -204,7 +225,14 @@ impl Opening {
             renderer,
             conversation,
             chats,
+            sign_ins,
         };
+        if !conversation && opening.sign_ins.is_some() {
+            return Err(format!(
+                "--sign-ins names where the cards' sign-ins are kept, and is given only with \
+                 --conversation\n{USAGE}"
+            ));
+        }
         if !conversation && opening.chats.is_some() {
             return Err(format!(
                 "--chats names where the conversation's chats are kept, and is given only with \
@@ -540,6 +568,28 @@ mod tests {
             Opening::from_arguments(arguments(&["--conversation", "--chats", "/tmp/kept chats"]))
                 .expect("these are arguments");
         assert_eq!(elsewhere.chats, Some(PathBuf::from("/tmp/kept chats")));
+        assert_eq!(opening.sign_ins, None, "kept in alo's own directory");
+        let hand_run = Opening::from_arguments(arguments(&[
+            "--conversation",
+            "--sign-ins",
+            "/tmp/hand run/sign-ins",
+        ]))
+        .expect("these are arguments");
+        assert_eq!(
+            hand_run.sign_ins,
+            Some(PathBuf::from("/tmp/hand run/sign-ins"))
+        );
+        for wrong in [
+            &["--conversation", "--sign-ins"][..],
+            &["--conversation", "--sign-ins", "relative"][..],
+            &["--sign-ins", "/tmp/s"][..],
+        ] {
+            assert!(
+                Opening::from_arguments(arguments(wrong))
+                    .is_err_and(|why| why.contains("--sign-ins")),
+                "{wrong:?}"
+            );
+        }
         // Queue item 716: agents reaching its card kept to a site.
         let kept = Opening::from_arguments(arguments(&[
             "--conversation",
@@ -604,6 +654,7 @@ mod tests {
             renderer: Renderer::ThisEngine,
             conversation: false,
             chats: None,
+            sign_ins: None,
         };
         let Ok(Order::Open {
             url,
@@ -630,6 +681,7 @@ mod tests {
             renderer: Renderer::ThisEngine,
             conversation: false,
             chats: None,
+            sign_ins: None,
         };
         assert!(
             opening

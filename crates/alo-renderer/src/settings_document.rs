@@ -155,8 +155,11 @@ pub fn put(document: &mut Document, start: &Start) -> Result<(), Unbuilt> {
     }
     // *Privacy*, under it (ADR 0108, queue item 920).
     if let Some(privacy) = start.privacy {
-        let section =
-            crate::settings_privacy_document::make(document, privacy, start.settings_keyed)?;
+        let section = crate::settings_privacy_document::make(
+            document,
+            (privacy, start.sign_ins),
+            start.settings_keyed,
+        )?;
         append(document, page, section)?;
     }
     Ok(())
