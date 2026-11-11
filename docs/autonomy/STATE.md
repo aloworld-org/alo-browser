@@ -51280,3 +51280,50 @@ test page is sent (in tests and by hand), and by hand on live sites, with
 the live misses queued (924, 927).
 
 The next unused queue number is **928** and the next ADR is **0109**.
+
+## 2026-11-11 — ADR 0110: web apps through the page, or the app's own connector (928–936 queued)
+
+Documents only; no code changed, so no gate was run. ADR 0109 (proposed,
+committed at 5841e769) did not move the numbers here; this entry does.
+
+**The owner's decision, recorded as ADR 0110** (accepted for the
+direction, *"go ahead"*): three layers, one agent — the page by name (the
+default), an app's own MCP connector where the page falls short, the AI
+service of the person's choosing — the agent picking the route per task.
+Connecting is the app's own OAuth consent in a card, *Allow* pressed by
+the person, the token in the keychain (`alo-connector-WORD`); never the
+browser's session cookies, never hidden internal APIs. Reading what an
+app's page already loaded is named and left to a privacy ADR (936).
+
+**Read on 11 November 2026, nothing signed into, no client registered**:
+MCP revision `2026-07-28` (stateless Streamable HTTP; CIMD preferred, DCR
+deprecated; RFC 9207 `iss` checked; tool annotations hints, untrusted from
+untrusted servers); RFC 8252 (§ 8.12 forbids embedded user-agents — the
+ADR says so plainly and keeps *Open in my browser* second); `rmcp` 3.9.0
+(Apache-2.0, `rust-version` 1.88, speaks 2026-07-28 and the `initialize`
+revisions; taken without `auth`/`reqwest`, its HTTP met by `alo-net`).
+Each app's `401`, protected-resource and authorization-server metadata,
+by unauthenticated GETs: Notion and Linear advertise DCR **and** CIMD with
+public clients, `iss` and revocation; Atlassian answers no
+protected-resource metadata (root AS metadata has DCR; an admin allowlist
+applies); Canva advertises DCR/CIMD but its docs say a Developer Portal
+app; Miro DCR with secret-only clients; Figma gates DCR by `client_name`
+(its catalog); GitHub and Google Workspace (Developer Preview) offer
+neither and need a pre-registered client — the private repository's job.
+
+**Found while writing it**: *"already signed in"* holds only inside one
+card's Chromium, because each Chromium starts on a new profile (ADR 0069)
+and kept sign-ins are undecided (ADR 0060) — queued as 935. The redirect
+is caught at ADR 0060's gate (`Fetch.fulfillRequest`, nothing listening on
+the loopback port).
+
+Queued: **928** (the interface and *Settings › Connected apps*), **929**
+(the MCP client), **930** (consent in a card, keychain, refresh, revoke),
+**931** (Notion end to end, Linear as the second check), **932** (route
+choice and the gate for connector tools), **933** (prompt injection
+guarded), **934** (the benchmark of 20–30 real tasks through the page —
+needs none of the others), **935** (sign-ins kept between runs, an ADR),
+**936** (an app's loaded responses, read only, a privacy ADR). No
+CHANGELOG line: nothing a person uses has changed (as for ADR 0109).
+
+The next unused queue number is **937** and the next ADR is **0111**.

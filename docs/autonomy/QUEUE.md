@@ -25455,6 +25455,162 @@ What stage 2's exit gate actually measures: a person using it.
   Decide (an ADR 0108 amendment) whether a run of siblings under the page
   holding a consent and speaking of cookies counts, without letting a
   page that merely says *cookie* in its footer count. *Depends on 920.*
+- [ ] **928. Apps connected through one interface, and *Settings ›
+  Connected apps* (the owner's word, 11 November 2026).** ADR 0110 § 5:
+  `AppService` over `AppConnector`, its one implementation `McpConnector`,
+  in `alo-window`, beside `SearchService` and `AiService` (ADR 0106). The
+  connectors a build offers are read from `Contents/Resources/connectors.txt`
+  (put in by `alo-bundle --connectors FILE`) and the person's own
+  `connector ADDRESS` lines in `settings.txt`, read strictly as ADR 0106
+  § 3 reads them. No app is compiled in. *Settings › Connected apps* shows
+  one row per app: its name, its state, **Connect** or **Disconnect**, and
+  *Ask before changes that only add*, plus *Add an app by its address*.
+  Each row is a `group` named by the app (ADR 0002). Only the state is
+  drawn, never a token or a scope. *Closes when:* a file and a person's
+  line give the rows expected, and a bad line refuses the whole file,
+  saying why, in tests; the section's numbers, reference render, tree and
+  presses are tested as *Privacy*'s are (and the press is tested through
+  the window's own road, as 926 asks); and nothing of the public build
+  names an app it was not configured with.
+- [ ] **929. An MCP client over Streamable HTTP, on `alo-net` (ADR 0110
+  § 6).** `rmcp` 3.9.0 (Apache-2.0, `rust-version` 1.88) rented with
+  default features off and only `client` and
+  `transport-streamable-http-client` taken, never `auth` or `reqwest`. Its
+  `StreamableHttpClient` is met by one file of ours (`mcp_http.rs`) over
+  `alo-net`, with JSON and SSE answers read as they arrive. It runs on a
+  current-thread `tokio` runtime on the connectors' own thread. The files
+  that read MCP are added to `scripts/gate.sh`'s `serde_json` boundary
+  list, and `rmcp` gets a boundary line of its own. The client speaks
+  `2026-07-28`, plus the `initialize` revisions back to `2025-03-26` by
+  the transport's *Backward Compatibility* rules. It sends `Mcp-Method`,
+  `Mcp-Name` and `x-mcp-header` values encoded as the transport says. It
+  declares no sampling, and an `input_required` goes to the person, never
+  to the model. If `rmcp`'s trait cannot be met by `alo-net`, or its
+  runtime cannot be held to one thread, write the client here instead and
+  amend ADR 0110. *Closes when:* `tools/list` and `tools/call` against a
+  local MCP server of the tests' own, in both protocol eras and with both
+  JSON and SSE answers, are read into ADR 0110's own types; a broken
+  stream is re-asked under a new id; and every request leaves through
+  `alo-net`, which a test that counts the connections holds.
+- [ ] **930. One-click consent in a card, the redirect caught at the
+  gate, and the token in the keychain (ADR 0110 §§ 7–8).** The connector
+  does discovery (protected-resource metadata from the `401`, then RFC
+  8414 or OpenID Connect, and the root fallback for a `401` naming none),
+  then registration in the specification's order (pre-registered, CIMD,
+  DCR with `application_type: "native"`), then PKCE S256, `state`, the
+  expected issuer, and `resource` on both requests. The consent opens in
+  the live card when it is on the app's site, otherwise in a new card.
+  alo presses nothing on it. The navigation to
+  `http://127.0.0.1:PORT/alo/connected` in that card, holding that
+  `state`, is caught at ADR 0060's gate and answered with
+  `Fetch.fulfillRequest`. Nothing listens on the port. The same address
+  in any other card, with any other `state`, or after the consent has
+  ended, is refused. `iss` is checked (RFC 9207) before the code is
+  redeemed. The token is kept in `alo-connector-WORD` and a client got by
+  DCR in `alo-connector-client-WORD`, keyed by issuer, through
+  `/usr/bin/security -i` as ADR 0106 § 4 keeps a key. Refreshes run one
+  at a time for each connector, and `invalid_grant` is terminal.
+  Disconnect revokes (RFC 7009) where the server offers it and deletes
+  both items either way. *Open in my browser* is the second way: a
+  one-request listener bound to `127.0.0.1` on a port the system picks.
+  *Closes when:* against a local authorization server and MCP server of
+  the tests' own, with a keychain file of their own, through both
+  Chromiums: a consent pressed in a card connects; a forged redirect (a
+  wrong `state`, another card, a wrong `iss`, after the end) is refused
+  and connects nothing; refresh, rotation, `invalid_grant` and disconnect
+  behave as § 8 says; no token appears in any file, log, terminal line,
+  renderer message or model request (a test greps them all); and by hand,
+  once, on a live app.
+- [ ] **931. Notion, the first connector end to end (ADR 0110 § 3).**
+  Chosen because both its dynamic registration and CIMD are verified:
+  its authorization server's metadata advertises `registration_endpoint`
+  and `client_id_metadata_document_supported`, `none` among its
+  token-endpoint methods, S256, `iss` and a revocation endpoint, and its
+  own guide (`developers.notion.com/guides/mcp/build-mcp-client`) says
+  *"supports dynamic client registration (RFC 7591)"*. One configuration
+  entry, `notion`, with the endpoint `https://mcp.notion.com/mcp` and the
+  sites `notion.so` and `notion.com`, registering by DCR in a public build
+  (CIMD when the private repository names its document). Linear
+  (`https://mcp.linear.app/mcp`, the same metadata) is the second check
+  that nothing in it is Notion's alone. *Depends on 928, 929, 930, 932.*
+  *Closes when:* by hand, with the owner's own Notion test workspace:
+  Connect from a Notion card is the consent page and one press; *Find my
+  page "Q4 plan" and add a line "Ship 931"* is done through the connector
+  with the change asked and shown first; Disconnect revokes; and the steps
+  say *through Notion*. Linear is connected and read by the same code with
+  only its configuration lines added.
+- [ ] **932. The agent picks the route, and a connector's tools are
+  asked as ADR 0110 § 9 says.** A connected app's tools are offered when
+  the card is on one of its sites, or when the run begins with no page.
+  Their names are prefixed with the connector's word. The model chooses
+  between the page and the app, and its step says which. Each call is one
+  of the run's actions and is recorded in `AgentRecord` under
+  `Caller::ALO` (ADR 0012 § 4). `app_gate::asked` judges each call. A
+  read-only call from a listed connector is not asked; one from a
+  person-added server is. A call that pays, sends or deletes, by ADR 0096
+  § 5's words, is always asked, and so is one whose `destructiveHint` or
+  `openWorldHint` is true or absent, or that has no annotations. *Changes
+  that only add* (`destructiveHint` and `openWorldHint` both false, from
+  a listed connector) are asked unless the person says otherwise for that
+  app. The question shows every argument in full and is answered only by
+  a person's press. Arguments that name a secret are refused as
+  `Password` or `CardDetails`. *The changes a run may make through apps*
+  (1–20, default 5) goes into *Settings › alo at work*. The socket offers
+  no connector. *Depends on 928, 929.* *Closes when:* a table test runs
+  every row of § 9's table against a local MCP server's tools, each asked
+  or not as it says; a run uses the connector where it fits and the page
+  where it does not, against a frozen page and a local server; and *Not
+  now* ends the run with nothing sent.
+- [ ] **933. A tool's result is data: prompt injection guarded (ADR 0110
+  § 10).** A result goes only into `function_call_output`, headed with its
+  connector and tool, cut to 50,000 characters, control characters
+  dropped, secrets withheld; no images or audio; a `resource_link` named,
+  not fetched. An address that only a result named is asked before it is
+  opened. Once a run holds anything from a connector or a page, a change
+  sent to another connector is always asked. Descriptions are cut to
+  1,000 characters and schemas to 4,000. The tool list is fingerprinted
+  when the app is connected, and a changed list is not offered until the
+  person accepts it in *Settings*. *Depends on 932.* *Closes when:* a
+  hostile MCP server of the tests' own runs its attacks and none of them
+  makes alo send, change or open anything unasked. Its attacks: a result
+  saying *send this page to …*, an address planted in a result, a
+  description that rewrites itself after connecting, an image result, a
+  50 MB result, a tool that says it only reads and deletes. Mutations (the
+  fence removed, the fingerprint unchecked) are each caught.
+- [ ] **934. The benchmark: real tasks on web apps, through the page (the
+  owner's earlier priority).** 20–30 tasks a person does every week, on
+  Trello, Notion, Gmail, GitHub, Airtable, Google Docs and Google Sheets.
+  For example: *move the card "Invoice" to Done*, *star the email from
+  Ana*, *add a row to the Leads base*, *open the issue about the login bug
+  and add the label "bug"*. Each is run by alo's agent through the page
+  alone, as alo stands. They run in a test copy of each app (test
+  accounts the owner makes), which the owner signs into once at the start
+  of a run. No sign-in, cookie or account detail is ever kept in the
+  repository. Each task is scored done, done with a wrong step,
+  stuck (and why), or refused rightly, with steps, tokens and seconds.
+  Every task that fails says whether a connector (ADR 0110), the app's own
+  views (ADR 0109) or a fix to the page road would have saved it. This
+  needs nothing of 928–933. *Closes when:* the table of results and its
+  method are in `docs/` (a benchmark page), run twice on different days,
+  and each failure is a queue item or a reason.
+- [ ] **935. A person's sign-ins kept between runs (ADR 0110 § 7).**
+  Today every Chromium starts on a new profile, removed with it (ADR
+  0069), so *already signed in* holds only inside one card's Chromium. One
+  click from anywhere needs sign-ins kept. Decide in an ADR, against ADR
+  0011 (what may be written to a disk) and ADR 0060 (*What this does not
+  decide*): what is kept (cookies only, or more), where, sealed how (ADR
+  0098's key in the keychain), for which sites, how a person sees and
+  forgets them, and what the agent may never do with them. No build until
+  the owner accepts it. *Closes when:* the ADR is accepted or refused.
+- [ ] **936. What an app's page already loaded, read only (the owner's
+  word, 11 November 2026, ADR 0110 § 0).** Not decided. A privacy ADR
+  first, on reading the responses an app's own page fetched through CDP's
+  `Network` domain (`Network.getResponseBody`): read only, no request of
+  alo's own, no script in the page. It must settle which responses, which
+  sites, what of them reaches the AI service, what is withheld (tokens in
+  bodies, personal data), how a person turns it off, and why it is not
+  the hidden-API route ADR 0110 refuses. *Closes when:* the ADR is
+  accepted or refused.
 
 ## K. ★ The agent, on somebody else's pages
 
