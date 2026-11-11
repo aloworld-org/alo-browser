@@ -51204,4 +51204,49 @@ other languages' labels on a live page; partitioned cookies.
 docs/features.md, docs/autonomy/QUEUE.md, docs/autonomy/STATE.md,
 crates/alo-window/src/lib.rs, crates/alo-window/src/conversation_window.rs.
 
-The next unused queue number is **926** and the next ADR is **0109**.
+**Hand run (10 November 2026, evening; scratchpad `handrun57/`).** A
+release bundle with no keys (`--keys-from` not named), `--conversation
+--chats handrun57/chats`, its socket under a scratch `XDG_RUNTIME_DIR`
+(no demo alo was running); from this Mac in Belgium. **Settings ›
+Privacy, in the window — a bug found and fixed:** every click on a
+*Privacy* choice was refused, *a renderer claimed the choice Privacy
+offers at place N, and 0 were shown* — `conversation_drawing.rs` copied
+each list the picture showed into `painted` but not `privacy` (905's
+omission again). One line added; rebuilt; then each choice clicked:
+*Refuse all cookies* wrote `cookies all`, *Keep all cookies* `cookies
+keep`, *Leave them to me* `banners leave`, and the defaults removed each
+line — `settings.txt` `0600`, the terminal saying each choice
+(`10-…`–`15-….png`). No test caught it: queued **926**. **Live sites**
+(default choices; 17 sites; nothing accepted, signed in or submitted by
+this run, and **no consent pressed by alo** — every one of its lines was a
+refusal or *left to you*): *Decline* pressed on booking.com, *Essential
+Cookies Only* on edition.cnn.com, *Reject Optional Cookies* on
+reddit.com — each banner gone from the tree after and the bar saying
+*Cookies refused*; with *Leave them to me* the same three showed their
+banners (*Decline*/*Accept*, *Essential Cookies Only*/*Accept All*,
+*Reject Optional Cookies*/*Accept All*) and nothing was pressed or said.
+elpais.com's pay-or-accept (*ACCEPT AND CONTINUE*, *SUBSCRIBE AND
+DECLINE*) was left to the person with the line. **Missed** (nothing
+pressed, nothing said): the Sourcepoint frame on bbc.com, theguardian.com,
+spiegel.de and vrt.be (VRT's holds *Alles weigeren*); ikea.com/be/nl's
+*Accepteer enkel noodzakelijke cookies* (a refusal in Dutch not in the
+list); hln.be's and standaard.be's *Akkoord* (no known name, so no line);
+lesoir.be's *Je refuse et je m’abonne* / *J'accepte: …* (rightly
+unpressed, but unsaid) — all added to **924**; bbc.com's own first-party
+bar (*Yes, I agree*, *No, take me to settings*) sits straight under the
+page with no box of its own, so it is no banner — queued **927**. No banner
+drawn: lemonde.fr, nos.nl (a close only, rightly unpressed); a bot check
+instead of the page: imdb.com, stackoverflow.com, zeit.de. **Cookies**
+(a local server's `127.0.0.1` page reloading itself, with a `localhost`
+frame setting `SameSite=None; Secure`): the default sent the page's own
+`top=1` back and the frame nothing; *Script sees: top=1*.
+**Not verified:** *Refuse all cookies* and *Keep all cookies* on that page
+— the screen locked mid-run (the clicks after it reached nothing, the
+server was never asked), so the run stopped there; the bar's line was seen
+only on pages that had already refused (no screenshot catches a banner
+before the refusal, about a second after load). fmt, `clippy -p alo-window
+--all-targets --all-features -D warnings`, `alo-window --lib` (958), the
+two window-road settings/press tests: pass. **920 stays unticked**: the
+cookie choices by hand are owed, and the gate.
+
+The next unused queue number is **928** and the next ADR is **0109**.

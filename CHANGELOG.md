@@ -16,7 +16,9 @@ What changed, in words a person outside this repository can read. Newest first.
   found by the button's own words, never by where it is — and never
   *Accept*. A banner with no way to refuse is left to you. The card's bar
   says quietly what happened (*Cookies refused*, or *Cookie banner left to
-  you*). You can turn the answering off with *Leave them to me*.
+  you*). You can turn the answering off with *Leave them to me*. (A
+  click on any *Privacy* choice did nothing in the first build, found by
+  hand on the day; it now chooses.)
 - **Fixed: alo's agent could not press anything on a page scrolled away
   from its top.** A button or a link plainly in the middle of the card —
   Toolshop's *Add to cart* among them — was refused with *Chrome finds

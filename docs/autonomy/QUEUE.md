@@ -25404,6 +25404,18 @@ What stage 2's exit gate actually measures: a person using it.
   where it is shown and added to `cookie_banners_answered_through_chrome.rs`;
   a banner in a cross-site frame read and pressed through its own target,
   or said to be left to the person. *Depends on 920.*
+  **Met by hand, 10 November 2026 (920's hand run, scratchpad
+  `handrun57/`), none answered:** Sourcepoint's cross-site frame
+  (`dialog "SP Consent Message"` holding an `Iframe`) on bbc.com,
+  theguardian.com, spiegel.de (*Privacy Center*) and vrt.be — VRT's holds
+  *Alles weigeren*, which this would press; ikea.com/be/nl's *Accepteer
+  enkel noodzakelijke cookies* (Dutch, not in the list); hln.be's
+  (*Akkoord*, *Instellen*, on `myprivacy.dpgmedia.be`) and standaard.be's
+  (*Akkoord*, *Stel voorkeuren in*) — *akkoord* in no list, so the banner is
+  not found and not even said to be left; lesoir.be's pay-or-accept (*Je
+  refuse et je m’abonne*, *J'accepte: Accepter notre traitement des données
+  et fermer*) — rightly unpressed, unsaid; bbc.com's frame says *I do not
+  agree*, in no list.
 - [ ] **925. The privacy choice no longer one for the whole process in
   tests (cut from 920).** A `conversation_window` lib test sets the
   process-wide privacy choice to *Refuse all cookies* and puts it back when
@@ -25411,6 +25423,27 @@ What stage 2's exit gate actually measures: a person using it.
   given that choice. Make the choice something a Chromium's start is
   handed, not a global it reads, so no test can change another's — then
   the race cannot happen rather than being unlikely. *Depends on 920.*
+- [ ] **926. Every choice *Settings* draws pressed through the window's
+  own road, in a test (found by 920's hand run).** A click on any
+  *Privacy* choice was refused by hand — *a renderer claimed the choice
+  Privacy offers at place 1, and 0 were shown* — because
+  `conversation_drawing.rs` copied each list the picture showed into
+  `painted` and left `privacy` out: 905's omission of `limits`, `asks` and
+  `services` again, fixed the same way, one line, and caught again only by
+  hand. A test through `ConversationWindow` and both renderers that clicks
+  each pressable *Settings* draws — face, *alo at work*, *Search and
+  answers*, *Privacy* — and asserts it was chosen; or, better, the copy made
+  one move of the whole showing so a new list cannot be left out.
+  *Depends on 920.*
+- [ ] **927. A cookie banner with no box of its own (found by 920's hand
+  run).** bbc.com's first-party bar — *Let us know you agree to cookies*,
+  *Yes, I agree*, *No, take me to settings* — is a heading, two paragraphs
+  and a list straight under the page, so the nearest box around its
+  choices is the page itself, which ADR 0108 § 2 never takes for a banner:
+  nothing is found, and the person is not told it was left to them.
+  Decide (an ADR 0108 amendment) whether a run of siblings under the page
+  holding a consent and speaking of cookies counts, without letting a
+  page that merely says *cookie* in its footer count. *Depends on 920.*
 
 ## K. ★ The agent, on somebody else's pages
 
