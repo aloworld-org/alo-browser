@@ -145,7 +145,8 @@
 //! `EventLoopProxy::send_event`, `ActiveEventLoop::create_window`,
 //! `ActiveEventLoop::exit`, `Window::inner_size`, `Window::scale_factor`,
 //! `Window::request_redraw`, `Window::outer_position`, `Window::has_focus`,
-//! `Window::focus_window` (queue item 742), `Modifiers::state`,
+//! `Window::focus_window` (queue item 742), `Window::is_minimized` and
+//! `Window::set_minimized` (queue item 976), `Modifiers::state`,
 //! `ModifiersState`'s `super_key`, `control_key`, `shift_key` and
 //! `alt_key`, and
 //! `KeyEventExtModifierSupplement::key_without_modifiers` — is a safe
@@ -880,7 +881,9 @@ impl ApplicationHandler<ToFrame> for Framing<'_> {
 /// none, and the chats not kept. The card live
 /// is reached by agents as `reaching` says (queue item 716), and `closing`
 /// is run as the window's event loop ends — quit included, after which
-/// `AppKit` ends the process (item 688) — once every card is closed.
+/// `AppKit` ends the process (item 688) — once every card is closed. The
+/// address alo was `launched` at, if any, opens in a new chat once the
+/// window is on the screen (queue item 976).
 ///
 /// # Errors
 ///
@@ -907,6 +910,7 @@ pub fn conversation(
         Closing<'_>,
         Result<crate::conversation_agent::Agent, String>,
     ),
+    launched: Option<alo_url::Url>,
 ) -> Result<(), String> {
     let lettering =
         Lettering::compiled_in().ok_or_else(|| "the window's own font is not a font".to_owned())?;
@@ -954,22 +958,14 @@ pub fn conversation(
     // the chats themselves can be opened (queue item 854): a file that does
     // not read is Manrope, and said.
     let settings = chats.as_deref().ok().map(crate::settings_file::file_in);
-    let read = settings.as_deref().map_or(
-        crate::settings_file::Read {
-            face: alo_renderer::interface_face::InterfaceFace::Manrope,
-            limits: alo_renderer::agent_limits::Limits::default(),
-            services: crate::services::Named::default(),
-            privacy: alo_renderer::settings_privacy::Privacy::default(),
-            said: None,
-        },
-        crate::settings_file::read,
-    );
+    let read = settings_read(settings.as_deref());
     let state = ConversationWindow::new(forced, drawing, chrome)
         .with_search(searcher)
         .with_agent(agent, tell_agent)
         .with_settings(read, settings)
         .with_services(defaults, keys)
-        .with_sign_ins(sign_ins);
+        .with_sign_ins(sign_ins)
+        .with_launched(launched);
     // Where the chats are kept across launches (queue item 757, ADR 0092),
     // sealed under the key in `keychain` (queue item 790, ADR 0098), read
     // before the window opens; with nowhere, or no key, said, and none
@@ -1095,6 +1091,12 @@ impl Conversing<'_> {
                 );
             }
             if front {
+                // A minimised window is shown again first: `focus_window`
+                // leaves one where it is, and alo started again comes
+                // forward (queue item 976).
+                if window.is_minimized() == Some(true) {
+                    window.set_minimized(false);
+                }
                 window.focus_window();
             }
             // The shape the card's page asked for over it (queue item 799).
@@ -1363,6 +1365,21 @@ fn pressed(event: &KeyEvent, modifiers: ModifiersState) -> Option<Press> {
         held: held(modifiers),
         repeat: event.repeat,
     })
+}
+
+/// What a person chose in *Settings*, read from `settings` — or, with no
+/// file to read, Manrope and every default.
+fn settings_read(settings: Option<&std::path::Path>) -> crate::settings_file::Read {
+    settings.map_or(
+        crate::settings_file::Read {
+            face: alo_renderer::interface_face::InterfaceFace::Manrope,
+            limits: alo_renderer::agent_limits::Limits::default(),
+            services: crate::services::Named::default(),
+            privacy: alo_renderer::settings_privacy::Privacy::default(),
+            said: None,
+        },
+        crate::settings_file::read,
+    )
 }
 
 /// The key the chats are sealed under, in `keychain` — or, with none, why

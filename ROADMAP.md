@@ -102,7 +102,8 @@ Flatpak and portals, the agent's roads (AT-SPI, the socket, alo OS's
 adapter), registration and the window, egress, translations and the look
 (queue items 955–972). · Built (956–958): the socket's `open`, `new_tab`,
 `find` and `print_pdf`; `alo --data DIR`; the window called by its card's
-page and an `app_id` asked for on Linux. · Owed: everything that needs an
+page and an `app_id` asked for on Linux; and (976, not yet gated) a second
+launch on the same profile handing its address to the running alo. · Owed: everything that needs an
 alo OS machine, and the coordinator's answers on the palette, the agent's
 colour, the logo, the typeface and OpenURI.
 

@@ -117,6 +117,16 @@ pub enum Ask {
     /// A new tab with nothing in it: in the conversation, a new chat on the
     /// first screen, as *New chat* is (queue item 956).
     NewTab,
+    /// alo was started again on this profile with `address` (queue item
+    /// 976, ADR 0114): what a second `alo --conversation ADDRESS` hands to
+    /// the one already running. In the conversation, `open` with no tab —
+    /// a new chat whose card shows it, judged and recorded as that is — and
+    /// the window comes forward.
+    Launched {
+        /// Where to, as the second launch was given it: an `http` or
+        /// `https` address.
+        address: String,
+    },
     /// The nodes of the page in the tab at `tab` whose names hold `text`
     /// (queue item 956): a person's *Find on page*, answered by name and
     /// never by place ([`crate::agent_find`]).
@@ -141,7 +151,7 @@ impl Ask {
     /// The tab it names, if it names one.
     pub fn tab(&self) -> Option<&str> {
         match self {
-            Ask::Tabs | Ask::NewTab | Ask::Open { tab: None, .. } => None,
+            Ask::Tabs | Ask::NewTab | Ask::Open { tab: None, .. } | Ask::Launched { .. } => None,
             Ask::Read { tab }
             | Ask::Renderer { tab }
             | Ask::Act { tab, .. }
@@ -655,6 +665,10 @@ mod tests {
             Some("about:blank")
         );
         assert_eq!(Ask::NewTab.tab(), None);
+        let launched = Ask::Launched {
+            address: "https://example.com/".to_owned(),
+        };
+        assert_eq!(launched.tab(), None);
         let open = |tab: Option<&str>| Ask::Open {
             tab: tab.map(str::to_owned),
             address: "https://example.com/".to_owned(),

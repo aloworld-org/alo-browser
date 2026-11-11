@@ -26532,11 +26532,24 @@ the rest runs on this Mac. Order: ADR 0112's *The plan, in order*.
   first of six in *Settings*, Inter kept as a choice; ADR 0084 amended;
   every interface reference redrawn; `the_interfaces_typefaces.rs`
   asserts Manrope and Geist Mono resolved.
-- [ ] **976. A second launch hands its address to the running alo (ADR
+- [x] **976. A second launch hands its address to the running alo (ADR
   0112, *Answered* 4).** On the same profile, a second `alo` with an
   address hands it to the running one, which opens it in a new card and
   comes forward, and exits; with a different `--data DIR` it stays a
   separate instance. *Closes when:* both, in a test with two processes.
+  ***Built (11 November 2026), gated 11 November 2026 (7106 tests; two host-window tests needed Stage Manager off):*** ADR 0114 —
+  `alo --conversation [--data DIR] ADDRESS` tries the profile's socket
+  first (`launch_handover.rs`); a socket left behind is nobody there; the
+  socket's new `launched` ask is `open` with no tab plus the window brought
+  forward (`conversation_agents.rs`, `conversation_window/outside.rs`),
+  waiting for a window not yet up.
+  `a_second_alo_hands_its_address_to_the_first_through_chrome.rs` runs
+  three `alo` processes: the same `--data` hands over and the second exits
+  0 having opened no socket; another `--data` opens its own address as an
+  instance of its own. Coming forward is asserted at the window's state
+  (the front asked of the event loop), not read off the screen. Cut: a
+  second launch with **no** address still opens a second window, as
+  before.
 - [ ] **977. alo OS's adapter for the browser (ADR 0112, *Answered*,
   the adapter).** Rust implementing alo OS's `Adapter` trait, mapping
   its typed verbs (open, new tab, read page, find, fill a field, press a

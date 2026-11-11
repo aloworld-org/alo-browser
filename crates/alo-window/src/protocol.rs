@@ -143,6 +143,10 @@ fn ask(fields: &Map<String, Value>) -> Result<Ask, Refused> {
             address: text(fields, "address", MOST_ADDRESS)?.to_owned(),
         },
         "new_tab" => Ask::NewTab,
+        // Queue item 976: what a second launch on this profile hands over.
+        "launched" => Ask::Launched {
+            address: text(fields, "address", MOST_ADDRESS)?.to_owned(),
+        },
         "find" => {
             let tab = text(fields, "tab", MOST_ADDRESS)?.to_owned();
             let words = text(fields, "text", MOST_NAME)?;
@@ -167,6 +171,7 @@ fn ask(fields: &Map<String, Value>) -> Result<Ask, Refused> {
         Ask::Tabs | Ask::NewTab => &["v", "id", "ask"],
         Ask::Read { .. } | Ask::Renderer { .. } => &["v", "id", "ask", "tab"],
         Ask::Open { .. } => &["v", "id", "ask", "tab", "address"],
+        Ask::Launched { .. } => &["v", "id", "ask", "address"],
         Ask::Find { .. } => &["v", "id", "ask", "tab", "text"],
         Ask::PrintPdf { .. } => &["v", "id", "ask", "tab", "path"],
         Ask::Act { verb, .. } => match verb {
@@ -272,6 +277,29 @@ fn verb(fields: &Map<String, Value>) -> Result<Verb, Refused> {
 )]
 fn pixels_of(number: f64) -> f32 {
     number as f32
+}
+
+/// The line a second `alo` on this profile sends the one running (queue
+/// item 976, ADR 0114), its newline included: [`Ask::Launched`] with
+/// `address`, asking to have `1` handed back.
+pub fn launched_line(address: &str) -> String {
+    let mut line = Map::new();
+    line.insert("v".to_owned(), Value::from(VERSION));
+    line.insert("id".to_owned(), Value::from(1));
+    line.insert("ask".to_owned(), Value::from("launched"));
+    line.insert("address".to_owned(), Value::from(address));
+    format!("{}\n", Value::Object(line))
+}
+
+/// Which answer `line` is — `opened`, `refused`, … — read from a browser
+/// by the caller's end of the socket (queue item 976); [`None`] for a line
+/// that is not an answer.
+pub fn answer_of(line: &str) -> Option<String> {
+    let line = line.trim_end_matches(['\n', '\r']);
+    let Ok(Value::Object(answer)) = serde_json::from_str::<Value>(line) else {
+        return None;
+    };
+    answer.get("answer")?.as_str().map(str::to_owned)
 }
 
 /// Write `answer` as one line, its newline included, handing back `echo`.
@@ -1162,6 +1190,44 @@ mod tests {
         ] {
             let _ = read(line);
         }
+    }
+
+    #[test]
+    fn a_second_launch_is_read_as_it_is_written_and_its_answer_by_kind() {
+        let line = launched_line("https://example.com/a?b=\"c\"");
+        assert!(line.ends_with('\n'));
+        let request = read(line.trim_end().as_bytes());
+        assert_eq!(request.echo, Some(Echo::Number(1)));
+        assert_eq!(
+            request.ask,
+            Ok(Ask::Launched {
+                address: "https://example.com/a?b=\"c\"".to_owned()
+            })
+        );
+        assert_eq!(
+            asked(r#"{"v":1,"ask":"launched"}"#),
+            Err(Refused::MissingField { field: "address" })
+        );
+        assert_eq!(
+            asked(r#"{"v":1,"ask":"launched","tab":"t","address":"https://b.example/"}"#),
+            Err(Refused::UnknownField {
+                field: "tab".to_owned()
+            })
+        );
+        let opened = write(
+            Some(&Echo::Number(1)),
+            &Answer::Opened {
+                tab: "https://b.example/".to_owned(),
+            },
+        );
+        assert_eq!(answer_of(&opened).as_deref(), Some("opened"));
+        let refused = write(
+            None,
+            &Answer::Refused(Refused::NotOffered { ask: "launched" }),
+        );
+        assert_eq!(answer_of(&refused).as_deref(), Some("refused"));
+        assert_eq!(answer_of("not an answer\n"), None);
+        assert_eq!(answer_of(r#"{"v":1}"#), None);
     }
 
     #[test]

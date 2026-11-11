@@ -1253,6 +1253,9 @@ impl ConversationWindow {
             self.redraw = true;
             self.ask_drawn();
         }
+        // On the screen now: a launch that waited for it opens (queue item
+        // 976).
+        self.launch_waiting();
     }
 
     /// The window's size in device pixels and its scale, if there is a

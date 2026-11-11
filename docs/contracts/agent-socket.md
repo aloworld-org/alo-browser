@@ -42,7 +42,11 @@ moves the socket with everything else that alo keeps, to
     DIR/alo-browser/agent.sock
 
 so a second alo started with another directory is reached at its own
-socket, and never at the first's. Each prints its path as below.
+socket, and never at the first's. Each prints its path as below. A second
+`alo --conversation ADDRESS` started with the **same** directory (or, both
+naming none, the same runtime directory) finds the first answering here and
+hands it the address with `launched` instead of opening a window of its own
+(queue item 976, ADR 0114).
 
 `alo` prints the path when its window opens, and `alo --chrome` once the
 page is open in Chrome; either first says which renderer draws the page.
@@ -325,8 +329,21 @@ server's redirect is then said by `tabs`. Where only one tab is held
 as *New chat* and ⌘T make one; the card that was live is closed, so
 `tabs` then answers none until a page is opened. Elsewhere `NotOffered`.
 
-Neither `open` nor `new_tab` takes a coordinate, an index or a tab's
-position: a tab is named by its address, and a new one by nothing.
+### `launched`: alo started again with an address
+
+    {"v":1,"id":1,"ask":"launched","address":"https://example.com/"}
+    {"answer":"opened","id":1,"said":"opened https://example.com/","tab":"https://example.com/","v":1}
+
+(Queue item 976, ADR 0114.) What a second `alo --conversation ADDRESS`
+started on the same profile sends the alo already running there, and then
+ends. In `alo --conversation`, exactly `open` with no tab — judged,
+recorded, opened and answered the same — and **the window comes forward**.
+One sent before the window is up waits for it. Elsewhere `NotOffered`.
+An agent should use `open`: `launched` is the person's second launch, and
+takes the front from them.
+
+None of `open`, `new_tab` and `launched` takes a coordinate, an index or a
+tab's position: a tab is named by its address, and a new one by nothing.
 
 ## Refusals
 
@@ -380,7 +397,7 @@ caller must never depend on it.
 | `TreeTooDeep` | `tab`, `most` | |
 | `TooManyCallers` | `most` | |
 | `NotOpenable` | `address` | `open`'s address is not an `http` or `https` one (queue item 956) |
-| `NotOffered` | `ask` | What answers this socket does not do that ask: a new tab outside the conversation, a PDF of this engine's page |
+| `NotOffered` | `ask` | What answers this socket does not do that ask: a new tab or a second launch outside the conversation, a PDF of this engine's page |
 | `NotOpened` | `address` | The page asked for did not open, went on to a site agents may not reach, or another page was asked for before it opened. `said` says which |
 | `NotAPath` | `path` | `print_pdf`'s path is not an absolute one of a `.pdf` file with no `.` or `..` |
 | `NotAllowedThere` | `path` | Not in a directory the person allowed with `--agent-saves`, or in none that is there. Judged before any tab is looked at |

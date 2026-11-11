@@ -53,6 +53,11 @@
 //! keeps (`--data DIR`, queue item 957, [`crate::data_dir`]): its chats,
 //! sign-ins, settings, keys and agent socket, so that a second alo started
 //! with another is an instance of its own.
+//!
+//! And it is where a person starts the conversation at an address
+//! (`alo --conversation ADDRESS`, queue item 976, ADR 0114): an `http` or
+//! `https` one, opened in a new chat — or, when an alo is already running
+//! on the same profile, handed to it ([`crate::launch_handover`]).
 
 use crate::agent_saves::AgentSaves;
 use crate::agent_scope::AgentScope;
@@ -71,7 +76,7 @@ pub const USAGE: &str = "usage: alo [--frozen-fonts] [--scale FACTOR] [--agent-s
      [--data DIR] [PAGE.html [SHEET.css ...]]\n       alo --chrome [--agent-site ADDRESS ...] \
      [--agent-saves DIR ...] [--data DIR] (ADDRESS | PAGE.html)\n       \
      alo --conversation [--frozen-fonts] [--scale FACTOR] [--data DIR | [--chats DIR] [--sign-ins DIR]] \
-     [--agent-site ADDRESS ...] [--agent-saves DIR ...]";
+     [--agent-site ADDRESS ...] [--agent-saves DIR ...] [ADDRESS]";
 
 /// The size, in CSS pixels, a page in Chrome is laid out at: the size ADR
 /// 0061 measured Chrome's frames at. Chrome's window is sized to hold the
@@ -137,6 +142,10 @@ pub struct Opening {
     /// person named one (`--data DIR`, queue item 957): an absolute path.
     /// [`None`] keeps each where alo keeps it.
     pub data: Option<PathBuf>,
+    /// The `http` or `https` address the conversation was started at
+    /// (queue item 976): opened in a new chat, or handed to the alo
+    /// already running on this profile.
+    pub address: Option<Url>,
 }
 
 impl Opening {
@@ -234,6 +243,19 @@ impl Opening {
                  and --sign-ins\n{USAGE}"
             ));
         }
+        // The conversation's one address (queue item 976), taken out of
+        // what would be a page; anything else named beside it stays, and
+        // is refused as a page.
+        let address = match files.as_slice() {
+            [named] if conversation => named
+                .to_str()
+                .and_then(|text| alo_url::parse(text).ok())
+                .filter(|url| matches!(url.scheme.as_str(), "http" | "https")),
+            _ => None,
+        };
+        if address.is_some() {
+            files.clear();
+        }
         let mut files = files.into_iter();
         let opening = Self {
             fonts,
@@ -247,6 +269,7 @@ impl Opening {
             sign_ins,
             saves,
             data,
+            address,
         };
         if !conversation && opening.sign_ins.is_some() {
             return Err(format!(
@@ -279,7 +302,8 @@ impl Opening {
         let refused = if self.renderer == Renderer::Chrome {
             "--conversation is drawn by this engine, and Chrome draws no part of it yet"
         } else if self.page.is_some() || !self.sheets.is_empty() {
-            "--conversation opens the browser's own first screen, and no page"
+            "--conversation opens the browser's own first screen, and no page: an http or \
+             https address, or nothing"
         } else {
             return Ok(());
         };
@@ -656,6 +680,29 @@ mod tests {
     }
 
     #[test]
+    fn the_conversation_is_started_at_one_http_or_https_address() {
+        let opening = Opening::from_arguments(arguments(&[
+            "--conversation",
+            "--data",
+            "/tmp/alo-976",
+            "https://example.com/a",
+        ]))
+        .expect("these are arguments");
+        assert_eq!(
+            opening.address.as_ref().map(ToString::to_string).as_deref(),
+            Some("https://example.com/a")
+        );
+        assert_eq!(opening.page, None, "an address, not a page");
+        let without = Opening::from_arguments(arguments(&["--conversation"])).unwrap();
+        assert_eq!(without.address, None);
+        // Only the conversation takes one: this engine's window reads a
+        // file named so, as it always has.
+        let plain = Opening::from_arguments(arguments(&["https://example.com/a"])).unwrap();
+        assert_eq!(plain.address, None);
+        assert!(plain.page.is_some());
+    }
+
+    #[test]
     fn what_the_conversation_cannot_be_given_is_refused_before_it_opens() {
         let refused = |words: &[&str]| Opening::from_arguments(arguments(words));
         for (words, said) in [
@@ -669,6 +716,11 @@ mod tests {
             ),
             (&["--conversation", "a.html"][..], "and no page"),
             (&["a.html", "b.css", "--conversation"][..], "and no page"),
+            (
+                &["--conversation", "https://a.example/", "https://b.example/"][..],
+                "and no page",
+            ),
+            (&["--conversation", "file:///tmp/a.html"][..], "and no page"),
             (
                 &["--conversation", "--chats"][..],
                 "--chats names no directory",
@@ -760,6 +812,7 @@ mod tests {
             sign_ins: None,
             saves: AgentSaves::none(),
             data: None,
+            address: None,
         };
         let Ok(Order::Open {
             url,
@@ -789,6 +842,7 @@ mod tests {
             sign_ins: None,
             saves: AgentSaves::none(),
             data: None,
+            address: None,
         };
         assert!(
             opening

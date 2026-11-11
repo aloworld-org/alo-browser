@@ -157,7 +157,13 @@ pub fn serve<P: Pages>(
                 }
             }
         }
-        Ok(ask @ (Ask::Open { .. } | Ask::NewTab | Ask::Find { .. } | Ask::PrintPdf { .. })) => {
+        Ok(
+            ask @ (Ask::Open { .. }
+            | Ask::NewTab
+            | Ask::Launched { .. }
+            | Ask::Find { .. }
+            | Ask::PrintPdf { .. }),
+        ) => {
             let came = opened_found_or_saved(pages, scope, ask);
             site = came.site;
             rendered_by = came.rendered_by;
@@ -215,6 +221,17 @@ fn opened_found_or_saved<P: Pages>(pages: &mut P, scope: &AgentScope, ask: Ask) 
             refusal(judged.err().unwrap_or(Refused::NotOffered { ask: "open" }))
         }
         Ask::NewTab => refusal(Refused::NotOffered { ask: "new_tab" }),
+        // A second launch is the conversation's to take (queue item 976):
+        // judged all the same, and not offered where one tab is held.
+        Ask::Launched { address } => {
+            let (judged, at) = openable(sites, &address);
+            site = at;
+            refusal(
+                judged
+                    .err()
+                    .unwrap_or(Refused::NotOffered { ask: "launched" }),
+            )
+        }
         Ask::Find { tab, text } => {
             let (found, at) = reached(pages, sites, &tab);
             site = at;
@@ -1416,6 +1433,33 @@ mod tests {
             serve(&mut pages, &mut record, &scope, Caller(0), Ok(Ask::NewTab)).answer,
             Answer::Refused(Refused::NotOffered { ask: "new_tab" })
         );
+        // A second launch (queue item 976): judged by its address, and
+        // not offered where one tab is held.
+        let launched = |address: &str| Ask::Launched {
+            address: address.to_owned(),
+        };
+        assert_eq!(
+            serve(
+                &mut pages,
+                &mut record,
+                &scope,
+                Caller(0),
+                Ok(launched("https://example.com/"))
+            )
+            .answer,
+            Answer::Refused(Refused::NotOffered { ask: "launched" })
+        );
+        assert!(matches!(
+            serve(
+                &mut pages,
+                &mut record,
+                &scope,
+                Caller(0),
+                Ok(launched("https://example.org/"))
+            )
+            .answer,
+            Answer::Refused(Refused::NotGranted { .. })
+        ));
         assert_eq!(pages.looked, 0);
     }
 

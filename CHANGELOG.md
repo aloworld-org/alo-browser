@@ -6,6 +6,11 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Starting alo again opens the address in the alo you already have.**
+  `alo --conversation ADDRESS` while alo is running on the same profile
+  hands the address to it: it opens in a new chat, that window comes
+  forward, and the second alo ends. Started with another `--data DIR`,
+  alo is an instance of its own, as before (ADR 0114; ADR 0112, alo OS).
 - **alo acting is deep teal now, never colour alone, and alo speaks in
   Manrope.** Wherever alo is at work — a chat it works in, the outline
   and the line over a page it works on — it is drawn in deep teal with

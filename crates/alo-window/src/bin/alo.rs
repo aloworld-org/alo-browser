@@ -51,6 +51,16 @@
 //! Closing the window stops both renderers and closes that Chrome, its
 //! profile removed, and the socket.
 //!
+//! `alo --conversation ADDRESS` starts it at an `http` or `https` address,
+//! opened in a new chat once the window is on the screen — unless an alo is
+//! already running on the same profile (queue item 976, ADR 0114): the
+//! same `--data DIR`, or neither naming one. Then the address is handed to
+//! that alo over its socket, which opens it in a new chat and comes
+//! forward, and this one says what it answered and ends, having opened
+//! nothing. With another `--data DIR` nobody answers at that profile's
+//! socket, and it is an instance of its own; so is a hand run naming
+//! `--chats` or `--sign-ins`, whose places are its own.
+//!
 //! Inside the macOS application, `alo browser.app` (queue items 477 and
 //! 719, ADRs 0067, 0068 and 0077), nothing named opens the application's own
 //! page as `--chrome` would, but in **the Chromium the application carries**
@@ -120,6 +130,9 @@ fn main() -> ExitCode {
         }
     }
     if opening.conversation {
+        if let Some(handed) = handed_over(&opening) {
+            return handed;
+        }
         return in_the_conversation(&opening, decided.chromium, bundle.as_ref());
     }
     match opening.renderer {
@@ -333,6 +346,7 @@ fn in_the_conversation(opening: &Opening, chromium: Chromium, bundle: Option<&Bu
         (search, answer, defaults, keys),
         (chats, sign_ins, keeping.keychain.clone()),
         (reaching, closing, agent),
+        opening.address.clone(),
     ) {
         Ok(()) => ExitCode::SUCCESS,
         Err(why) => {
@@ -423,6 +437,72 @@ fn in_chrome(opening: &Opening, watching: bool, chromium: Chromium) -> Result<Ex
         }
         Ok(()) => ExitCode::SUCCESS,
     })
+}
+
+/// When the conversation was started at an address and an alo is already
+/// running on the same profile (queue item 976, ADR 0114): the address
+/// handed to it, what it answered said, and how this alo ends. [`None`]
+/// when this alo is to be the instance: no address, a hand run's own
+/// places, or nobody answering at the profile's socket — a socket a
+/// stopped alo left included, which this alo's own then clears.
+#[cfg(unix)]
+fn handed_over(opening: &Opening) -> Option<ExitCode> {
+    use alo_window::launch_handover::{
+        ANSWERED_WITHIN, Handover, hand_over, socket_of_the_profile,
+    };
+    let address = opening.address.as_ref()?;
+    if opening.chats.is_some() || opening.sign_ins.is_some() {
+        return None;
+    }
+    let data = opening
+        .data
+        .as_deref()
+        .and_then(|named| DataDir::at(named).ok());
+    let socket = socket_of_the_profile(data.as_ref())?;
+    let address = address.to_string();
+    match hand_over(&socket, &address, ANSWERED_WITHIN) {
+        Handover::NobodyThere => None,
+        Handover::Answered { opened, said } => {
+            eprintln!(
+                "alo: an alo is already running on this profile, at {}: {address} was handed \
+                 to it, to open in a new chat and come forward",
+                socket.display()
+            );
+            eprintln!("alo: it answered: {said}");
+            // What only an instance uses is the running one's own, never
+            // this launch's: said, rather than quietly dropped.
+            let own = opening.fonts != Fonts::AsAsked
+                || opening.scale.is_some()
+                || opening.agents != alo_window::agent_sites::AgentSites::Every
+                || opening.saves != alo_window::agent_saves::AgentSaves::none();
+            if own {
+                eprintln!(
+                    "alo: the running alo keeps its own fonts, scale, agents' sites and \
+                     agents' saves; this launch's were not handed to it"
+                );
+            }
+            Some(if opened {
+                ExitCode::SUCCESS
+            } else {
+                ExitCode::FAILURE
+            })
+        }
+        Handover::Unanswered(why) => {
+            eprintln!(
+                "alo: {address} was handed to the alo already running on this profile, at {}, \
+                 which has not said whether it opened: {why}",
+                socket.display()
+            );
+            Some(ExitCode::FAILURE)
+        }
+    }
+}
+
+/// No socket, so no alo to hand an address to: on Windows how one would be
+/// reached is undecided (ADR 0055 § 1).
+#[cfg(not(unix))]
+fn handed_over(_: &Opening) -> Option<ExitCode> {
+    None
 }
 
 /// Where the socket goes when `opening` named a data directory (queue item

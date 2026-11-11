@@ -45,7 +45,9 @@
 //!   [`agent_sites`] — and, for `print_pdf`, to the directories a person
 //!   allowed in [`agent_saves`], the two held as one [`agent_scope`] — and
 //!   [`agent_record`] is what it records; `find` is answered by
-//!   [`agent_find`], by name and never by place (item 956). The socket
+//!   [`agent_find`], by name and never by place (item 956); a second
+//!   `alo` started on the same profile hands its address to the running
+//!   one over it, by [`launch_handover`] (item 976, ADR 0114). The socket
 //!   is a Unix one, and Windows is undecided (ADR 0055 § 1). What a verb
 //!   that ran was answered with is shown to the person watching, in a line
 //!   of the window's own ([`message::News::AgentSaid`], item 623), and so is
@@ -281,6 +283,8 @@ pub mod kept_cookie;
 pub mod key_bindings;
 pub mod keychain;
 pub mod keys;
+#[cfg(unix)]
+pub mod launch_handover;
 pub mod mark;
 pub mod message;
 pub mod network;

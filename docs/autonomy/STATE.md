@@ -51723,3 +51723,32 @@ whose expected colours were changed (`the_agent_at_work_on_a_card_through_chrome
 through Chrome); the CEF host's link strip (852) still asks for Inter.
 
 The next unused queue number is **985**.
+
+## 2026-11-11 — queue item 976 built (ADR 0114), not yet gated
+
+**Built.** A second `alo --conversation [--data DIR] ADDRESS` first tries
+the profile's agent socket (`DIR/alo-browser/agent.sock`, or the runtime
+directory's with no `--data`; `launch_handover.rs`). Nobody answering —
+nothing there, or a socket a killed alo left — makes it the instance, and
+`socket_place::prepare` clears what was left. An answer means the address
+is handed over as the socket's new `launched` ask (additive, contract
+updated): `open` with no tab, judged and recorded the same, plus the window
+brought forward (`front.asked`, owed back from the card's Chromium;
+`focus_window` after un-minimising). A launch before the first alo's window
+exists waits in the relay, and before it is on the screen in the window.
+The second process prints the answer and exits 0 on `opened`, 1 otherwise,
+after at most 90 s. `--chats`/`--sign-ins` hand runs never hand over. The
+first alo with an address opens it the same way (`with_launched`).
+
+**Tests.** `cargo test -p alo-window --lib` 1035 passed (new: 4 in
+`launch_handover`, 3 in `conversation_window::outside`, one relay test, and
+`protocol`, `serving`, `opening` additions); integration
+`a_second_alo_hands_its_address_to_the_first_through_chrome` (three `alo`
+processes, the machine's Chrome) passed 6 of 7 runs here — the first, cold,
+failed with *Chrome's window was still moving* while the screen was locked
+— plus `two_alos_with_their_own_data_in_the_window` and both
+`a_new_chat_opened_by_an_agent_outside_*` passing. fmt clean; workspace
+clippy `--all-targets --all-features -D warnings` clean. **Not run:** the
+gate. The new test is in nextest's `threads-required = 2` list.
+
+The next unused queue number is **985**.

@@ -32,6 +32,13 @@
 //! to the window ([`Reached::answered_by`], [`NewTabAsked`]), which answers
 //! the caller once the card has opened or not. A window that has not said
 //! it answers is a conversation with no window, and the ask is not offered.
+//!
+//! `launched` (queue item 976, ADR 0114) is a second `alo` started on this
+//! profile with an address: judged, recorded and handed over exactly as
+//! `open` with no tab, and the window told to come forward
+//! ([`NewTabAsked::forward`]). One that comes before the window has said it
+//! answers — a second launch in the first one's first moments — waits for
+//! it, rather than be refused as not offered.
 
 use crate::agent_record::{AgentRecord, Caller, Did, Entry};
 use crate::agent_scope::AgentScope;
@@ -55,6 +62,10 @@ pub struct NewTabAsked {
     /// on a site agents may reach, and as the caller wrote it — or
     /// [`None`] for a chat with nothing in it.
     pub to: Option<(Url, String)>,
+    /// Whether the window comes forward as it opens: alo started again on
+    /// this profile with the address ([`Ask::Launched`], queue item 976),
+    /// and never for an agent's `open` or `new_tab`.
+    pub forward: bool,
     /// Where the answer goes: [`Answer::Opened`] once the card opened,
     /// [`Answer::NewTab`], or why not.
     pub reply: Sender<Answer>,
@@ -65,7 +76,15 @@ pub struct NewTabAsked {
 pub type TellNewTab = Box<dyn Fn(NewTabAsked) -> bool + Send>;
 
 /// The window's ear, shared between the relay and whoever installs it.
-type Ear = Arc<Mutex<Option<TellNewTab>>>;
+type Ear = Arc<Mutex<Window>>;
+
+/// The window as the relay knows it: how it is told, once it has said it
+/// answers, and the launches that came before it had (queue item 976).
+#[derive(Default)]
+struct Window {
+    tell: Option<TellNewTab>,
+    waiting: Vec<NewTabAsked>,
+}
 
 /// Which card's thread an agent's ask is sent to: the live card's, or none
 /// — and the window a new tab is asked of, once it has said it answers.
@@ -104,16 +123,30 @@ impl Reached {
             .clone()
     }
 
-    /// The conversation's window answers a new tab asked for, by `tell`.
+    /// The conversation's window answers a new tab asked for, by `tell`:
+    /// told at once of the launches that came before it did.
     pub fn answered_by(&self, tell: TellNewTab) {
-        *self.window.lock().unwrap_or_else(PoisonError::into_inner) = Some(tell);
+        let mut window = self.window.lock().unwrap_or_else(PoisonError::into_inner);
+        for waited in std::mem::take(&mut window.waiting) {
+            let reply = waited.reply.clone();
+            if !tell(waited) {
+                let refused = Refused::NotOffered { ask: "launched" };
+                let _ = reply.send(Answer::Refused(refused));
+            }
+        }
+        window.tell = Some(tell);
     }
 
     /// Hand `asked` to the window: given back when there is none, or it has
-    /// gone.
+    /// gone — but a launch, which comes as alo starts, waits for a window
+    /// that has not said it answers yet.
     fn to_the_window(&self, asked: NewTabAsked) -> Result<(), Sender<Answer>> {
-        let window = self.window.lock().unwrap_or_else(PoisonError::into_inner);
-        let Some(tell) = window.as_ref() else {
+        let mut window = self.window.lock().unwrap_or_else(PoisonError::into_inner);
+        let Some(tell) = window.tell.as_ref() else {
+            if asked.forward {
+                window.waiting.push(asked);
+                return Ok(());
+            }
             return Err(asked.reply);
         };
         let reply = asked.reply.clone();
@@ -156,7 +189,8 @@ pub fn relay(scope: impl Into<AgentScope>) -> std::io::Result<(Orders, Reaching)
                     // A new tab: judged here, and the window's to open.
                     Arrival::Order(Order::Agent {
                         caller,
-                        ask: ask @ Ok(Ask::Open { tab: None, .. } | Ask::NewTab),
+                        ask:
+                            ask @ Ok(Ask::Open { tab: None, .. } | Ask::NewTab | Ask::Launched { .. }),
                         reply,
                     }) => {
                         let unoffered = new_tab(&reached, &mut record, &scope, caller, ask, reply);
@@ -201,18 +235,22 @@ fn new_tab(
     reply: Sender<Answer>,
 ) -> Option<(Result<Ask, Refused>, Sender<Answer>)> {
     let (to, site) = match &ask {
-        Ok(Ask::Open { address, .. }) => match serving::openable(&scope.sites, address) {
-            (Ok(url), site) => (Some((url, address.clone())), site),
-            // Refused for the address, as every road refuses it.
-            (Err(_), _) => return Some((ask, reply)),
-        },
+        Ok(Ask::Open { address, .. } | Ask::Launched { address }) => {
+            match serving::openable(&scope.sites, address) {
+                (Ok(url), site) => (Some((url, address.clone())), site),
+                // Refused for the address, as every road refuses it.
+                (Err(_), _) => return Some((ask, reply)),
+            }
+        }
         _ => (None, None),
     };
     let did = Did::Opening {
         to: to.as_ref().map(|(url, _)| url.to_string()),
     };
+    let forward = matches!(ask, Ok(Ask::Launched { .. }));
     match reached.to_the_window(NewTabAsked {
         to,
+        forward,
         reply: reply.clone(),
     }) {
         Ok(()) => {
@@ -322,6 +360,7 @@ mod tests {
             })
             .unwrap();
         let asked = hear.recv_timeout(Duration::from_secs(5)).unwrap();
+        assert!(!asked.forward, "an agent's open brings nothing forward");
         assert_eq!(
             asked
                 .to
@@ -355,6 +394,56 @@ mod tests {
                 .unwrap()
                 .to
                 .is_none()
+        );
+    }
+
+    #[test]
+    fn a_launch_waits_for_the_window_and_is_handed_to_it_to_come_forward() {
+        let sites = AgentSites::named(["http://127.0.0.1:8080"]).unwrap();
+        let (orders, reaching) = relay(sites).unwrap();
+        let launched = |address: &str| Ask::Launched {
+            address: address.to_owned(),
+        };
+        // Before the window has said it answers: it waits, and is handed
+        // to it as it says so.
+        let (reply, early) = channel();
+        orders
+            .send(Order::Agent {
+                caller: Caller(2),
+                ask: Ok(launched("http://127.0.0.1:8080/early")),
+                reply,
+            })
+            .unwrap();
+        assert!(early.recv_timeout(Duration::from_millis(200)).is_err());
+        let (heard, hear) = channel();
+        reaching
+            .reached
+            .answered_by(Box::new(move |asked| heard.send(asked).is_ok()));
+        let waited = hear.recv_timeout(Duration::from_secs(5)).unwrap();
+        assert!(waited.forward);
+        assert_eq!(
+            waited.to.map(|(url, _)| url.to_string()).as_deref(),
+            Some("http://127.0.0.1:8080/early")
+        );
+        // Judged as `open` is, and the window never handed what is refused.
+        assert!(matches!(
+            ask(&orders, launched("https://example.com/")),
+            Answer::Refused(Refused::NotGranted { .. })
+        ));
+        assert!(hear.try_recv().is_err());
+        let (reply, _answered) = channel();
+        orders
+            .send(Order::Agent {
+                caller: Caller(4),
+                ask: Ok(launched("http://127.0.0.1:8080/b")),
+                reply,
+            })
+            .unwrap();
+        let asked = hear.recv_timeout(Duration::from_secs(5)).unwrap();
+        assert!(asked.forward);
+        assert_eq!(
+            asked.to.map(|(url, _)| url.to_string()).as_deref(),
+            Some("http://127.0.0.1:8080/b")
         );
     }
 
