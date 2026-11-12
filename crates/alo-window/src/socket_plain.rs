@@ -32,7 +32,9 @@
 //! renderer, a page opened or saved, a new tab. The tabs are their
 //! addresses, one a line; what `find` found is its sentence and then each
 //! node a line as a tree's are, by number, role and name, and never a
-//! position (queue item 956).
+//! position (queue item 956); a page's text is its words, a line of the
+//! page to a line, and then how much more there was when it was cut
+//! (queue item 964).
 //!
 //! # Read from the browser, and never trusted further
 //!
@@ -62,6 +64,7 @@ pub fn written(line: &str) -> String {
         Some("done") => done(&answer, said).unwrap_or_else(|| format!("{line}\n")),
         Some("refused") => refused(&answer, said).unwrap_or_else(|| format!("{line}\n")),
         Some("found") => found(&answer, said).unwrap_or_else(|| format!("{line}\n")),
+        Some("page_text") => page_text(&answer, said).unwrap_or_else(|| format!("{line}\n")),
         Some("renderer" | "opened" | "new_tab" | "printed") => {
             said.map_or_else(|| format!("{line}\n"), |said| format!("{said}\n"))
         }
@@ -102,6 +105,23 @@ fn found(answer: &Map<String, Value>, said: Option<&str>) -> Option<String> {
     let more = answer.get("more")?.as_u64()?;
     if more > 0 {
         let _ = writeln!(out, "  and {more} more");
+    }
+    Some(out)
+}
+
+/// A page's words as they were answered, a line of the page to a line —
+/// or, with none, the sentence saying so — and, when they were cut, how
+/// many characters more there were (queue item 964).
+fn page_text(answer: &Map<String, Value>, said: Option<&str>) -> Option<String> {
+    let text = answer.get("text")?.as_str()?;
+    let mut out = if text.is_empty() {
+        format!("{}\n", said?)
+    } else {
+        format!("{text}\n")
+    };
+    if answer.get("cut")?.as_bool()? {
+        let more = answer.get("more")?.as_u64()?;
+        let _ = writeln!(out, "(cut here: {more} more characters were not answered)");
     }
     Some(out)
 }
@@ -474,5 +494,24 @@ mod tests {
             }),
         });
         assert_eq!(written(&line), line);
+    }
+
+    #[test]
+    fn a_pages_text_is_its_lines_and_how_much_more_when_cut() {
+        let read = |text: &str, more| {
+            on_the_wire(&Answer::PageText {
+                tab: "https://example.com/".to_owned(),
+                read: crate::agent_text::PageText {
+                    text: text.to_owned(),
+                    more,
+                },
+            })
+        };
+        assert_eq!(written(&read("Shop\n• Kettle", 0)), "Shop\n• Kettle\n");
+        assert_eq!(
+            written(&read("Shop", 12)),
+            "Shop\n(cut here: 12 more characters were not answered)\n"
+        );
+        assert_eq!(written(&read("", 0)), "no words are on the page\n");
     }
 }

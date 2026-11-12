@@ -14,9 +14,17 @@
 //! [`Order::Agent`] — the same order, answered and recorded there as `alo
 //! --chrome` answers it, kept to the sites a person named
 //! ([`AgentSites`]). The thread opening cards tells it which card is live
-//! ([`Reached::now`]) as each opens and closes. So the socket **follows the
-//! newest page**: an agent naming the page that was replaced is told no tab
-//! is open at it, and asking for the tabs is told the one there is now.
+//! ([`Reached::opened`], [`Reached::now`]) as each opens and closes. So the
+//! socket **follows the newest page**: an agent naming the page that was
+//! replaced is told no tab is open at it, and asking for the tabs is told
+//! the one there is now.
+//!
+//! A card the window puts away — *New chat*, another chat, *Close* — is
+//! reached by no agent from that moment ([`Reached::put_away`]), on the
+//! window's thread and before it answers anyone, rather than once its
+//! Chrome has closed seconds later: so `new_tab` answered, `tabs` names
+//! none. Each card the window asks for is numbered ([`Reached::asked`]),
+//! and one put away while its Chrome was still starting never becomes live.
 //!
 //! With no card open — before the first address, between a card closed and
 //! the next, a card that would not open — the relay answers itself, as a
@@ -86,11 +94,23 @@ struct Window {
     waiting: Vec<NewTabAsked>,
 }
 
+/// The live card as the relay knows it: its thread, if there is one, and
+/// how many cards the window has asked for and had put away.
+#[derive(Debug, Default)]
+struct Live {
+    card: Option<Orders>,
+    /// The cards the window has asked to open, counted from one.
+    asked: u64,
+    /// The newest of them the window had asked for when it last put the
+    /// card away: none of these is ever live again.
+    away: u64,
+}
+
 /// Which card's thread an agent's ask is sent to: the live card's, or none
 /// — and the window a new tab is asked of, once it has said it answers.
 #[derive(Clone, Default)]
 pub struct Reached {
-    live: Arc<Mutex<Option<Orders>>>,
+    live: Arc<Mutex<Live>>,
     window: Ear,
 }
 
@@ -112,15 +132,47 @@ impl Reached {
     /// The live card's thread is now `orders` — or, with [`None`], there is
     /// no live card.
     pub fn now(&self, orders: Option<Orders>) {
-        *self.live.lock().unwrap_or_else(PoisonError::into_inner) = orders;
+        self.lock().card = orders;
+    }
+
+    /// The window asks for another card to open: its number, for
+    /// [`Reached::opened`].
+    pub fn asked(&self) -> u64 {
+        let mut live = self.lock();
+        live.asked += 1;
+        live.asked
+    }
+
+    /// The card asked for as `asked` has opened, its thread `orders`: live
+    /// from now — unless the window put the card away after asking for it,
+    /// when it is never live, and is closing. Whether it is live.
+    pub fn opened(&self, asked: u64, orders: Orders) -> bool {
+        let mut live = self.lock();
+        let wanted = asked > live.away;
+        if wanted {
+            live.card = Some(orders);
+        }
+        wanted
+    }
+
+    /// The window put the card away — *New chat*, another chat, *Close* —
+    /// and no agent reaches it from this moment, before the window answers
+    /// anyone (the socket contract's `new_tab`: `tabs` then answers none),
+    /// not once its Chrome has closed, seconds later on another thread. A
+    /// card asked for before this and still opening is never live either.
+    pub fn put_away(&self) {
+        let mut live = self.lock();
+        live.card = None;
+        live.away = live.asked;
     }
 
     /// The live card's thread, if there is one.
     fn live(&self) -> Option<Orders> {
-        self.live
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .clone()
+        self.lock().card.clone()
+    }
+
+    fn lock(&self) -> std::sync::MutexGuard<'_, Live> {
+        self.live.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
     /// The conversation's window answers a new tab asked for, by `tell`:

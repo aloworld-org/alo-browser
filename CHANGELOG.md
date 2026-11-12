@@ -6,6 +6,20 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A new chat an agent asks for leaves no page behind.** In `alo
+  --conversation`, once an agent outside alo is answered `new_tab`, its
+  next `tabs` names no page: the card the new chat put away is out of
+  reach at once, not seconds later once its Chrome has closed, and a card
+  put away while its Chrome was still starting never becomes reachable
+  (the agent socket contract's `new_tab`).
+- **An agent can read a page's words as plain text.** The agent socket's
+  new `page_text` ask answers a tab's words in the order a person reads
+  them — a heading, a paragraph or a list item to a line, a field as its
+  label and what it holds — with no position, nothing hidden, no
+  password, at most 100,000 characters, and says when it was cut and how
+  much more there was; `alo-ask --plain` prints the words as they are.
+  A list item in Chrome or alo's own Chromium no longer loses its words
+  from the tree `read` and `find` answer (ADR 0112, queue item 964).
 - **A chat alo is working on keeps its whole name, and *Done* is no longer
   green.** In the chats panel a working chat's name has the full row, with
   alo's mark and *Working* on a line under it; on the rail the mark sits

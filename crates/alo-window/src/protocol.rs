@@ -159,6 +159,10 @@ fn ask(fields: &Map<String, Value>) -> Result<Ask, Refused> {
                 text: words.to_owned(),
             }
         }
+        // Queue item 964: the page's words, as a person reads them.
+        "page_text" => Ask::PageText {
+            tab: text(fields, "tab", MOST_ADDRESS)?.to_owned(),
+        },
         "print_pdf" => Ask::PrintPdf {
             tab: text(fields, "tab", MOST_ADDRESS)?.to_owned(),
             path: text(fields, "path", MOST_PATH)?.to_owned(),
@@ -169,7 +173,9 @@ fn ask(fields: &Map<String, Value>) -> Result<Ask, Refused> {
     // that a verb sent with a `read` is said rather than ignored.
     let takes: &[&str] = match &asked {
         Ask::Tabs | Ask::NewTab => &["v", "id", "ask"],
-        Ask::Read { .. } | Ask::Renderer { .. } => &["v", "id", "ask", "tab"],
+        Ask::Read { .. } | Ask::Renderer { .. } | Ask::PageText { .. } => {
+            &["v", "id", "ask", "tab"]
+        }
         Ask::Open { .. } => &["v", "id", "ask", "tab", "address"],
         Ask::Launched { .. } => &["v", "id", "ask", "address"],
         Ask::Find { .. } => &["v", "id", "ask", "tab", "text"],
@@ -360,6 +366,13 @@ pub fn write(echo: Option<&Echo>, answer: &Answer) -> String {
             let found = found.iter().map(found_node).collect();
             line.insert("found".to_owned(), Value::Array(found));
             line.insert("more".to_owned(), Value::from(*more));
+        }
+        Answer::PageText { tab, read } => {
+            line.insert("answer".to_owned(), Value::from("page_text"));
+            line.insert("tab".to_owned(), Value::from(tab.as_str()));
+            line.insert("text".to_owned(), Value::from(read.text.as_str()));
+            line.insert("cut".to_owned(), Value::Bool(read.cut()));
+            line.insert("more".to_owned(), Value::from(read.more));
         }
         Answer::Printed { tab, path, bytes } => {
             line.insert("answer".to_owned(), Value::from("printed"));
@@ -1379,5 +1392,49 @@ mod tests {
             ),
             "{refused}"
         );
+    }
+
+    #[test]
+    fn a_pages_text_is_asked_by_its_tab_and_answered_as_words_with_no_position() {
+        assert_eq!(
+            asked(r#"{"v":1,"ask":"page_text","tab":"https://example.com/"}"#),
+            Ok(Ask::PageText {
+                tab: "https://example.com/".to_owned()
+            })
+        );
+        assert_eq!(
+            asked(r#"{"v":1,"ask":"page_text"}"#),
+            Err(Refused::MissingField { field: "tab" })
+        );
+        assert_eq!(
+            asked(r#"{"v":1,"ask":"page_text","tab":"t","text":"x"}"#),
+            Err(Refused::UnknownField {
+                field: "text".to_owned()
+            })
+        );
+        let answered = |text: &str, more| {
+            write(
+                Some(&Echo::Number(2)),
+                &Answer::PageText {
+                    tab: "https://example.com/".to_owned(),
+                    read: crate::agent_text::PageText {
+                        text: text.to_owned(),
+                        more,
+                    },
+                },
+            )
+        };
+        assert_eq!(
+            answered("Invoices\nThree are unpaid.", 0),
+            "{\"answer\":\"page_text\",\"cut\":false,\"id\":2,\"more\":0,\
+             \"said\":\"read the page's words, 2 lines\",\"tab\":\"https://example.com/\",\
+             \"text\":\"Invoices\\nThree are unpaid.\",\"v\":1}\n"
+        );
+        let cut = answered("Invoices", 40);
+        assert!(
+            cut.starts_with("{\"answer\":\"page_text\",\"cut\":true,\"id\":2,\"more\":40,"),
+            "{cut}"
+        );
+        assert!(!cut.contains("rect"), "{cut}");
     }
 }

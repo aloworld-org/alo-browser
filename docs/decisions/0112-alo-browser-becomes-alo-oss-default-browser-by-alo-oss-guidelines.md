@@ -62,7 +62,7 @@ coordinator). Paths are this repository's.
 | 4 | Cursors by name (`wp_cursor_shape_v1`); `xdg_toplevel.set_fullscreen` for video and F11 | **partly.** Cursors are named (`CursorIcon`, `window.rs:1102`), which `winit` maps to the cursor-shape protocol where the compositor has it — unmeasured on alo OS. No full screen: F11 and a video's full screen are not built (item 962). |
 | 5 | Sandboxed Flatpak-style; files, downloads, links and secrets through `xdg-desktop-portal` | **not yet.** No Flatpak (483), no portal code. Keys are in macOS's keychain through `/usr/bin/security` (`keychain.rs:35`); the clipboard is `pbcopy`/`pbpaste` (`clipboard.rs:8`). Whether the renderer's own sandbox can nest inside a Flatpak is 481's open question (ADR 0010, 169). |
 | 6 | A `.desktop` file: `MimeType` `x-scheme-handler/http`, `x-scheme-handler/https`, `text/html`; `GenericName` *Web Browser*; translated `Keywords` | **not yet** (item 963). |
-| 7 | Three equal roads: an adapter with typed verbs (open URL, new tab, read page text, find, fill a field, click a named control, print or save as PDF) and a full AT-SPI tree published by default | **partly.** The socket (ADR 0055) already reads the tree and fills a field and presses a control **by name** (`put_text`, `activate`); built today (956): `open` (in a named tab, or a new one), `new_tab`, `find` (answered by name, never by place) and `print_pdf` (to a directory the person allowed). *Read page text* is the tree; a plain-text ask is item 964. No AT-SPI tree (item 965); no adapter in alo OS's own format (item 966). |
+| 7 | Three equal roads: an adapter with typed verbs (open URL, new tab, read page text, find, fill a field, click a named control, print or save as PDF) and a full AT-SPI tree published by default | **partly.** The socket (ADR 0055) already reads the tree and fills a field and presses a control **by name** (`put_text`, `activate`); built today (956): `open` (in a named tab, or a new one), `new_tab`, `find` (answered by name, never by place) and `print_pdf` (to a directory the person allowed). *Read page text* is the tree, and as plain text the socket's `page_text` (964, built 12 November 2026). No AT-SPI tree (item 965); no adapter in alo OS's own format (item 966). |
 | 8 | A separate instance with its own profile directory, like Firefox's `--profile DIR --no-remote`; no helper shared across profiles | **partly → built for the profile (957).** `alo --data DIR` keeps its settings and its socket under one directory, and a second alo with another directory shares none of them; with no secret store yet, it keeps no key at all — sign-ins and chats last only for the run, and a person's own service keys are not kept (957, as amended below); each card's Chromium was already its own, thrown away with its card (ADR 0069). Built since (976, ADR 0114, not yet gated): a second `alo --conversation ADDRESS` with the *same* directory hands its address to the running one over its socket (`launched`), which opens it in a new chat and comes forward, and the second ends; another directory stays an instance of its own. Not built: keys in a real secret store (§ 5). |
 | 9 | Nothing leaves silently: no telemetry, crash upload, phone-home, prefetch or safe-browsing calls unless the person turns them on; every request attributable to the browser process | **partly.** No telemetry exists (`ROADMAP.md`, *Not built*); every page request is held and recorded (ADRs 0060, 0073). Chromium's own last requests — the on-device models manifest among them — still leave (696). Unmeasured on alo OS with a net log (item 968). |
 | 10 | Every string externalised for the 24 EU languages; Rust only; alo OS's palette (navy `#102A43`; deep teal `#0F6B72` reserved for alo acting, not the browser's own chrome) and typeface Manrope | **not yet; the look is open.** Strings are written in English in the code. The palette, the agent's colour and the typeface are **open with the coordinator** and are not changed here until answered (§ *Open questions*). |
@@ -282,8 +282,34 @@ socket, a socket left behind treated as nobody there; the socket's new
 `launch_handover.rs`, `opening.rs` (`--conversation ADDRESS`),
 `bin/alo.rs`, `conversation_agents.rs`, `conversation_window/outside.rs`.
 
+**964 — the socket's `page_text`** (built 12 November 2026, not yet
+gated; `agent_text.rs`, `asking.rs`, `protocol.rs`, `serving.rs`,
+`agent_record.rs`, `socket_plain.rs`, `chrome_tree.rs`). Decided here,
+where nothing above settled it:
+
+- **Lines, not a tree, and no position**: the tree `read` answers, walked
+  in its order; a heading, paragraph, list item (marker first), row,
+  option, menu item and tab each a line; landmarks, lists, tables and
+  forms part lines; words outside all of these joined while drawn on one
+  line and parted where drawn below — the one use of a rectangle, which
+  never crosses (ADR 0002).
+- **What a person reads, and nothing else**: nothing `aria-hidden` or
+  undrawn; no title, picture name or container's label; a field as its
+  label and value, never a secret field's value or a password's dots
+  (the rule alo's own agent is held to, ADR 0096).
+- **Bounded at 100,000 characters, said, never silent**: cut at a line
+  break or else a space, with `cut` and `more` (characters not answered)
+  — the most alo's own agent is sent of a tree. An answer bounded and
+  saying so, as `issues` and `find` are; a request is still refused,
+  never cut.
+- **The tree keeps a list item's words through Chrome.** Chrome 157 gives
+  a list item no name, and Chrome's text was read through under every
+  role that names itself from its content, so a list item's words were
+  in the tree nowhere; text is now read through only under a node Chrome
+  named.
+
 Tests: unit tests of each new file and of the protocol, the serving and
-the relay; `a_page_opened_found_and_printed_by_an_agent_through_chrome.rs`
+the relay; `a_pages_text_read_by_an_agent_through_chrome.rs` (964); `a_page_opened_found_and_printed_by_an_agent_through_chrome.rs`
 and `a_new_chat_opened_by_an_agent_outside_through_chrome.rs`, each
 through the machine's Chrome and alo's CEF host; and
 `two_alos_with_their_own_data_in_the_window.rs`, two `alo` processes

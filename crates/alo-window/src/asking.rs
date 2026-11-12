@@ -25,6 +25,7 @@
 //! each is refused rather than truncated.
 
 use crate::agent_find::FoundNode;
+use crate::agent_text::PageText;
 use crate::pages::RenderedBy;
 use alo_agent::{Outcome, Refusal, Target, Verb};
 use alo_renderer::Snapshot;
@@ -136,6 +137,13 @@ pub enum Ask {
         /// The words, at most [`MOST_NAME`] characters, not none.
         text: String,
     },
+    /// The words of the page in the tab at `tab`, in the order a person
+    /// reads them, as plain text with no position (queue item 964,
+    /// [`crate::agent_text`]).
+    PageText {
+        /// The tab's address, as the caller wrote it.
+        tab: String,
+    },
     /// The page in the tab at `tab` saved as a PDF at `path`, a new file in
     /// a directory the person allowed ([`crate::agent_saves`], queue item
     /// 956).
@@ -157,6 +165,7 @@ impl Ask {
             | Ask::Act { tab, .. }
             | Ask::Open { tab: Some(tab), .. }
             | Ask::Find { tab, .. }
+            | Ask::PageText { tab }
             | Ask::PrintPdf { tab, .. } => Some(tab),
         }
     }
@@ -213,6 +222,14 @@ pub enum Answer {
         found: Vec<FoundNode>,
         /// How many more there were.
         more: usize,
+    },
+    /// The page's words, as a person reads them ([`crate::agent_text`]).
+    PageText {
+        /// The tab, as the caller named it.
+        tab: String,
+        /// The words, a line of the page to a line, and how many characters
+        /// were not answered past [`crate::agent_text::MOST_CHARACTERS`].
+        read: PageText,
     },
     /// The page was saved as a PDF.
     Printed {
@@ -432,6 +449,24 @@ impl Answer {
                 (1, Some(one)) => format!("{text:?} is in {} {:?}", one.role.as_str(), one.name),
                 (count, Some(_)) => format!("{text:?} is in {count} things on the page"),
             }),
+            Answer::PageText { read, .. } => {
+                let lines = read.lines();
+                let counted = if lines == 1 {
+                    "1 line".to_owned()
+                } else {
+                    format!("{lines} lines")
+                };
+                Some(match (lines, read.cut()) {
+                    (0, _) => "no words are on the page".to_owned(),
+                    (_, false) => format!("read the page's words, {counted}"),
+                    (_, true) => format!(
+                        "read the page's words, {counted}, cut at {} characters with {} more \
+                         not answered",
+                        crate::agent_text::MOST_CHARACTERS,
+                        read.more
+                    ),
+                })
+            }
             Answer::Printed { tab, path, bytes } => Some(format!(
                 "the page at {tab} was saved as a PDF of {bytes} bytes at {path}"
             )),
@@ -702,6 +737,40 @@ mod tests {
         assert_eq!(
             found(vec![link], 2).said().as_deref(),
             Some("\"next\" is in 3 things on the page")
+        );
+    }
+
+    #[test]
+    fn a_pages_text_is_said_by_its_lines_and_whether_it_was_cut() {
+        use crate::agent_text::{MOST_CHARACTERS, PageText};
+        let read = |text: &str, more| Answer::PageText {
+            tab: "https://example.com/".to_owned(),
+            read: PageText {
+                text: text.to_owned(),
+                more,
+            },
+        };
+        assert_eq!(
+            Ask::PageText {
+                tab: "about:blank".to_owned()
+            }
+            .tab(),
+            Some("about:blank")
+        );
+        assert_eq!(
+            read("", 0).said().as_deref(),
+            Some("no words are on the page")
+        );
+        assert_eq!(
+            read("One\nTwo", 0).said().as_deref(),
+            Some("read the page's words, 2 lines")
+        );
+        assert_eq!(
+            read("One", 5).said(),
+            Some(format!(
+                "read the page's words, 1 line, cut at {MOST_CHARACTERS} characters with 5 more \
+                 not answered"
+            ))
         );
     }
 }

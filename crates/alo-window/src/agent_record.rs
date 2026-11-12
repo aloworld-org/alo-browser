@@ -119,6 +119,15 @@ pub enum Did {
         /// How many nodes hold them.
         found: usize,
     },
+    /// It read a page's words (queue item 964).
+    ReadText {
+        /// The document read.
+        document: Option<DocumentId>,
+        /// How many characters it was answered.
+        characters: usize,
+        /// How many more there were, past the most answered.
+        more: usize,
+    },
     /// It had a page saved as a PDF (queue item 956).
     Printed {
         /// The document saved.
@@ -185,6 +194,19 @@ impl fmt::Display for Entry {
             Did::Found { document, found } => {
                 write!(f, ": found {found} nodes")?;
                 document.map_or(Ok(()), |document| write!(f, " in {document}"))
+            }
+            Did::ReadText {
+                document,
+                characters,
+                more,
+            } => {
+                write!(f, ": read the words")?;
+                document.map_or(Ok(()), |document| write!(f, " of {document}"))?;
+                write!(f, ", {characters} characters")?;
+                if *more > 0 {
+                    write!(f, " and {more} more not answered")?;
+                }
+                Ok(())
             }
             Did::Printed {
                 document,

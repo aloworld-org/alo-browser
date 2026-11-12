@@ -45,7 +45,8 @@
 //!   [`agent_sites`] — and, for `print_pdf`, to the directories a person
 //!   allowed in [`agent_saves`], the two held as one [`agent_scope`] — and
 //!   [`agent_record`] is what it records; `find` is answered by
-//!   [`agent_find`], by name and never by place (item 956); a second
+//!   [`agent_find`], by name and never by place (item 956), and
+//!   `page_text` by [`agent_text`], as words with no place (item 964); a second
 //!   `alo` started on the same profile hands its address to the running
 //!   one over it, by [`launch_handover`] (item 976, ADR 0114). The socket
 //!   is a Unix one, and Windows is undecided (ADR 0055 § 1). What a verb
@@ -152,6 +153,7 @@ pub mod agent_saves;
 pub mod agent_scope;
 pub mod agent_signin;
 pub mod agent_sites;
+pub mod agent_text;
 #[cfg(unix)]
 pub mod agents;
 pub mod ai_service;

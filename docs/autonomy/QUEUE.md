@@ -26447,10 +26447,24 @@ the rest runs on this Mac. Order: ADR 0112's *The plan, in order*.
   *Web Browser*, `Keywords` translated (970), `Exec` taking an address.
   *Depends on 960, 483. alo OS machine. Closes when:* the launcher finds it
   by *browser* and a link from another application opens in it.
-- [ ] **964. A page's text, read through the socket (ADR 0112 requirement
+- [x] **964. A page's text, read through the socket (ADR 0112 requirement
   7, *read page text*).** An ask answering the page's words in reading
   order, bounded, with no position — from the same tree. *Closes when:* in
   the contract, additive, and tested through both Chromiums.
+  **Built 12 November 2026 (gated 12 November 2026, 7127 tests):** `page_text`
+  (`agent_text.rs`; `asking.rs`, `protocol.rs`, `serving.rs`,
+  `agent_record.rs`, `socket_plain.rs` for `alo-ask --plain`): a line each
+  for a heading, paragraph, list item (its marker first), row, option;
+  loose words parted where drawn below each other; a field as its label
+  and what it holds, never a secret's; nothing `aria-hidden` or undrawn,
+  no title, no picture's name; at most 100,000 characters, cut at a line
+  break or space, `cut` and `more` saying how many were not answered.
+  Found on the way and fixed in `chrome_tree.rs`: Chrome 157 names no
+  list item, and its words were read through as though it were named by
+  them — in the tree nowhere, for `read` and `find` too; text is now read
+  through only under a node Chrome named. Tested by
+  `a_pages_text_read_by_an_agent_through_chrome.rs` through the machine's
+  Chrome (157) and alo's CEF host, and unit tests of each file.
 - [ ] **965. The tree published to AT-SPI by default (ADR 0112
   requirement 7; ADR 0002: the same tree is the accessibility tree).**
   Needs an ADR naming what is rented (AccessKit or another) behind one

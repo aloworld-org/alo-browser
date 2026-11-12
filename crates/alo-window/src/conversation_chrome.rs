@@ -89,9 +89,10 @@ use crate::chrome_pin::Pinned;
 use crate::chrome_protocol::Bounds;
 use crate::chrome_screencast::Frame as CastFrame;
 use crate::chrome_serving::{ChromeServing, Opening, TellFrame};
-use crate::conversation_agents::Reaching;
+use crate::conversation_agents::{Reached, Reaching};
 use crate::conversation_place::Side;
 use crate::frame_told::{ToFrame, Uncast};
+use crate::inbox::Orders;
 use crate::message::CardOrder;
 use crate::opening::{CHROME_AT, CHROME_SIZE};
 use crate::scale::Scale;
@@ -295,6 +296,9 @@ struct Held {
     close: Box<dyn FnOnce() -> bool + Send>,
     /// How what the conversation asks of the card reaches its Chrome.
     card: Box<dyn Fn(CardOrder) + Send>,
+    /// The orders an agent's ask is sent to while it is the live card
+    /// (queue item 716), if agents reach it.
+    agents: Option<Orders>,
 }
 
 /// How a Chrome is started at an address, its page laid out at a card's
@@ -348,8 +352,9 @@ impl Streamed {
 /// What the window hands the thread.
 enum Work {
     /// Open this address as a card, streamed at this size, its name taken
-    /// as alo resolved it when one is pinned.
-    Open(Url, Streamed, Option<Pinned>),
+    /// as alo resolved it when one is pinned — the card the window asked
+    /// for as this numbers ([`Reached::asked`]).
+    Open(Url, Streamed, Option<Pinned>, u64),
     /// Show the page in Chrome's own window, put as this says.
     Expand(Placing),
     /// Stream the card again at this size — it is back on the screen, or
@@ -383,6 +388,8 @@ pub struct ChromeOpener {
     /// Where work is sent; [`None`] once finished.
     asked: Option<Sender<Work>>,
     thread: Option<JoinHandle<bool>>,
+    /// Told which card agents reach.
+    reached: Reached,
 }
 
 impl ChromeOpener {
@@ -430,6 +437,7 @@ impl ChromeOpener {
         kept: Option<Arc<SignIns>>,
         tell: TellWent,
     ) -> std::io::Result<Self> {
+        let reached = reaching.reached.clone();
         Self::starting_with(
             Box::new(move |url, streamed, pinned, told| {
                 in_chrome(
@@ -440,20 +448,24 @@ impl ChromeOpener {
                     told,
                 )
             }),
+            reached,
             tell,
         )
     }
 
-    /// [`ChromeOpener::start`], each Chrome started by `starter`.
-    fn starting_with(starter: Starter, tell: TellWent) -> std::io::Result<Self> {
+    /// [`ChromeOpener::start`], each Chrome started by `starter`, and
+    /// `reached` told which card agents reach.
+    fn starting_with(starter: Starter, reached: Reached, tell: TellWent) -> std::io::Result<Self> {
         let (asked, asking) = channel();
         let again = asked.clone();
+        let reaching = reached.clone();
         let thread = std::thread::Builder::new()
             .name("alo-conversation-chrome".to_owned())
-            .spawn(move || hold(starter, &asking, &again, &tell))?;
+            .spawn(move || hold(starter, &reaching, (&asking, &again), &tell))?;
         Ok(Self {
             asked: Some(asked),
             thread: Some(thread),
+            reached,
         })
     }
 
@@ -461,7 +473,7 @@ impl ChromeOpener {
     /// `streamed`, replacing whatever was open. Returns at once: what became
     /// of it, and each frame, is told to the window.
     pub fn open(&self, url: Url, streamed: Streamed) {
-        self.send(Work::Open(url, streamed, None));
+        self.open_pinned(url, streamed, None);
     }
 
     /// [`ChromeOpener::open`], the card's Chromium taking the name `pinned`
@@ -469,7 +481,8 @@ impl ChromeOpener {
     /// (queue item 881, [`crate::chrome_pin`]): a page alo's agent opens.
     /// With none, as [`ChromeOpener::open`].
     pub fn open_pinned(&self, url: Url, streamed: Streamed, pinned: Option<Pinned>) {
-        self.send(Work::Open(url, streamed, pinned));
+        let asked = self.reached.asked();
+        self.send(Work::Open(url, streamed, pinned, asked));
     }
 
     /// Show the page open as a card in Chrome's own window, put as
@@ -507,7 +520,13 @@ impl ChromeOpener {
 
     /// Close the page shown as a card: its stream stopped, its Chrome
     /// closed, waited for and its profile removed, and [`Went::Shut`] told.
+    ///
+    /// No agent reaches it from the moment this is called
+    /// ([`Reached::put_away`]) — not once its Chrome has closed, seconds
+    /// later on the thread — so an agent's `new_tab`, answered as the window
+    /// puts the card away, is followed by `tabs` naming none.
     pub fn shut(&self) {
+        self.reached.put_away();
         self.send(Work::Shut);
     }
 
@@ -559,8 +578,8 @@ struct Open {
 /// to finish: whether every Chrome it closed had a thread that finished.
 fn hold(
     mut starter: Starter,
-    asking: &Receiver<Work>,
-    again: &Sender<Work>,
+    reached: &Reached,
+    (asking, again): (&Receiver<Work>, &Sender<Work>),
     tell: &TellWent,
 ) -> bool {
     let mut open: Option<Open> = None;
@@ -635,7 +654,7 @@ fn hold(
                         let _ = tell(went);
                     }
                 }
-                Work::Open(url, streamed, pinned) if Some(place) == newest => {
+                Work::Open(url, streamed, pinned, asked) if Some(place) == newest => {
                     if let Some(replaced) = open.take() {
                         finished &= (replaced.held.close)();
                     }
@@ -644,7 +663,12 @@ fn hold(
                     let number = opened;
                     let heard = heard_from(again.clone(), number);
                     match starter(&url, streamed, pinned.as_ref(), heard) {
-                        Ok(held) => {
+                        Ok(mut held) => {
+                            // The live card from here until it is closed —
+                            // unless the window put it away as it started.
+                            if let Some(agents) = held.agents.take() {
+                                let _ = reached.opened(asked, agents);
+                            }
                             let _ = tell(Went::Opened {
                                 url: url.clone(),
                                 shown: held.shown.clone(),
@@ -724,8 +748,6 @@ fn in_chrome(
         told,
     )
     .map_err(|why| why.to_string())?;
-    // The live card from here until it is closed.
-    reaching.reached.now(Some(serving.orders()));
     let reached = reaching.reached.clone();
     let shown = Shown {
         by: serving.rendered_by().to_string(),
@@ -736,6 +758,7 @@ fn in_chrome(
     };
     let orders = serving.orders();
     let card = serving.orders();
+    let agents = serving.orders();
     Ok(Held {
         shown,
         close: Box::new(move || {
@@ -750,12 +773,20 @@ fn in_chrome(
             // As above: a thread gone is a Chrome closing.
             let _ = card.send(crate::message::Order::Card(order));
         }),
+        // Agents reach it while it is the live card (queue item 716).
+        agents: Some(agents),
     })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::agent_record::Caller;
+    use crate::agent_sites::AgentSites;
+    use crate::asking::{Answer, Ask};
+    use crate::conversation_agents::relay;
+    use crate::inbox::{self, Arrival};
+    use crate::message::Order;
     use alo_renderer::card::PAGE_SIZE;
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
@@ -779,6 +810,8 @@ mod tests {
         pages: Vec<(u32, u32)>,
         /// The name each took as alo resolved it, if one.
         pinned: Vec<Option<Pinned>>,
+        /// The orders each card's agents are sent to, if any.
+        agents: Option<Orders>,
     }
 
     /// A starter that refuses `refused` and starts anything else, writing
@@ -815,6 +848,7 @@ mod tests {
                     card: Box::new(move |order| {
                         asking.lock().unwrap().asked.push((asked_of.clone(), order));
                     }),
+                    agents: doing.agents.clone(),
                 })
             },
         )
@@ -825,6 +859,7 @@ mod tests {
         let (tell, told) = channel();
         let opener = ChromeOpener::starting_with(
             starter(did, refused),
+            Reached::default(),
             Box::new(move |went| tell.send(went).is_ok()),
         )
         .unwrap();
@@ -971,16 +1006,19 @@ mod tests {
         let (tell, told) = channel();
         let (asked, asking) = channel();
         // Three sent before the thread reads any.
-        for each in [
+        for (number, each) in (1..).zip([
             "https://a.example/",
             "https://b.example/",
             "https://c.example/",
-        ] {
-            asked.send(Work::Open(url(each), STREAMED, None)).unwrap();
+        ]) {
+            asked
+                .send(Work::Open(url(each), STREAMED, None, number))
+                .unwrap();
         }
         asked.send(Work::Finish).unwrap();
         let tell: TellWent = Box::new(move |went| tell.send(went).is_ok());
-        assert!(hold(starter(&did, ""), &asking, &asked, &tell));
+        let reached = Reached::default();
+        assert!(hold(starter(&did, ""), &reached, (&asking, &asked), &tell));
         assert_eq!(did.lock().unwrap().started, vec!["https://c.example/"]);
         assert_eq!(next(&told), Went::Opening(url("https://c.example/")));
     }
@@ -1212,5 +1250,136 @@ mod tests {
                 size: (1216, 820)
             }
         );
+    }
+
+    /// What an agent asking for the tabs through the conversation's relay
+    /// is answered — by the relay itself, never the card's thread, which
+    /// nothing in these tests answers from.
+    fn tabs(orders: &Orders) -> Result<Answer, std::sync::mpsc::RecvTimeoutError> {
+        let (reply, answered) = channel();
+        orders
+            .send(Order::Agent {
+                caller: Caller(1),
+                ask: Ok(Ask::Tabs),
+                reply,
+            })
+            .unwrap();
+        answered.recv_timeout(Duration::from_secs(5))
+    }
+
+    /// A card whose Chrome closes once `closing` says, and is then reached
+    /// by no agent, as [`in_chrome`]'s does; its agents sent to `agents`.
+    fn closing_when_told(reached: &Reached, closing: Receiver<()>, agents: Orders) -> Held {
+        let reached = reached.clone();
+        Held {
+            shown: Shown {
+                by: "Chrome/156.0.0.0, driven by this browser".to_owned(),
+                process: 7,
+                profile: PathBuf::from("/nowhere"),
+                window: None,
+                tells: false,
+            },
+            close: Box::new(move || {
+                // Closing a Chrome takes seconds: until told.
+                let _ = closing.recv_timeout(Duration::from_secs(10));
+                reached.now(None);
+                true
+            }),
+            card: Box::new(|_| {}),
+            agents: Some(agents),
+        }
+    }
+
+    /// The socket contract's `new_tab`: the live card the new chat puts away
+    /// is closed, so `tabs` then answers none. The window answers `new_tab`
+    /// as it puts the card away, while the card's Chrome is still closing on
+    /// this thread — so no agent reaches it from the moment it is put away.
+    #[test]
+    fn a_card_put_away_is_reached_by_no_agent_while_its_chrome_closes() {
+        let (orders, reaching) = relay(AgentSites::Every).unwrap();
+        let (agents, _, card) = inbox::inbox();
+        let (close, closing) = channel();
+        let closing = Mutex::new(Some(closing));
+        let reached = reaching.reached.clone();
+        let starter: Starter = Box::new(move |_, _, _, _| {
+            let closing = closing.lock().unwrap().take().unwrap();
+            Ok(closing_when_told(&reached, closing, agents.clone()))
+        });
+        let (tell, told) = channel();
+        let opener = ChromeOpener::starting_with(
+            starter,
+            reaching.reached.clone(),
+            Box::new(move |went| tell.send(went).is_ok()),
+        )
+        .unwrap();
+        opener.open(url("http://127.0.0.1:9/two.html"), STREAMED);
+        let _ = (next(&told), next(&told));
+        // Open: an agent's ask goes to the card's thread.
+        let (reply, _answered) = channel();
+        orders
+            .send(Order::Agent {
+                caller: Caller(1),
+                ask: Ok(Ask::Tabs),
+                reply,
+            })
+            .unwrap();
+        assert!(matches!(
+            card.recv_timeout(Duration::from_secs(5)),
+            Ok(Arrival::Order(Order::Agent {
+                ask: Ok(Ask::Tabs),
+                ..
+            }))
+        ));
+        // Put away, its Chrome still closing: no tab, and the card's thread
+        // never asked.
+        opener.shut();
+        assert_eq!(tabs(&orders), Ok(Answer::Tabs(Vec::new())));
+        assert!(card.try_recv().is_err());
+        close.send(()).unwrap();
+        assert_eq!(next(&told), Went::Shut(url("http://127.0.0.1:9/two.html")));
+        assert_eq!(tabs(&orders), Ok(Answer::Tabs(Vec::new())));
+        assert!(opener.finish());
+    }
+
+    /// A card put away while its Chrome was still starting is never the
+    /// live card, not even until its Chrome has closed.
+    #[test]
+    fn a_card_put_away_as_it_starts_is_never_reached() {
+        let (orders, reaching) = relay(AgentSites::Every).unwrap();
+        let (agents, _, card) = inbox::inbox();
+        let (close, closing) = channel();
+        let (go_on, starting) = channel::<()>();
+        let (entered, in_the_starter) = channel();
+        let waits = Mutex::new(Some((closing, starting)));
+        let reached = reaching.reached.clone();
+        let starter: Starter = Box::new(move |_, _, _, _| {
+            let (closing, starting) = waits.lock().unwrap().take().unwrap();
+            entered.send(()).unwrap();
+            // Starting Chrome takes seconds: until told.
+            let _ = starting.recv_timeout(Duration::from_secs(10));
+            Ok(closing_when_told(&reached, closing, agents.clone()))
+        });
+        let (tell, told) = channel();
+        let opener = ChromeOpener::starting_with(
+            starter,
+            reaching.reached.clone(),
+            Box::new(move |went| tell.send(went).is_ok()),
+        )
+        .unwrap();
+        opener.open(url("http://127.0.0.1:9/one.html"), STREAMED);
+        in_the_starter.recv_timeout(Duration::from_secs(5)).unwrap();
+        opener.shut();
+        go_on.send(()).unwrap();
+        assert_eq!(
+            next(&told),
+            Went::Opening(url("http://127.0.0.1:9/one.html"))
+        );
+        assert!(matches!(next(&told), Went::Opened { .. }));
+        // Opened, put away before it, and its Chrome still closing.
+        assert_eq!(tabs(&orders), Ok(Answer::Tabs(Vec::new())));
+        assert!(card.try_recv().is_err());
+        close.send(()).unwrap();
+        assert_eq!(next(&told), Went::Shut(url("http://127.0.0.1:9/one.html")));
+        assert!(opener.finish());
     }
 }

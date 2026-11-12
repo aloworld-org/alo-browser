@@ -18,8 +18,10 @@
 //! `alo-ask --plain [SOCKET]` prints each answer for a person instead
 //! (queue item 915, [`alo_window::socket_plain`]): a tree as one node a
 //! line, indented, each its number, its role, its name and its states, and
-//! no position; a verb's outcome and a refusal as the browser's sentence.
-//! What it sends is the same.
+//! no position; a verb's outcome and a refusal as the browser's sentence;
+//! a page's text (`{"v":1,"ask":"page_text","tab":ADDRESS}`, queue item
+//! 964) as its words, a line of the page to a line. What it sends is the
+//! same.
 //!
 //! A blank line is sent and not waited on, as the browser answers none. It
 //! stops when its input ends or the browser closes the connection.

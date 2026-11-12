@@ -19,7 +19,9 @@
 //!   space at either end taken off, and its `InlineTextBox`es — the pieces of
 //!   its lines — are never read. Text is read through, as in the engine's
 //!   tree, when the thing it is in is named by it (a button by its words,
-//!   [`alo_agent::name::names_itself_from_content`]) and when it is the
+//!   [`alo_agent::name::names_itself_from_content`]) and Chrome gave it a
+//!   name — Chrome 157 names no list item, whose words are then kept as
+//!   its text (queue item 964) — and when it is the
 //!   words of a `<label>` that already named the control inside it, unless
 //!   it is in a field, where it is what the field holds.
 //! - A `ListMarker`'s words are its list item's [`SnapshotNode::marker`],
@@ -241,7 +243,12 @@ impl<'a> Reading<'a, '_> {
                     return self.read_within(node, context, depth);
                 };
                 let within = Context {
-                    named_by_content: alo_agent::name::names_itself_from_content(&role),
+                    // Named by what is inside it only when Chrome named it:
+                    // a list item Chrome gives no name keeps its words as
+                    // text, or they would be in the tree nowhere (queue
+                    // item 964).
+                    named_by_content: name.is_some()
+                        && alo_agent::name::names_itself_from_content(&role),
                     in_a_naming_label: context.in_a_naming_label && !states.takes_text,
                 };
                 let children = self.read_within(node, within, depth)?;
@@ -695,9 +702,16 @@ mod tests {
         ];
         let snapshot = read(&nodes).unwrap();
         assert_eq!(snapshot.nodes()[2].marker.as_deref(), Some("3."));
+        // Chrome names the item nothing, so its words are its text, kept
+        // (queue item 964): read through, they were in the tree nowhere.
         assert_eq!(
             outline(&nodes),
-            ["document", "list", r#"listitem [marker="3."]"#]
+            [
+                "document",
+                "list",
+                r#"listitem [marker="3."]"#,
+                r#"text "Third""#
+            ]
         );
     }
 

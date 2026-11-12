@@ -27,6 +27,16 @@ since, alo OS's contract wins and this document is corrected.
 | `mechanism` | `api` — the agent socket |
 | `grants` | the grant over the application, for every verb; `save_as_pdf` also needs one over the folder it saves into |
 
+**Offered before alo OS's text arguments (Demo 2 stage 5):** `list_tabs`,
+`read_page`, `open_page`, `go_to`, `new_chat`, `press_control` and
+`press_key`. **After it:** `find_on_page` and `fill_field`. **After queue
+item 967:** `save_as_pdf`.
+
+**Written by alo OS, not here:** each sentence's and purpose's translatable
+key (`words`), `reaches` (`OnlyItsApplication` for every verb but
+`save_as_pdf`, which is `Over(file)`), and `carried_out` for `api` — one
+JSON line per verb from a closed template, exactly the *Sent* lines below.
+
 **No verb runs code.** No argument is a script, a command, an expression or
 anything the browser or the page interprets as code. A page's script never
 receives an argument as code: `fill_field`'s text is put into the field as
@@ -94,10 +104,14 @@ Each verb gives: purpose, effect, arguments, the approval sentence, `by_hand`
 - **Arguments:** `tab` (tab).
 - **Sentence:** *Read the page {tab} in alo browser.*
 - **By hand:** read the page.
-- **Sent:** the socket's page-text ask of queue item 964, specified in
-  `agent-socket.md` once it is built. Until then, `{"v":1,"ask":"read","tab":TAB}`
-  answers the page's tree (names and roles), and this verb may be built on
-  that.
+- **Sent:** `{"v":1,"ask":"page_text","tab":TAB}` (queue item 964).
+- **Answer:** `{"answer":"page_text","text":TEXT,"cut":BOOL,"more":N,…}`:
+  the page's words as plain text, a line for each heading, paragraph, list
+  item (its marker first) and table row; nothing hidden or undrawn, no
+  title, no picture names, and no value of a password or of a field whose
+  name says it holds a secret. At most 100,000 characters, cut at a line
+  break or a space; `cut` says it was, `more` how many characters were not
+  answered.
 
 ### `browser.find_on_page`
 
@@ -111,6 +125,9 @@ Each verb gives: purpose, effect, arguments, the approval sentence, `by_hand`
 - **Answer:** `found`: each thing's `node`, `role` and `name`, at most 256,
   and `more`. A `node` is a number the page's tree gives a thing for this
   tree only; it is **not** offered as an argument to any verb here.
+- **Offered** only once alo OS's *text, shown in full* argument kind exists
+  (Demo 2 stage 5): `words` is text, which alo OS's loader refuses until
+  then (the coordinator, 12 November 2026).
 
 ### `browser.open_page`
 
@@ -197,6 +214,12 @@ Each verb gives: purpose, effect, arguments, the approval sentence, `by_hand`
   written over an existing file (`Exists`). On alo OS the file will leave
   through the document portal instead (ADR 0112, queue item 967), and this
   verb is amended then.
+- **Offered on alo OS only after 967.** alo OS never starts the browser, so
+  a browser a person started has no `--agent-saves` folder and every save
+  would be refused. The browser does **not** take a folder on a caller's
+  word: the socket cannot tell alo OS from any other program running as
+  the person, so a folder named in a request is no grant. The document
+  portal, which asks the person, is the road (decided 12 November 2026).
 
 ## Not offered
 

@@ -117,7 +117,10 @@ time. A blank line is not a request and gets no answer.
 | A tab's address | 8,192 characters | `FieldTooLong` |
 | Depth of a tree answered | 256 | `TreeTooDeep` |
 
-Nothing is ever cut to fit. Whatever is too big is refused.
+Nothing is ever cut to fit. Whatever is too big is refused. (That is of
+what a caller sends. Three answers below are bounded instead — a verb's
+`issues`, the nodes `find` answers and the words `page_text` answers —
+and each says how much more there was, never cutting silently.)
 
 ## Requests
 
@@ -280,6 +283,45 @@ it. At most 256 are answered; `more` says how many more there were.
 `text` is at most 1,024 characters and not only spaces (`BadField`). The
 tab is named, found and kept to the sites exactly as for `read`.
 
+### `page_text`: a page's words, as a person reads them
+
+    {"v":1,"id":9,"ask":"page_text","tab":"https://example.com/"}
+    {"answer":"page_text","cut":false,"id":9,"more":0,"said":"read the page's words, 3 lines",
+     "tab":"https://example.com/","text":"Invoices\nThree are unpaid, and one is late.\n• Invoice 3","v":1}
+
+(Queue item 964, ADR 0112 requirement 7. Shown on two lines here; on the
+wire it is one.) The page's words as plain text, in the order a person
+reads them, answered from the tree `read` answers and **with no
+position**. `text` holds them a line of the page to a line, separated by
+`\n`, with none at the end:
+
+- A heading, a paragraph, a list item (its marker first: `• Milk`,
+  `3. Third`), a table's row, an option, a menu's item and a tab are each
+  a line, everything inside them on it; a region, a list, a table, a
+  form and their like begin and end lines. Words in none of these — text
+  straight in a `<div>`, which no tree keeps as a node — are on one line
+  while they were drawn on one, and begin another where they were drawn
+  below it. A line break in the words themselves (a `<pre>`'s) is kept;
+  an empty line is never answered.
+- A field is its label's words and then what it holds — never what a
+  field holds whose name or hint says it is a secret (a password, a
+  card's number, a code), nor a password's dots.
+- **Nothing hidden is read**: nothing `aria-hidden`, nothing not drawn
+  (a closed list's options), and nothing a renderer leaves out of its
+  tree for not being shown (`display: none`, `visibility: hidden`). Not
+  read either: the page's title, a picture's name, and the name a
+  region, a list or a group is given, which labels it and is not on the
+  page.
+
+**Bounded at 100,000 characters.** A page whose text is longer is answered
+to there, cut at the last line break — or else the last space — before
+it, so no word is cut in two; `cut` is then `true` and `more` is how many
+characters of the page's text were not answered. Otherwise `cut` is
+`false` and `more` is `0`. Nothing is answered past the bound: a caller
+that needs the rest reads the tree. A page with no words is answered `""`.
+The tab is named, found and kept to the sites exactly as for `read`, with
+the same refusals before any tab is looked at.
+
 ### `print_pdf`: the page saved as a PDF
 
     {"v":1,"id":6,"ask":"print_pdf","tab":"https://example.com/","path":"/Users/ada/Saved/page.pdf"}
@@ -419,8 +461,9 @@ named, that address's site whenever it is an address, and what came of it. A
 refused request has its site recorded too. A read records how many nodes of which document it
 read. A verb records the target, the verb, the action id it was given, and its
 outcome or refusal. A page sent somewhere records the action and where;
-a new tab asked for, where to; a `find`, how many nodes it found; a PDF
-saved, its path and length. A refused request is recorded as refused. A request that
+a new tab asked for, where to; a `find`, how many nodes it found; a
+`page_text`, how many characters it answered and how many more there
+were; a PDF saved, its path and length. A refused request is recorded as refused. A request that
 reached a tab records which renderer drew its page: this browser's engine, or
 Chrome and the version it gives itself.
 

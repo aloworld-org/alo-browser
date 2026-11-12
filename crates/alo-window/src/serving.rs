@@ -57,7 +57,8 @@
 //! [`Refused::NotOffered`], after the address is judged.
 //!
 //! `find` is answered from the tree `read` answers, by name and never by
-//! place ([`crate::agent_find`]). `print_pdf` judges its path against the
+//! place ([`crate::agent_find`]), and so is `page_text`, as words with no
+//! place ([`crate::agent_text`], queue item 964). `print_pdf` judges its path against the
 //! directories a person allowed ([`crate::agent_saves`]) where `open`
 //! judges its address — before any tab — and the file is written here, by
 //! the browser process, never by a renderer: one that answers with
@@ -162,6 +163,7 @@ pub fn serve<P: Pages>(
             | Ask::NewTab
             | Ask::Launched { .. }
             | Ask::Find { .. }
+            | Ask::PageText { .. }
             | Ask::PrintPdf { .. }),
         ) => {
             let came = opened_found_or_saved(pages, scope, ask);
@@ -180,8 +182,8 @@ pub fn serve<P: Pages>(
     Served { answer, acted }
 }
 
-/// What came of an `open`, `new_tab`, `find` or `print_pdf` (queue item
-/// 956): the answer and the record's entry, the tab a page was sent from,
+/// What came of an `open`, `new_tab`, `launched`, `find`, `page_text` or
+/// `print_pdf` (queue items 956, 964 and 976): the answer and the record's entry, the tab a page was sent from,
 /// and the site and renderer the entry names.
 struct Came<T> {
     answer: Answer,
@@ -191,7 +193,8 @@ struct Came<T> {
     rendered_by: Option<RenderedBy>,
 }
 
-/// Answer `ask` — an `open`, `new_tab`, `find` or `print_pdf` — from
+/// Answer `ask` — an `open`, `new_tab`, `launched`, `find`, `page_text` or
+/// `print_pdf` — from
 /// `pages`, kept to `scope`.
 fn opened_found_or_saved<P: Pages>(pages: &mut P, scope: &AgentScope, ask: Ask) -> Came<P::Tab> {
     let sites = &scope.sites;
@@ -240,6 +243,18 @@ fn opened_found_or_saved<P: Pages>(pages: &mut P, scope: &AgentScope, ask: Ask) 
                 Ok(id) => {
                     rendered_by = Some(pages.rendered_by(id));
                     let (answer, did) = find_in(pages, id, tab, text);
+                    (answer, did, None)
+                }
+            }
+        }
+        Ask::PageText { tab } => {
+            let (found, at) = reached(pages, sites, &tab);
+            site = at;
+            match found {
+                Err(refused) => refusal(refused),
+                Ok(id) => {
+                    rendered_by = Some(pages.rendered_by(id));
+                    let (answer, did) = text_of(pages, id, tab);
                     (answer, did, None)
                 }
             }
@@ -446,6 +461,28 @@ fn find_in<P: Pages>(pages: &mut P, id: P::Tab, tab: String, text: String) -> (A
             return (answer, did);
         }
         Err(why) => unanswered(tab, why, "find"),
+    };
+    (Answer::Refused(refused.clone()), Did::Refused(refused))
+}
+
+/// Read the words of the page in tab `id`, as a person reads them (queue
+/// item 964).
+fn text_of<P: Pages>(pages: &mut P, id: P::Tab, tab: String) -> (Answer, Did) {
+    if let Err(refused) = loaded(pages, id, &tab) {
+        return (Answer::Refused(refused.clone()), Did::Refused(refused));
+    }
+    let refused = match pages.read(id) {
+        Ok(_) if !still_at(pages, id, &tab) => Refused::NoSuchTab { tab },
+        Ok(snapshot) => {
+            let read = crate::agent_text::page_text(&snapshot);
+            let did = Did::ReadText {
+                document: pages.document(id),
+                characters: read.text.chars().count(),
+                more: read.more,
+            };
+            return (Answer::PageText { tab, read }, did);
+        }
+        Err(why) => unanswered(tab, why, "page_text"),
     };
     (Answer::Refused(refused.clone()), Did::Refused(refused))
 }
@@ -1173,7 +1210,7 @@ mod tests {
                 placeholder: None,
                 marker: None,
                 rect: alo_layout::Rect::default(),
-                rects: Vec::new(),
+                rects: vec![alo_layout::Rect::default()],
                 offscreen: false,
                 scrolls: false,
                 children,
@@ -1488,6 +1525,53 @@ mod tests {
             record.entries().last().map(|entry| &entry.did),
             Some(Did::Found { found: 1, .. })
         ));
+    }
+
+    #[test]
+    fn a_pages_words_are_read_as_text_and_recorded_with_how_many() {
+        let mut pages = Paper::at("https://example.com/");
+        let mut record = AgentRecord::new();
+        let scope = AgentScope::from(kept());
+        let served = serve(
+            &mut pages,
+            &mut record,
+            &scope,
+            Caller(0),
+            Ok(Ask::PageText {
+                tab: "https://example.com/".to_owned(),
+            }),
+        );
+        let Answer::PageText { tab, read } = served.answer else {
+            panic!("not read: {:?}", served.answer);
+        };
+        assert_eq!(tab, "https://example.com/");
+        // The root's name is not words on the page; the link's is.
+        assert_eq!(read.text, "Next page");
+        assert!(!read.cut());
+        assert!(matches!(
+            record.entries().last().map(|entry| &entry.did),
+            Some(Did::ReadText {
+                characters: 9,
+                more: 0,
+                ..
+            })
+        ));
+        // Kept to the sites, before any tab is looked at.
+        let looked = pages.looked;
+        let refused = serve(
+            &mut pages,
+            &mut record,
+            &scope,
+            Caller(0),
+            Ok(Ask::PageText {
+                tab: "https://example.org/".to_owned(),
+            }),
+        );
+        assert!(matches!(
+            refused.answer,
+            Answer::Refused(Refused::NotGranted { .. })
+        ));
+        assert_eq!(pages.looked, looked);
     }
 
     #[test]
