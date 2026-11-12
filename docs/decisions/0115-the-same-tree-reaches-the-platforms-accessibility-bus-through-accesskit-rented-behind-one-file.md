@@ -1,7 +1,7 @@
 # ADR 0115 — The same tree reaches the platform's accessibility bus through AccessKit, rented behind one file
 
-**Status:** proposed — queue item 965, 12 November 2026. Nothing is built.
-Questions for the owner are under *Asked of the owner*, below.
+**Status:** accepted for phases (a) and (b) — queue item 965, the owner,
+12 November 2026. Phase (c) waits on *Answered* 3. Nothing is built yet.
 **Date:** 2026-11-12
 **Context:** ADR 0002 (the layout tree is the agent's tree; *"the same tree
 is the accessibility tree"*; no verb takes a coordinate; reading is never
@@ -279,6 +279,21 @@ AT-SPI's screen coordinates may be wrong there (not measured).
    accessibility bus is open to every process of the person's session.
    ADR 0002 leaves *who may ask* to alo OS's capability model. Is the bus
    alo OS's to guard, as this ADR assumes?
+
+## Answered (the owner, 12 November 2026)
+
+1. **A press from the bus that pays is held** for the person's yes, as alo's
+   agent's is (ADR 0099), and every action from the bus is in the record as
+   *"assistive technology"* — as proposed.
+2. **A card's number is withheld from the bus too**, screen readers
+   included — as proposed (§ 4).
+3. **Who may read is the browser's to guard too**, not alo OS's alone. The
+   design is not settled here. On macOS the system already asks the person
+   before any program reads another's accessibility objects (the
+   *Accessibility* permission), so phases (a) and (b) build under that
+   guard. AT-SPI has no such guard, so **phase (c) is not built until the
+   browser's own guard is designed and the owner has accepted it**, in an
+   amendment to this ADR.
 
 ## Rejected
 
