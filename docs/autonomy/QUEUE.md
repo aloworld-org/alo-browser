@@ -26672,6 +26672,18 @@ the rest runs on this Mac. Order: ADR 0112's *The plan, in order*.
   `start.css` (*Done in N steps* in the ink). The site letter tint, the
   *used* pill and the shield keep `#2f6b5e`, which never meant done. ADR
   0074 § 2 and `shell.md` amended; 15 panel and rail references redrawn.
+- [ ] **986. A test that clicks on screen fails in minutes on a locked
+  screen, never hangs.** On 12 November 2026 the gate ran 12 h 45 min:
+  `the_cards_buttons_pressed_in_the_window_through_alos_cef_host` (test
+  binary `the_cards_buttons_pressed_in_the_window_through_chrome`) hung
+  12 h 28 min after the screen locked. Its `Driven::until` is bounded by
+  `AT_MOST` (90 s), so the hang is in a wait outside it — the window
+  server's listing (`expanded_at`), `ConversationWindow::finish`, or the
+  host's shut-down as the test's values drop. Find it (a `sample` of the
+  hung test binary, under a locked screen), bound it, and say in the
+  failure that the screen was locked. *Closes when:* that test, run with
+  the screen locked, fails within its bounds with a reason that names the
+  lock, and every wait in the shown-Chrome tests is bounded.
 
 ## After stage 4
 
