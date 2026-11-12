@@ -175,6 +175,27 @@ section's worth of layout.
 - `alo --conversation --sign-ins DIR` (a hand run's) keeps the jar in
   `DIR` and its key in a keychain file `DIR/alo-sign-ins.keychain-db` made
   and unlocked there — never the person's keychain.
+- **`--sign-ins` is a developer's hand run's alone, and the application
+  refuses it** (amended 12 November 2026, queue item 973). The scratch
+  keychain is unlocked by a password written in `sign_in_key.rs`, so it is
+  no secret: fine at a developer's terminal, wrong on any product path.
+  Inside `alo browser.app` — decided by where the program is
+  (`Bundle::around`), as everything else the application does differently
+  is — `--sign-ins` is **refused before anything is made** (no directory,
+  no keychain file, no window), exit status 2, the terminal saying it is a
+  hand run's and naming what to use instead: `--data DIR`, which keeps no
+  secret at all (ADR 0112 § 5), or nothing, which keeps the sign-ins
+  under their own key in the person's keychain (§ 3)
+  (`bundle_refused.rs`; `tests/the_application_refuses_a_hand_runs_sign_ins.rs`,
+  the real `alo` copied into an application shaped as `alo-bundle` makes
+  it). Run from `target/` it is unchanged.
+  *A cargo feature was rejected*: it would take the code out of a release
+  build, but the gate builds and tests with every feature on, so the
+  configuration that ships would be the one never built or tested, and
+  every developer's `cargo run` would need the feature named. The written
+  password is still in the shipped binary, reachable only through the
+  refused option; a person who copies the program out of the application
+  and runs it from a terminal is a hand run, by their own act.
 
 ## 7. A second alo at once
 

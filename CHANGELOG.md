@@ -6,6 +6,13 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The application refuses `--sign-ins`.** `alo --conversation
+  --sign-ins DIR` keeps its sign-ins' key in a keychain file whose password
+  is written in alo's source, so it is for a developer's hand run alone:
+  inside `alo browser.app` it is refused before anything is made, and the
+  terminal says to use `--data DIR` (which keeps no secrets) or nothing
+  (which keeps sign-ins under a key in your own keychain). Run from a build
+  directory it is unchanged (ADR 0111 § 6, queue item 973).
 - **A new chat an agent asks for leaves no page behind.** In `alo
   --conversation`, once an agent outside alo is answered `new_tab`, its
   next `tabs` names no page: the card the new chat put away is out of

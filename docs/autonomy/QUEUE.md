@@ -26513,13 +26513,19 @@ the rest runs on this Mac. Order: ADR 0112's *The plan, in order*.
   bar*).** Each of the nine measured and recorded with the image, the
   machine and the date; the judgement is alo OS's. *Depends on 960–970.
   alo OS machine.*
-- [ ] **973. The hand-run sign-ins flag kept out of the shipped program (cut
+- [x] **973. The hand-run sign-ins flag kept out of the shipped program (cut
   from 957).** `alo --sign-ins DIR` keeps its jar's key in a keychain file
   unlocked by a password written in `sign_in_key.rs` (ADR 0111 § 6) — fine
   for a hand run, but the flag is in the shipped binary. Make it a
   developer build's alone (or refuse it in a bundled application), so no
   product path keeps anything under a written password. *Closes when:* the
   application refuses `--sign-ins`, in a test, and ADR 0111 § 6 says so.
+  *Built and gated 12 November 2026* (7130 tests): refused at run time inside
+  `alo browser.app` (`Bundle::around`), before anything is made, exit 2,
+  naming `--data DIR` or nothing instead (`bundle_refused.rs`, `bin/alo.rs`);
+  a cargo feature rejected, since the gate builds with every feature on and
+  would never build what ships; ADR 0111 § 6 amended;
+  `the_application_refuses_a_hand_runs_sign_ins.rs`.
 - [x] **974. Deep teal is alo acting, everywhere (ADR 0112, *Answered* 1).**
   Terracotta is retired from *the agent is acting*: deep teal `#0F6B72`
   (dark `#77C8C6`), always with alo's mark and a word, never colour

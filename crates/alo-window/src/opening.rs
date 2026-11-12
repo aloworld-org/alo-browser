@@ -175,8 +175,9 @@ impl Opening {
     /// absolute path, rather than alo's own (ADR 0092 § 1): what a hand run
     /// or a test that must not touch a person's chats names. `--sign-ins
     /// DIR` keeps the cards' sign-ins there, their key in a keychain file of
-    /// that directory's own (ADR 0111 § 6): a hand run's, never the
-    /// person's.
+    /// that directory's own (ADR 0111 § 6): a developer's hand run's, never
+    /// the person's, and refused inside the application
+    /// ([`crate::bundle_refused`], queue item 973).
     ///
     /// # Errors
     ///

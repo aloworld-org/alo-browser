@@ -271,7 +271,8 @@ withdrawn before the gate; the code path is gone. So under `--data`, until
 An existing directory is taken only if already private and is never
 changed; `--data` beside `--chats` or `--sign-ins` is refused. (The
 scratch keychain `--sign-ins DIR` makes for a hand run, ADR 0111 § 6,
-predates this and is unchanged; it is not `--data`'s.)
+predates this and is not `--data`'s; since queue item 973 the
+application refuses `--sign-ins`, naming `--data DIR` instead.)
 
 **958 — the window's title and the application's name** (as in row 1).
 

@@ -30,7 +30,8 @@
 //!   Inside the macOS application, [`bundle`] decides what is opened with
 //!   nothing named (item 477), and [`bundle_chromium`] that only the
 //!   Chromium the application carries is started there, never the machine's
-//!   Chrome (item 719, ADR 0077); `alo-bundle` makes that application, put
+//!   Chrome (item 719, ADR 0077), and [`bundle_refused`] that a hand run's
+//!   `--sign-ins` is refused there (item 973, ADR 0111 § 6); `alo-bundle` makes that application, put
 //!   together by [`bundle_made`] with the [`info_plist`] it says of itself
 //!   and sealed by [`bundle_seal`] (item 687). The Chromium it carries
 //!   is CEF's, loaded by alo's own host program (`crates/alo-cef-host`, ADR
@@ -173,6 +174,7 @@ pub mod bundle_chromium;
 pub mod bundle_icon;
 pub mod bundle_keys;
 pub mod bundle_made;
+pub mod bundle_refused;
 pub mod bundle_seal;
 pub mod card_aim;
 pub mod card_clicks;

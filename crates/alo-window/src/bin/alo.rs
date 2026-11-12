@@ -61,6 +61,11 @@
 //! socket, and it is an instance of its own; so is a hand run naming
 //! `--chats` or `--sign-ins`, whose places are its own.
 //!
+//! `--sign-ins DIR` is a developer's hand run's alone: its key is kept in a
+//! keychain file under a password written in alo's source, so inside the
+//! application it is refused before anything is made, naming `--data DIR`
+//! instead (queue item 973, ADR 0111 § 6, [`alo_window::bundle_refused`]).
+//!
 //! Inside the macOS application, `alo browser.app` (queue items 477 and
 //! 719, ADRs 0067, 0068 and 0077), nothing named opens the application's own
 //! page as `--chrome` would, but in **the Chromium the application carries**
@@ -109,6 +114,12 @@ fn main() -> ExitCode {
     let bundle = std::env::current_exe()
         .ok()
         .and_then(|program| Bundle::around(&program));
+    // What only a developer's hand run names is refused inside the
+    // application before anything is made (queue item 973, ADR 0111 § 6).
+    if let Some(why) = alo_window::bundle_refused::refused(bundle.as_ref(), &asked) {
+        eprintln!("alo: {why}");
+        return ExitCode::from(2);
+    }
     let decided = decide(bundle.as_ref(), asked.clone());
     if let Some(said) = &decided.said {
         eprintln!("alo: {said}");

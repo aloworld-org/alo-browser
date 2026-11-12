@@ -23,7 +23,10 @@
 //! Tests name a keychain file of their own ([`Keychain::File`]). `alo
 //! --sign-ins DIR` — for a hand run — keeps the key in a keychain file in
 //! that directory, made and unlocked there ([`scratch_keychain`]), so a
-//! hand run never adds an item to the person's own.
+//! hand run never adds an item to the person's own. Its password,
+//! `SCRATCH_PASSWORD`, is written here and is no secret, so the
+//! application refuses `--sign-ins` ([`crate::bundle_refused`], queue item
+//! 973): no product path keeps anything under it.
 
 use crate::chat_seal::{KEY_BYTES, Key};
 use crate::keychain::{self, Keychain, SECURITY};
