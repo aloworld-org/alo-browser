@@ -26557,6 +26557,21 @@ the rest runs on this Mac. Order: ADR 0112's *The plan, in order*.
   code a model wrote. *Unblocked 11 November 2026: the owner chose this
   repository, as a crate of its own* (this repository never edits alo OS's;
   it reads alo OS's adapter contract; MPL-2.0 is compatible).
+  *Held 12 November 2026:* alo OS's contract (origin/main of 26 October)
+  makes an adapter declared data, an `alo_adapters::Adapter` constant
+  carried out by alo OS's own code, with the `api` mechanism not yet
+  carried out, and alo-os is GPL-3.0-or-later; a crate here would depend
+  on it. The owner asked the coordinator first; proposed: this repository
+  writes the declaration's content and keeps `agent-socket.md` as its wire
+  protocol, alo OS commits the constant and carries out `api`.
+  *Decided 12 November 2026 (the coordinator, for the owner's goal of a
+  browser any system can run):* this repository owns the specification,
+  [`docs/contracts/alo-os-adapter-spec.md`](../contracts/alo-os-adapter-spec.md),
+  and `agent-socket.md`; the alo OS team writes the constant in alo-os and
+  builds `api`; alo browser depends on nothing of alo OS's. `fill_field`
+  waits on alo OS's *text, shown in full* argument kind. Closes when the
+  spec answers every verb of ADR 0112 requirement 7, `read_page` included
+  (after 964).
 - [ ] **978. A windowless card's popups, and ADR 0060's hold in Alloy style
   (ADR 0113, proposed; cut from 959).** Measured: with Chromium's own
   session held, a windowless page's `window.open` never returned and the
