@@ -3,9 +3,8 @@
 **Status:** accepted for phases (a) and (b) — queue item 965, the owner,
 12 November 2026; phase (c)'s guard accepted 13 November 2026 (*Phase (c)'s guard*, *Answered*), phase (c) waits on queue item 960. Phase (a) built 12
 November 2026 (queue item 987, gated 13 November 2026; *Phase (a), as
-built* below); phase (b) built 13 November 2026 (queue item 988, not yet
-gated; *Phase (b), as built* below); (c) is not; phase (c)'s guard
-proposed 13 November 2026.
+built* below); phase (b) built 13 November 2026 (queue item 988, gated 13
+November 2026; *Phase (b), as built* below); (c) is not built.
 **Date:** 2026-11-12
 **Context:** ADR 0002 (the layout tree is the agent's tree; *"the same tree
 is the accessibility tree"*; no verb takes a coordinate; reading is never
