@@ -1,8 +1,8 @@
 # ADR 0081 — The model alo thinks with
 
 **Status:** decided — 1 November 2026: **OpenAI**, by the owner's choice;
-the model, **`gpt-6.1-terra`**, is the builder's choice pending the owner's
-confirmation (§ 0). Built for the answer by queue items 773 and 707 (ADR
+the model, **`gpt-6.1-terra`**, the builder's choice, confirmed by the owner
+on 13 November 2026 (§ 0). Built for the answer by queue items 773 and 707 (ADR
 0095); the agent (704) is not yet asked of any model.
 
 **Owner's note, 30 October 2026:** alo's searches (ADR 0082) — and, the owner
@@ -135,7 +135,10 @@ by the browser process alone.
 
 ### Still open
 
-- The owner's confirmation of `gpt-6.1-terra`.
+- ~~The owner's confirmation of `gpt-6.1-terra`.~~ **Confirmed, 13
+  November 2026:** *"model we can use the apis we have now"* — the answer
+  keeps OpenAI's `gpt-6.1-terra` through the key alo already has, and
+  searches keep Brave's.
 - The agent (704): which model drives it is decided with it, under this
   provider.
 - Zero data retention (818). The evaluation of § 4 (817) is below, in
