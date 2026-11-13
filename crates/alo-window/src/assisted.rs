@@ -47,6 +47,16 @@
 //! ([`crate::assisted_page`]). The same three actions, the same offers and
 //! the same secrets as alo's own interface: one rule.
 //!
+//! # A site kept from agents (queue item 989)
+//!
+//! ADR 0115, *Phase (c)'s guard*, (b): the bus names no site the agent
+//! socket would not. A card whose page is on a site the person kept agents
+//! from (`--agent-site`, [`AgentSites`]) has its page published as one
+//! node, [`KEPT`], with nothing under it, and every name of alo's own tree
+//! that would say that site — the card's address bar and region, its
+//! shield, what the person said, an earlier page's address, the chat's
+//! name in the panel — said as [`KEPT`] too ([`hide_kept`]).
+//!
 //! # A press that pays
 //!
 //! ADR 0115, *Answered* 1: a press from the bus that pays is held for the
@@ -54,11 +64,19 @@
 //! interface pays; a press on a card's page that the person's gate says
 //! pays is held ([`crate::assisted_page::judged`]).
 
+use crate::agent_sites::AgentSites;
 use crate::conversation_drawing::Part;
 use crate::place::PixelRect;
 use alo_box::{BoxId, KnownRole, Role};
+use alo_renderer::card::Card;
 use alo_renderer::{Snapshot, SnapshotNode};
+use alo_url::Url;
 use core::fmt;
+
+/// What the bus is told of a card's page on a site kept from agents, and
+/// of every name of alo's own that would say that site's address (ADR
+/// 0115, *Phase (c)'s guard*, (b); queue item 989).
+pub const KEPT: &str = "this page is kept from agents";
 
 /// What assistive technology asked be done to a node.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -275,6 +293,94 @@ pub enum PageRead {
     /// (`Refused::TreeTooDeep`): published as its graft alone, said to be
     /// too large to read, never half a tree said to be whole.
     TooLarge,
+    /// A page on a site kept from agents (queue item 989): never read,
+    /// published as its graft holding one node, [`KEPT`].
+    Kept,
+}
+
+/// What of a site kept from agents a name of alo's own may not say: its
+/// registrable domain, which every address on it holds, and the rest of
+/// each kept page's address as the card draws it after its host.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct KeptAddresses {
+    /// Each kept site's registrable domain, in lower case.
+    domains: Vec<String>,
+    /// The path, query and fragment of each kept page, as the card's
+    /// address bar draws them.
+    rests: Vec<String>,
+}
+
+impl KeptAddresses {
+    /// What of `addresses` the agent socket, kept to `sites`, would not
+    /// name (ADR 0055 § 6): every one on a site it may not reach. With
+    /// every site reachable, nothing.
+    pub fn of<'a>(sites: &AgentSites, addresses: impl IntoIterator<Item = &'a Url>) -> Self {
+        let mut kept = Self::default();
+        for url in addresses {
+            if sites.allows(url) {
+                continue;
+            }
+            let domain = url
+                .host
+                .as_ref()
+                .map(alo_url::site::of)
+                .unwrap_or_default()
+                .to_ascii_lowercase();
+            if !domain.is_empty() && !kept.domains.contains(&domain) {
+                kept.domains.push(domain);
+            }
+            let (_, rest) = Card::new("", url.clone()).address();
+            if !rest.is_empty() && !kept.rests.contains(&rest) {
+                kept.rests.push(rest);
+            }
+        }
+        kept
+    }
+
+    /// Whether nothing is kept.
+    pub fn is_empty(&self) -> bool {
+        self.domains.is_empty() && self.rests.is_empty()
+    }
+
+    /// Whether `text` says a kept site.
+    fn names(&self, text: &str) -> bool {
+        let lower = text.to_ascii_lowercase();
+        self.domains
+            .iter()
+            .any(|domain| lower.contains(domain.as_str()))
+    }
+}
+
+/// `tree` as the bus may be told it while `kept` is kept from agents:
+/// every name or hint that says a kept site said as [`KEPT`], and every
+/// run of text that is exactly the rest of a kept page's address — what
+/// the card's bar draws after its host — left out (queue item 989).
+pub fn hide_kept(tree: &mut Snapshot, kept: &KeptAddresses) {
+    if kept.is_empty() {
+        return;
+    }
+    // Without recursing, as the trees here are walked.
+    let mut waiting: Vec<&mut SnapshotNode> = tree.root.iter_mut().collect();
+    while let Some(node) = waiting.pop() {
+        if node.name.as_deref().is_some_and(|name| kept.names(name)) {
+            node.name = Some(KEPT.to_owned());
+        }
+        if node
+            .placeholder
+            .as_deref()
+            .is_some_and(|hint| kept.names(hint))
+        {
+            node.placeholder = Some(KEPT.to_owned());
+        }
+        node.children.retain(|child| {
+            child.role != Role::Known(KnownRole::Text)
+                || child
+                    .name
+                    .as_deref()
+                    .is_none_or(|name| !kept.rests.iter().any(|rest| rest == name))
+        });
+        waiting.extend(node.children.iter_mut());
+    }
 }
 
 /// A card's page as it is published (ADR 0115 § 3): where its page box is
@@ -453,6 +559,103 @@ mod tests {
         );
         assert!(find(&tree, BoxId::from_wire(8)).is_none());
         assert!(find(&tree, BoxId::from_wire(99)).is_none());
+    }
+
+    /// Queue item 989 (ADR 0115, *Phase (c)'s guard*, (b)): with agents
+    /// kept to one site, a card on another has every name of alo's that
+    /// says its site said as [`KEPT`], the rest of its address the bar
+    /// draws after the host left out, and nothing else touched; with every
+    /// site reachable, or the card on the site named, nothing is.
+    #[test]
+    fn a_kept_sites_address_is_said_nowhere_in_alos_own_tree() {
+        let url = |address| alo_url::parse(address).unwrap();
+        let kept_card = url("https://shop.example/checkout?step=2");
+        let tree = || {
+            let mut region = node(
+                Role::Known(KnownRole::Region),
+                Some("www.shop.example/checkout?step=2"),
+                vec![
+                    node(
+                        Role::Known(KnownRole::Text),
+                        Some("www.shop.example"),
+                        vec![],
+                    ),
+                    node(
+                        Role::Known(KnownRole::Text),
+                        Some("/checkout?step=2"),
+                        vec![],
+                    ),
+                    node(
+                        Role::Known(KnownRole::Button),
+                        Some("Ask the lists alo carries for shop.example"),
+                        vec![],
+                    ),
+                    node(Role::Known(KnownRole::Button), Some("Close"), vec![]),
+                ],
+            );
+            region.placeholder = Some("SHOP.EXAMPLE".to_owned());
+            Snapshot {
+                root: Some(node(
+                    Role::Known(KnownRole::Main),
+                    None,
+                    vec![
+                        node(
+                            Role::Known(KnownRole::Text),
+                            Some("https://www.shop.example/checkout?step=2"),
+                            vec![],
+                        ),
+                        region,
+                        node(Role::Known(KnownRole::Link), Some("Terms"), vec![]),
+                    ],
+                )),
+            }
+        };
+        let names = |tree: &Snapshot| -> Vec<Option<String>> {
+            tree.nodes()
+                .into_iter()
+                .map(|node| node.name.clone())
+                .collect()
+        };
+        let only = AgentSites::named(["https://example.com"]).unwrap();
+        let kept = KeptAddresses::of(&only, [&kept_card]);
+        let mut hidden = tree();
+        hide_kept(&mut hidden, &kept);
+        let kept_said = Some(KEPT.to_owned());
+        assert_eq!(
+            names(&hidden),
+            [
+                None,
+                kept_said.clone(),
+                kept_said.clone(),
+                kept_said.clone(),
+                kept_said.clone(),
+                Some("Close".to_owned()),
+                Some("Terms".to_owned()),
+            ]
+        );
+        assert!(
+            hidden.nodes().iter().all(|node| {
+                [node.name.as_deref(), node.placeholder.as_deref()]
+                    .into_iter()
+                    .flatten()
+                    .all(|said| {
+                        !said.to_ascii_lowercase().contains("shop.example")
+                            && !said.contains("checkout")
+                    })
+            }),
+            "{hidden:?}"
+        );
+        // Every site reachable, or the card on the site named: untouched.
+        for sites in [
+            AgentSites::Every,
+            AgentSites::named(["https://shop.example"]).unwrap(),
+        ] {
+            let kept = KeptAddresses::of(&sites, [&kept_card]);
+            assert!(kept.is_empty(), "{sites:?}");
+            let mut whole = tree();
+            hide_kept(&mut whole, &kept);
+            assert_eq!(whole, tree());
+        }
     }
 
     #[test]

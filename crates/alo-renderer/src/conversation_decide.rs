@@ -120,6 +120,9 @@ pub struct Shown<C, S> {
     /// The choices *Privacy* offers, in order, while *Settings* is drawn
     /// (queue item 920).
     pub privacy: Vec<crate::settings_privacy::PrivacyPress>,
+    /// The choices *Screen readers* offers, in order, while *Settings*
+    /// is drawn (ADR 0115, queue item 989).
+    pub bus: Vec<crate::settings_bus::Bus>,
 }
 
 impl<C, S> Default for Shown<C, S> {
@@ -153,6 +156,7 @@ impl<C, S> Default for Shown<C, S> {
             asks: Vec::new(),
             services: Vec::new(),
             privacy: Vec::new(),
+            bus: Vec::new(),
         }
     }
 }
@@ -252,6 +256,9 @@ pub enum Decided<C, S> {
     Service(crate::settings_services::ServicePress),
     /// This choice, made in *Privacy* (queue item 920).
     Privacy(crate::settings_privacy::PrivacyPress),
+    /// This choice, made in *Screen readers* (ADR 0115, queue item
+    /// 989).
+    Bus(crate::settings_bus::Bus),
     /// *Settings*' × — or a press on the veil around it (queue item 886),
     /// which presses nothing under it.
     LeaveSettings,
@@ -302,6 +309,8 @@ pub enum Listed {
     Services,
     /// The choices *Privacy* offers (queue item 920).
     Privacy,
+    /// The choices *Screen readers* offers (queue item 989).
+    Bus,
 }
 
 impl fmt::Display for Listed {
@@ -325,6 +334,7 @@ impl fmt::Display for Listed {
             Listed::Asks => "choice of asking Settings offers",
             Listed::Services => "thing Search and answers offers",
             Listed::Privacy => "choice Privacy offers",
+            Listed::Bus => "choice Screen readers offers",
         })
     }
 }
@@ -451,12 +461,10 @@ where
     S: Clone + PartialEq,
 {
     let claim = match answer {
-        FromRenderer::ConversationClaimed(claim) => claim,
+        FromRenderer::ConversationClaimed(Some(claim)) => claim,
+        FromRenderer::ConversationClaimed(None) => return Decided::Nothing,
         FromRenderer::Failed(failure) => return Decided::Failed(failure),
         _ => return Decided::Refused(Refusal::NotAClaim { part }),
-    };
-    let Some(claim) = claim else {
-        return Decided::Nothing;
     };
     if claim.part() != part {
         return Decided::Refused(Refusal::NotDrawnThere { part, claim });
@@ -490,7 +498,8 @@ where
         | Claim::Limit { .. }
         | Claim::Asks { .. }
         | Claim::Service { .. }
-        | Claim::Privacy { .. } => in_settings(claim, painted, now),
+        | Claim::Privacy { .. }
+        | Claim::Bus { .. } => in_settings(claim, painted, now),
         Claim::Expand => Decided::Expand,
         Claim::CloseTheCard => Decided::CloseTheCard,
         Claim::DeleteChat | Claim::CloseChat | Claim::Undo | Claim::Shield => {
@@ -590,6 +599,9 @@ fn in_settings<C, S>(claim: Claim, painted: &Shown<C, S>, now: &Shown<C, S>) -> 
         // still offered there.
         Claim::Privacy { at } => held(Listed::Privacy, at, &painted.privacy, &now.privacy)
             .map_or_else(Decided::Refused, Decided::Privacy),
+        // *Screen readers* (queue item 989): the same.
+        Claim::Bus { at } => held(Listed::Bus, at, &painted.bus, &now.bus)
+            .map_or_else(Decided::Refused, Decided::Bus),
         _ if painted.faces.is_empty() || now.faces.is_empty() => {
             Decided::Refused(Refusal::NotAsked { claim })
         }

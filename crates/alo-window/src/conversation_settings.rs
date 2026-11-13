@@ -41,6 +41,15 @@
 //! beside the face, and told to the whole process as it is made
 //! ([`crate::privacy_chosen`]).
 //!
+//! Its fifth, **Screen readers** (ADR 0115, *Phase (c)'s guard*, (a);
+//! queue item 989), holds what alo gives the platform's accessibility bus
+//! ([`Bus`]): *Read and act* by default, *Read only*, or *Off* — a choice
+//! made by a person's press on it, or by keys, Tab going on after *Forget
+//! all sign-ins* to its radio group, where → ↑ choose the next and ← ↓ the
+//! one before, round. A press on it from the bus itself is refused by the
+//! window before it reaches here (`conversation_window::assisted`). Kept
+//! beside the face, and used at once.
+//!
 //! **Scrolled** (queue item 880) as the conversation is ([`Scrolled`]): in
 //! a window too short for the whole page, by the wheel, the paging keys
 //! and the bar, from its top each time it opens; and as Tab moves the
@@ -52,6 +61,7 @@ use crate::scrolled::Scrolled;
 use alo_renderer::agent_limits::{Asks, Limit, Limits, Stepped};
 use alo_renderer::conversation_scroll::Reach;
 use alo_renderer::interface_face::InterfaceFace;
+use alo_renderer::settings_bus::Bus;
 use alo_renderer::settings_privacy::{Privacy, PrivacyPress, SignInsShown};
 use alo_renderer::start::SettingsKeyed;
 
@@ -87,6 +97,10 @@ pub struct Settings {
     /// What a person pressed that is no choice but a deed of the browser
     /// process's — *Forget all sign-ins* — since this was last asked.
     deed: Option<PrivacyPress>,
+    /// What alo gives the accessibility bus (ADR 0115, queue item 989).
+    bus: Bus,
+    /// A choice of it a person just made, not yet kept.
+    bus_chosen: Option<Bus>,
 }
 
 /// Where the keyboard was as *Settings* opened: what it is given back to as
@@ -165,6 +179,36 @@ impl Settings {
     /// asked, once.
     pub fn take_privacy_changed(&mut self) -> bool {
         core::mem::replace(&mut self.privacy_changed, false)
+    }
+
+    /// The same, giving the accessibility bus `bus`, as read back (queue
+    /// item 989).
+    #[must_use]
+    pub fn with_bus(mut self, bus: Bus) -> Self {
+        self.bus = bus;
+        self
+    }
+
+    /// What alo gives the accessibility bus, as chosen now.
+    pub fn bus(self) -> Bus {
+        self.bus
+    }
+
+    /// A person chose `bus` in *Settings*: whether it is another, and so
+    /// is to be kept and used.
+    pub fn choose_bus(&mut self, bus: Bus) -> bool {
+        if bus == self.bus {
+            return false;
+        }
+        self.bus = bus;
+        self.bus_chosen = Some(bus);
+        true
+    }
+
+    /// Whether a person changed what alo gives the bus since this was last
+    /// asked, once.
+    pub fn take_bus_changed(&mut self) -> bool {
+        self.bus_chosen.take().is_some()
     }
 
     /// Whether a person pressed *Forget all sign-ins* since this was last
@@ -350,6 +394,11 @@ impl Settings {
             Some(SettingsKeyed::Banners) => {
                 let other = self.privacy.banners.stepped(on);
                 return self.choose_privacy(PrivacyPress::Banners(other));
+            }
+            // *Screen readers*'s three (queue item 989).
+            Some(SettingsKeyed::Bus) => {
+                let other = self.bus.stepped(on);
+                return self.choose_bus(other);
             }
             Some(
                 SettingsKeyed::Close | SettingsKeyed::Service(_) | SettingsKeyed::ForgetSignIns,

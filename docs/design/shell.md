@@ -1135,7 +1135,7 @@ Instrument Sans. Newsreader is still the mark's and the greeting's. Both new
 files are under the OFL and carried as the others are (ADR 0084, amended).
 Where this section or the next says *Inter* as the default, read Manrope.
 
-## Settings (items 853, 854, 878, 886)
+## Settings (items 853, 854, 878, 886, 989)
 
 Approved by the owner on 7 November 2026 (*"Yes please"*), in their
 words: *Settings opens as a page in the conversation area, with one
@@ -1414,6 +1414,39 @@ Settled here, as the design left them open:
   window, without *Search and answers*, what the panel holds is 1202 in a
   room of 692. *Forget all sign-ins* is kept nowhere: it is done — the
   jar, the file and the open card's cookies emptied, the key replaced.
+- **Screen readers** (item 989, ADR 0115 *Phase (c)'s guard*; the
+  owner's answers of 13 November 2026), 24 under *Privacy*: **Accessibility
+  bus**, 15 px 600, and in quiet 13.5 px *What a screen reader, or any
+  other program you let read the screen, may read of alo and do in it. A
+  choice is used at once.*; 14 under it a white box as *Privacy*'s, of one
+  row, **What they may do** (13.5 px 600), over three
+  choices drawn as *Privacy*'s: **Read and act · Default**; **Read only**
+  with, under its words in quiet 12.5 px, *A screen reader can read alo,
+  but nothing it presses is done.*; **Off** with *A screen reader will not
+  be able to read alo.* Each 28 tall, 45 with its line; the row 166 tall,
+  the section 242. **By keys**: Tab goes on from *Forget all sign-ins* to
+  the group, then round to the ×; → ↑ choose the next and ← ↓ the one
+  before, round; ⇧Tab from nothing lands on it first, as the last stop.
+  **Effect**, at once: *Read and act* publishes alo's interface and a
+  card's page and takes a press, text put in and the keyboard moved, as a
+  person's would be; *Read only* publishes the same and refuses every
+  action, each refusal in the record; *Off* publishes the window alone —
+  no panel, no first screen, no page — and reads no card's page. **Only a
+  person's press changes it**: a press from the bus that comes to one of
+  its choices is refused (ADR 0026's rule for grants), and nothing over the
+  agent socket reaches *Settings*. **Why on by default**: a person who
+  cannot see the screen cannot find a switch that is off without the tree
+  it withholds. Under *Off* they turn it back on by keys alone — ⌘, opens
+  *Settings*, ⇧Tab lands on the group, → reaches *Read and act* (tested
+  through System Events) — or by removing the `bus off` line from
+  `settings.txt`, which is read at launch. **To an agent**: a region named
+  *Screen readers*, a radio group *What they may do*
+  with a radio named by each choice, the one made checked, the line under
+  *Read only* and *Off* read after it. **Kept**: `bus read|off` at the end
+  of `settings.txt`, only when it is not the default; a file naming none,
+  or one that does not read, is *Read and act*. In the design's window,
+  without *Search and answers*, what the panel holds is 1468 in a room of
+  692.
 
 ## Colours
 
@@ -1430,8 +1463,8 @@ mark, 16 px, before its words (item 984).
 ## What is not designed yet
 
 Dark mode, a phone-width window, downloads and bookmarks, and the
-settings other than *Font*, *alo at work*, *Search and answers* and
-*Privacy* — *What alo may do* among
+settings other than *Font*, *alo at work*, *Search and answers*,
+*Privacy* and *Screen readers* — *What alo may do* among
 them (item 705) — and with them *Settings*' list of its sections.
 *Settings* is walked by keys (item 856); the rest of alo's interface,
 beyond its two fields and *Settings*, is pressed with the pointer only

@@ -4,7 +4,9 @@
 12 November 2026; phase (c)'s guard accepted 13 November 2026 (*Phase (c)'s guard*, *Answered*), phase (c) waits on queue item 960. Phase (a) built 12
 November 2026 (queue item 987, gated 13 November 2026; *Phase (a), as
 built* below); phase (b) built 13 November 2026 (queue item 988, gated 13
-November 2026; *Phase (b), as built* below); (c) is not built.
+November 2026; *Phase (b), as built* below); phase (c)'s guard built on
+this Mac 13 November 2026 (queue item 989, not yet gated; *The guard, as
+built on this Mac* below); (c) is not built.
 **Date:** 2026-11-12
 **Context:** ADR 0002 (the layout tree is the agent's tree; *"the same tree
 is the accessibility tree"*; no verb takes a coordinate; reading is never
@@ -373,7 +375,7 @@ the socket in what it gives — except alo's own interface, which is the
 owner's to decide (*Asked*, 2).
 
 **(a) A Settings switch, published by default.** *Settings* gains a
-section **Accessibility bus**, a radio group of three:
+section **Screen readers**, a radio group of three:
 
 | Choice | What is published | What is taken |
 |---|---|---|
@@ -727,6 +729,108 @@ the page has the keyboard. A card scrolled out of the conversation's view
 is published where its page box is, outside the window's inside. Chrome's
 own `focused` and `value` properties are not read: a field's value is its
 runs of text, as `chrome_tree.rs` reads them.
+
+## The guard, as built on this Mac (13 November 2026, queue item 989)
+
+Not yet gated. What differs from *Phase (c)'s guard* is said here, not
+there. Built on macOS, under its *Accessibility* permission; on AT-SPI the
+same rules come with phase (c), after item 960.
+
+**(a) The switch.** *Settings* gains its fifth section, **Accessibility
+bus** (`settings_bus.rs`, the data; `settings_bus_document.rs`, the
+section, drawn by *Privacy*'s own radio-group function): one row, *Screen
+readers and other programs*, of three choices — *Read and act* (the
+default), *Read only* (*A screen reader can read alo, but nothing it
+presses is done.*) and *Off* (*A screen reader will not be able to read
+alo.*, the guard's words). Kept as `bus read` or `bus off` at the end of
+`settings.txt`, only when it is not the default; a file naming none —
+every file before 989 — or one that does not read is *Read and act*, so a
+damaged file never takes the tree from a screen reader. Used at once. A
+press on it is claimed as its own (`Claim::Bus`, the class `privopt
+busopt`), decided as *Privacy*'s are; Tab reaches it after *Forget all
+sign-ins*. **Changed only by a person's press**: a press from the bus that
+is decided as one of its choices is refused and written
+(`conversation_window/assisted.rs`), and the agent socket reaches no part
+of alo's own interface.
+
+- *Read only*: every `Click`, `SetValue` and `Focus` from the bus — on
+  alo's interface and on a card's page — is refused before it is checked
+  against a node, written *"… was refused: Settings › Screen readers is
+  set to Read only"*; one decided after the switch changed is refused
+  too. The tree is published as ever.
+- *Off*: **the window's root node alone**, as the guard's table says — a
+  `Published` with no part and no page, so the root tree is the `Window`
+  node, *alo*, with no graft; the consumer drops every subtree with its
+  graft. Chosen over an empty tree because AccessKit's adapter, once made,
+  is asked for a tree whenever the bus listens and shows a placeholder of
+  its own until it has one; and over not making the adapter, because that
+  could not be undone without a new window. The card's page is not read
+  while *Off*; the parts' own trees are still read from their renderers
+  (in this process), so *Read and act* publishes everything at once.
+- *Why on by default, measured*: under *Off* nothing tells a screen reader
+  there is anything to read. A person who cannot see the screen turns it
+  back on by keys alone — ⌘, opens *Settings*, ⇧Tab from nothing lands on
+  the group, its last stop, and → steps *Off* round to *Read and act* —
+  or by deleting the `bus off` line, read at launch. The first road is
+  tested through System Events.
+
+**(b) A site kept from agents.** The window is handed the sites the person
+named (`--agent-site`, `AgentSites`, `ConversationWindow::with_agent_sites`)
+and judges the card's own address against them, rather than reading
+anything into the relay's refusal. A card on another site: its page is
+published as its graft holding one node, *this page is kept from agents*
+(`PageRead::Kept`), standing at the page box; it is never read for the
+bus; every action on its nodes is refused (*"the card's page is kept from
+agents"*), a node read before the card went there included; and once the
+card is on a site named it is read and published whole again. **Its
+address**: `assisted::KeptAddresses` takes the registrable domain of every
+page the chat on screen shows or showed on a kept site — the card's and
+each earlier page's — and `hide_kept` says as *this page is kept from
+agents* every name or hint of alo's own tree, panel and first screen, that
+holds one, and leaves out every run of text that is exactly the rest of
+such an address (what the card's bar draws after the host). So the card's
+region and address bar, its shield (named by the site), what the person
+said, an earlier page's address and **the chat's name in the panel** —
+named by the address's host (`chat_name.rs`) — are each that sentence.
+That widens *Answered* 2, which keeps chats' names on the bus, for this
+one case: a chat named by a kept site's address would name the site the
+socket would not, and *Answered* 3 keeps its address from the bus. **Not
+hidden**: a chat in the panel named by another kept site, one this chat
+on screen does not show — chat names are a person's words, and reading
+every word of every name as a possible address would hide searches too;
+an address said in an international domain's Unicode form (the domain
+matched is ASCII, as the card holds it); and the window's own title, which
+the platform publishes from the window, not from AccessKit — on macOS
+always *alo* (`window_title.rs`), but on Linux the open card's page's title,
+which phase (c) must keep from a kept site's card too.
+
+**(d) The record.** `AssistedRecord::listening`: *"assistive technology:
+the accessibility bus began listening, Fri, 13 Nov 2026 12:00:00 GMT"* when
+the bus first asks for the tree, and *"… stopped listening, …"* when it
+says nothing listens — once each, however often it asks while it listens
+— with the time in UTC and never which program. On macOS the adapter never
+says the bus stopped, so only the first line is seen there.
+
+**Measured on this Mac** (macOS 26.5.2, 13 November 2026), through
+`osascript` and System Events, by
+`tests/the_accessibility_bus_switched_in_settings.rs`: with `bus off`,
+once alo wrote that the bus began listening, nothing of its interface was
+on the bus over four seconds of reads; ⌘, ⇧Tab → put *Read and act* on
+and the whole interface back; with `bus read`, the window 1280 × 820 and
+the interface published, `AXPress` on *New chat* refused and written, no
+chat made, and a value set on the box refused, the box empty. And by
+`tests/a_kept_sites_card_on_the_accessibility_bus_through_chrome.rs`, agents
+kept to `example.com` and a card on `127.0.0.1`: the page one group, *this
+page is kept from agents*, 240 + 81 in and 145 down, 878 × 520, with no
+node inside it; neither the page's title nor its button, nor `127.0.0.1`,
+its port or its path, anywhere on the bus; the chat in the panel a link of
+the same words. Found by that test and fixed: the one node of a page not
+read — kept, or too large, phase (b)'s — had no bounds, and macOS placed it
+at nothing outside the window; it now stands at the page box.
+
+**Not done, and not measured.** VoiceOver itself. *Stopped listening* on
+macOS (never said there). The line *Pressed from the accessibility bus*
+of (c), which is for Linux. AT-SPI.
 
 ## What is not measured, and is not hidden
 

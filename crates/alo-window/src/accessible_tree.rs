@@ -64,7 +64,15 @@
 //! same actions and withheld the same secrets; their rectangles, CSS pixels
 //! of the page as it sits, are placed from the page box's corner at the
 //! window's scale. A page past [`MOST_NODES`], or one the socket refuses as
-//! too deep, is its graft's subtree of one node, [`PAGE_TOO_LARGE`].
+//! too deep, is its graft's subtree of one node, [`PAGE_TOO_LARGE`]; a page
+//! on a site kept from agents is one node, [`assisted::KEPT`] (queue item
+//! 989).
+//!
+//! # Off
+//!
+//! *Settings › Screen readers › Off* (queue item 989) is a [`Published`]
+//! holding no part and no page: the root tree, the window alone, with no
+//! graft — what ADR 0115's guard names *the window's root node alone*.
 
 use crate::assisted::{
     self, Asked, Assist, FromTheBus, PageRead, Published, PublishedPage, PublishedPart, Secret,
@@ -319,11 +327,12 @@ fn page_subtree(page: &PublishedPage, scale: f32) -> TreeUpdate {
             Some(root) => (node_id(root.id), placing.nodes(root, PAGE_TOO_LARGE).0),
             None => (NodeId(0), vec![(NodeId(0), Node::new(Role::Document))]),
         },
-        PageRead::TooLarge => {
-            let mut alone = Node::new(Role::Document);
-            alone.set_label(PAGE_TOO_LARGE);
-            (NodeId(0), vec![(NodeId(0), alone)])
-        }
+        // One node, saying why, standing where the page box is (queue item
+        // 989: without bounds, macOS placed it at nothing outside the
+        // window).
+        PageRead::TooLarge => (NodeId(0), vec![(NodeId(0), alone(page, PAGE_TOO_LARGE))]),
+        // A site kept from agents (queue item 989).
+        PageRead::Kept => (NodeId(0), vec![(NodeId(0), alone(page, assisted::KEPT))]),
     };
     TreeUpdate {
         nodes,
@@ -331,6 +340,21 @@ fn page_subtree(page: &PublishedPage, scale: f32) -> TreeUpdate {
         tree_id: PAGE,
         focus: root_id,
     }
+}
+
+/// The one node a card's page is published as when it is not read, saying
+/// `said`, at its page box.
+fn alone(page: &PublishedPage, said: &str) -> Node {
+    let mut alone = Node::new(Role::Document);
+    alone.set_label(said);
+    let (left, top, width, height) = page.at;
+    alone.set_bounds(Rect {
+        x0: left,
+        y0: top,
+        x1: left + width,
+        y1: top + height,
+    });
+    alone
 }
 
 /// How one subtree's nodes are published: placed from `origin` at `scale`,
@@ -1499,6 +1523,61 @@ mod tests {
             assert_eq!(alone.children().count(), 0);
             assert_eq!(nodes.len(), 1 + 2 + 5 + 6 + 1);
         }
+    }
+
+    /// Queue item 989: a card on a site kept from agents is its graft
+    /// holding one node, *this page is kept from agents*, and nothing of
+    /// the page under it.
+    #[test]
+    fn a_kept_page_is_its_graft_holding_one_node_said_so() {
+        let tree = applied(updates(&with_the_page(Some(PageRead::Kept)), Grafted::default()).0);
+        let nodes = all(&tree);
+        let graft = labelled(&nodes, PICTURED);
+        let alone = graft.children().next().expect("one node");
+        assert_eq!(
+            (alone.role(), alone.data().label()),
+            (Role::Document, Some(assisted::KEPT))
+        );
+        assert_eq!(alone.children().count(), 0);
+        // Where the page box is, as the graft.
+        assert_eq!(alone.raw_bounds(), graft.raw_bounds());
+        assert!(alone.raw_bounds().is_some());
+        assert_eq!(nodes.len(), 1 + 2 + 5 + 6 + 1);
+    }
+
+    /// Queue item 989: *Off* is a window published with no part and no
+    /// page — the root tree, the window alone, with no graft — after
+    /// everything was published, and everything again after it.
+    #[test]
+    fn off_is_the_window_alone_and_back_on_everything_again() {
+        let everything = with_the_page(Some(page_read()));
+        let off = Published {
+            panel: None,
+            start: None,
+            page: None,
+            keyboard: None,
+            ..published(None, false)
+        };
+        let (sent, grafted) = updates(&everything, Grafted::default());
+        let mut tree = applied(sent);
+        let (sent, grafted) = updates(&off, grafted);
+        assert_eq!(sent.len(), 1, "the root alone");
+        assert_eq!(grafted, Grafted::default());
+        for update in sent {
+            tree.update_and_process_changes(update, &mut Unheard);
+        }
+        let nodes = all(&tree);
+        assert_eq!(nodes.len(), 1, "{:?}", nodes.first());
+        assert_eq!(
+            (nodes[0].role(), nodes[0].data().label()),
+            (Role::Window, Some("alo"))
+        );
+        assert_eq!(nodes[0].children().count(), 0);
+        let (sent, _) = updates(&everything, grafted);
+        for update in sent {
+            tree.update_and_process_changes(update, &mut Unheard);
+        }
+        assert_eq!(all(&tree).len(), 1 + 2 + 5 + 6 + 7);
     }
 
     #[test]

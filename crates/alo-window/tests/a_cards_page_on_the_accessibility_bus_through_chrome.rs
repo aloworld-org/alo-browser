@@ -43,11 +43,9 @@
 #![cfg(target_os = "macos")]
 
 mod bus;
+mod served;
 
 use bus::{Alo, Scratch, Seen, WINDOW, cannot_run, found, osascript, read_until};
-use std::io::{Read, Write};
-use std::net::TcpListener;
-use std::time::Duration;
 
 /// The checkout, laid out by hand so its boxes' places are known in CSS
 /// pixels from the page's corner.
@@ -70,44 +68,6 @@ const PAGE: &str = r#"<!doctype html>
 <p id="said">Not pressed yet</p>
 </body></html>
 "#;
-
-/// A server on this machine answering `/checkout.html` with [`PAGE`]: its
-/// port.
-fn serve() -> Result<u16, String> {
-    let listener = TcpListener::bind("127.0.0.1:0").map_err(|why| why.to_string())?;
-    let port = listener.local_addr().map_err(|why| why.to_string())?.port();
-    std::thread::spawn(move || {
-        for socket in listener.incoming() {
-            let Ok(mut socket) = socket else {
-                return;
-            };
-            std::thread::spawn(move || {
-                let _ = socket.set_read_timeout(Some(Duration::from_secs(5)));
-                let mut read = Vec::new();
-                let mut block = [0u8; 1024];
-                while let Ok(got) = socket.read(&mut block) {
-                    read.extend_from_slice(block.get(..got).unwrap_or_default());
-                    if got == 0 || read.windows(4).any(|end| end == b"\r\n\r\n") {
-                        break;
-                    }
-                }
-                let read = String::from_utf8_lossy(&read);
-                let path = read.split(' ').nth(1).unwrap_or_default();
-                let (status, body) = match path {
-                    "/checkout.html" => ("200 OK", PAGE),
-                    _ => ("404 Not Found", ""),
-                };
-                let reply = format!(
-                    "HTTP/1.1 {status}\r\nContent-Type: text/html; charset=utf-8\r\n\
-                     Content-Length: {}\r\nConnection: close\r\n\r\n{body}",
-                    body.len()
-                );
-                let _ = socket.write_all(reply.as_bytes());
-            });
-        }
-    });
-    Ok(port)
-}
 
 /// The subrole of the first text field of alo's whose title is the
 /// second argument.
@@ -155,7 +115,7 @@ fn a_cards_page_is_read_and_pressed_through_macos_accessibility() -> Result<(), 
         eprintln!("skipped: {why} (queue item 988)");
         return Ok(());
     }
-    let port = serve()?;
+    let port = served::serve(PAGE)?;
     let address = format!("http://127.0.0.1:{port}/checkout.html");
     let scratch = Scratch::new()?;
     let alo = Alo::start(&scratch.0.join("data"), &[address.as_str()])?;

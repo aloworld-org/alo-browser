@@ -6,6 +6,20 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Settings › Screen readers: what screen readers and other programs
+  may do.** A new section of *Settings* in `alo --conversation` chooses
+  what alo gives macOS's accessibility API: *Read and act* (the default —
+  a screen reader reads alo and presses in it), *Read only* (it reads, and
+  every press, text or keyboard move it asks is refused and said on the
+  terminal), or *Off* (nothing of alo but its window is published). Only
+  your own press in *Settings* changes it; a press on it from a screen
+  reader is refused. With it *Off*, ⌘, then ⇧Tab then → turns it back on
+  by keys alone. A card on a site you did not name with `--agent-site` is
+  published as *this page is kept from agents*, with nothing of the page
+  under it, and its address appears nowhere in what alo publishes — not
+  the card's address bar, nor the chat's name. alo now also says when a
+  screen reader begins and stops listening, with the time (ADR 0115's
+  guard, queue item 989).
 - **A card drawn with no window keeps every request held, and opens no
   popup.** The Chromium alo carries, when told to draw a page with no
   window at all (not yet something alo asks for), now cancels any popup

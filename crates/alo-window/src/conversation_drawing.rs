@@ -581,6 +581,9 @@ impl Holding {
                 // out at first, every one pressed was refused by hand as
                 // *0 were shown* (found by 920's hand run).
                 self.painted.privacy.clone_from(&asked.showing.privacy);
+                // And *Screen readers*'s (queue item 989), lest a press
+                // on one be refused the same way.
+                self.painted.bus.clone_from(&asked.showing.bus);
                 // How far the turns painted reach, for a person's wheel, and
                 // how far they were scrolled (queue item 703) — told before
                 // the frame, so the window aims a press on it by the offset

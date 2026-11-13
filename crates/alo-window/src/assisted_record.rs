@@ -16,12 +16,23 @@
 //! person reading it there sees what was done in their window that they
 //! did not do with their own hands.
 //!
+//! # When the bus listens (queue item 989)
+//!
+//! ADR 0115, *Phase (c)'s guard*, (d): a read on the bus never reaches the
+//! browser — AccessKit answers it from the last tree sent — so all the
+//! browser can know of reads is when the bus **began listening** (it asked
+//! for the tree) and when it **stopped** (it said nothing listens any
+//! more): one entry each, with the time, and never which program, which
+//! the bus does not say ([`AssistedRecord::listening`]). No entry per
+//! read, and none per frame published.
+//!
 //! # Bounded
 //!
 //! At most [`MOST_KEPT`] entries; when it is full the oldest goes and is
 //! counted.
 
 use std::collections::VecDeque;
+use std::time::SystemTime;
 
 /// The most entries kept.
 pub const MOST_KEPT: usize = 1_000;
@@ -47,6 +58,18 @@ impl AssistedRecord {
         }
         self.entries.push_back(line.clone());
         line
+    }
+
+    /// Write that the bus began listening, when `began`, or stopped, at
+    /// `at` — the time in UTC, never which program — and say it: the line,
+    /// as it is kept and said.
+    pub fn listening(&mut self, began: bool, at: SystemTime) -> String {
+        let what = if began {
+            "the accessibility bus began listening"
+        } else {
+            "the accessibility bus stopped listening"
+        };
+        self.write(&format!("{what}, {}", alo_net::httpdate::format(at)))
     }
 
     /// Every entry kept, oldest first.
@@ -77,5 +100,24 @@ mod tests {
         assert_eq!(record.entries().count(), MOST_KEPT);
         assert_eq!(record.forgotten(), 1);
         assert_eq!(record.entries().next(), Some("assistive technology: 0"));
+    }
+
+    /// Queue item 989: a line when the bus begins listening and one when
+    /// it stops, each with the time, never which program.
+    #[test]
+    fn the_bus_beginning_and_stopping_listening_are_a_line_each_with_the_time() {
+        let mut record = AssistedRecord::default();
+        let at = SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_794_571_200);
+        assert_eq!(
+            record.listening(true, at),
+            "assistive technology: the accessibility bus began listening, Fri, 13 Nov 2026 \
+             12:00:00 GMT"
+        );
+        assert_eq!(
+            record.listening(false, at + std::time::Duration::from_secs(90)),
+            "assistive technology: the accessibility bus stopped listening, Fri, 13 Nov 2026 \
+             12:01:30 GMT"
+        );
+        assert_eq!(record.entries().count(), 2);
     }
 }

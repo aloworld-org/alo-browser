@@ -579,6 +579,7 @@ impl Conversation {
             asks: Vec::new(),
             services: Vec::new(),
             privacy: Vec::new(),
+            bus: Vec::new(),
         };
         if !self.settings.is_open() {
             return shown;
@@ -599,6 +600,8 @@ impl Conversation {
             services: self.services.shown().pressables(),
             // *Privacy* (queue item 920), as it is drawn.
             privacy: alo_renderer::settings_privacy::Privacy::pressables(),
+            // *Screen readers* (queue item 989), as it is drawn.
+            bus: alo_renderer::settings_bus::Bus::ALL.to_vec(),
             ..Shown::default()
         }
     }
@@ -652,7 +655,8 @@ impl Conversation {
             | Pressed::Stepped(_)
             | Pressed::Asks(_)
             | Pressed::Service(_)
-            | Pressed::Privacy(_) => self.in_settings(&pressed, keyboard) || changed,
+            | Pressed::Privacy(_)
+            | Pressed::Bus(_) => self.in_settings(&pressed, keyboard) || changed,
             Pressed::Found(url) => {
                 self.choose_found(url.clone());
                 changed
@@ -801,6 +805,9 @@ impl Conversation {
             Pressed::Privacy(pressed) => {
                 self.services.type_in(None) | self.settings.choose_privacy(*pressed)
             }
+            // *Screen readers* (queue item 989): a person's press alone
+            // reaches here — the window refuses the bus's own.
+            Pressed::Bus(bus) => self.services.type_in(None) | self.settings.choose_bus(*bus),
             // *Search and answers* (queue item 905): a field pressed takes
             // the keyboard; a press anywhere else leaves it.
             Pressed::Service(pressed) => {
@@ -1627,6 +1634,7 @@ impl Conversation {
             services: None,
             privacy: None,
             sign_ins: self.settings.sign_ins(),
+            bus: None,
         }
         .at_scale(scale.factor());
         if !self.settings.is_open() {
@@ -1643,6 +1651,7 @@ impl Conversation {
             services: Some(self.services.shown()),
             privacy: Some(self.settings.privacy()),
             sign_ins: self.settings.sign_ins(),
+            bus: Some(self.settings.bus()),
             ..start
         }
     }
@@ -1674,6 +1683,8 @@ impl Conversation {
                         SettingsKeyed::Cookies,
                         SettingsKeyed::Banners,
                         SettingsKeyed::ForgetSignIns,
+                        // *Screen readers* (queue item 989).
+                        SettingsKeyed::Bus,
                     ])
                     .collect();
                 let moved = self.settings.tab_through(back, &stops);
@@ -2222,7 +2233,8 @@ impl Conversation {
     pub fn set_in(mut self, face: InterfaceFace) -> Self {
         self.settings = Settings::set_in(face)
             .with_limits(self.settings.limits())
-            .with_privacy(self.settings.privacy());
+            .with_privacy(self.settings.privacy())
+            .with_bus(self.settings.bus());
         self
     }
 
@@ -2246,6 +2258,20 @@ impl Conversation {
     /// asked, once: they are then to be kept, and told to the process.
     pub fn take_privacy_changed(&mut self) -> bool {
         self.settings.take_privacy_changed()
+    }
+
+    /// The same conversation, giving the accessibility bus `bus` — read
+    /// back from where it was kept as the window opens (queue item 989).
+    #[must_use]
+    pub fn giving_the_bus(mut self, bus: alo_renderer::settings_bus::Bus) -> Self {
+        self.settings = self.settings.with_bus(bus);
+        self
+    }
+
+    /// Whether a person changed what alo gives the accessibility bus since
+    /// this was last asked, once: it is then to be kept, and used.
+    pub fn take_bus_changed(&mut self) -> bool {
+        self.settings.take_bus_changed()
     }
 
     /// Whether a person pressed *Forget all sign-ins* since this was last
@@ -4353,9 +4379,10 @@ mod tests {
         assert!(conversation.take_privacy_changed());
         assert!(!conversation.take_privacy_changed());
         // Tab: after the services' last stop, *Cookies*, *Cookie banners*,
-        // *Forget all sign-ins* (ADR 0111), then round to *Close*.
+        // *Forget all sign-ins* (ADR 0111), *Screen readers* (queue item
+        // 989), then round to *Close*.
         let mut went = Vec::new();
-        for _ in 0..15 {
+        for _ in 0..16 {
             assert!(conversation.settings_key(SettingsKey::Tab { back: false }));
             went.extend(conversation.settings().keyed());
         }
@@ -4366,13 +4393,16 @@ mod tests {
                     SettingsKeyed::Cookies,
                     SettingsKeyed::Banners,
                     SettingsKeyed::ForgetSignIns,
+                    SettingsKeyed::Bus,
                     SettingsKeyed::Close
                 ][..]
             ),
             "{went:?}"
         );
-        // ⇧Tab back to *Forget all sign-ins*: Space asks for it, once, and
-        // the arrows do nothing there; a press of it asks too.
+        // ⇧Tab back past *Screen readers* to *Forget all sign-ins*: Space
+        // asks for it, once, and the arrows do nothing there; a press of it
+        // asks too.
+        assert!(conversation.settings_key(SettingsKey::Tab { back: true }));
         assert!(conversation.settings_key(SettingsKey::Tab { back: true }));
         assert_eq!(
             conversation.settings().keyed(),
@@ -4394,9 +4424,10 @@ mod tests {
             SignInsShown::Forgotten
         );
         // The pointer's press put the ring away: ⇧Tab from nothing is the
-        // last stop, *Forget all sign-ins*, and again *Cookie banners*,
-        // where → chooses *Leave them to me*, and → again round to the
-        // first.
+        // last stop, *Screen readers*, then *Forget all sign-ins*, and
+        // again *Cookie banners*, where → chooses *Leave them to me*, and →
+        // again round to the first.
+        assert!(conversation.settings_key(SettingsKey::Tab { back: true }));
         assert!(conversation.settings_key(SettingsKey::Tab { back: true }));
         assert!(conversation.settings_key(SettingsKey::Tab { back: true }));
         assert_eq!(
@@ -4426,6 +4457,48 @@ mod tests {
             .set_in(InterfaceFace::Geist);
         assert_eq!(kept.settings().privacy(), made);
         assert!(!kept.take_privacy_changed());
+    }
+
+    /// Queue item 989: *Screen readers* drawn while *Settings* is, its
+    /// choice made by a person's press or the arrows, kept once, and kept
+    /// through a face read after; *Read and act* until a person chooses.
+    #[test]
+    fn the_bus_is_chosen_by_a_press_or_the_arrows_and_kept_once() {
+        use crate::settings_keys::SettingsKey;
+        use alo_renderer::settings_bus::Bus;
+        use alo_renderer::start::SettingsKeyed;
+        let mut conversation = Conversation::default();
+        let room = Size::new(1040.0, 820.0);
+        assert!(conversation.showing().bus.is_empty(), "not drawn");
+        assert_eq!(conversation.start(room, Scale::ONE).bus, None);
+        assert_eq!(conversation.settings().bus(), Bus::ReadAndAct);
+        let _ = conversation.act(Pressed::Settings);
+        assert_eq!(conversation.showing().bus, Bus::ALL);
+        assert_eq!(
+            conversation.start(room, Scale::ONE).bus,
+            Some(Bus::ReadAndAct)
+        );
+        assert!(conversation.act(Pressed::Bus(Bus::Off)));
+        assert!(!conversation.act(Pressed::Bus(Bus::Off)), "the same");
+        assert_eq!(conversation.settings().bus(), Bus::Off);
+        assert!(conversation.take_bus_changed());
+        assert!(!conversation.take_bus_changed());
+        // ⇧Tab from nothing: the last stop, *Screen readers*, where →
+        // chooses round to *Read and act* and ← back to *Off*.
+        assert!(conversation.settings_key(SettingsKey::Tab { back: true }));
+        assert_eq!(conversation.settings().keyed(), Some(SettingsKeyed::Bus));
+        assert!(conversation.settings_key(SettingsKey::Step { on: true }));
+        assert_eq!(conversation.settings().bus(), Bus::ReadAndAct);
+        assert!(conversation.settings_key(SettingsKey::Step { on: false }));
+        assert_eq!(conversation.settings().bus(), Bus::Off);
+        assert!(conversation.take_bus_changed());
+        // Space or Return on the group presses nothing.
+        assert!(!conversation.settings_key(SettingsKey::Press));
+        let mut kept = Conversation::default()
+            .giving_the_bus(Bus::ReadOnly)
+            .set_in(InterfaceFace::Geist);
+        assert_eq!(kept.settings().bus(), Bus::ReadOnly);
+        assert!(!kept.take_bus_changed());
     }
 
     /// Queue item 905: Tab goes on from *alo at work* through *Search and

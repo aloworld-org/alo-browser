@@ -140,6 +140,9 @@ pub struct Start {
     /// What *Privacy*'s row *Sign-ins* says of the sign-ins kept (ADR
     /// 0111), drawn while *Privacy* is.
     pub sign_ins: crate::settings_privacy::SignInsShown,
+    /// *Settings*' section *Screen readers* (ADR 0115, queue item 989):
+    /// what alo gives the bus, as chosen — none draws no section.
+    pub bus: Option<crate::settings_bus::Bus>,
 }
 
 /// What of *Settings* the keyboard is on (queue item 856,
@@ -171,6 +174,10 @@ pub enum SettingsKeyed {
     Banners,
     /// *Forget all sign-ins* (ADR 0111): Space or Return presses it.
     ForgetSignIns,
+    /// The radio group of *Screen readers* (ADR 0115, queue item 989),
+    /// at the choice made: the arrows choose the next or the one before,
+    /// round.
+    Bus,
 }
 
 impl SettingsKeyed {
@@ -235,6 +242,7 @@ impl Default for Start {
             services: None,
             privacy: None,
             sign_ins: crate::settings_privacy::SignInsShown::Kept,
+            bus: None,
         }
     }
 }

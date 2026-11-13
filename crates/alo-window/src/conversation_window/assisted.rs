@@ -38,11 +38,26 @@
 //! undone. A press taken gives the page the keyboard, as a person's press
 //! on it does. A card closed or replaced forgets its page and any press
 //! held on it.
+//!
+//! # As *Settings* says (ADR 0115, *Phase (c)'s guard*; queue item 989)
+//!
+//! *Screen readers*: under *Read only* every action the bus asks is
+//! refused and written; under *Off* the window is published alone — no
+//! part, no page — and the card's page is not read. Whichever it is, a
+//! press from the bus that comes to the switch itself is refused: only a
+//! person's own press in *Settings* changes it. A card on a site kept from
+//! agents has its page published as one node, [`assisted::KEPT`], is never
+//! read, refuses every action on its nodes, and its address is said as
+//! the same words wherever alo's own tree would say it
+//! ([`assisted::hide_kept`]). When the bus begins and stops listening is a
+//! line each in the record, with the time.
 
 use super::ConversationWindow;
 use crate::agent_gate::Question;
+use crate::agent_sites::AgentSites;
 use crate::assisted::{
-    self, Asked, Assist, FromTheBus, PageRead, Published, PublishedPage, PublishedPart,
+    self, Asked, Assist, FromTheBus, KeptAddresses, PageRead, Published, PublishedPage,
+    PublishedPart,
 };
 use crate::assisted_page::{PageHeard, PageReader};
 use crate::assisted_record::AssistedRecord;
@@ -53,6 +68,9 @@ use crate::conversation_place::ConversationPlacement;
 use crate::typing::Edit;
 use alo_box::BoxId;
 use alo_renderer::Snapshot;
+use alo_renderer::settings_bus::Bus;
+use alo_renderer::turn::Turn;
+use alo_url::Url;
 
 /// What the card says a press from assistive technology that pays is: the
 /// line above its question, where alo's agent's says what was asked.
@@ -83,6 +101,9 @@ pub(super) struct Assisting {
     reading: (bool, bool),
     /// A press that pays, held for the person's yes.
     held: Option<HeldPress>,
+    /// The sites agents may reach, as the person named them: a card on
+    /// any other is kept from the bus too (queue item 989).
+    sites: AgentSites,
 }
 
 /// A press from assistive technology on the card's page, held for the
@@ -104,6 +125,9 @@ impl ConversationWindow {
     pub(super) fn bus_said(&mut self, from: FromTheBus) {
         match from {
             FromTheBus::Active => {
+                if !self.assisting.active {
+                    self.listening_said(true);
+                }
                 self.assisting.active = true;
                 self.assisting.fresh = true;
                 self.assisting.changed = true;
@@ -112,13 +136,86 @@ impl ConversationWindow {
                 }
                 self.read_page();
             }
-            FromTheBus::Inactive => self.assisting.active = false,
-            FromTheBus::Asked(asked) => self.assist_asked(asked),
-            FromTheBus::Page { node, assist } => self.assist_the_page(node, assist),
+            FromTheBus::Inactive => {
+                if self.assisting.active {
+                    self.listening_said(false);
+                }
+                self.assisting.active = false;
+            }
+            FromTheBus::Asked(asked) => match self.untaken() {
+                Some(why) => self.assisted_did(&format!(
+                    "{} on node {} of {} was refused: {why}",
+                    asked.assist,
+                    asked.node.as_usize(),
+                    asked.part
+                )),
+                None => self.assist_asked(asked),
+            },
+            FromTheBus::Page { node, assist } => match self.untaken() {
+                Some(why) => self.assisted_did(&format!(
+                    "{assist} on node {} of the card's page was refused: {why}",
+                    node.as_usize()
+                )),
+                None => self.assist_the_page(node, assist),
+            },
             FromTheBus::Refused(refused) => {
                 self.assisted_did(&format!("{} was refused: {}", refused.action, refused.why));
             }
         }
+    }
+
+    /// Why no action from the bus is taken now, if none is: *Settings ›
+    /// Screen readers* is not *Read and act* (queue item 989).
+    fn untaken(&self) -> Option<&'static str> {
+        match self.conversation.settings().bus() {
+            Bus::ReadAndAct => None,
+            Bus::ReadOnly => Some("Settings › Screen readers is set to Read only"),
+            Bus::Off => Some("Settings › Screen readers is set to Off"),
+        }
+    }
+
+    /// Write that the bus began listening, when `began`, or stopped — with
+    /// the time, never which program — and say it.
+    fn listening_said(&mut self, began: bool) {
+        let line = self
+            .assisting
+            .record
+            .listening(began, std::time::SystemTime::now());
+        self.said.push(line);
+    }
+
+    /// *Settings › Screen readers* changed by a person's press: used at
+    /// once — published again as it now says, and the card's page read
+    /// again if it is published once more.
+    pub(super) fn bus_chosen(&mut self) {
+        self.assisting.changed = true;
+        self.read_page();
+    }
+
+    /// Whether the card shown is on a site kept from agents.
+    fn card_kept(&self) -> bool {
+        self.conversation
+            .card()
+            .is_some_and(|card| !self.assisting.sites.allows(&card.url))
+    }
+
+    /// The address of every page the chat on screen shows or showed: the
+    /// card's, and each earlier page's.
+    fn addresses_on_screen(&self) -> Vec<&Url> {
+        self.conversation
+            .thread()
+            .map(|thread| {
+                thread
+                    .turns()
+                    .iter()
+                    .filter_map(|turn| match turn {
+                        Turn::Page(card) => Some(&card.url),
+                        Turn::Visited { url, .. } => Some(url),
+                        _ => None,
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
     }
 
     /// `asked`, checked against the tree its part last answered, and sent to
@@ -161,6 +258,21 @@ impl ConversationWindow {
     /// What `assist` on a node of `part` was decided to be: acted on as a
     /// person's press decided the same is, and written.
     pub(super) fn assisted(&mut self, part: Part, assist: Assist, decided: Decided) {
+        // *Settings* may have changed while it was decided.
+        if let Some(why) = self.untaken() {
+            self.assisted_did(&format!("{assist} on {part} was refused: {why}"));
+            return;
+        }
+        // The switch itself is a person's alone to press (ADR 0115, *Phase
+        // (c)'s guard*, (a); ADR 0026's rule for grants).
+        if let Decided::Bus(bus) = decided {
+            self.assisted_did(&format!(
+                "{assist} on {part} was refused: it came to {}'s choice of Settings › \
+                 Screen readers, which only a person's own press there changes",
+                bus.said()
+            ));
+            return;
+        }
         let on_a_field = matches!(decided, Decided::TheBox | Decided::SearchChats);
         if !matches!(assist, Assist::Click) && !on_a_field {
             self.assisted_did(&format!(
@@ -195,6 +307,15 @@ impl ConversationWindow {
         &self.assisting.record
     }
 
+    /// The same window, a card on any site but `sites` kept from the bus as
+    /// it is from agents (queue item 989): those the person named with
+    /// `--agent-site`.
+    #[must_use]
+    pub fn with_agent_sites(mut self, sites: AgentSites) -> Self {
+        self.assisting.sites = sites;
+        self
+    }
+
     /// The same window, its card's page read and acted on for the bus by
     /// `reader` (ADR 0115 § 3, queue item 988).
     #[must_use]
@@ -206,7 +327,12 @@ impl ConversationWindow {
     /// Read the card's page for the bus, if it listens and a card shows a
     /// page: now, or once the read under way is answered.
     pub(super) fn read_page(&mut self) {
-        if !self.assisting.active || self.conversation.card().is_none() {
+        // Nothing read that is not published (queue item 989).
+        if !self.assisting.active
+            || self.conversation.card().is_none()
+            || !self.conversation.settings().bus().publishes()
+            || self.card_kept()
+        {
             return;
         }
         let Some(reader) = &self.assisting.reader else {
@@ -313,10 +439,13 @@ impl ConversationWindow {
         }
         let found = match &self.assisting.page {
             Some(PageRead::Tree(tree)) => assisted::find(tree, node),
-            Some(PageRead::TooLarge) | None => None,
+            Some(PageRead::TooLarge | PageRead::Kept) | None => None,
         };
         let refused = match found {
             _ if self.conversation.card().is_none() => Some("no card's page is shown"),
+            // A node read before the card went to a kept site is no node of
+            // its page now.
+            _ if self.card_kept() => Some("the card's page is kept from agents"),
             None => Some("no node of that number is published"),
             Some(found) if !assisted::offers(found).holds(&assist) => {
                 Some("that node is not offered it")
@@ -439,6 +568,23 @@ impl ConversationWindow {
                 scene.scale.factor(),
             )
         };
+        // *Off* (queue item 989): the window alone.
+        if !self.conversation.settings().bus().publishes() {
+            self.assisting.changed = false;
+            return Some(Published {
+                scale,
+                panel: None,
+                start: None,
+                page: None,
+                keyboard: None,
+                fresh: core::mem::take(&mut self.assisting.fresh),
+            });
+        }
+        let kept = KeptAddresses::of(&self.assisting.sites, self.addresses_on_screen());
+        let hidden = |mut tree: Snapshot| {
+            assisted::hide_kept(&mut tree, &kept);
+            tree
+        };
         let keyboard = if self.conversation.settings().is_open() {
             None
         } else {
@@ -447,7 +593,12 @@ impl ConversationWindow {
                 Field::SearchChats => Part::Panel,
             })
         };
-        let page = self.assisting.page.clone().and_then(|read| {
+        let read = if self.card_kept() {
+            Some(PageRead::Kept)
+        } else {
+            self.assisting.page.clone()
+        };
+        let page = read.and_then(|read| {
             self.page_box_in_the_window()
                 .map(|at| PublishedPage { at, read })
         });
@@ -457,11 +608,11 @@ impl ConversationWindow {
             scale,
             panel: self.assisting.panel.clone().map(|tree| PublishedPart {
                 at: placed.panel,
-                tree,
+                tree: hidden(tree),
             }),
             start: self.assisting.start.clone().map(|tree| PublishedPart {
                 at: placed.start,
-                tree,
+                tree: hidden(tree),
             }),
             page,
             keyboard,
@@ -473,6 +624,7 @@ impl ConversationWindow {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::agent_sites::AgentSites;
     use crate::beside::Chromium;
     use crate::conversation_chrome::ChromeOpener;
     use crate::conversation_drawing::{ConversationDrawing, Drawn};
@@ -605,7 +757,8 @@ mod tests {
             action: "ScrollToPoint".to_owned(),
             why: "it carries a point",
         })));
-        let written: Vec<&str> = window.assisted_record().entries().collect();
+        // After the line saying the bus began listening (queue item 989).
+        let written: Vec<&str> = window.assisted_record().entries().skip(1).collect();
         assert_eq!(
             written,
             [
@@ -755,8 +908,13 @@ mod tests {
     /// What the reader tells, handed to the window, to the first that is
     /// not a read — or, before anything was acted on, the first read.
     fn next(window: &mut ConversationWindow, told: &std::sync::mpsc::Receiver<PageHeard>) {
-        let first =
-            window.assisted_record().entries().count() == 0 && window.assisting.page.is_none();
+        // The line saying the bus began listening is no action (queue item
+        // 989).
+        let first = window
+            .assisted_record()
+            .entries()
+            .all(|line| line.contains("the accessibility bus began listening"))
+            && window.assisting.page.is_none();
         loop {
             let heard = told
                 .recv_timeout(std::time::Duration::from_secs(10))
@@ -856,7 +1014,8 @@ mod tests {
             acted.lock().map(|acted| acted.clone()).unwrap_or_default(),
             [alo_agent::Verb::Activate, alo_agent::Verb::Activate]
         );
-        let written: Vec<&str> = window.assisted_record().entries().collect();
+        // After the line saying the bus began listening (queue item 989).
+        let written: Vec<&str> = window.assisted_record().entries().skip(1).collect();
         assert_eq!(
             written,
             [
@@ -923,6 +1082,230 @@ mod tests {
         assert!(
             acted.lock().is_ok_and(|acted| acted.is_empty()),
             "nothing pressed"
+        );
+    }
+
+    /// The window giving the bus `bus`, as *Settings* would.
+    fn giving(mut window: ConversationWindow, bus: Bus) -> ConversationWindow {
+        window.conversation = std::mem::take(&mut window.conversation).giving_the_bus(bus);
+        window
+    }
+
+    /// Queue item 989: under *Read only* every action the bus asks is
+    /// refused and written, alo's own and the card's page's alike, and
+    /// nothing is done; the tree is still published.
+    #[test]
+    fn read_only_refuses_every_action_and_writes_each() {
+        let mut window = giving(window(), Bus::ReadOnly);
+        window.heard(Heard::Bus(FromTheBus::Active));
+        read(&mut window);
+        let chats = window.conversation().showing().chats.len();
+        window.heard(asked(Part::Panel, 12, Assist::Click));
+        window.heard(asked(Part::Start, 40, Assist::SetValue("porto".to_owned())));
+        window.heard(Heard::Bus(FromTheBus::Page {
+            node: BoxId::from_wire(7),
+            assist: Assist::Click,
+        }));
+        // Decided after *Settings* changed: refused too.
+        window.heard(Heard::Drawn(Drawn::Assisted(
+            Part::Panel,
+            Assist::Click,
+            Box::new(Decided::NewChat),
+        )));
+        assert_eq!(window.conversation().showing().chats.len(), chats);
+        assert_eq!(window.conversation().field(Field::TheBox).text(), "");
+        let written: Vec<&str> = window.assisted_record().entries().skip(1).collect();
+        assert_eq!(
+            written,
+            [
+                "assistive technology: a press on node 12 of the chats panel was refused: \
+                 Settings › Screen readers is set to Read only",
+                "assistive technology: text put in, 5 characters on node 40 of the first screen \
+                 was refused: Settings › Screen readers is set to Read only",
+                "assistive technology: a press on node 7 of the card's page was refused: \
+                 Settings › Screen readers is set to Read only",
+                "assistive technology: a press on the chats panel was refused: Settings › \
+                 Screen readers is set to Read only",
+            ]
+        );
+        let published = window.take_published().expect("still published");
+        assert!(published.panel.is_some() && published.start.is_some());
+    }
+
+    /// Queue item 989: *Off* publishes the window alone — no part, no page
+    /// — refuses every action, and a person's press on *Read and act*
+    /// publishes everything again at once.
+    #[test]
+    fn off_publishes_the_window_alone_until_a_person_chooses_otherwise() {
+        let mut window = giving(window(), Bus::Off);
+        window.heard(Heard::Bus(FromTheBus::Active));
+        read(&mut window);
+        let published = window.take_published().expect("the window");
+        assert_eq!(
+            (
+                published.panel.is_none(),
+                published.start.is_none(),
+                published.page.is_none(),
+                published.keyboard
+            ),
+            (true, true, true, None)
+        );
+        window.heard(asked(Part::Panel, 12, Assist::Click));
+        assert!(
+            window
+                .assisted_record()
+                .entries()
+                .last()
+                .is_some_and(|line| line.ends_with("is set to Off")),
+            "{:?}",
+            window.assisted_record()
+        );
+        // A person's own press on *Read and act*.
+        window.heard(Heard::Drawn(Drawn::Pressed(
+            Part::Start,
+            Decided::Bus(Bus::ReadAndAct),
+        )));
+        assert_eq!(window.conversation().settings().bus(), Bus::ReadAndAct);
+        let published = window.take_published().expect("everything again");
+        assert!(published.panel.is_some() && published.start.is_some());
+    }
+
+    /// Queue item 989: a press from the bus that comes to the switch is
+    /// refused, whichever choice it is on — only a person's press changes
+    /// it.
+    #[test]
+    fn a_press_from_the_bus_on_the_switch_itself_is_refused() {
+        let mut window = window();
+        for bus in Bus::ALL {
+            window.heard(Heard::Drawn(Drawn::Assisted(
+                Part::Start,
+                Assist::Click,
+                Box::new(Decided::Bus(bus)),
+            )));
+            assert_eq!(window.conversation().settings().bus(), Bus::ReadAndAct);
+        }
+        assert_eq!(
+            window.assisted_record().entries().last(),
+            Some(
+                "assistive technology: a press on the first screen was refused: it came to \
+                 Off's choice of Settings › Screen readers, which only a person's own press \
+                 there changes"
+            )
+        );
+        assert_eq!(window.assisted_record().entries().count(), 3);
+    }
+
+    /// Queue item 989: one line as the bus begins listening and one as it
+    /// stops, with the time; asked again while it listens, and a hundred
+    /// frames read meanwhile, no more.
+    #[test]
+    fn the_bus_beginning_and_stopping_listening_are_written_once_each() {
+        let mut window = window();
+        window.heard(Heard::Bus(FromTheBus::Active));
+        window.heard(Heard::Bus(FromTheBus::Active));
+        for _ in 0..100 {
+            read(&mut window);
+            let _ = window.take_published();
+        }
+        window.heard(Heard::Bus(FromTheBus::Inactive));
+        window.heard(Heard::Bus(FromTheBus::Inactive));
+        let written: Vec<&str> = window.assisted_record().entries().collect();
+        assert_eq!(written.len(), 2, "{written:?}");
+        assert!(
+            written[0].starts_with("assistive technology: the accessibility bus began listening, ")
+                && written[0].ends_with(" GMT"),
+            "{written:?}"
+        );
+        assert!(
+            written[1]
+                .starts_with("assistive technology: the accessibility bus stopped listening, "),
+            "{written:?}"
+        );
+    }
+
+    /// Queue item 989 (ADR 0115, *Phase (c)'s guard*, (b)): agents kept to
+    /// `example.com`, a card on `shop.example` has its page published as
+    /// one node, *this page is kept from agents*, is never read for the
+    /// bus, refuses a node of the page read before, and its address is
+    /// said nowhere; the card on the named site is published whole again.
+    #[test]
+    fn a_card_on_a_kept_site_is_one_node_and_its_address_is_said_nowhere() {
+        let (window, told, acted) = with_the_checkout();
+        let mut window =
+            window.with_agent_sites(AgentSites::named(["https://example.com"]).unwrap());
+        // The page as it was read before the card was judged kept: never
+        // published while it is.
+        next(&mut window, &told);
+        let start = Snapshot {
+            root: Some({
+                let mut region = node(41, KnownRole::Region, "shop.example/", false);
+                region.children = vec![
+                    node(42, KnownRole::Text, "shop.example", false),
+                    node(
+                        43,
+                        KnownRole::Image,
+                        alo_renderer::card_document::PICTURED,
+                        false,
+                    ),
+                ];
+                region
+            }),
+        };
+        window.heard(Heard::Drawn(Drawn::Tree(Part::Start, Box::new(start))));
+        let published = window.take_published().expect("published");
+        let page = published.page.expect("the page's graft");
+        assert_eq!(page.read, PageRead::Kept);
+        let names: Vec<Option<String>> = published
+            .start
+            .expect("the first screen")
+            .tree
+            .nodes()
+            .into_iter()
+            .map(|node| node.name.clone())
+            .collect();
+        assert_eq!(
+            names,
+            [
+                Some(assisted::KEPT.to_owned()),
+                Some(assisted::KEPT.to_owned()),
+                Some(alo_renderer::card_document::PICTURED.to_owned()),
+            ]
+        );
+        // Nothing asked of the page for the bus while it is kept.
+        window.read_page();
+        assert!(
+            told.recv_timeout(std::time::Duration::from_millis(500))
+                .is_err()
+        );
+        window.heard(Heard::Bus(FromTheBus::Page {
+            node: BoxId::from_wire(8),
+            assist: Assist::Click,
+        }));
+        assert_eq!(
+            window.assisted_record().entries().last(),
+            Some(
+                "assistive technology: a press on node 8 of the card's page was refused: the \
+                 card's page is kept from agents"
+            )
+        );
+        assert!(acted.lock().is_ok_and(|acted| acted.is_empty()));
+        // On the site named: read, and published whole.
+        window.heard(Heard::Chrome(crate::conversation_chrome::Went::Opening(
+            alo_url::parse("https://example.com/").unwrap(),
+        )));
+        window.heard(Heard::Chrome(crate::conversation_chrome::Went::Framed(
+            vec![1],
+        )));
+        let heard = told
+            .recv_timeout(std::time::Duration::from_secs(10))
+            .expect("the reader tells");
+        window.heard(Heard::Page(heard));
+        read(&mut window);
+        let published = window.take_published().expect("published");
+        assert!(
+            published
+                .page
+                .is_some_and(|page| matches!(page.read, PageRead::Tree(_)))
         );
     }
 }

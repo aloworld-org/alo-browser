@@ -38,6 +38,7 @@ use crate::card::Card;
 use crate::card_menu::{CardMenu, MenuItem};
 use crate::conversation_scroll::{Bar, MOST};
 use crate::results::MOST_PICTURE_BYTES;
+use crate::settings_bus::Bus;
 use crate::settings_privacy::{Banners, Cookies, Privacy, SignInsShown};
 use crate::settings_services::{
     Entry, EntryRow, LONGEST_TYPED, MOST_DOTS, ServicePress, ServicesShown, Typed,
@@ -64,28 +65,7 @@ impl Writer {
         self.float(start.viewport.height);
         self.float(start.scale);
         self.face(start.face);
-        // *Settings* and what of it the keyboard is on (queue item 856), in
-        // one byte: not it, it, its *Close* (886), its *Font*.
-        self.tag(match (start.settings, start.settings_keyed) {
-            (false, _) => 0,
-            (true, None) => 1,
-            (true, Some(SettingsKeyed::Close)) => 2,
-            (true, Some(SettingsKeyed::Font)) => 3,
-            // *alo at work*'s three (queue item 878).
-            (true, Some(SettingsKeyed::Sites)) => 4,
-            (true, Some(SettingsKeyed::Actions)) => 5,
-            (true, Some(SettingsKeyed::Asks)) => 6,
-            // *Search and answers* (queue item 905), what of it after.
-            (true, Some(SettingsKeyed::Service(_))) => 7,
-            // *Privacy*'s two (queue item 920).
-            (true, Some(SettingsKeyed::Cookies)) => 8,
-            (true, Some(SettingsKeyed::Banners)) => 9,
-            // *Forget all sign-ins* (ADR 0111).
-            (true, Some(SettingsKeyed::ForgetSignIns)) => 10,
-        });
-        if let (true, Some(SettingsKeyed::Service(on))) = (start.settings, start.settings_keyed) {
-            self.service_press(on);
-        }
+        self.settings_keyed(start.settings, start.settings_keyed);
         // How far alo's agent may go (queue item 878).
         self.number(u64::from(start.limits.sites));
         self.number(u64::from(start.limits.actions));
@@ -173,6 +153,48 @@ impl Writer {
             self.services(services);
         }
         self.privacy(start.privacy, start.sign_ins);
+        self.bus(start.bus);
+    }
+
+    /// *Settings* and what of it the keyboard is on (queue item 856), in
+    /// one byte: not it, it, its *Close* (886), its *Font*, and on — then,
+    /// on something of *Search and answers*, which.
+    fn settings_keyed(&mut self, settings: bool, keyed: Option<SettingsKeyed>) {
+        self.tag(match (settings, keyed) {
+            (false, _) => 0,
+            (true, None) => 1,
+            (true, Some(SettingsKeyed::Close)) => 2,
+            (true, Some(SettingsKeyed::Font)) => 3,
+            // *alo at work*'s three (queue item 878).
+            (true, Some(SettingsKeyed::Sites)) => 4,
+            (true, Some(SettingsKeyed::Actions)) => 5,
+            (true, Some(SettingsKeyed::Asks)) => 6,
+            // *Search and answers* (queue item 905), what of it after.
+            (true, Some(SettingsKeyed::Service(_))) => 7,
+            // *Privacy*'s two (queue item 920).
+            (true, Some(SettingsKeyed::Cookies)) => 8,
+            (true, Some(SettingsKeyed::Banners)) => 9,
+            // *Forget all sign-ins* (ADR 0111).
+            (true, Some(SettingsKeyed::ForgetSignIns)) => 10,
+            // *Screen readers* (ADR 0115, queue item 989).
+            (true, Some(SettingsKeyed::Bus)) => 11,
+        });
+        if let (true, Some(SettingsKeyed::Service(on))) = (settings, keyed) {
+            self.service_press(on);
+        }
+    }
+
+    /// *Screen readers* (queue item 989), if it is drawn: its choice by
+    /// its place.
+    fn bus(&mut self, bus: Option<Bus>) {
+        self.bool(bus.is_some());
+        if let Some(bus) = bus {
+            self.tag(match bus {
+                Bus::ReadAndAct => 0,
+                Bus::ReadOnly => 1,
+                Bus::Off => 2,
+            });
+        }
     }
 
     /// *Privacy* (queue item 920), if it is drawn: each choice by its
@@ -420,6 +442,7 @@ impl Reader<'_> {
         let settings_bar = self.bar()?;
         let services = self.services_drawn(settings_keyed)?;
         let (privacy, sign_ins) = self.privacy_drawn(settings_keyed)?;
+        let bus = self.bus_drawn(settings_keyed)?;
         Ok(Start {
             greeting,
             sites,
@@ -444,7 +467,33 @@ impl Reader<'_> {
             services,
             privacy,
             sign_ins,
+            bus,
         })
+    }
+
+    /// *Screen readers*, if it is drawn — refused if the keyboard is on
+    /// it as `keyed` says and it is not (queue item 989).
+    fn bus_drawn(&mut self, keyed: Option<SettingsKeyed>) -> Result<Option<Bus>, Unreadable> {
+        let bus = if self.bool()? {
+            Some(match self.tag()? {
+                0 => Bus::ReadAndAct,
+                1 => Bus::ReadOnly,
+                2 => Bus::Off,
+                other => {
+                    return Err(unreadable(format!(
+                        "a choice of the accessibility bus tagged {other}"
+                    )));
+                }
+            })
+        } else {
+            None
+        };
+        if bus.is_none() && keyed == Some(SettingsKeyed::Bus) {
+            return Err(unreadable(
+                "the keyboard on a section of Settings not drawn",
+            ));
+        }
+        Ok(bus)
     }
 
     /// *Privacy*, if it is drawn — refused if the keyboard is on it as
@@ -509,6 +558,7 @@ impl Reader<'_> {
             8 => (true, Some(SettingsKeyed::Cookies)),
             9 => (true, Some(SettingsKeyed::Banners)),
             10 => (true, Some(SettingsKeyed::ForgetSignIns)),
+            11 => (true, Some(SettingsKeyed::Bus)),
             other => return Err(unreadable(format!("a Settings tagged {other}"))),
         })
     }

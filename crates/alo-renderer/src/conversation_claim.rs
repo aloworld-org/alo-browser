@@ -275,6 +275,12 @@ pub enum Claim {
         /// Its place.
         at: usize,
     },
+    /// The choice *Screen readers* offers at this place, counting from
+    /// zero (ADR 0115, queue item 989).
+    Bus {
+        /// Its place.
+        at: usize,
+    },
 }
 
 impl Claim {
@@ -319,6 +325,7 @@ impl Claim {
             | Claim::Asks { .. }
             | Claim::Service { .. }
             | Claim::Privacy { .. }
+            | Claim::Bus { .. }
             | Claim::Shield => Part::Start,
         }
     }
@@ -368,6 +375,10 @@ impl fmt::Display for Claim {
                 write!(f, "what Settings' Search and answers offers at place {at}")
             }
             Claim::Privacy { at } => write!(f, "the choice Settings' Privacy offers at place {at}"),
+            Claim::Bus { at } => write!(
+                f,
+                "the choice Settings' Screen readers offers at place {at}"
+            ),
         }
     }
 }
@@ -498,6 +509,16 @@ fn pressables(part: Part) -> &'static [(&'static [&'static str], Pressable)] {
                     "pbtn keyed",
                 ],
                 Pressable::Placed(|at| Claim::Privacy { at }),
+            ),
+            // *Screen readers* (ADR 0115, queue item 989): each choice
+            // by its place among them, ringed or not.
+            (
+                &[
+                    "privopt busopt",
+                    "privopt busopt on",
+                    "privopt busopt on keyed",
+                ],
+                Pressable::Placed(|at| Claim::Bus { at }),
             ),
             // An offer for what was typed, whichever is chosen and whether
             // it is set up (queue item 714).

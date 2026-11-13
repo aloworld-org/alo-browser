@@ -1331,7 +1331,8 @@ fn a_conversation_the_renderer_should_not_draw_is_refused() {
         refused(&far)
     );
     // A turn tagged as nothing this engine draws: the tag after the turns'
-    // count, rewritten — back past what *Privacy*'s *Sign-ins* says (ADR
+    // count, rewritten — back past *Screen readers*'s flag (queue item
+    // 989), what *Privacy*'s *Sign-ins* says (ADR
     // 0111), *Privacy*'s flag (queue item 920),
     // *Search and answers*' flag (queue item
     // 905), *Settings*' bar's flag and its offset (queue item 886), the
@@ -1346,7 +1347,7 @@ fn a_conversation_the_renderer_should_not_draw_is_refused() {
     ));
     let tag = bytes
         .len()
-        .checked_sub(1 + 1 + 1 + 1 + 4 + 1 + 4 + 2 * 8 + 1)
+        .checked_sub(1 + 1 + 1 + 1 + 1 + 4 + 1 + 4 + 2 * 8 + 1)
         .unwrap_or_else(|| panic!("a turn was written"));
     let _ = bytes.get(tag).map(|written| assert_eq!(*written, 3));
     if let Some(written) = bytes.get_mut(tag) {
@@ -1446,6 +1447,8 @@ fn every_claim_on_the_conversation_survives_the_crossing() {
         FromRenderer::ConversationClaimed(Some(ConversationClaim::LeaveSettings)),
         // Queue item 920: a choice *Privacy* offers.
         FromRenderer::ConversationClaimed(Some(ConversationClaim::Privacy { at: 4 })),
+        // Queue item 989: a choice *Screen readers* offers.
+        FromRenderer::ConversationClaimed(Some(ConversationClaim::Bus { at: 2 })),
     ];
     for original in messages {
         let bytes = write_from_renderer(&original);
@@ -3275,7 +3278,8 @@ fn settings_and_where_the_keyboard_is_on_it_cross_and_nothing_else_does() {
     assert_eq!(differing.len(), 1, "{differing:?}");
     let at = differing.first().copied().unwrap_or_default();
     assert_eq!((back.get(at), font.get(at)), (Some(&2), Some(&3)));
-    for hostile in [11_u8, 255] {
+    // Tags to 11 are written (11, *Screen readers*, queue item 989).
+    for hostile in [12_u8, 255] {
         let mut bytes = font.clone();
         if let Some(byte) = bytes.get_mut(at) {
             *byte = hostile;
@@ -3405,15 +3409,16 @@ fn privacy_and_a_cards_cookie_banner_cross_as_sent() {
             "{refused}"
         );
     }
-    // The two bytes before the last are the choices: a third banners' is
-    // no tag; the last is what *Sign-ins* says, and a sixth is none.
+    // The two bytes before the last two are the choices: a third banners'
+    // is no tag; then what *Sign-ins* says, and a sixth is none — and last
+    // *Screen readers*'s flag (queue item 989).
     let written = write_to_renderer(&ToRenderer::Start(Box::new(Start {
         settings: true,
         privacy: Some(Privacy::default()),
         ..Start::default()
     })));
     let mut bytes = written.clone();
-    let banners = bytes.len().saturating_sub(2);
+    let banners = bytes.len().saturating_sub(3);
     if let Some(byte) = bytes.get_mut(banners) {
         *byte = 2;
     }
@@ -3423,8 +3428,9 @@ fn privacy_and_a_cards_cookie_banner_cross_as_sent() {
         "{refused}"
     );
     let mut bytes = written;
-    if let Some(last) = bytes.last_mut() {
-        *last = 5;
+    let sign_ins = bytes.len().saturating_sub(2);
+    if let Some(byte) = bytes.get_mut(sign_ins) {
+        *byte = 5;
     }
     let refused = read_to_renderer(&bytes).expect_err("refused");
     assert!(
@@ -3451,6 +3457,57 @@ fn privacy_and_a_cards_cookie_banner_cross_as_sent() {
             Some(crossing.clone())
         );
     }
+}
+
+/// Queue item 989: *Screen readers*'s choice crosses as itself, the
+/// keyboard on its group or not; the keyboard on it while it is not drawn
+/// is refused, and so is a choice of a tag no writer writes.
+#[test]
+fn the_accessibility_bus_choice_crosses_as_sent() {
+    use alo_renderer::settings_bus::Bus;
+    for bus in Bus::ALL {
+        for keyed in [None, Some(SettingsKeyed::Bus)] {
+            let crossing = ToRenderer::Start(Box::new(Start {
+                settings: true,
+                settings_keyed: keyed,
+                bus: Some(bus),
+                ..Start::default()
+            }));
+            assert_eq!(
+                read_to_renderer(&write_to_renderer(&crossing)).ok(),
+                Some(crossing.clone())
+            );
+        }
+    }
+    let refused = read_to_renderer(&write_to_renderer(&ToRenderer::Start(Box::new(Start {
+        settings: true,
+        settings_keyed: Some(SettingsKeyed::Bus),
+        ..Start::default()
+    }))))
+    .expect_err("refused");
+    assert!(
+        refused
+            .to_string()
+            .contains("the keyboard on a section of Settings not drawn"),
+        "{refused}"
+    );
+    // The last byte is the choice: a fourth is no tag.
+    let mut bytes = write_to_renderer(&ToRenderer::Start(Box::new(Start {
+        settings: true,
+        bus: Some(Bus::Off),
+        ..Start::default()
+    })));
+    if let Some(last) = bytes.last_mut() {
+        assert_eq!(*last, 2);
+        *last = 3;
+    }
+    let refused = read_to_renderer(&bytes).expect_err("refused");
+    assert!(
+        refused
+            .to_string()
+            .contains("a choice of the accessibility bus tagged 3"),
+        "{refused}"
+    );
 }
 
 /// Queue item 886: over a conversation scrolled its own way, *Settings*

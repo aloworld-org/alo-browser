@@ -5,8 +5,11 @@
 //! alo's window read and pressed through macOS's accessibility API as
 //! another program would — `osascript` asking System Events — shared by
 //! the window's own interface (`the_conversation_window_on_the_accessibility_bus.rs`,
-//! queue item 987) and a card's page grafted under it
-//! (`a_cards_page_on_the_accessibility_bus_through_chrome.rs`, item 988).
+//! queue item 987), a card's page grafted under it
+//! (`a_cards_page_on_the_accessibility_bus_through_chrome.rs`, item 988),
+//! and the guard on both (`the_accessibility_bus_switched_in_settings.rs`
+//! and `a_kept_sites_card_on_the_accessibility_bus_through_chrome.rs`,
+//! item 989).
 //!
 //! Every wait is bounded ([`AT_MOST`], [`ONE_ASK`]): queue item 986 saw a
 //! shown-Chrome test hang twelve hours on a locked screen. A Mac that
@@ -137,7 +140,8 @@ pub struct Seen {
 }
 
 impl Seen {
-    fn of(line: &str) -> Option<Self> {
+    /// One line of [`WALK`]'s, read.
+    pub fn of(line: &str) -> Option<Self> {
         let fields: Vec<&str> = line.split('|').collect();
         let [role, title, value, x, y, width, height, actions] = fields.as_slice() else {
             return None;
@@ -166,8 +170,14 @@ pub struct Scratch(pub PathBuf);
 
 impl Scratch {
     pub fn new() -> Result<Self, String> {
+        Self::named("")
+    }
+
+    /// A scratch directory of its own for the test `name`, apart from
+    /// another test's of the same process.
+    pub fn named(name: &str) -> Result<Self, String> {
         use std::os::unix::fs::PermissionsExt;
-        let path = std::env::temp_dir().join(format!("alo-a11y-{}", std::process::id()));
+        let path = std::env::temp_dir().join(format!("alo-a11y-{}{name}", std::process::id()));
         let _ = std::fs::remove_dir_all(&path);
         std::fs::create_dir_all(path.join("data")).map_err(|why| why.to_string())?;
         std::fs::set_permissions(path.join("data"), std::fs::Permissions::from_mode(0o700))
@@ -234,7 +244,18 @@ impl Alo {
     /// Wait for alo to say a line `wanted` holds of — `what` — at most
     /// [`AT_MOST`]: that line.
     pub fn heard_that(&self, what: &str, wanted: impl Fn(&str) -> bool) -> Result<String, String> {
-        let by = Instant::now() + AT_MOST;
+        self.heard_within(what, wanted, AT_MOST)
+    }
+
+    /// Wait for alo to say a line `wanted` holds of — `what` — at most
+    /// `within`: that line.
+    pub fn heard_within(
+        &self,
+        what: &str,
+        wanted: impl Fn(&str) -> bool,
+        within: Duration,
+    ) -> Result<String, String> {
+        let by = Instant::now() + within;
         let mut heard = Vec::new();
         while let Some(left) = by.checked_duration_since(Instant::now()) {
             let Ok(said) = self.said.recv_timeout(left) else {

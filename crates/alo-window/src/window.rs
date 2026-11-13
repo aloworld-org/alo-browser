@@ -884,7 +884,9 @@ impl ApplicationHandler<ToFrame> for Framing<'_> {
 /// none, and the chats not kept. The card live
 /// is reached by agents as `reaching` says (queue item 716) — and its page
 /// by assistive technology through `assisted`, the same relay's orders
-/// (queue item 988, ADR 0115 § 3), when there is one — and `closing`
+/// (queue item 988, ADR 0115 § 3), when there is one, a card on a site
+/// outside `agent_sites` kept from it as from agents (queue item 989) —
+/// and `closing`
 /// is run as the window's event loop ends — quit included, after which
 /// `AppKit` ends the process (item 688) — once every card is closed. The
 /// address alo was `launched` at, if any, opens in a new chat once the
@@ -910,11 +912,11 @@ pub fn conversation(
         std::sync::Arc<crate::sign_ins::SignIns>,
         Option<crate::keychain::Keychain>,
     ),
-    (reaching, closing, agent, assisted): (
+    (reaching, closing, agent, (assisted, agent_sites)): (
         Reaching,
         Closing<'_>,
         Result<crate::conversation_agent::Agent, String>,
-        Option<crate::inbox::Orders>,
+        (Option<crate::inbox::Orders>, crate::agent_sites::AgentSites),
     ),
     launched: Option<alo_url::Url>,
 ) -> Result<(), String> {
@@ -966,7 +968,9 @@ pub fn conversation(
     let settings = chats.as_deref().ok().map(crate::settings_file::file_in);
     let read = settings_read(settings.as_deref());
     let window = ConversationWindow::new(forced, drawing, chrome);
-    let state = assisted_page(window, assisted, &event_loop)?
+    // A card on a site kept from agents is kept from the bus too (queue
+    // item 989, ADR 0115's guard).
+    let state = assisted_page(window.with_agent_sites(agent_sites), assisted, &event_loop)?
         .with_search(searcher)
         .with_agent(agent, tell_agent)
         .with_settings(read, settings)
@@ -1441,6 +1445,7 @@ fn settings_read(settings: Option<&std::path::Path>) -> crate::settings_file::Re
             limits: alo_renderer::agent_limits::Limits::default(),
             services: crate::services::Named::default(),
             privacy: alo_renderer::settings_privacy::Privacy::default(),
+            bus: alo_renderer::settings_bus::Bus::default(),
             said: None,
         },
         crate::settings_file::read,

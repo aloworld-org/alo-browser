@@ -345,7 +345,7 @@ fn in_the_conversation(opening: &Opening, chromium: Chromium, bundle: Option<&Bu
         chromium,
         (search, answer, defaults, keys),
         (chats, sign_ins, keeping.keychain.clone()),
-        (reaching, closing, agent, assisted),
+        (reaching, closing, agent, (assisted, opening.agents.clone())),
         opening.address.clone(),
     ) {
         Ok(()) => ExitCode::SUCCESS,

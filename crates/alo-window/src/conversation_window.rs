@@ -840,7 +840,8 @@ impl ConversationWindow {
         self.conversation = std::mem::take(&mut self.conversation)
             .set_in(read.face)
             .limited_to(read.limits)
-            .private_as(read.privacy);
+            .private_as(read.privacy)
+            .giving_the_bus(read.bus);
         // *Privacy*'s choices, for every Chromium started and every page
         // loaded from now (ADR 0108, queue item 920).
         crate::privacy_chosen::process().set(read.privacy);
@@ -1048,7 +1049,7 @@ impl ConversationWindow {
                 settings.face(),
                 settings.limits(),
                 &named,
-                settings.privacy(),
+                (settings.privacy(), settings.bus()),
             ),
             None => Err("there is nowhere to keep it".to_owned()),
         };
@@ -1079,12 +1080,18 @@ impl ConversationWindow {
         // at once — the next Chromium started, the next page loaded — and
         // kept beside the face.
         let private = self.conversation.take_privacy_changed();
-        if face.is_none() && !limited && !private {
+        // What alo gives the accessibility bus (queue item 989): used at
+        // once, whether or not it can be kept, and kept beside the face.
+        let bused = self.conversation.take_bus_changed();
+        if face.is_none() && !limited && !private && !bused {
             return;
         }
         let settings = self.conversation.settings();
         if private {
             crate::privacy_chosen::process().set(settings.privacy());
+        }
+        if bused {
+            self.bus_chosen();
         }
         let kept = match &self.settings {
             Some(file) => crate::settings_file::write(
@@ -1092,10 +1099,23 @@ impl ConversationWindow {
                 settings.face(),
                 settings.limits(),
                 self.conversation.services().named(),
-                settings.privacy(),
+                (settings.privacy(), settings.bus()),
             ),
             None => Err("there is nowhere to keep it".to_owned()),
         };
+        if bused && face.is_none() && !limited && !private {
+            let bus = settings.bus();
+            match kept {
+                Ok(()) => self.said.push(format!(
+                    "Screen readers: {}, as chosen in Settings",
+                    bus.said()
+                )),
+                Err(why) => self.tell(format!(
+                    "the accessibility bus's choice is used until alo quits, but not kept: {why}"
+                )),
+            }
+            return;
+        }
         let limits = settings.limits();
         if private && face.is_none() && !limited {
             let privacy = settings.privacy();
@@ -4567,6 +4587,7 @@ mod tests {
                     limits: five,
                     services: crate::services::Named::default(),
                     privacy: alo_renderer::settings_privacy::Privacy::default(),
+                    bus: alo_renderer::settings_bus::Bus::default(),
                     said: None,
                 },
                 None,
@@ -5022,6 +5043,45 @@ mod tests {
         // The process's choice, set by the press, put back for the rest of
         // this program's tests.
         crate::privacy_chosen::process().set(alo_renderer::settings_privacy::Privacy::default());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// Queue item 989: a choice of *Screen readers* pressed by a person
+    /// is kept in the settings file at once and read back as the next
+    /// window opens; *Read and act* again writes no `bus` line.
+    #[test]
+    fn a_bus_choice_pressed_is_kept_in_the_settings_file_and_read_back() {
+        use alo_renderer::settings_bus::Bus;
+        let root = std::env::temp_dir().join(format!("alo-window-bus-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let file = root.join("settings.txt");
+        let mut first =
+            window().with_settings(crate::settings_file::read(&file), Some(file.clone()));
+        first.heard(Heard::Drawn(Drawn::Pressed(Part::Panel, Decided::Settings)));
+        first.heard(Heard::Drawn(Drawn::Pressed(
+            Part::Start,
+            Decided::Bus(Bus::ReadOnly),
+        )));
+        let kept = std::fs::read_to_string(&file).unwrap_or_default();
+        assert!(kept.ends_with("asks never\nbus read\n"), "{kept}");
+        assert!(
+            first
+                .take_said()
+                .iter()
+                .any(|line| line == "Screen readers: Read only, as chosen in Settings"),
+        );
+        first.finish();
+        let next = window().with_settings(crate::settings_file::read(&file), Some(file.clone()));
+        assert_eq!(next.conversation().settings().bus(), Bus::ReadOnly);
+        let mut next = next;
+        next.heard(Heard::Drawn(Drawn::Pressed(Part::Panel, Decided::Settings)));
+        next.heard(Heard::Drawn(Drawn::Pressed(
+            Part::Start,
+            Decided::Bus(Bus::ReadAndAct),
+        )));
+        let kept = std::fs::read_to_string(&file).unwrap_or_default();
+        assert!(!kept.contains("bus"), "{kept}");
+        next.finish();
         let _ = std::fs::remove_dir_all(&root);
     }
 

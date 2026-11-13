@@ -139,6 +139,8 @@ pub mod scripts;
 pub mod scrolling_area;
 mod sent;
 pub mod serve;
+pub mod settings_bus;
+pub mod settings_bus_document;
 pub mod settings_document;
 pub mod settings_privacy;
 pub mod settings_privacy_document;

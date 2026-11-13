@@ -26788,7 +26788,7 @@ the rest runs on this Mac. Order: ADR 0112's *The plan, in order*.
   agents' actions); every action from the bus is, and is in the window's
   record of the bus too (`serving.rs`'s test: a thousand reads leave the
   record as it was, one action adds one entry).
-- [ ] **989. ADR 0115's guard, built where it can be: on this Mac.** The
+- [x] **989. ADR 0115's guard, built where it can be: on this Mac.** The
   owner's answers of 13 November 2026 (*Phase (c)'s guard*, *Answered*):
   a Settings switch for the accessibility bus — *Read and act* (the
   default), *Read only*, *Off* — changed only by a person's press in
@@ -26800,6 +26800,19 @@ the rest runs on this Mac. Order: ADR 0112's *The plan, in order*.
   *Read only* through System Events, a kept site's page and address absent
   through System Events, the two record lines — and the gate passes.
   Phase (c) on AT-SPI takes the same rules after 960.
+  *Built and gated 13 November 2026* (7203 tests): `settings_bus.rs` and
+  `settings_bus_document.rs` (the section, drawn by *Privacy*'s group,
+  claimed as `Claim::Bus`), `bus read|off` in `settings.txt`; the window's
+  guard in `conversation_window/assisted.rs` (*Read only* and *Off* refuse,
+  *Off* publishes the window alone, a press from the bus on the switch
+  refused), `assisted::KeptAddresses` and `hide_kept` (a kept card's page
+  one node, its address said as *this page is kept from agents*),
+  `AssistedRecord::listening`. Unit tests for the three settings, the
+  kept-site rule and the two lines; System Events tests
+  `the_accessibility_bus_switched_in_settings.rs` and
+  `a_kept_sites_card_on_the_accessibility_bus_through_chrome.rs` passed on
+  this Mac; reference `settings-accessibility-bus.png` new. ADR 0115, *The
+  guard, as built on this Mac*.
 
 ## After stage 4
 

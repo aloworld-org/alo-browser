@@ -104,7 +104,7 @@ pub fn make(
         document,
         ("cookies", COOKIES),
         &cookies,
-        keyed == Some(SettingsKeyed::Cookies),
+        (keyed == Some(SettingsKeyed::Cookies), CHOICE),
     )?;
     append(document, rows, row)?;
     let banners: Vec<Choice> = Banners::ALL
@@ -120,7 +120,7 @@ pub fn make(
         document,
         ("banners", BANNERS),
         &banners,
-        keyed == Some(SettingsKeyed::Banners),
+        (keyed == Some(SettingsKeyed::Banners), CHOICE),
     )?;
     append(document, rows, row)?;
     let row = signed_in(
@@ -158,25 +158,32 @@ fn signed_in(
     Ok(row)
 }
 
+/// The class each of *Privacy*'s choices is of: `privopt`, then ` on`
+/// when made and ` keyed` when the keyboard is on it.
+const CHOICE: &str = "privopt";
+
 /// One choice as it is drawn.
-struct Choice {
+pub(crate) struct Choice {
     /// Its words, and its radio's name.
-    said: &'static str,
+    pub(crate) said: &'static str,
     /// The quiet line under it, if any.
-    note: Option<&'static str>,
+    pub(crate) note: Option<&'static str>,
     /// Whether it is the one made.
-    made: bool,
+    pub(crate) made: bool,
     /// Whether it is the default, said after its words.
-    default: bool,
+    pub(crate) default: bool,
 }
 
 /// One row: its name over a radio group of `choices`, ringed at the one
-/// made when `keyed`.
-fn group(
+/// made when `keyed`, each choice of the class `kind` — drawn as
+/// *Privacy*'s, and shared with *Screen readers*
+/// ([`crate::settings_bus_document`]), whose choices are of a class of
+/// their own so a press on one is claimed as its own.
+pub(crate) fn group(
     document: &mut Document,
     (group_name, label): (&str, &str),
     choices: &[Choice],
-    keyed: bool,
+    (keyed, kind): (bool, &str),
 ) -> Result<NodeId, Unbuilt> {
     let row = element(document, "div")?;
     attribute(document, row, "class", "lrow prow")?;
@@ -191,11 +198,11 @@ fn group(
     for (at, choice) in choices.iter().enumerate() {
         let option = element(document, "div")?;
         let class = match (choice.made, keyed) {
-            (true, true) => "privopt on keyed",
-            (true, false) => "privopt on",
-            (false, _) => "privopt",
+            (true, true) => format!("{kind} on keyed"),
+            (true, false) => format!("{kind} on"),
+            (false, _) => kind.to_owned(),
         };
-        attribute(document, option, "class", class)?;
+        attribute(document, option, "class", &class)?;
         let radio = element(document, "input")?;
         attribute(document, radio, "class", "dot")?;
         attribute(document, radio, "type", "radio")?;
@@ -230,7 +237,12 @@ fn group(
 }
 
 /// An element `local` of `class` holding `said` as a text node.
-fn words(document: &mut Document, local: &str, class: &str, said: &str) -> Result<NodeId, Unbuilt> {
+pub(crate) fn words(
+    document: &mut Document,
+    local: &str,
+    class: &str,
+    said: &str,
+) -> Result<NodeId, Unbuilt> {
     let made = element(document, local)?;
     attribute(document, made, "class", class)?;
     let text = document.create_text_node(said);
