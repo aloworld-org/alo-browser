@@ -40,6 +40,7 @@ use crate::strip_claim::Claim;
 use crate::violations::Objection;
 use alo_agent::{Outcome, Refusal, Target, Verb};
 use alo_bindings::Visibility;
+use alo_box::BoxId;
 use alo_paint::Point;
 use core::fmt;
 
@@ -179,6 +180,19 @@ pub enum ToRenderer {
     /// is acted on. A renderer that holds neither part answers
     /// [`Failure::NotTheConversation`].
     ConversationHover(Point),
+    /// Assistive technology pressed this node of the chats panel or the
+    /// first screen, by its id in the tree the part last answered
+    /// [`ToRenderer::ReadTree`] with (ADR 0115 § 2, queue item 987): sent
+    /// only to the renderer that drew the part, only by the browser process.
+    ///
+    /// **A node, never a point** (ADR 0002): the renderer finds the node's
+    /// element in the drawing it holds and claims from it up as a press on
+    /// it would ([`crate::conversation_claim::claimed_node`]), answering
+    /// with [`FromRenderer::ConversationClaimed`] — nothing for an id it no
+    /// longer holds, which is the same node or nothing (ADR 0003). Nothing
+    /// is dispatched. A renderer that holds neither part answers
+    /// [`Failure::NotTheConversation`].
+    ConversationActivate(BoxId),
     /// Say how far the first screen's conversation reaches either side of
     /// its newest turn's top, as it was last laid out (queue item 703):
     /// answered with [`FromRenderer::ConversationReached`], measured from
@@ -561,6 +575,11 @@ impl fmt::Display for ToRenderer {
                 "the pointer over the chats panel at ({}, {})",
                 at.x, at.y
             ),
+            ToRenderer::ConversationActivate(node) => write!(
+                f,
+                "assistive technology pressed node {} of the chats panel or the first screen",
+                node.as_usize()
+            ),
             ToRenderer::ConversationReach => {
                 f.write_str("say how far the first screen's conversation reaches")
             }
@@ -677,6 +696,9 @@ mod tests {
             ToRenderer::ConversationPress(_) => "a person's press on the conversation",
             // Where a person's pointer is over the panel, and nothing else.
             ToRenderer::ConversationHover(_) => "a person's pointer over the panel",
+            // Which node of the part it drew assistive technology pressed,
+            // and nothing about any page.
+            ToRenderer::ConversationActivate(_) => "a node of the conversation pressed",
             // Nothing: a question about the part it holds.
             ToRenderer::ConversationReach
             | ToRenderer::FieldLaidOut

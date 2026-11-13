@@ -55,6 +55,18 @@
 //! drawing asked before it. A press on a part whose renderer had already
 //! gone is not sent, and its line is already said; one whose renderer goes
 //! as it is asked is said as a drawing's would be.
+//!
+//! # Assistive technology's
+//!
+//! Queue item 987, ADR 0115 § 2. Once the platform's accessibility bus asks
+//! for the window's tree ([`ConversationDrawing::read_trees`]), each part's
+//! renderer is asked for its tree at once and again after every frame it
+//! paints, and the window is told it ([`Drawn::Tree`]) — the tree that drew
+//! the frame, never a second one. What assistive technology asks of a node
+//! ([`ConversationDrawing::assist`]) is sent to that part's renderer by the
+//! node's id, claimed from the node as a press on it would be, and decided
+//! as a person's press is ([`Drawn::Assisted`]) — in order with presses and
+//! drawings, never dropped or merged.
 
 use crate::conversation::{ChatId, Pressed, Showing};
 use crate::conversation_picture::CardPictures;
@@ -136,6 +148,13 @@ pub enum Drawn {
         /// The number of the newest picture asked that it answers.
         number: u64,
     },
+    /// The part's tree, read from the drawing it just painted, or when the
+    /// bus first asked (queue item 987): told after that part's
+    /// [`Drawn::Painted`].
+    Tree(Part, Box<alo_renderer::Snapshot>),
+    /// What assistive technology's action on a node of the part was
+    /// decided to be, as a press on that node (queue item 987).
+    Assisted(Part, crate::assisted::Assist, Box<Pressed>),
 }
 
 /// A drawing of *Settings*, as its renderer measured it (queue item 880):
@@ -175,6 +194,11 @@ enum Work {
     /// The pointer is over the panel here, in its CSS pixels, no button
     /// held (queue item 789).
     Hover(Point),
+    /// Read both parts' trees now, and after every frame from here on
+    /// (queue item 987).
+    Read,
+    /// Assistive technology asked this of the part's node (queue item 987).
+    Assist(Part, alo_box::BoxId, crate::assisted::Assist),
 }
 
 /// A thread holding the panel's renderer and the first screen's.
@@ -225,6 +249,7 @@ impl ConversationDrawing {
             start: Held::at(start::site()),
             drawn: None,
             painted: Showing::default(),
+            reading: false,
         };
         let thread = std::thread::Builder::new()
             .name("alo-conversation".to_owned())
@@ -311,6 +336,25 @@ impl ConversationDrawing {
         }
     }
 
+    /// The bus asked for the window's tree (queue item 987): have each
+    /// part's read now, and after every frame it paints from here on.
+    /// Returns at once: each tree is told to the window.
+    pub fn read_trees(&mut self) {
+        if let Some(sender) = &self.asked {
+            let _ = sender.send(Work::Read);
+        }
+    }
+
+    /// Assistive technology asked `assist` of `node` of `part`, by its id
+    /// in the tree that part last answered (queue item 987): have it
+    /// claimed from the node and decided as a press. Returns at once: what
+    /// was decided is told to the window.
+    pub fn assist(&mut self, part: Part, node: alo_box::BoxId, assist: crate::assisted::Assist) {
+        if let Some(sender) = &self.asked {
+            let _ = sender.send(Work::Assist(part, node, assist));
+        }
+    }
+
     /// Stop the thread and wait for it, its renderers stopped with it:
     /// whether it ended rather than panicked, which the lints make
     /// unreachable and is said rather than assumed.
@@ -360,6 +404,9 @@ struct Holding {
     /// What each part showed when it last painted: the panel's chats, the
     /// first screen's sites, waiting chats and whether it showed a card.
     painted: Showing,
+    /// Whether the bus asked for the parts' trees, which are then read
+    /// after each frame (queue item 987).
+    reading: bool,
 }
 
 /// Do the work `asking` sends, in order — of the drawings waiting, only one
@@ -378,11 +425,22 @@ fn hold(mut holding: Holding, asking: &Receiver<Work>, tell: &TellConversation) 
         for (place, work) in waiting.into_iter().enumerate() {
             let said = match work {
                 Work::Draw(asked, number) if Some(place) == last_drawing => {
-                    let mut said = holding.draw(*asked);
+                    let drawn = holding.draw(*asked);
+                    let mut said = holding.with_trees(drawn);
                     said.push(Drawn::Through(number));
                     said
                 }
                 Work::Press(part, at) => holding.press(part, at).into_iter().collect(),
+                Work::Read => {
+                    holding.reading = true;
+                    [Part::Panel, Part::Start]
+                        .into_iter()
+                        .filter_map(|part| holding.tree(part))
+                        .collect()
+                }
+                Work::Assist(part, node, assist) => {
+                    holding.assist(part, node, assist).into_iter().collect()
+                }
                 Work::Hover(at) if Some(place) == last_hover => {
                     holding.hover(at).into_iter().collect()
                 }
@@ -669,6 +727,81 @@ impl Holding {
 }
 
 impl Holding {
+    /// `said`, each part's tree told after the frame it painted while the
+    /// bus asks for them (queue item 987): the tree that drew the frame.
+    fn with_trees(&mut self, said: Vec<Drawn>) -> Vec<Drawn> {
+        if !self.reading {
+            return said;
+        }
+        let mut told = Vec::with_capacity(said.len() + 2);
+        for drawn in said {
+            let painted = match &drawn {
+                Drawn::Painted(part, _) => Some(*part),
+                _ => None,
+            };
+            told.push(drawn);
+            told.extend(painted.and_then(|part| self.tree(part)));
+        }
+        told
+    }
+
+    /// Ask `part`'s renderer for its tree, as it last drew it (queue item
+    /// 987): what the window is told — nothing when it answered anything
+    /// but a tree, or had already gone; said, when it went as it was asked.
+    fn tree(&mut self, part: Part) -> Option<Drawn> {
+        let held = match part {
+            Part::Panel => &mut self.panel,
+            Part::Start => &mut self.start,
+        };
+        if held.gone.is_some() {
+            return None;
+        }
+        match self.renderers.ask(&held.site, &ToRenderer::ReadTree) {
+            Ok(FromRenderer::Tree(tree)) => Some(Drawn::Tree(part, tree)),
+            Ok(_) => None,
+            Err(gone) => {
+                let said = gone.to_string();
+                held.gone = Some(gone);
+                Some(Drawn::Said(part, said))
+            }
+        }
+    }
+
+    /// Send assistive technology's `assist` on `node` of `part` to its
+    /// renderer, to be claimed from the node, and decide the claim as a
+    /// press's (queue item 987): what the window is told, or nothing when
+    /// the part's renderer had already gone or nothing was ever drawn.
+    fn assist(
+        &mut self,
+        part: Part,
+        node: alo_box::BoxId,
+        assist: crate::assisted::Assist,
+    ) -> Option<Drawn> {
+        let now = self.drawn.as_ref()?.showing.clone();
+        let held = match part {
+            Part::Panel => &mut self.panel,
+            Part::Start => &mut self.start,
+        };
+        if held.gone.is_some() {
+            return None;
+        }
+        match self
+            .renderers
+            .ask(&held.site, &ToRenderer::ConversationActivate(node))
+        {
+            Ok(answer) => Some(Drawn::Assisted(
+                part,
+                assist,
+                Box::new(decide(answer, part, &self.painted, &now)),
+            )),
+            Err(gone) => {
+                let said = gone.to_string();
+                held.gone = Some(gone);
+                Some(Drawn::Said(part, said))
+            }
+        }
+    }
+
     /// Ask the panel's renderer what is under the pointer at `at`: which
     /// chat's row, among the chats it painted — its *Delete* or × is its
     /// row's too, and on the rail a chat's button (queue item 760) — or
@@ -796,6 +929,7 @@ mod tests {
             start: Held::at(start::site()),
             drawn: None,
             painted: Showing::default(),
+            reading: false,
         }
     }
 
@@ -857,6 +991,38 @@ mod tests {
             matches!(only_the_panel.as_slice(), [Drawn::Said(Part::Panel, _)]),
             "{only_the_panel:?}"
         );
+    }
+
+    /// Queue item 987: nothing is read, and no node pressed, on a part
+    /// never drawn or whose renderer has gone, and no fresh process is
+    /// started for either; and no tree is told after a frame until the bus
+    /// asks for one.
+    #[test]
+    fn a_tree_or_a_nodes_press_asks_nothing_of_a_part_never_drawn_or_gone() {
+        let mut holding = holding();
+        let node = alo_box::BoxId::from_wire(1);
+        assert_eq!(
+            holding.assist(Part::Panel, node, crate::assisted::Assist::Click),
+            None
+        );
+        let _ = holding.draw(asked("a"));
+        let started = holding.renderers.started();
+        assert_eq!(holding.tree(Part::Panel), None);
+        assert_eq!(holding.tree(Part::Start), None);
+        assert_eq!(
+            holding.assist(Part::Start, node, crate::assisted::Assist::Focus),
+            None
+        );
+        assert_eq!(holding.renderers.started(), started, "nothing was started");
+        let painted = vec![Drawn::Painted(
+            Part::Panel,
+            Frame {
+                width: 1,
+                height: 1,
+                pixels: vec![0; 4],
+            },
+        )];
+        assert_eq!(holding.with_trees(painted.clone()), painted);
     }
 
     #[test]

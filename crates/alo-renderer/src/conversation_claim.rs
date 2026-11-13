@@ -527,7 +527,28 @@ const SERVICES: &[&str] = &[
 /// drawing of `document`, which is `part`'s document: what it is on, or
 /// [`None`] when it is on nothing a person can press.
 pub fn claimed(drawing: &Drawing, document: &Document, part: Part, at: Point) -> Option<Claim> {
-    let found = hit::element_at(drawing, document, at)?;
+    claimed_from(document, part, hit::element_at(drawing, document, at)?)
+}
+
+/// What a press on the box `node` of `drawing` claims, `document` being
+/// what `part` drew it from: assistive technology's press, made on a node
+/// of the tree the part answered (ADR 0115 § 2) rather than at a point. It
+/// is claimed from the node's own element — or, for a run of text, the
+/// node holding it — up, exactly as a press found on that element would
+/// be, so a node is nothing a press there is not. A box the drawing does
+/// not hold, or one made by no node, claims nothing.
+pub fn claimed_node(
+    drawing: &Drawing,
+    document: &Document,
+    part: Part,
+    node: alo_box::BoxId,
+) -> Option<Claim> {
+    claimed_from(document, part, drawing.boxes.get(node)?.kind.node()?)
+}
+
+/// What a press found on `found` of `document`, drawn as `part`, claims:
+/// the nearest pressable thing from it up.
+fn claimed_from(document: &Document, part: Part, found: NodeId) -> Option<Claim> {
     let kinds = pressables(part);
     let mut next = Some(found);
     while let Some(node) = next {
@@ -657,6 +678,60 @@ mod tests {
 
     fn chat(at: usize) -> FromRenderer {
         claim(Claim::Chat { at })
+    }
+
+    /// The id of the first node of `renderer`'s tree whose role and name
+    /// are `role` and `name`, as the tree it answers names them.
+    fn node_named(renderer: &mut Renderer, role: &str, name: &str) -> Option<alo_box::BoxId> {
+        let FromRenderer::Tree(tree) = renderer.handle(ToRenderer::ReadTree) else {
+            return None;
+        };
+        tree.nodes()
+            .into_iter()
+            .find(|node| node.role.as_str() == role && node.name.as_deref() == Some(name))
+            .map(|node| node.id)
+    }
+
+    /// ADR 0115 § 2, queue item 987: assistive technology's press names a
+    /// node of the tree the part answered, and claims what a press on that
+    /// node's element would — a chat by its place, *New chat* and the box by
+    /// their kind, a run of text inside a chat's row the chat — and an id
+    /// the drawing does not hold claims nothing.
+    #[test]
+    fn a_press_on_a_node_claims_what_a_press_on_its_element_would() {
+        let mut panel = holding(ToRenderer::Panel(Box::new(five())));
+        let activate =
+            |renderer: &mut Renderer, node| renderer.handle(ToRenderer::ConversationActivate(node));
+        let lisbon =
+            node_named(&mut panel, "link", "Weekend in Lisbon Working").expect("the chat's link");
+        assert_eq!(activate(&mut panel, lisbon), chat(1));
+        let earlier =
+            node_named(&mut panel, "link", "Birthday present ideas").expect("an earlier chat");
+        assert_eq!(activate(&mut panel, earlier), chat(4));
+        let new_chat = node_named(&mut panel, "link", "New chat").expect("New chat");
+        assert_eq!(activate(&mut panel, new_chat), claim(Claim::NewChat));
+        // An id this drawing holds no box for.
+        assert_eq!(
+            activate(&mut panel, alo_box::BoxId::from_wire(usize::MAX)),
+            FromRenderer::ConversationClaimed(None)
+        );
+        let mut start = holding(ToRenderer::Start(Box::new(screen_0a())));
+        let FromRenderer::Tree(tree) = start.handle(ToRenderer::ReadTree) else {
+            panic!("the first screen answers its tree");
+        };
+        let field = tree
+            .nodes()
+            .into_iter()
+            .find(|node| node.states.takes_text)
+            .map(|node| node.id)
+            .expect("the one box's field");
+        assert_eq!(activate(&mut start, field), claim(Claim::TheBox));
+        // A renderer holding no part of the conversation holds none.
+        let mut nothing = Renderer::new(fonts());
+        assert_eq!(
+            activate(&mut nothing, field),
+            FromRenderer::Failed(Failure::NotTheConversation)
+        );
     }
 
     #[test]

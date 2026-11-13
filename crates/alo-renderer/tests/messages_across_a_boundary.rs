@@ -220,6 +220,9 @@ fn every_message_to_a_renderer_survives_the_crossing() {
         // A person's press on a part of the conversation, anywhere in it.
         ToRenderer::ConversationPress(alo_paint::Point::new(120.0, 153.5)),
         ToRenderer::ConversationPress(alo_paint::Point::new(-0.25, 1e9)),
+        // Assistive technology's press, on a node by its id (ADR 0115).
+        ToRenderer::ConversationActivate(alo_box::BoxId::from_wire(0)),
+        ToRenderer::ConversationActivate(alo_box::BoxId::from_wire(usize::MAX)),
     ];
     for original in messages {
         let bytes = write_to_renderer(&original);

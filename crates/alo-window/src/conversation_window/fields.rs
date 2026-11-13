@@ -278,6 +278,22 @@ impl ConversationWindow {
         true
     }
 
+    /// The person's press kept until it is decided, taken out so that a
+    /// press assistive technology made is never taken for it and placed
+    /// where the person pressed (queue item 987); given back with
+    /// [`Self::field_press_put_back`].
+    pub(super) fn field_press_aside(&mut self) -> Option<(Part, alo_paint::Point, u32)> {
+        self.fields.press.take()
+    }
+
+    /// The person's press taken out by [`Self::field_press_aside`], kept
+    /// again until it is decided.
+    pub(super) fn field_press_put_back(&mut self, press: Option<(Part, alo_paint::Point, u32)>) {
+        if press.is_some() {
+            self.fields.press = press;
+        }
+    }
+
     /// A press on `part` was decided as `pressed`, and acted on: decided as
     /// a field, its caret placed where it was — a word selected by a second
     /// quick press, everything by a third — and, the button still down, a

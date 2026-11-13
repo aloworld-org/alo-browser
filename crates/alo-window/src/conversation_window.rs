@@ -97,6 +97,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
 
+mod assisted;
 mod bar;
 mod beneath;
 mod fields;
@@ -119,6 +120,9 @@ pub enum Heard {
     /// A new tab an agent outside alo asked for over the socket, judged by
     /// the relay (queue item 956).
     NewTab(crate::conversation_agents::NewTabAsked),
+    /// What the platform's accessibility bus said (queue item 987, ADR
+    /// 0115): that it asks for the tree, or an action by node.
+    Bus(crate::assisted::FromTheBus),
 }
 
 /// Where the window is, as the window server gives it.
@@ -286,6 +290,9 @@ pub struct ConversationWindow {
     outside: outside::Outside,
     /// What the window is called (queue item 958).
     title: title::Titled,
+    /// The parts' trees for the accessibility bus, and what assistive
+    /// technology did (queue item 987).
+    assisting: assisted::Assisting,
 }
 
 /// Input methods in the conversation's window (queue item 802).
@@ -446,6 +453,7 @@ impl ConversationWindow {
             fields: fields::Fields::default(),
             outside: outside::Outside::default(),
             title: title::Titled::default(),
+            assisting: assisted::Assisting::default(),
         }
     }
 
@@ -2542,6 +2550,11 @@ impl ConversationWindow {
             Heard::Searched(searched) => self.searched(searched),
             Heard::Agent(said) => self.agent_said(said),
             Heard::NewTab(asked) => self.new_tab_asked(asked),
+            Heard::Bus(from) => self.bus_said(from),
+            Heard::Drawn(Drawn::Tree(part, tree)) => self.tree_read(part, *tree),
+            Heard::Drawn(Drawn::Assisted(part, assist, decided)) => {
+                self.assisted(part, assist, *decided);
+            }
             Heard::Drawn(Drawn::Painted(Part::Panel, frame)) => {
                 // Painted whole while the sheet is out (queue item 776): what
                 // slides, and what slides back in once it is closed.

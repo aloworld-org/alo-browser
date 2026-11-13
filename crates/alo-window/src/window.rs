@@ -163,7 +163,10 @@
 //! 0062's consequences), and the conversation's window adds
 //! `WindowAttributes::with_min_inner_size` (queue item 775), a safe setter
 //! of a field in the same source; `with_parent_window`, the one `unsafe fn` beside
-//! them, is not called. Quitting the program adds no call either: the
+//! them, is not called. The conversation's window is created hidden and
+//! shown once it is on the accessibility bus (queue item 987, ADR 0115 §
+//! 1, [`crate::accessible`]), which adds no call but `with_visible` and
+//! `set_visible` above. Quitting the program adds no call either: the
 //! frame's shutdown is run in `ApplicationHandler::exiting`, a method of
 //! ours that `winit`'s own application delegate calls from
 //! `applicationWillTerminate:` (item 688).
@@ -998,10 +1001,17 @@ pub fn conversation(
             .keeping_nothing(&why)
             .with_blocking_off(crate::blocking_off::process().clone(), None),
     };
+    // What the accessibility bus says, told to the window as the threads'
+    // news is (queue item 987, ADR 0115).
+    let proxy = event_loop.create_proxy();
+    let bus: crate::assisted::TellTheWindow =
+        Arc::new(move |from| proxy.send_event(Heard::Bus(from)).is_ok());
     let mut conversing = Conversing {
         state,
         lettering,
+        accessible: None,
         window: None,
+        bus,
         presenter: None,
         composed: Composed::new(),
         modifiers: ModifiersState::empty(),
@@ -1030,7 +1040,12 @@ struct Conversing<'c> {
     state: ConversationWindow,
     /// The face the window's own lines are drawn in.
     lettering: Lettering,
+    /// The window on the platform's accessibility bus (queue item 987, ADR
+    /// 0115), once made: before the window, so it is let go of first.
+    accessible: Option<crate::accessible::Accessible>,
     window: Option<Arc<Window>>,
+    /// How the bus tells the window what it says.
+    bus: crate::assisted::TellTheWindow,
     /// How the window is put on screen: from its pixels kept on the GPU,
     /// given only what was composed again (queue item 873, ADR 0105), or
     /// copied whole by `softbuffer` where that cannot be had.
@@ -1068,6 +1083,12 @@ impl Conversing<'_> {
     fn follow(&mut self) {
         for said in self.state.take_said() {
             eprintln!("alo: {said}");
+        }
+        // The parts' trees, read since, published while the bus listens.
+        if let Some(published) = self.state.take_published()
+            && let Some(accessible) = self.accessible.as_mut()
+        {
+            accessible.publish(&published);
         }
         let front = self.state.take_front();
         let redraw = self.state.take_redraw();
@@ -1132,10 +1153,14 @@ impl ApplicationHandler<Heard> for Conversing<'_> {
         }
         // Never narrower than the tab row beside the rail, nor shorter than
         // the first screen's sites row (queue item 775).
+        // Made hidden, and shown once it is on the accessibility bus:
+        // `accesskit_winit` will not publish a window already shown (queue
+        // item 987, ADR 0115 § 1).
         let attributes = WindowAttributes::default()
             .with_title(crate::window_title::ALONE)
             .with_inner_size(LogicalSize::new(CONVERSATION_SIZE.0, CONVERSATION_SIZE.1))
-            .with_min_inner_size(LogicalSize::new(LEAST_SIZE.0, LEAST_SIZE.1));
+            .with_min_inner_size(LogicalSize::new(LEAST_SIZE.0, LEAST_SIZE.1))
+            .with_visible(false);
         let attributes = named(attributes);
         let window = match event_loop.create_window(attributes) {
             Ok(window) => Arc::new(window),
@@ -1145,6 +1170,12 @@ impl ApplicationHandler<Heard> for Conversing<'_> {
                 return;
             }
         };
+        match crate::accessible::Accessible::over(event_loop, &window, &self.bus) {
+            Ok(accessible) => self.accessible = Some(accessible),
+            // Shown regardless, and said: a window nobody's screen reader
+            // can read is still a window a person can use.
+            Err(why) => eprintln!("alo: the window is not on the accessibility bus: {why}"),
+        }
         match Screen::over(Arc::clone(&window), How::asked()) {
             Ok((presenter, missed)) => {
                 if let Some(why) = missed {
@@ -1158,6 +1189,7 @@ impl ApplicationHandler<Heard> for Conversing<'_> {
                 return;
             }
         }
+        window.set_visible(true);
         window.request_redraw();
         self.state.focused(window.has_focus());
         self.window = Some(window);
@@ -1172,6 +1204,10 @@ impl ApplicationHandler<Heard> for Conversing<'_> {
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _: WindowId, event: WindowEvent) {
+        // The adapter hears each event before the window acts on it.
+        if let (Some(accessible), Some(window)) = (self.accessible.as_mut(), &self.window) {
+            accessible.hear(window, &event);
+        }
         self.measure();
         match event {
             WindowEvent::Resized(PhysicalSize { .. }) | WindowEvent::ScaleFactorChanged { .. } => {
@@ -1203,6 +1239,7 @@ impl ApplicationHandler<Heard> for Conversing<'_> {
             }
             WindowEvent::CloseRequested => {
                 self.presenter = None;
+                self.accessible = None;
                 self.window = None;
                 event_loop.exit();
             }

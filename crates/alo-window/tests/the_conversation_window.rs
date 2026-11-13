@@ -421,6 +421,11 @@ fn painted_confined(window: (u32, u32), scale: Scale) -> Result<(Frame, Frame), 
             Ok(drawn @ (Drawn::Beneath(_) | Drawn::Pictured { .. })) => {
                 return Err(format!("a card's page told with no card: {drawn:?}"));
             }
+            // Nothing is read for the accessibility bus until it asks
+            // (queue item 987, ADR 0115 § 2).
+            Ok(drawn @ (Drawn::Tree(..) | Drawn::Assisted(..))) => {
+                return Err(format!("read with nothing on the bus asking: {drawn:?}"));
+            }
             Err(why) => return Err(format!("nothing was painted: {why}")),
         }
     }

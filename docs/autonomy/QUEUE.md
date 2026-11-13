@@ -26684,6 +26684,39 @@ the rest runs on this Mac. Order: ADR 0112's *The plan, in order*.
   failure that the screen was locked. *Closes when:* that test, run with
   the screen locked, fails within its bounds with a reason that names the
   lock, and every wait in the shown-Chrome tests is bounded.
+- [x] **987. ADR 0115 phase (a): alo's own interface on macOS's
+  accessibility API.** The conversation's window — the chats panel or its
+  rail, the first screen and its card's frame — published through
+  `accesskit_winit` from the trees its parts already answer `ReadTree`
+  with, each part a subtree grafted where the window composed it; read only
+  once the bus asks, and again after each frame. `Click`, `SetValue` and
+  `Focus` taken by node, decided as a person's press on that node is, and
+  every action from the bus written in the record as *assistive
+  technology*; every other action refused, the two that carry a point
+  always (ADR 0002). A password field and a field naming a card's details
+  or another secret published with no value and never given text (§ 4).
+  The window created hidden and shown once the adapter is made. *Closes
+  when:* `accessible_tree.rs`'s mapping is unit-tested for each kind of
+  node, a password and a card's number, and a coordinate action refused;
+  and a test on this Mac starts `alo --conversation`, reads it through
+  `osascript` and System Events — a named control found with its role and
+  its place in numbers, no action but `AXPress` — and an `AXPress` reaches
+  alo's press; and the gate passes.
+  *Built 12 November 2026, gated 13 November 2026* (7154 tests): `assisted.rs` (what the bus may
+  ask, what each node is offered, what is never published),
+  `assisted_record.rs`, `accessible_tree.rs` (the mapping, its tests
+  applying every update to `accesskit_consumer` as the macOS adapter
+  does), `accessible.rs` (the adapter), `conversation_window/assisted.rs`
+  (checked against what was published, acted on as a press); the drawing
+  thread reads each part's tree after its frames once asked, and a node is
+  pressed by `ToRenderer::ConversationActivate`, claimed from the node by
+  `conversation_claim::claimed_node`. The test is
+  `the_conversation_window_on_the_accessibility_bus.rs`. No press of alo's
+  own interface pays, so none is held (*Answered* 1 waits for phase (b)).
+  `scripts/gate.sh`'s rented-crate list still names `winit` in two files
+  and AccessKit in none: `accessible.rs` must be added to `winit`'s, and
+  `accesskit`, `accesskit_winit` and `accesskit_consumer` given theirs, by
+  the owner.
 
 ## After stage 4
 

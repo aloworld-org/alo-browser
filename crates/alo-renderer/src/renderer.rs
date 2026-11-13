@@ -302,6 +302,7 @@ impl Renderer {
             ToRenderer::ConversationPress(at) | ToRenderer::ConversationHover(at) => {
                 self.conversation_press(at)
             }
+            ToRenderer::ConversationActivate(node) => self.conversation_activate(node),
             ToRenderer::ConversationReach => self.conversation_reach(),
             ToRenderer::FieldLaidOut => self.field_laid_out(),
             ToRenderer::PictureBeneath => self.picture_beneath(),
@@ -1063,6 +1064,25 @@ impl Renderer {
             return FromRenderer::Failed(Failure::NothingLoaded);
         };
         FromRenderer::ConversationClaimed(conversation_claim::claimed(drawing, document, part, at))
+    }
+
+    /// What assistive technology's press on `node` of the part it holds
+    /// claims (ADR 0115 § 2, queue item 987): found from the node, in the
+    /// drawing it holds, as a press on it would be
+    /// ([`conversation_claim::claimed_node`]). A renderer holding no part
+    /// of the conversation answers that it holds none.
+    fn conversation_activate(&mut self, node: alo_box::BoxId) -> FromRenderer {
+        let Holds::Conversation(part) = self.holds else {
+            return FromRenderer::Failed(Failure::NotTheConversation);
+        };
+        self.fresh();
+        let easel = self.easel.borrow();
+        let (Some(document), Some(drawing)) = (self.document(), easel.drawn()) else {
+            return FromRenderer::Failed(Failure::NothingLoaded);
+        };
+        FromRenderer::ConversationClaimed(conversation_claim::claimed_node(
+            drawing, document, part, node,
+        ))
     }
 
     /// How far the first screen's conversation reaches either side of its

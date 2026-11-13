@@ -181,6 +181,23 @@ chacha20poly1305 = { version = "=0.10.1", default-features = false, features = [
 # named in one file of `alo-window`. `winit` 0.31 is in beta and not taken.
 winit = "0.30.13"
 softbuffer = "0.4.8"
+# The window's tree on the platform's accessibility bus, rented (ADR 0115 § 1,
+# queue item 987): AccessKit, Apache-2.0 and MIT OR Apache-2.0, the Rust
+# ecosystem's accessibility layer beside `winit`. `accesskit` is the tree's
+# types, named in `alo-window`'s `accessible_tree.rs` (a `Snapshot` in, a
+# `TreeUpdate` out) and `accessible.rs`; `accesskit_winit` is the adapter for a
+# `winit` window, named in `accessible.rs` alone. Pinned exactly: a new adapter
+# is a diff somebody reads. Default features off and only `rwh_06`, the window
+# handle `winit` already gives: phase (a) is macOS's NSAccessibility, whose
+# adapter `accesskit_winit` always builds there; `accesskit_unix` and its
+# `async-io` are phase (c), not built until the owner accepts the browser's
+# own guard (ADR 0115, *Answered* 3). Every function called on them is a safe
+# one; their `unsafe` (subclassing the window's view) is theirs (ADR 0010).
+# `accesskit_consumer`, the tree as the macOS adapter reads it, is taken only
+# by `accessible_tree.rs`'s tests, to apply what it makes as the adapter would.
+accesskit = "=0.25.2"
+accesskit_winit = { version = "=0.34.2", default-features = false, features = ["rwh_06"] }
+accesskit_consumer = "=0.39.2"
 # The two traits `softbuffer` bounds a window by, named in `present.rs` so that
 # `winit` stays in `window.rs`. Already beneath both crates at this version.
 raw-window-handle = "0.6"

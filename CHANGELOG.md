@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **alo's own window is on macOS's accessibility API.** In `alo
+  --conversation`, a program using that API — tested with System Events;
+  VoiceOver itself not yet tried — now reads the chats panel, the first
+  screen and a card's buttons as the same tree an agent reads: links, buttons, headings and the one box by their names, each
+  where it is drawn. Pressing a control presses it as a click would,
+  setting the box's text replaces it, and the keyboard can be moved to a
+  field; nothing that names a point on the screen is taken. A password or a
+  card's number is never published, not even as dots. Each thing done this
+  way is said on the terminal as *assistive technology*'s. A card's page,
+  and Linux, come later (ADR 0115 phase (a), queue item 987).
 - **The application refuses `--sign-ins`.** `alo --conversation
   --sign-ins DIR` keeps its sign-ins' key in a keychain file whose password
   is written in alo's source, so it is for a developer's hand run alone:

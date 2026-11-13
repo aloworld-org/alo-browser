@@ -467,6 +467,10 @@ pub fn write_to_renderer(message: &ToRenderer) -> Vec<u8> {
         ToRenderer::ConversationPress(at) => writer.point(16, *at),
         ToRenderer::ConversationReach => writer.tag(17),
         ToRenderer::ConversationHover(at) => writer.point(18, *at),
+        ToRenderer::ConversationActivate(node) => {
+            writer.tag(23);
+            writer.id(*node);
+        }
         ToRenderer::FieldLaidOut => writer.tag(19),
         ToRenderer::PictureBeneath => writer.tag(20),
         ToRenderer::PaintOver => writer.tag(22),
@@ -1426,6 +1430,7 @@ pub fn read_to_renderer(bytes: &[u8]) -> Result<ToRenderer, Unreadable> {
         18 => {
             ToRenderer::ConversationHover(alo_paint::Point::new(reader.float()?, reader.float()?))
         }
+        23 => ToRenderer::ConversationActivate(reader.id()?),
         19 => ToRenderer::FieldLaidOut,
         20 => ToRenderer::PictureBeneath,
         22 => ToRenderer::PaintOver,

@@ -114,7 +114,13 @@ declare -a BOUNDARIES=(
   "ruzstd:crates/alo-net/src/decompress.rs"
   "sha2:crates/alo-net/src/digest.rs"
   "unicode_id_start:crates/alo-js/src/unicode.rs"
-  "winit:crates/alo-window/src/window.rs,crates/alo-window/src/present_shown.rs"
+  # The accessibility bus (ADR 0115 § 1, queue item 987): the adapter takes
+  # winit's window and events in `accessible.rs`; the tree's nodes are made in
+  # `accessible_tree.rs`, whose tests read them back with the consumer.
+  "winit:crates/alo-window/src/window.rs,crates/alo-window/src/present_shown.rs,crates/alo-window/src/accessible.rs"
+  "accesskit:crates/alo-window/src/accessible.rs,crates/alo-window/src/accessible_tree.rs"
+  "accesskit_winit:crates/alo-window/src/accessible.rs"
+  "accesskit_consumer:crates/alo-window/src/accessible_tree.rs"
   "softbuffer:crates/alo-window/src/present.rs"
   "raw_window_handle:crates/alo-window/src/present.rs,crates/alo-window/src/present_chosen.rs"
   # The window's pixels kept on the GPU (ADR 0105, queue item 873): the Metal

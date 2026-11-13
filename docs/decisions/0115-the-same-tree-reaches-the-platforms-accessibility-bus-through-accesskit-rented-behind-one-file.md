@@ -1,7 +1,9 @@
 # ADR 0115 — The same tree reaches the platform's accessibility bus through AccessKit, rented behind one file
 
 **Status:** accepted for phases (a) and (b) — queue item 965, the owner,
-12 November 2026. Phase (c) waits on *Answered* 3. Nothing is built yet.
+12 November 2026. Phase (c) waits on *Answered* 3. Phase (a) built 12
+November 2026 (queue item 987, not yet gated; *Phase (a), as built*
+below); (b) and (c) are not.
 **Date:** 2026-11-12
 **Context:** ADR 0002 (the layout tree is the agent's tree; *"the same tree
 is the accessibility tree"*; no verb takes a coordinate; reading is never
@@ -294,6 +296,11 @@ AT-SPI's screen coordinates may be wrong there (not measured).
    guard. AT-SPI has no such guard, so **phase (c) is not built until the
    browser's own guard is designed and the owner has accepted it**, in an
    amendment to this ADR.
+4. **A press from the bus on *Allow* is taken** like any press — the
+   person's yes to alo's agent may come through a screen reader, or through
+   any program the person let read the screen (macOS's *Accessibility*
+   permission). It is in the record as *"assistive technology"* like every
+   action from the bus (the owner, 13 November 2026).
 
 ## Rejected
 
@@ -308,6 +315,103 @@ AT-SPI's screen coordinates may be wrong there (not measured).
 - **`accesskit_macos` and `accesskit_unix` directly**, without
   `accesskit_winit`: making the macOS adapter for a view is an `unsafe fn`
   taking a raw pointer, which would be `unsafe` of ours.
+
+## Phase (a), as built (12 November 2026, queue item 987)
+
+Not yet gated. What differs from the sections above is said here, not
+there.
+
+**Files.** `accessible.rs` (the adapter: `with_direct_handlers`,
+`process_event`, `update_if_active`) and `accessible_tree.rs` (the mapping,
+pure) are the two files that name AccessKit; `accesskit_consumer` is a
+dev-dependency of the second's tests alone, which apply every update made
+to the consumer the macOS adapter reads, so a tree it would panic on fails
+a test rather than the window. What the bus may ask, what each node is
+offered and what is never published are this browser's own words in
+`assisted.rs`, which the mapping publishes by and the window checks a
+request against; the record is `assisted_record.rs`, and the window's side
+is `conversation_window/assisted.rs`. `accessible.rs` names `winit`'s
+`ActiveEventLoop`, `Window` and `WindowEvent`, as § 1 says, so
+`scripts/gate.sh`'s rented-crate list has to name it beside `window.rs` and
+`present_shown.rs`, and to give the three AccessKit crates their files —
+an edit to the gate the owner makes.
+
+**Dependencies.** `accesskit` `=0.25.2`; `accesskit_winit` `=0.34.2` with
+default features off and `rwh_06` alone — `accesskit_unix` and `async-io`
+are phase (c) and not built; on Linux the adapter is then `accesskit_winit`'s
+null one. `accesskit_consumer` `=0.39.2` for tests. The lock gained the
+AccessKit crates, `uuid` 1.29.2, and the `windows` family, which is only
+locked for Windows and never built here. No `unsafe` of ours.
+
+**Where the trees come from.** Asked (`request_initial_tree` answers
+`None`, so the macOS adapter shows its own placeholder until the real tree
+is sent), the window has the drawing thread read each part's tree at once
+and after every frame that part paints from then on: the tree that drew
+the frame. On macOS the adapter never calls `deactivate_accessibility`, so
+once asked the trees are read for as long as the window is open. Each part
+is a subtree grafted where `ConversationPlacement` composed its frame; the
+root's focus is put on a part's graft only once that part's subtree has
+been sent, and inside it on the field that has the keyboard (the one box,
+or *Search chats*), and on the part's root otherwise. A field is published
+as a leaf whose value is its runs of text. A node met twice is left out
+with everything under it, and a part of more than 100 000 nodes is its
+root alone, *"this part of alo is too large to read"*.
+
+**What a node is offered.** `Click` on a button, link, tab, menu item,
+option, checkbox, radio, switch or summary, and on a field; `Focus` on a
+field; `SetValue` on a field that is not read-only and holds no secret;
+nothing on anything disabled. System Events lists them as `AXPress` alone:
+the value is set as an attribute, and focus too.
+
+**How an action is carried out.** By node, never by place: a new message,
+`ToRenderer::ConversationActivate(BoxId)`, asks the part's renderer to
+claim from that node's element up exactly as a press found on it would be
+(`conversation_claim::claimed_node`), answered as a press is and decided by
+the same `conversation_decide::decide` against what the part last painted.
+An id the drawing no longer holds claims nothing (ADR 0003). The window
+acts on what was decided by the function a person's press uses; a press of
+the person's own not yet decided keeps its place. `Focus` and `SetValue`
+are carried out only where the press was decided as a field: the field is
+given the keyboard as a press gives it, and `SetValue` then selects all of
+it and puts the text in. A request is first checked against the tree the
+part last answered, so an action a node is not offered — `SetValue` on a
+password among them — is refused even if the bus sends it.
+
+**Never a point.** `accessible_tree::asked` refuses `ScrollToPoint` and
+`SetScrollOffset`, and any action carrying a point, whatever it names; it
+refuses every other action of § 2's list too, and anything naming a node of
+the root tree.
+
+**The record.** Every action from the bus, taken or refused, is an entry
+*"assistive technology: …"*, at most 1 000 kept, each also said on the
+terminal, as a refused press is.
+
+**A press that pays.** None of alo's own interface pays — paying is a
+card's page's — so phase (a) holds nothing; *Answered* 1 is phase (b)'s to
+build. Not built for it either: whether a press from the bus on *Allow*,
+the person's yes to alo's agent's question, should be refused as the
+person's own step. It is taken today as any press is; the owner may want
+it otherwise.
+
+**Measured on this Mac** (macOS 26.5.2, 12 November 2026), by
+`tests/the_conversation_window_on_the_accessibility_bus.rs` through
+`osascript` and System Events: the window's inside 1280 × 820 points;
+*New chat* an `AXLink` 10 in and 56 down, 220 × 40; the box an
+`AXTextField` 423 in and 266 down, 632 × 40; *Go* an `AXButton`; nothing
+of alo's offering an action but `AXPress`; `AXPress` on *New chat* making a
+second chat in the panel and written as assistive technology's; and the
+box's value set to *porto hotels* read back. The test is skipped, saying
+why, on a locked screen or without the Accessibility permission.
+
+**Not done in phase (a), and not measured.** VoiceOver itself was not run.
+A password field or a card's details is not drawn by alo's own interface
+in any state the test reaches, so § 4 is tested in the mapping's unit
+tests and not through System Events. Bounds were measured at the window's
+first state alone: a conversation scrolled, the panel folded to the rail
+and the sheet were not read on the bus. `aria-hidden` nodes are published
+as hidden, not left out. A part whose renderer has gone keeps the last tree
+it answered. A card's page is not grafted (phase (b)); nothing is built for
+AT-SPI (phase (c)).
 
 ## What is not measured, and is not hidden
 

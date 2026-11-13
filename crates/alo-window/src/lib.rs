@@ -122,6 +122,12 @@
 //!   whole panel slides over the conversation as a sheet
 //!   ([`conversation_sheet`], item 776). The conversation's bar fades once
 //!   it stops scrolling ([`conversation_bar`], item 793).
+//! - [`accessible`] puts the conversation's window on the platform's
+//!   accessibility bus (ADR 0115 phase (a), item 987), the one file that
+//!   names `accesskit_winit`; [`accessible_tree`] maps the parts' trees to
+//!   AccessKit's and what the bus asks back to [`assisted`]'s words, which
+//!   say what each node is offered and what is never published, and
+//!   [`assisted_record`] is what assistive technology did.
 //!
 //! # What it is not yet
 //!
@@ -137,6 +143,8 @@
 //! has measured, such as 1.25 — painted at the largest measured scale below
 //! it — and a link opening a tab (item 300).
 
+pub mod accessible;
+pub mod accessible_tree;
 pub mod acting_mark;
 pub mod agent_changes;
 pub mod agent_dropdown;
@@ -164,6 +172,8 @@ pub mod answer_protocol;
 pub mod app_views;
 pub mod app_ways;
 pub mod asking;
+pub mod assisted;
+pub mod assisted_record;
 pub mod beside;
 pub mod blocking;
 pub mod blocking_off;
