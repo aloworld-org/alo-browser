@@ -26699,6 +26699,12 @@ the rest runs on this Mac. Order: ADR 0112's *The plan, in order*.
   failure that the screen was locked. *Closes when:* that test, run with
   the screen locked, fails within its bounds with a reason that names the
   lock, and every wait in the shown-Chrome tests is bounded.
+  *Also (13 November 2026):*
+  `an_expanded_cards_link_is_shown_in_alos_own_strip_through_alos_cef_host`
+  failed four runs in a row while the Mac was slow (a battery just back
+  from 1%), then passed three in a row: it drains for a fixed 1.2 s and
+  looks once. Such a test waits **until** what it looks for is there,
+  within a bound, and fails saying how long it looked.
 - [x] **987. ADR 0115 phase (a): alo's own interface on macOS's
   accessibility API.** The conversation's window — the chats panel or its
   rail, the first screen and its card's frame — published through
@@ -26782,6 +26788,18 @@ the rest runs on this Mac. Order: ADR 0112's *The plan, in order*.
   agents' actions); every action from the bus is, and is in the window's
   record of the bus too (`serving.rs`'s test: a thousand reads leave the
   record as it was, one action adds one entry).
+- [ ] **989. ADR 0115's guard, built where it can be: on this Mac.** The
+  owner's answers of 13 November 2026 (*Phase (c)'s guard*, *Answered*):
+  a Settings switch for the accessibility bus — *Read and act* (the
+  default), *Read only*, *Off* — changed only by a person's press in
+  Settings; a card on a site kept from agents published as *this page is
+  kept from agents*, **its address hidden from the bus too** (today the
+  page is left out but its address is published); and a line in the
+  record when the bus begins and stops listening. *Closes when:* each is
+  tested — the switch's three settings judged by unit tests and *Off* and
+  *Read only* through System Events, a kept site's page and address absent
+  through System Events, the two record lines — and the gate passes.
+  Phase (c) on AT-SPI takes the same rules after 960.
 
 ## After stage 4
 
