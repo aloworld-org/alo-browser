@@ -1,7 +1,7 @@
 # ADR 0115 — The same tree reaches the platform's accessibility bus through AccessKit, rented behind one file
 
 **Status:** accepted for phases (a) and (b) — queue item 965, the owner,
-12 November 2026. Phase (c) waits on *Answered* 3. Phase (a) built 12
+12 November 2026; phase (c)'s guard accepted 13 November 2026 (*Phase (c)'s guard*, *Answered*), phase (c) waits on queue item 960. Phase (a) built 12
 November 2026 (queue item 987, gated 13 November 2026; *Phase (a), as
 built* below); phase (b) built 13 November 2026 (queue item 988, not yet
 gated; *Phase (b), as built* below); (c) is not; phase (c)'s guard
@@ -304,7 +304,7 @@ AT-SPI's screen coordinates may be wrong there (not measured).
    permission). It is in the record as *"assistive technology"* like every
    action from the bus (the owner, 13 November 2026).
 
-## Phase (c)'s guard — proposed (not accepted)
+## Phase (c)'s guard — accepted (the owner, 13 November 2026)
 
 Written 13 November 2026 for *Answered* 3. Nothing here is built, and
 phase (c) waits on the owner's answers below.
@@ -485,6 +485,31 @@ AT-SPI by hand, which § 1 rejects.
    one's process and sandbox, as alo OS reads them)? It names publishers
    and readers alike, and it would be a second D-Bus road of ours beside
    AccessKit's.
+
+
+### Answered (the owner and the coordinator, 13 November 2026)
+
+1. **The default is *Read and act***, on alo OS and on any other Linux
+   alike, as recommended.
+2. **alo's own interface stays on the bus**, chats' names and what the
+   person asked included: an unsandboxed program of the person's reading
+   them is accepted, as for every other application on Linux.
+3. **A site kept from agents is kept from the bus too**, the person's own
+   screen reader included, and its address with it — (b) as proposed.
+4. **The coordinator, for alo OS:** alo OS adds no filter of its own on
+   the accessibility bus (checked in its repository). The only guard is
+   Flatpak's own proxy, which by its design lets a sandboxed application
+   publish its tree but not call into others' — *inferred from Flatpak's
+   documentation, never measured on alo OS* (alo OS's ADR 0143 says the
+   same). A process that is not sandboxed reads every tree. A person's own
+   `alo-app … read/press` asks no grant; alo's agent's road needs the
+   person's level or a grant (alo OS's ADRs 0143, 0149).
+5. **The record says when the bus begins and stops listening**, a line
+   each — (d) as proposed. Which programs were connected is **not**
+   recorded: no second D-Bus road of ours (`ListNames`) is built.
+
+Phase (c) is built after queue item 960 (the Linux build) and verified on
+alo OS by Orca and `alo-app`.
 
 ## Rejected
 
