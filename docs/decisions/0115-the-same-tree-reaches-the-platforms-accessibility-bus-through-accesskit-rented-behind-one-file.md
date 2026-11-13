@@ -4,7 +4,8 @@
 12 November 2026. Phase (c) waits on *Answered* 3. Phase (a) built 12
 November 2026 (queue item 987, gated 13 November 2026; *Phase (a), as
 built* below); phase (b) built 13 November 2026 (queue item 988, not yet
-gated; *Phase (b), as built* below); (c) is not.
+gated; *Phase (b), as built* below); (c) is not; phase (c)'s guard
+proposed 13 November 2026.
 **Date:** 2026-11-12
 **Context:** ADR 0002 (the layout tree is the agent's tree; *"the same tree
 is the accessibility tree"*; no verb takes a coordinate; reading is never
@@ -302,6 +303,188 @@ AT-SPI's screen coordinates may be wrong there (not measured).
    any program the person let read the screen (macOS's *Accessibility*
    permission). It is in the record as *"assistive technology"* like every
    action from the bus (the owner, 13 November 2026).
+
+## Phase (c)'s guard — proposed (not accepted)
+
+Written 13 November 2026 for *Answered* 3. Nothing here is built, and
+phase (c) waits on the owner's answers below.
+
+### The threat, said plainly
+
+On macOS a program reads another's accessibility objects only once the
+person has given it the *Accessibility* permission. AT-SPI asks no such
+question. The bus is a D-Bus daemon of the person's session; its address
+is handed to any process that asks the session bus (`org.a11y.Bus`,
+`GetAddress`). Every process running as the person can connect to it,
+walk alo's tree and send actions. The bus being on is no guard either:
+`org.a11y.Status`'s `IsEnabled`, which AccessKit watches, is a property
+any process of the session can set.
+
+And on the bus alo publishes **more than the socket gives**. The socket
+reaches only the live card's page (ADR 0055, `conversation_agents.rs`).
+The bus, from phase (a), also reads alo's own interface: the chats
+panel's chat names, the first screen with what the person asked, and a
+card's address bar.
+
+### What the browser can know about a caller
+
+**Read in the source** (`accesskit_unix` 0.24.1, `accesskit_atspi_common`
+0.21.1 and `accesskit` 0.25.2 in `~/.cargo/registry`, 13 November 2026):
+
+- **A read never reaches us.** Every AT-SPI read — `Accessible`, `Text`,
+  `Component`, `Value`, and `Cache`, which hands out the whole tree in one
+  call — is answered by AccessKit from its own copy of the last tree we
+  sent (`PlatformNode::resolve`). We cannot see that a read happened, let
+  alone by whom.
+- **An action reaches us without its sender.** `ActionRequest` holds
+  `action`, `target_tree`, `target_node` and `data`, nothing else. No
+  interface method in `accesskit_unix` takes the message's header
+  (`#[zbus(header)]` appears nowhere in either crate), so the sender's
+  unique name is gone before our `ActionHandler` is called.
+- **We know when the bus starts and stops listening**: `IsEnabled` turned
+  on is `request_initial_tree`, turned off is `deactivate_accessibility`.
+  Not who turned it.
+
+**What D-Bus itself could tell**, given a sender's unique name:
+`GetConnectionCredentials` answers its process id, its uid and, on newer
+daemons, a descriptor for the process. alo OS already does exactly this
+on the accessibility bus, to name an application by its sandbox (its
+`crates/alo-adapters/src/whose_connection.rs`, read at `origin/main`). A
+uid tells nothing here: everything on the person's bus is the person's.
+We could ask the bus who is connected (`ListNames`), but every
+application that publishes its own tree is connected too, so a list of
+connections is not a list of readers.
+
+**So, honestly:** with AccessKit as rented, the browser **cannot guard
+who reads**, and cannot tell who acts. It can guard **what is
+published** and **which actions are taken**, the same for every caller.
+*Who* may reach the bus at all is the operating system's sandbox.
+Flatpak is said to give a sandboxed application the accessibility bus
+only through a filter that lets it publish and not read others; that was
+not checked here, and on alo OS it is the coordinator's to confirm
+(*Asked*, 4).
+
+### The proposal: the bus never gives what the socket would refuse
+
+The guard is one sentence: **nothing reaches the bus that the agent
+socket would refuse to the same request.** The socket is already open
+to any process of the person (ADR 0055 § 1, `socket_place.rs`: a socket
+only its owner may open). So under this rule the bus is no wider than
+the socket in what it gives — except alo's own interface, which is the
+owner's to decide (*Asked*, 2).
+
+**(a) A Settings switch, published by default.** *Settings* gains a
+section **Accessibility bus**, a radio group of three:
+
+| Choice | What is published | What is taken |
+|---|---|---|
+| *Read and act* (the default) | alo's interface, and the card's page by (b) | § 2's actions, by (c) |
+| *Read only* | the same | nothing: every action refused, and recorded |
+| *Off* | the window's root node alone | nothing |
+
+*Why on by default.* ADR 0112 requirement 7 asks for the tree published
+by default. And a person who cannot see the screen cannot find a switch
+that is off without the very tree it withholds: a default of *Off* locks
+out the person the bus is for. So the default is the requirement's, and
+the guard is in (b), (c) and (d), not in a default nobody can turn on.
+The words under *Off* say what it costs: *A screen reader will not be
+able to read alo.* It is kept in `settings.txt` beside the face, read at
+launch, and takes effect at once. It is changed only by a person's press
+in Settings: a press on it from the bus, and anything over the socket,
+is refused (ADR 0026's rule for grants, kept here).
+
+*Tests.* `settings_file` reads a missing line as *Read and act*, and
+writes and reads back each of the three; `accessible_tree` given *Off*
+makes a tree of the window's root alone, with no graft;
+`accessible_tree::asked` refuses every action under *Read only* and
+*Off*, each refusal an entry; a `Click` from the bus on the switch
+itself is refused.
+
+**(b) A card's page only for a site agents may reach.** Phase (b) already
+reads the page through the relay as `Caller::ASSISTIVE`, so a site
+outside `--agent-site` is `NotGranted` and its page is never read
+(`serving.rs`, `AgentSites::reach`). Today that page is published as
+nothing, with no word why (`PageHeard::Unread`), while the card's
+address bar still publishes the site. Proposed: the graft is published
+named *"this page is kept from agents"*, with nothing under it, and the
+card's address bar is published as that same sentence, never the
+address. So the bus names no site the socket would not name (ADR 0055
+§ 6). The cost is the person's own screen reader: it cannot read a site
+they kept from agents, because nothing on the bus tells it from an
+agent.
+
+*Tests.* With `AgentSites::Only` naming one site and the card on another:
+the published tree has the graft by that name and no node under it; the
+address bar's node names no host; a `Click` on a page node id from
+before the card went there is refused; and the card back on the named
+site is published whole again.
+
+**(c) Reads and actions treated apart.** A read cannot be guarded per
+caller (above), so reads are guarded only by what is published: § 4's
+rule, (a) and (b). An action can be judged, so each is judged as the
+socket judges it — the same verb (`activate`, `put_text`), the same
+refusals (`Password`, `CardDetails`, `NotGranted`), the same hold for
+paying (*Answered* 1), and § 2's refused list, never a point. One thing
+is added on Linux: **an action from the bus is shown to the person** as
+it is taken, a line on the card or the conversation — *Pressed from the
+accessibility bus: Send* — standing as long as a refused press's line
+does. A program the person never saw is then seen acting.
+
+*Tests.* A table over every request the bus can make: the bus's outcome
+is refused whenever the socket's outcome for the same request is
+refused, kind for kind. A `Click` taken puts the line in the first
+screen's tree, by its words; a refused one puts none.
+
+**(d) The record.** As built: every action, taken or refused, an entry
+*"assistive technology: …"*; text put in said by its length alone.
+Added: an entry when the bus begins listening and when it stops, with
+the time, because that is all the browser can know of reads. No entry
+per read: none reaches us.
+
+*Tests.* `request_initial_tree` writes one *began listening* entry and
+`deactivate_accessibility` one *stopped listening*; a hundred frames
+painted while listening write no further entry.
+
+### Recommended, and the one alternative
+
+**Recommended:** (a) to (d) as above, *Read and act* by default, on alo OS
+and on any other Linux alike.
+
+**Alternative:** the same, with *Read only* the default on Linux. A
+screen reader keeps all it needs to read, and Orca mostly acts through
+the person's own keys, which reach alo as keys. What is lost is
+`alo-app <app> press` through AT-SPI, which § 5 meant to verify, and any
+agent's press through the bus. It is the narrower road while alo OS's
+own adapter (item 966) carries the actions; and alo OS's fallback
+reaches an application that has an adapter only through the adapter
+(`docs/contracts/app-adapters.md`, *The accessibility fallback*).
+
+**Not proposed:** asking AccessKit upstream to hand the sender to the
+`ActionHandler`. It would name who acts, never who reads, and the reads
+are the threat. A guard of ours over the reads would mean publishing
+AT-SPI by hand, which § 1 rejects.
+
+### Asked of the owner
+
+1. **The default.** *Read and act* by default on Linux (recommended), or
+   *Read only*? And the same on a Linux that is not alo OS, where
+   nothing may filter the bus?
+2. **alo's own interface on the bus.** The chats' names and what the
+   person asked are readable by any unsandboxed program of theirs, which
+   the socket never gives. Accept that as the cost of a screen reader
+   reading alo, or publish only the conversation on screen and leave the
+   panel's other chats unnamed?
+3. **A site kept from agents is kept from the bus too**, the person's own
+   screen reader included, and its address with it — as (b) proposes?
+4. **For alo OS, through the coordinator:** is every application there a
+   Flatpak whose accessibility bus is filtered so it cannot read others,
+   and does the browser's own sandbox still let it publish? If not, the
+   guard above is all there is.
+5. **Who was on the bus.** Should the record also say which programs
+   were connected when the bus began listening (`ListNames`, then each
+   one's process and sandbox, as alo OS reads them)? It names publishers
+   and readers alike, and it would be a second D-Bus road of ours beside
+   AccessKit's.
 
 ## Rejected
 
