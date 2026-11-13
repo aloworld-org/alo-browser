@@ -243,22 +243,9 @@ fn in_the_conversation(opening: &Opening, chromium: Chromium, bundle: Option<&Bu
     // Everything this alo keeps in one directory a person named (queue
     // item 957), which `main` made or refused to start without.
     let data = (opening.data.as_deref()).and_then(|named| DataDir::at(named).ok());
-    let renderers = match renderers(opening.fonts) {
+    let renderers = match interface_renderers(opening.fonts) {
         Ok(renderers) => renderers,
         Err(failed) => return failed,
-    };
-    // The machine's Chinese, Japanese and Korean faces, read out of their
-    // collections, for the interface's renderers alone (queue item 767);
-    // under `--frozen-fonts`, none, so the window is the corpus.
-    let renderers = match opening.fonts {
-        Fonts::AsAsked => {
-            let faces = alo_window::fonts::with_cjk(
-                renderers.fonts(),
-                alo_renderer::cjk_faces::of_this_machine(),
-            );
-            renderers.with_fonts(faces)
-        }
-        Fonts::AsStarted => renderers,
     };
     eprintln!(
         "alo: the browser's own interface is drawn by {}",
@@ -324,12 +311,14 @@ fn in_the_conversation(opening: &Opening, chromium: Chromium, bundle: Option<&Bu
     // The socket an agent reaches the card live by (queue item 716), kept
     // to the sites named, stopped and removed once every card is closed —
     // as the window's event loop ends, quit included (item 688).
-    // alo's own agent (queue item 704, ADR 0096) reaches the card by the
-    // same relay, through the same orders: no road of its own.
+    // alo's own agent (queue item 704, ADR 0096), and assistive technology
+    // on the card's page (988), reach it by the same relay's orders.
+    let mut assisted = None;
     let (reaching, listening, agent) = match alo_window::conversation_agents::relay(opening.scope())
     {
         Ok((orders, reaching)) => {
             let listening = listen(&orders, &opening.agents, keeping.socket.clone());
+            assisted = Some(orders.clone());
             // It begins with no page open through the box's own search
             // (queue item 821), and opens only sites agents are kept
             // to.
@@ -356,7 +345,7 @@ fn in_the_conversation(opening: &Opening, chromium: Chromium, bundle: Option<&Bu
         chromium,
         (search, answer, defaults, keys),
         (chats, sign_ins, keeping.keychain.clone()),
-        (reaching, closing, agent),
+        (reaching, closing, agent, assisted),
         opening.address.clone(),
     ) {
         Ok(()) => ExitCode::SUCCESS,
@@ -521,6 +510,25 @@ fn handed_over(_: &Opening) -> Option<ExitCode> {
 fn socket_of(opening: &Opening) -> Option<std::path::PathBuf> {
     let named = opening.data.as_deref()?;
     DataDir::at(named).ok().map(|data| data.socket())
+}
+
+/// The renderers the conversation's own interface is drawn by, as
+/// [`renderers`] starts them — given the machine's Chinese, Japanese and
+/// Korean faces, read out of their collections, for the interface's
+/// renderers alone (queue item 767); under `--frozen-fonts`, none, so the
+/// window is the corpus.
+fn interface_renderers(fonts: Fonts) -> Result<Renderers, ExitCode> {
+    let renderers = renderers(fonts)?;
+    Ok(match fonts {
+        Fonts::AsAsked => {
+            let faces = alo_window::fonts::with_cjk(
+                renderers.fonts(),
+                alo_renderer::cjk_faces::of_this_machine(),
+            );
+            renderers.with_fonts(faces)
+        }
+        Fonts::AsStarted => renderers,
+    })
 }
 
 /// The renderers this program starts — the renderer built beside it, with

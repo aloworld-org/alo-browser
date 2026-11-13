@@ -882,7 +882,9 @@ impl ApplicationHandler<ToFrame> for Framing<'_> {
 /// sign-ins in the jar `sign_ins` (ADR 0111); the chats' key in `keychain`
 /// — or, under a data directory with no secret store (queue item 957),
 /// none, and the chats not kept. The card live
-/// is reached by agents as `reaching` says (queue item 716), and `closing`
+/// is reached by agents as `reaching` says (queue item 716) — and its page
+/// by assistive technology through `assisted`, the same relay's orders
+/// (queue item 988, ADR 0115 § 3), when there is one — and `closing`
 /// is run as the window's event loop ends — quit included, after which
 /// `AppKit` ends the process (item 688) — once every card is closed. The
 /// address alo was `launched` at, if any, opens in a new chat once the
@@ -908,10 +910,11 @@ pub fn conversation(
         std::sync::Arc<crate::sign_ins::SignIns>,
         Option<crate::keychain::Keychain>,
     ),
-    (reaching, closing, agent): (
+    (reaching, closing, agent, assisted): (
         Reaching,
         Closing<'_>,
         Result<crate::conversation_agent::Agent, String>,
+        Option<crate::inbox::Orders>,
     ),
     launched: Option<alo_url::Url>,
 ) -> Result<(), String> {
@@ -962,7 +965,8 @@ pub fn conversation(
     // not read is Manrope, and said.
     let settings = chats.as_deref().ok().map(crate::settings_file::file_in);
     let read = settings_read(settings.as_deref());
-    let state = ConversationWindow::new(forced, drawing, chrome)
+    let window = ConversationWindow::new(forced, drawing, chrome);
+    let state = assisted_page(window, assisted, &event_loop)?
         .with_search(searcher)
         .with_agent(agent, tell_agent)
         .with_settings(read, settings)
@@ -1030,6 +1034,30 @@ pub fn conversation(
         (None, Some(unfinished)) => Err(unfinished.to_owned()),
         (None, None) => Ok(()),
     }
+}
+
+/// `state`, its card's page read and acted on for the accessibility bus
+/// through `orders`, the relay's, as an agent's are (queue item 988, ADR
+/// 0115 § 3) — when there are any.
+///
+/// # Errors
+///
+/// That no thread could be started to do it.
+fn assisted_page(
+    state: ConversationWindow,
+    orders: Option<crate::inbox::Orders>,
+    event_loop: &EventLoop<Heard>,
+) -> Result<ConversationWindow, String> {
+    let Some(orders) = orders else {
+        return Ok(state);
+    };
+    let proxy = event_loop.create_proxy();
+    let reader = crate::assisted_page::PageReader::start(
+        orders,
+        Box::new(move |heard| proxy.send_event(Heard::Page(heard)).is_ok()),
+    )
+    .map_err(|why| format!("no thread to read a card's page for the bus: {why}"))?;
+    Ok(state.with_assisted_page(reader))
 }
 
 /// The conversation's event loop's state: the window, and what it holds

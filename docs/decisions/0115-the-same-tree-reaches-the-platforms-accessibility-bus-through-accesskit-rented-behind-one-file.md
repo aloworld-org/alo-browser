@@ -2,8 +2,9 @@
 
 **Status:** accepted for phases (a) and (b) — queue item 965, the owner,
 12 November 2026. Phase (c) waits on *Answered* 3. Phase (a) built 12
-November 2026 (queue item 987, not yet gated; *Phase (a), as built*
-below); (b) and (c) are not.
+November 2026 (queue item 987, gated 13 November 2026; *Phase (a), as
+built* below); phase (b) built 13 November 2026 (queue item 988, not yet
+gated; *Phase (b), as built* below); (c) is not.
 **Date:** 2026-11-12
 **Context:** ADR 0002 (the layout tree is the agent's tree; *"the same tree
 is the accessibility tree"*; no verb takes a coordinate; reading is never
@@ -412,6 +413,113 @@ and the sheet were not read on the bus. `aria-hidden` nodes are published
 as hidden, not left out. A part whose renderer has gone keeps the last tree
 it answered. A card's page is not grafted (phase (b)); nothing is built for
 AT-SPI (phase (c)).
+
+## Phase (b), as built (13 November 2026, queue item 988)
+
+Not yet gated. What differs from § 3 and § 4 is said here, not there.
+
+**One road.** A card's page is read by a thread of the browser process,
+`assisted_page.rs`, that sends **the agent socket's own orders** to the
+conversation's relay (`conversation_agents.rs`) — `tabs`, then `read` —
+as `Caller::ASSISTIVE`, *"assistive technology"*. Its **reads are not
+written in the card's agent record** (`serving::serve`): read after every
+frame, they would fill its 10 000 entries in minutes and push out the
+agents' actions the record is for (ADR 0012 § 4). Its **actions are**, each
+an entry as every caller's — `activate` and `put_text`, carried out or
+refused — and the window's own record of the bus (`assisted_record.rs`)
+keeps every action, taken or refused, and every press held for paying. Chromium's platform objects for the card's window are never
+read. So the road does not depend on the card having a window; but alo
+never opens a windowless card (`--alo-windowless` is the CEF host's spike
+switch, ADR 0113, and nothing in `alo-window` gives it), so the road was
+**not run windowless**, and cannot be until ADR 0113's items wire it.
+
+**When it is read.** While the bus listens: as it first asks, and again
+after each frame the card's Chromium streams (`Went::Framed`), one read at
+a time, the next asked only once the last is answered — at most once per
+frame. On macOS the adapter never says the bus stopped listening, so once
+asked the page is read for as long as the window is open; no read is an
+entry in the card's agent record. How much a busy page's
+reads cost while a screen reader listens is not measured.
+
+**Bounds** are the socket's: a tree it refuses as too deep
+(`Refused::TreeTooDeep`, past `asking::MOST_DEPTH`) and one past
+`accessible_tree::MOST_NODES` (100 000, `chrome_protocol::MOST_NODES`'s
+number) are published as one node, *"this page is too large to read"*.
+
+**Where it is grafted.** The page is a subtree of its own
+(`accessible_tree::PAGE`), grafted at the first screen's image of the
+page (`card_document::PICTURED`), which is published as a group of that
+name at the card's page box — the box a person's press on the page is
+aimed by, `Stands::page_box` placed in the window — and sent only in a
+sending whose first screen holds that image, so the adapter is never sent
+a subtree with no graft; the consumer drops the page with its picture,
+and the tests apply each sending to `accesskit_consumer` to show it never
+panics. **Measured:** AccessKit's macOS adapter shows a graft's subtree in
+the graft's place, so on the bus the page's root (a group named by the
+page's title) stands inside the card's region where the picture is, and
+the picture itself is not an element. The page's nodes' rectangles, CSS
+pixels of the page as it sits, are placed from the page box's corner at
+the window's scale.
+
+**What is published, and refused.** § 2's table, offers and the record,
+unchanged. Chrome's tree has a password field as a `textbox`; it is known
+by holding only a password's dots (`agent_page::is_dots`, the socket's
+text's own rule), published as `PasswordInput` with no value, and never
+offered `SetValue`. **Not closed:** an *empty* password field holds no
+dots and is published as an empty text field offered `SetValue` — no
+secret is in it to publish, and text put into it is refused by the card,
+which knows the element (`Refused::Password`), as for every agent. A card's
+number and every field `is_secret` names: no value, no `SetValue`, and the
+card refuses its details too (`Refused::CardDetails`). Text put in is said
+in the record by its length alone, never the text, whatever came of it.
+
+**How an action is carried out.** Checked first against the tree the page
+was last read as, by `assisted::offers`, then `Click` is the socket's
+`activate` on that node, `SetValue` its `put_text`, and `Focus` — offered
+only on a field — a press on the field, which is what gives a page's field
+the keyboard (§ 2's *"as a press on it would"*); no new verb. A press
+taken gives the card's page the person's keyboard, as their own press on
+it does. Every action carrying a point is refused by `accessible_tree::
+heard` before it reaches the window, on the page as on alo's own
+interface.
+
+**A press that pays** (*Answered* 1): the page is read again just before
+the press and judged by `agent_gate::asked`; only a press it holds as
+**paying** is held — one it would hold for sending or deleting is pressed,
+as a person's press is. Held, the card asks the gate's question with what
+it pays, *Pay* and *Not now*, as alo's agent's question is
+(`Work::hold`: no run is started, nothing is kept with the page, numbered
+down from the top so it is never a run's question; refused while a run of
+alo's agent is at work on the card). *Pay* reads the page again and
+presses only if it would ask exactly the same, amount and all; *Not now*,
+*Stop*, the card closing or replaced, or a run of alo's agent started, and
+it is not pressed. While asked, the card stands as it does for alo's
+agent's question — in the split view on a wide window — and its working
+line says *alo is working on this page*, which is the agent's sentence and
+not quite this; a sentence of the bus's own is not built. *Answered* 4: a
+press on *Pay* from the bus is taken.
+
+**Measured on this Mac** (macOS 26.5.2, 13 November 2026), by
+`tests/a_cards_page_on_the_accessibility_bus_through_chrome.rs` through
+`osascript` and System Events, a card on a checkout of the test's own on
+`127.0.0.1` in the machine's Chrome: the page's root 240 + 81 in and 145
+down in the window, 878 × 520 points; *Say hello* an `AXButton` 40 in and
+60 down on it, 200 × 40; the password field an `AXTextField` of subrole
+`AXSecureTextField` (Chrome's tree holds its dots, so it is published as
+`PasswordInput`) with no value, its password and dots nowhere in the tree; nothing offering an
+action but `AXPress`; `AXPress` on *Say hello* making the page write that
+it was pressed, read back through the bus; a field's value set read back;
+`AXPress` on *Pay UGX 45,000* held, the page not paid, until `AXPress` on
+alo's *Pay*. The test is skipped, saying why, on a locked screen or
+without the Accessibility permission.
+
+**Not done in phase (b), and not measured.** VoiceOver itself. A
+windowless card (above). The page's keyboard focus: the root's focus is
+never put on a page node, so a screen reader is not told which field of
+the page has the keyboard. A card scrolled out of the conversation's view
+is published where its page box is, outside the window's inside. Chrome's
+own `focused` and `value` properties are not read: a field's value is its
+runs of text, as `chrome_tree.rs` reads them.
 
 ## What is not measured, and is not hidden
 

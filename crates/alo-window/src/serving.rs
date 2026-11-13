@@ -86,7 +86,11 @@ pub struct Served<T> {
 }
 
 /// Answer `ask` from `pages` on behalf of `caller`, kept to `scope`, and
-/// record it.
+/// record it — except a read by assistive technology ([`Caller::ASSISTIVE`]:
+/// its `tabs` and `read`), which the accessibility bus asks after every
+/// frame a card streams while it listens and which would otherwise push
+/// every agent's actions out of the record (ADR 0012 § 4, ADR 0115 phase
+/// (b)). Its actions are recorded as every caller's are.
 pub fn serve<P: Pages>(
     pages: &mut P,
     record: &mut AgentRecord,
@@ -95,6 +99,7 @@ pub fn serve<P: Pages>(
     ask: Result<Ask, Refused>,
 ) -> Served<P::Tab> {
     let sites = &scope.sites;
+    let unrecorded = caller == Caller::ASSISTIVE && matches!(ask, Ok(Ask::Tabs | Ask::Read { .. }));
     let named = ask.as_ref().ok().and_then(Ask::tab).map(str::to_owned);
     let mut site = None;
     let mut rendered_by = None;
@@ -172,13 +177,15 @@ pub fn serve<P: Pages>(
             (came.answer, came.did, came.acted)
         }
     };
-    record.write(Entry {
-        caller,
-        tab: named,
-        site,
-        rendered_by,
-        did,
-    });
+    if !unrecorded {
+        record.write(Entry {
+            caller,
+            tab: named,
+            site,
+            rendered_by,
+            did,
+        });
+    }
     Served { answer, acted }
 }
 
@@ -709,6 +716,42 @@ mod tests {
 
     fn url(address: &str) -> alo_url::Url {
         alo_url::parse(address).unwrap_or_else(|_| alo_url::Url::about_blank())
+    }
+
+    #[test]
+    fn assistive_technologys_reads_are_not_recorded_and_its_actions_are() {
+        let (mut tabs, mut record) = (tabs(), AgentRecord::new());
+        tabs.open(url("https://example.com/"));
+        let mut ask = |caller, ask| {
+            let _ = serve(
+                &mut tabs,
+                &mut record,
+                &AgentScope::default(),
+                caller,
+                Ok(ask),
+            );
+        };
+        for _ in 0..500 {
+            ask(Caller::ASSISTIVE, Ask::Tabs);
+            ask(
+                Caller::ASSISTIVE,
+                Ask::Read {
+                    tab: "https://example.com/".to_owned(),
+                },
+            );
+        }
+        ask(
+            Caller::ASSISTIVE,
+            Ask::Act {
+                tab: "https://example.com/".to_owned(),
+                target: Target::Node(alo_box::BoxId::from_wire(7)),
+                verb: Verb::Activate,
+            },
+        );
+        // Another caller's read is recorded as before.
+        ask(Caller(0), Ask::Tabs);
+        let callers: Vec<Caller> = record.entries().map(|entry| entry.caller).collect();
+        assert_eq!(callers, [Caller::ASSISTIVE, Caller(0)]);
     }
 
     #[test]

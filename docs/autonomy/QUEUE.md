@@ -26717,6 +26717,56 @@ the rest runs on this Mac. Order: ADR 0112's *The plan, in order*.
   and AccessKit in none: `accessible.rs` must be added to `winit`'s, and
   `accesskit`, `accesskit_winit` and `accesskit_consumer` given theirs, by
   the owner.
+- [x] **988. ADR 0115 phase (b): a card's page on macOS's accessibility
+  API.** The live card's page, windowed or windowless alike, read from the
+  tree the agent socket reads (`Accessibility.getFullAXTree`, mapped by
+  `chrome_tree.rs`) through the conversation's relay as *assistive
+  technology*, and grafted into alo's AccessKit tree under the card's
+  picture of it, its nodes placed from the card's page box at the window's
+  scale; read only while the bus listens, at most once per frame streamed.
+  § 3's bounds are the socket's own: a tree it refuses as too deep, or past
+  100 000 nodes, is one node said to be too large to read. `Click`,
+  `SetValue` and `Focus` on a page node carried out as the socket's
+  `activate` and `put_text` (the keyboard moved is a press on the field);
+  every action carrying a point refused. A password field (a `textbox`
+  holding a password's dots) and a field naming a card's details or
+  another secret published with no value and never offered text, and the
+  card refuses text put into either as it does for every agent. A press
+  the person's gate says pays held for the person's yes as alo's agent's
+  is (*Answered* 1), asked on the card with *Pay* and *Not now*; a press
+  on alo's *Allow* from the bus taken (*Answered* 4). *Closes when:* the
+  page mapping is unit-tested — roles, names and values, a password and a
+  card's number valueless and refused text, a point refused, the size
+  bound cut, the bounds in numbers — and a test on this Mac opens a card
+  on a page of its own on `127.0.0.1`, finds its named button through
+  System Events under the card at its place in numbers, presses it with
+  `AXPress` and reads back that the page recorded it, finds the password
+  field with no value, and holds a press that pays until alo's *Pay*; and
+  the gate passes.
+  *Built and gated 13 November 2026* (7175 tests): `assisted_page.rs` (the
+  thread: the relay's orders as `Caller::ASSISTIVE`, its reads unrecorded,
+  the gate's judgement
+  of a press that pays), `accessible_tree.rs` (the page's subtree, `PAGE`,
+  grafted at the first screen's image named `card_document::PICTURED`, and
+  only in a sending that holds it), `assisted.rs` (`PageRead`,
+  `PublishedPage`, a password known by its dots),
+  `conversation_window/assisted.rs` (read after each frame, checked
+  against the tree last read, held and answered), `conversation_work.rs`
+  (`Work::hold`: the bus's question on the card, numbered down from the
+  top, never a run's). The test is
+  `a_cards_page_on_the_accessibility_bus_through_chrome.rs`, through the
+  machine's Chrome; its System Events helpers moved with phase (a)'s into
+  `tests/bus/mod.rs`. Not done: a windowless card is not reachable from
+  alo at all (`--alo-windowless` is the CEF host's spike switch, which alo
+  never gives), so the road is the same but was not run windowless; the
+  page's own keyboard focus is not published; VoiceOver itself was not
+  run; and the page is read after every frame while the bus listens —
+  which on macOS is for the window's life once asked. Those reads are not
+  written in the card's agent record (`serving::serve` skips
+  `Caller::ASSISTIVE`'s `tabs` and `read`, so they never push out the
+  agents' actions); every action from the bus is, and is in the window's
+  record of the bus too (`serving.rs`'s test: a thousand reads leave the
+  record as it was, one action adds one entry).
 
 ## After stage 4
 

@@ -44,6 +44,16 @@
 //! it stands. Until it ends it is kept as alo closing would stop it; one
 //! replaced by a newer run is kept as stopped by it ([`REPLACED`]). At
 //! most [`MOST_RUNS`] are kept with one page, the newest.
+//!
+//! # A press from assistive technology that pays
+//!
+//! ADR 0115, *Answered* 1 (queue item 988): a press from the platform's
+//! accessibility bus on a card's page that the person's gate says pays is
+//! held for the person's yes as alo's agent's is — the same question, with
+//! what it pays, *Pay* and *Not now*, on the same card ([`Work::hold`]). It
+//! is no run: nothing is started, nothing is kept with the page, and a run
+//! at work is never interrupted by it. Its question is numbered down from
+//! the top of the numbers, so it is never a run's, which count up from one.
 
 use crate::agent_kept::{self, Heard};
 use crate::conversation_agent::{AgentSaid, Said};
@@ -117,6 +127,20 @@ pub struct Work {
     keeping: (String, Vec<Heard>),
     /// Its plan as it stands, kept with the run (queue item 824).
     plan: Option<Plan>,
+    /// A press from assistive technology held for the person's yes (queue
+    /// item 988), and how many were.
+    held: (Option<HeldForTheBus>, u64),
+}
+
+/// A press from assistive technology held on the card for the person's
+/// yes (ADR 0115, *Answered* 1).
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct HeldForTheBus {
+    /// Its question's number.
+    question: u64,
+    /// What the card showed of alo's agent before it was asked, put back
+    /// once it is answered.
+    before: Option<AtWork>,
 }
 
 impl Default for Work {
@@ -130,6 +154,7 @@ impl Default for Work {
             to_start: None,
             keeping: (String::new(), Vec::new()),
             plan: None,
+            held: (None, 0),
         }
     }
 }
@@ -162,6 +187,8 @@ impl Work {
                 }),
             );
         }
+        // A press held for the bus is not done once a run replaces it.
+        self.held.0 = None;
         self.runs += 1;
         self.run = Some(self.runs);
         self.question = None;
@@ -260,6 +287,59 @@ impl Work {
             .is_some_and(|work| matches!(work.now, Now::Asking { .. }));
         self.question
             .filter(|_| asking && self.working(card).is_some())
+            .or_else(|| self.held_question().filter(|_| asking))
+    }
+
+    /// Hold a press from assistive technology on `card` for the person's
+    /// yes (ADR 0115, *Answered* 1): the card asks `what`, with what it
+    /// pays, `asked` its line — what the bus pressed. Its question's
+    /// number; none while a run of alo's agent is at work or held there,
+    /// or another such press already waits.
+    pub fn hold(
+        &mut self,
+        card: &mut Card,
+        asked: &str,
+        what: String,
+        paying: Option<alo_renderer::agent_work::Paying>,
+    ) -> Option<u64> {
+        if self.at_work(Some(&*card)).is_some() || self.held.0.is_some() {
+            return None;
+        }
+        self.held.1 += 1;
+        let question = u64::MAX - self.held.1;
+        let before = card.agent.take();
+        card.agent = Some(AtWork {
+            now: Now::Asking {
+                what,
+                paying: paying.map(Box::new),
+            },
+            ..AtWork::starting(asked)
+        });
+        self.held.0 = Some(HeldForTheBus { question, before });
+        Some(question)
+    }
+
+    /// The question a press from assistive technology waits on, if one
+    /// does.
+    pub fn held_question(&self) -> Option<u64> {
+        self.held.0.as_ref().map(|held| held.question)
+    }
+
+    /// The person answered the question `question` — *Allow*, *Not now*,
+    /// *Stop* — or the card it was asked on went: whether it was the one a
+    /// press from assistive technology waits on, which then waits no more,
+    /// and `card`, if it is still there, shows what it showed of alo's
+    /// agent before.
+    pub fn answer_held(&mut self, card: Option<&mut Card>, question: u64) -> bool {
+        if self.held_question() != Some(question) {
+            return false;
+        }
+        if let Some(held) = self.held.0.take()
+            && let Some(card) = card
+        {
+            card.agent = held.before;
+        }
+        true
     }
 
     /// The choices a stuck run offers on `card`.
@@ -689,5 +769,53 @@ mod tests {
         assert!(work.heard(Some(&mut card), said(1, stuck)));
         assert_eq!(Work::choices(Some(&card)), vec!["Look for one".to_owned()]);
         assert_eq!(work.working(Some(&card)), None);
+    }
+
+    #[test]
+    fn a_press_from_the_bus_that_pays_is_asked_on_the_card_and_put_back_once_answered() {
+        let mut work = Work::default();
+        let mut card = card();
+        let paying = alo_renderer::agent_work::Paying {
+            amount: Some("UGX 45,000".to_owned()),
+            merchant: "Kampala Coffee (shop.example)".to_owned(),
+            lines: Vec::new(),
+        };
+        // Held with no model set up: it is no run.
+        let question = work
+            .hold(
+                &mut card,
+                "Assistive technology pressed Pay",
+                "Pay UGX 45,000?".to_owned(),
+                Some(paying.clone()),
+            )
+            .expect("held");
+        assert!(question > u64::MAX / 2, "never a run's number");
+        assert_eq!(work.asking_now(Some(&card)), Some(question));
+        assert!(matches!(
+            card.agent.as_ref().map(|work| &work.now),
+            Some(Now::Asking { paying: Some(shown), .. }) if **shown == paying
+        ));
+        assert_eq!(work.take_start(), None, "nothing started");
+        assert!(card.ran.is_empty(), "nothing kept with the page");
+        // A second waits for none.
+        assert_eq!(work.hold(&mut card, "again", "Pay?".to_owned(), None), None);
+        // Another question's answer answers nothing.
+        assert!(!work.answer_held(Some(&mut card), question - 1));
+        assert!(work.answer_held(Some(&mut card), question));
+        assert_eq!(card.agent, None, "what it showed before");
+        assert_eq!(work.asking_now(Some(&card)), None);
+        assert!(!work.answer_held(Some(&mut card), question), "once");
+    }
+
+    #[test]
+    fn a_press_from_the_bus_is_never_held_over_a_run_at_work() {
+        let mut work = Work::default();
+        work.set_up(SetUp::Ready);
+        let mut card = card();
+        assert!(work.start(&mut card, "book a table"));
+        assert_eq!(
+            work.hold(&mut card, "pressed", "Pay?".to_owned(), None),
+            None
+        );
     }
 }

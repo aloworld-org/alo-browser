@@ -3,7 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 //! The conversation's window on the platform's accessibility bus (ADR 0115
-//! § 1, queue item 987): the one file that names `accesskit_winit`, and one
+//! § 1, queue items 987 and 988 — alo's own interface, and a card's page
+//! grafted under it): the one file that names `accesskit_winit`, and one
 //! of the two that name AccessKit at all ([`crate::accessible_tree`] is the
 //! other, and decides what the tree becomes).
 //!
@@ -122,11 +123,7 @@ struct Actions(TellTheWindow);
 
 impl ActionHandler for Actions {
     fn do_action(&mut self, request: ActionRequest) {
-        let heard = match accessible_tree::asked(&request) {
-            Ok(asked) => FromTheBus::Asked(asked),
-            Err(refused) => FromTheBus::Refused(refused),
-        };
-        let _ = (self.0)(heard);
+        let _ = (self.0)(accessible_tree::heard(&request));
     }
 }
 

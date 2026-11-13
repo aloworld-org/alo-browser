@@ -267,6 +267,14 @@ fn holder_in(threads: &mut [(ChatId, Thread)], on: Option<ChatId>) -> Option<&mu
         .and_then(|(_, thread)| thread.holder_mut())
 }
 
+/// The live card of the chat `on`, if it has one.
+fn card_in(threads: &mut [(ChatId, Thread)], on: Option<ChatId>) -> Option<&mut Card> {
+    threads
+        .iter_mut()
+        .find(|(id, _)| Some(*id) == on)
+        .and_then(|(_, thread)| thread.card_mut())
+}
+
 /// A page the run of alo's agent asked to open (queue item 821).
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct AgentOpening {
@@ -1013,6 +1021,36 @@ impl Conversation {
         let on = self.on_screen();
         let card = holder_in(&mut self.threads, on);
         self.work.stop(card, why)
+    }
+
+    /// Hold a press from assistive technology on the card on screen for the
+    /// person's yes (ADR 0115, *Answered* 1, queue item 988): its card asks
+    /// `what`, with what it pays, as alo's agent's question is asked
+    /// ([`Work::hold`]). The question's number; none with no card, or while
+    /// alo's agent is at work there or another such press waits.
+    pub fn hold_for_the_person(
+        &mut self,
+        asked: &str,
+        what: String,
+        paying: Option<alo_renderer::agent_work::Paying>,
+    ) -> Option<u64> {
+        let on = self.on_screen();
+        let card = card_in(&mut self.threads, on)?;
+        self.work.hold(card, asked, what, paying)
+    }
+
+    /// The person answered `question`, or its card went: whether a press
+    /// from assistive technology waited on it, and waits no more
+    /// ([`Work::answer_held`]).
+    pub fn answer_held(&mut self, question: u64) -> bool {
+        let on = self.on_screen();
+        let card = card_in(&mut self.threads, on);
+        self.work.answer_held(card, question)
+    }
+
+    /// The question a press from assistive technology waits on, if one does.
+    pub fn held_question(&self) -> Option<u64> {
+        self.work.held_question()
     }
 
     /// The run of alo's agent numbered `run` asks to open `url` (queue item

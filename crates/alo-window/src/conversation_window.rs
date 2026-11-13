@@ -123,6 +123,9 @@ pub enum Heard {
     /// What the platform's accessibility bus said (queue item 987, ADR
     /// 0115): that it asks for the tree, or an action by node.
     Bus(crate::assisted::FromTheBus),
+    /// What came of reading or acting on the card's page for the bus
+    /// (queue item 988, ADR 0115 § 3).
+    Page(crate::assisted_page::PageHeard),
 }
 
 /// Where the window is, as the window server gives it.
@@ -2089,6 +2092,8 @@ impl ConversationWindow {
         let sheet = self.conversation.sheet();
         self.card_pressed(&pressed);
         self.agent_pressed(&pressed);
+        // A press from the bus held for the person's yes (queue item 988).
+        self.held_pressed(&pressed);
         let settings = self.conversation.settings().is_open();
         let on_a_field = matches!(pressed, Decided::TheBox | Decided::SearchChats);
         let field_pressed = on_a_field.then(|| pressed.clone());
@@ -2366,6 +2371,8 @@ impl ConversationWindow {
     fn went(&mut self, went: Went) {
         let said = went.said();
         let framed = matches!(went, Went::Framed(_));
+        // The card's page for the bus, read again or forgotten (item 988).
+        self.page_follows(&went);
         // The window's title, and an agent outside waiting on the card
         // (queue items 958 and 956).
         self.titled(&went);
@@ -2544,13 +2551,22 @@ impl ConversationWindow {
     pub fn heard(&mut self, heard: Heard) {
         // A frame of the card's page changes nothing drawn until its
         // picture is (queue item 869): every other news may.
-        self.redraw |= !matches!(heard, Heard::Chrome(Went::Framed(_)));
+        // Nor does the card's page read for the bus (queue item 988).
+        self.redraw |= !matches!(
+            heard,
+            Heard::Chrome(Went::Framed(_))
+                | Heard::Page(
+                    crate::assisted_page::PageHeard::Read(_)
+                        | crate::assisted_page::PageHeard::Unread(_)
+                )
+        );
         match heard {
             Heard::Chrome(went) => self.went(went),
             Heard::Searched(searched) => self.searched(searched),
             Heard::Agent(said) => self.agent_said(said),
             Heard::NewTab(asked) => self.new_tab_asked(asked),
             Heard::Bus(from) => self.bus_said(from),
+            Heard::Page(heard) => self.page_heard(heard),
             Heard::Drawn(Drawn::Tree(part, tree)) => self.tree_read(part, *tree),
             Heard::Drawn(Drawn::Assisted(part, assist, decided)) => {
                 self.assisted(part, assist, *decided);

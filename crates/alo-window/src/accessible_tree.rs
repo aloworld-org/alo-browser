@@ -51,8 +51,25 @@
 //!
 //! A part of more than [`MOST_NODES`] nodes is published as its root alone,
 //! said to be too large to read — never half a tree said to be whole.
+//!
+//! # A card's page (ADR 0115 § 3, phase (b), queue item 988)
+//!
+//! The page a card shows is a subtree of its own ([`PAGE`]), grafted at the
+//! card's picture of it — the first screen's image named
+//! [`alo_renderer::card_document::PICTURED`], published as a group of that
+//! name standing at the card's page box — and only in a sending whose first
+//! screen holds that picture, so the adapter is never sent a subtree with
+//! no graft. Its nodes are Chrome's, by `backendDOMNodeId` (ADR 0003), read
+//! as the agent socket reads them, mapped by the same table, offered the
+//! same actions and withheld the same secrets; their rectangles, CSS pixels
+//! of the page as it sits, are placed from the page box's corner at the
+//! window's scale. A page past [`MOST_NODES`], or one the socket refuses as
+//! too deep, is its graft's subtree of one node, [`PAGE_TOO_LARGE`].
 
-use crate::assisted::{self, Asked, Assist, Published, PublishedPart, Secret, Unasked};
+use crate::assisted::{
+    self, Asked, Assist, FromTheBus, PageRead, Published, PublishedPage, PublishedPart, Secret,
+    Unasked,
+};
 use crate::conversation_drawing::Part;
 use accesskit::{
     Action, ActionData, ActionRequest, AriaCurrent, Invalid, Node, NodeId, Rect, Role, Toggled,
@@ -60,13 +77,21 @@ use accesskit::{
 };
 use alo_box::{BoxId, Checked, Current, KnownRole, Role as Ours};
 use alo_renderer::SnapshotNode;
+use alo_renderer::card_document::PICTURED;
 use std::collections::HashSet;
 
-/// The most nodes of one part published.
+/// The most nodes of one part published — and of a card's page, the most
+/// the socket reads of one (`chrome_protocol::MOST_NODES`).
 pub const MOST_NODES: usize = 100_000;
 
 /// What a part too large to publish is said to be.
 pub const TOO_LARGE: &str = "this part of alo is too large to read";
+
+/// What a card's page too large to publish is said to be.
+pub const PAGE_TOO_LARGE: &str = "this page is too large to read";
+
+/// The subtree a card's page is published as.
+pub const PAGE: TreeId = TreeId(Uuid::from_u128(0xa10_0115_0003));
 
 /// The roles declared that are published as a role of their own, by the
 /// name Chrome's tree gives them; every other declared role is a generic
@@ -163,14 +188,23 @@ pub fn updates(published: &Published, grafted: Grafted) -> (Vec<TreeUpdate>, Gra
     let first = wanted.filter(|part| before.holds(*part));
     let mut sent = vec![root(&parts, first)];
     let mut now = Grafted::default();
+    let mut page_grafted = false;
     for (part, at) in &parts {
-        sent.push(subtree(
+        let page = published.page.as_ref().filter(|_| *part == Part::Start);
+        let (update, grafted) = subtree(
             *part,
             at,
             published.scale,
             published.keyboard == Some(*part),
-        ));
+            page,
+        );
+        sent.push(update);
+        page_grafted |= grafted;
         now = now.with(*part);
+    }
+    // The page only where the first screen just sent holds its graft.
+    if page_grafted && let Some(page) = &published.page {
+        sent.push(page_subtree(page, published.scale));
     }
     if wanted != first {
         sent.push(root(&parts, wanted));
@@ -232,53 +266,158 @@ fn counted(root: &SnapshotNode, most: usize) -> usize {
 }
 
 /// `part`'s subtree, its nodes placed by `at` at `scale`, its focus on its
-/// field when `keyed`, and on its root otherwise.
-fn subtree(part: Part, at: &PublishedPart, scale: f32, keyed: bool) -> TreeUpdate {
-    let mut nodes = Vec::new();
-    let mut focus = None;
+/// field when `keyed`, and on its root otherwise — the first screen's
+/// picture of the card's page, when `page` is to be published, its graft:
+/// and whether it was.
+fn subtree(
+    part: Part,
+    at: &PublishedPart,
+    scale: f32,
+    keyed: bool,
+    page: Option<&PublishedPage>,
+) -> (TreeUpdate, bool) {
+    let origin = (f64::from(at.at.x), f64::from(at.at.y));
+    let mut placing = Placing {
+        origin,
+        scale,
+        keyed,
+        page,
+        grafted: false,
+    };
     let root_id = at
         .tree
         .root
         .as_ref()
         .map_or(NodeId(0), |root| node_id(root.id));
-    if let Some(root) = &at.tree.root {
-        if counted(root, MOST_NODES) > MOST_NODES {
-            let mut alone = Node::new(Role::GenericContainer);
-            alone.set_label(TOO_LARGE);
-            nodes.push((root_id, alone));
-        } else {
-            let mut seen = HashSet::from([root.id]);
-            let mut waiting = vec![root];
-            while let Some(each) = waiting.pop() {
-                let mut published = published_node(each, at, scale);
-                if keyed && focus.is_none() && is_a_typed_field(each) {
-                    focus = Some(node_id(each.id));
-                }
-                // A field is a leaf: what it holds is its value.
-                let children: Vec<&SnapshotNode> = if each.states.takes_text {
-                    Vec::new()
-                } else {
-                    each.children
-                        .iter()
-                        .filter(|child| seen.insert(child.id))
-                        .collect()
-                };
-                published.set_children(
-                    children
-                        .iter()
-                        .map(|child| node_id(child.id))
-                        .collect::<Vec<_>>(),
-                );
-                nodes.push((node_id(each.id), published));
-                waiting.extend(children.into_iter().rev());
-            }
+    let (nodes, focus) = match &at.tree.root {
+        Some(root) => placing.nodes(root, TOO_LARGE),
+        None => (Vec::new(), None),
+    };
+    (
+        TreeUpdate {
+            nodes,
+            tree: Some(TreeInfo::new(root_id)),
+            tree_id: tree_id(part),
+            focus: focus.unwrap_or(root_id),
+        },
+        placing.grafted,
+    )
+}
+
+/// The card's page's subtree, its nodes placed from its page box's corner
+/// at `scale`, its focus on its root.
+fn page_subtree(page: &PublishedPage, scale: f32) -> TreeUpdate {
+    let mut placing = Placing {
+        origin: (page.at.0, page.at.1),
+        scale,
+        keyed: false,
+        page: None,
+        grafted: false,
+    };
+    let (root_id, nodes) = match &page.read {
+        PageRead::Tree(tree) => match &tree.root {
+            Some(root) => (node_id(root.id), placing.nodes(root, PAGE_TOO_LARGE).0),
+            None => (NodeId(0), vec![(NodeId(0), Node::new(Role::Document))]),
+        },
+        PageRead::TooLarge => {
+            let mut alone = Node::new(Role::Document);
+            alone.set_label(PAGE_TOO_LARGE);
+            (NodeId(0), vec![(NodeId(0), alone)])
         }
-    }
+    };
     TreeUpdate {
         nodes,
         tree: Some(TreeInfo::new(root_id)),
-        tree_id: tree_id(part),
-        focus: focus.unwrap_or(root_id),
+        tree_id: PAGE,
+        focus: root_id,
+    }
+}
+
+/// How one subtree's nodes are published: placed from `origin` at `scale`,
+/// the keyboard on its first typed field when `keyed`, and the card's page
+/// grafted at its picture when there is a `page` to publish.
+struct Placing<'p> {
+    origin: (f64, f64),
+    scale: f32,
+    keyed: bool,
+    page: Option<&'p PublishedPage>,
+    /// Whether the page's graft was published.
+    grafted: bool,
+}
+
+impl Placing<'_> {
+    /// Every node under `root`, outermost first, and the one the keyboard
+    /// is on — or `root` alone, said to be `too_large`, past
+    /// [`MOST_NODES`].
+    fn nodes(
+        &mut self,
+        root: &SnapshotNode,
+        too_large: &str,
+    ) -> (Vec<(NodeId, Node)>, Option<NodeId>) {
+        let mut nodes = Vec::new();
+        let mut focus = None;
+        if counted(root, MOST_NODES) > MOST_NODES {
+            let mut alone = Node::new(Role::GenericContainer);
+            alone.set_label(too_large);
+            nodes.push((node_id(root.id), alone));
+            return (nodes, focus);
+        }
+        let mut seen = HashSet::from([root.id]);
+        let mut waiting = vec![root];
+        while let Some(each) = waiting.pop() {
+            if let Some(graft) = self.graft(each) {
+                nodes.push((node_id(each.id), graft));
+                continue;
+            }
+            let mut published = published_node(each, self.origin, self.scale);
+            if self.keyed && focus.is_none() && is_a_typed_field(each) {
+                focus = Some(node_id(each.id));
+            }
+            // A field is a leaf: what it holds is its value.
+            let children: Vec<&SnapshotNode> = if each.states.takes_text {
+                Vec::new()
+            } else {
+                each.children
+                    .iter()
+                    .filter(|child| seen.insert(child.id))
+                    .collect()
+            };
+            published.set_children(
+                children
+                    .iter()
+                    .map(|child| node_id(child.id))
+                    .collect::<Vec<_>>(),
+            );
+            nodes.push((node_id(each.id), published));
+            waiting.extend(children.into_iter().rev());
+        }
+        (nodes, focus)
+    }
+
+    /// `node` as the card's page's graft, if it is the card's picture of
+    /// the page and the page is to be published: a group of the picture's
+    /// name at the page box, holding nothing of its own — AccessKit's graft
+    /// holds only its subtree — and only the first such picture met.
+    fn graft(&mut self, node: &SnapshotNode) -> Option<Node> {
+        let page = self.page?;
+        if self.grafted
+            || node.role != Ours::Known(KnownRole::Image)
+            || node.name.as_deref() != Some(PICTURED)
+        {
+            return None;
+        }
+        self.grafted = true;
+        let mut graft = Node::new(Role::Group);
+        graft.set_label(PICTURED);
+        graft.set_tree_id(PAGE);
+        let (left, top, width, height) = page.at;
+        graft.set_bounds(Rect {
+            x0: left,
+            y0: top,
+            x1: left + width,
+            y1: top + height,
+        });
+        Some(graft)
     }
 }
 
@@ -292,8 +431,9 @@ fn is_a_typed_field(node: &SnapshotNode) -> bool {
         )
 }
 
-/// `node` as AccessKit's, without its children.
-fn published_node(node: &SnapshotNode, at: &PublishedPart, scale: f32) -> Node {
+/// `node` as AccessKit's, without its children, placed from `origin` at
+/// `scale`.
+fn published_node(node: &SnapshotNode, origin: (f64, f64), scale: f32) -> Node {
     let secret = assisted::secret(node);
     let role = role(node, secret);
     let mut published = Node::new(role);
@@ -311,7 +451,7 @@ fn published_node(node: &SnapshotNode, at: &PublishedPart, scale: f32) -> Node {
         published.set_value(value);
     }
     if !node.rects.is_empty() {
-        published.set_bounds(bounds(node, at, scale));
+        published.set_bounds(bounds(node, origin, scale));
     }
     states(node, &mut published);
     let offers = assisted::offers(node);
@@ -327,12 +467,12 @@ fn published_node(node: &SnapshotNode, at: &PublishedPart, scale: f32) -> Node {
     published
 }
 
-/// Where `node` is in the window, in device pixels: its part's place plus
-/// its rect at `scale`.
-fn bounds(node: &SnapshotNode, at: &PublishedPart, scale: f32) -> Rect {
+/// Where `node` is in the window, in device pixels: its part's place — or
+/// its page box's corner — plus its rect at `scale`.
+fn bounds(node: &SnapshotNode, (left, top): (f64, f64), scale: f32) -> Rect {
     let scale = f64::from(scale);
-    let x0 = f64::from(at.at.x) + f64::from(node.rect.left()) * scale;
-    let y0 = f64::from(at.at.y) + f64::from(node.rect.top()) * scale;
+    let x0 = left + f64::from(node.rect.left()) * scale;
+    let y0 = top + f64::from(node.rect.top()) * scale;
     Rect {
         x0,
         y0,
@@ -488,6 +628,47 @@ pub fn asked(request: &ActionRequest) -> Result<Asked, Unasked> {
         action: format!("{:?}", request.action),
         why,
     };
+    let assist = assist_of(request)?;
+    let part = part_of(request.target_tree).ok_or_else(|| refused("it names no node of a part"))?;
+    let node = node_of(request).ok_or_else(|| refused("it names a node no tree of alo's holds"))?;
+    Ok(Asked { part, node, assist })
+}
+
+/// What `request` tells the window: an action on a node of a part
+/// ([`asked`]), on a node of the card's page, or refused — by the same
+/// rule, so a point is refused on the page as on alo's own interface.
+pub fn heard(request: &ActionRequest) -> FromTheBus {
+    if request.target_tree != PAGE {
+        return match asked(request) {
+            Ok(asked) => FromTheBus::Asked(asked),
+            Err(refused) => FromTheBus::Refused(refused),
+        };
+    }
+    let page = assist_of(request).and_then(|assist| {
+        node_of(request)
+            .map(|node| FromTheBus::Page { node, assist })
+            .ok_or_else(|| Unasked {
+                action: format!("{:?}", request.action),
+                why: "it names a node no tree of alo's holds",
+            })
+    });
+    page.unwrap_or_else(FromTheBus::Refused)
+}
+
+/// The node `request` names, by its id in the tree it names.
+fn node_of(request: &ActionRequest) -> Option<BoxId> {
+    usize::try_from(request.target_node.0)
+        .ok()
+        .map(BoxId::from_wire)
+}
+
+/// What `request` asks be done, in this browser's words, or why it is
+/// refused: anything carrying a point first (ADR 0002).
+fn assist_of(request: &ActionRequest) -> Result<Assist, Unasked> {
+    let refused = |why| Unasked {
+        action: format!("{:?}", request.action),
+        why,
+    };
     if matches!(
         request.data,
         Some(ActionData::ScrollToPoint(_) | ActionData::SetScrollOffset(_))
@@ -511,11 +692,7 @@ pub fn asked(request: &ActionRequest) -> Result<Asked, Unasked> {
             ));
         }
     };
-    let part = part_of(request.target_tree).ok_or_else(|| refused("it names no node of a part"))?;
-    let node = usize::try_from(request.target_node.0)
-        .map(BoxId::from_wire)
-        .map_err(|_| refused("it names a node no tree of alo's holds"))?;
-    Ok(Asked { part, node, assist })
+    Ok(assist)
 }
 
 #[cfg(test)]
@@ -693,6 +870,7 @@ mod tests {
                     root: Some(start()),
                 },
             }),
+            page: None,
             keyboard,
             fresh,
         }
@@ -1085,5 +1263,292 @@ mod tests {
             asked(&window).map(|_| ()).unwrap_err().why,
             "it names no node of a part"
         );
+    }
+    /// The card's page box at two in the design's window: the first
+    /// screen 480 in, the page box 81 in and 145 down in it, 878 × 520.
+    const PAGE_BOX: (f64, f64, f64, f64) = (642.0, 290.0, 1756.0, 1040.0);
+
+    /// A checkout as Chrome's tree reads it, by `backendDOMNodeId`: a
+    /// heading, *Pay UGX 45,000*, a name holding words, a password holding
+    /// its dots, a card's number holding digits, and a link.
+    fn checkout() -> SnapshotNode {
+        let mut heading = known(
+            3,
+            KnownRole::Heading,
+            "Checkout",
+            Laid::new(40.0, 10.0, 300.0, 32.0),
+        );
+        heading.states.level = Some(1);
+        with(
+            known(
+                1,
+                KnownRole::Document,
+                "Kampala Coffee",
+                Laid::new(0.0, 0.0, 878.0, 520.0),
+            ),
+            vec![
+                heading,
+                known(
+                    7,
+                    KnownRole::Button,
+                    "Pay UGX 45,000",
+                    Laid::new(40.0, 60.0, 200.0, 40.0),
+                ),
+                field(
+                    9,
+                    Ours::Known(KnownRole::TextBox),
+                    "Your name",
+                    "Ada",
+                    Laid::new(40.0, 120.0, 300.0, 30.0),
+                ),
+                field(
+                    11,
+                    Ours::Known(KnownRole::TextBox),
+                    "Secret phrase",
+                    "\u{2022}\u{2022}\u{2022}\u{2022}\u{2022}\u{2022}\u{2022}",
+                    Laid::new(40.0, 170.0, 300.0, 30.0),
+                ),
+                field(
+                    13,
+                    Ours::Known(KnownRole::TextBox),
+                    "Card number",
+                    "4242 4242 4242 4242",
+                    Laid::new(40.0, 220.0, 300.0, 30.0),
+                ),
+                known(
+                    15,
+                    KnownRole::Link,
+                    "Terms",
+                    Laid::new(40.0, 270.0, 60.0, 20.0),
+                ),
+            ],
+        )
+    }
+
+    /// [`published`], the first screen holding the card's picture of its
+    /// page and the page read as `read`.
+    fn with_the_page(read: Option<PageRead>) -> Published {
+        let mut window = published(None, true);
+        if let Some(PublishedPart { tree, .. }) = window.start.as_mut()
+            && let Some(root) = tree.root.as_mut()
+        {
+            root.children.push(known(
+                70,
+                KnownRole::Image,
+                PICTURED,
+                Laid::new(81.0, 145.0, 878.0, 520.0),
+            ));
+        }
+        window.page = read.map(|read| PublishedPage { at: PAGE_BOX, read });
+        window
+    }
+
+    fn page_read() -> PageRead {
+        PageRead::Tree(Box::new(Snapshot {
+            root: Some(checkout()),
+        }))
+    }
+
+    #[test]
+    fn a_cards_page_is_grafted_under_its_picture_with_its_roles_names_and_values() {
+        let (updates, _) = updates(&with_the_page(Some(page_read())), Grafted::default());
+        assert_eq!(updates.len(), 4, "the root, two parts and the page");
+        let tree = applied(updates);
+        let nodes = all(&tree);
+        // The window, two grafts, the panel's five, the first screen's five
+        // and its picture, and the page's seven.
+        assert_eq!(nodes.len(), 1 + 2 + 5 + 6 + 7);
+        let graft = labelled(&nodes, PICTURED);
+        assert_eq!(graft.role(), Role::Group);
+        let page = graft.children().next().expect("the page under its picture");
+        assert_eq!(
+            (page.role(), page.data().label()),
+            (Role::Document, Some("Kampala Coffee"))
+        );
+        let heading = labelled(&nodes, "Checkout");
+        assert_eq!((heading.role(), heading.level()), (Role::Heading, Some(1)));
+        let pay = labelled(&nodes, "Pay UGX 45,000");
+        assert_eq!(pay.role(), Role::Button);
+        assert_eq!(actions(pay), [Action::Click]);
+        let name = labelled(&nodes, "Your name");
+        assert_eq!(name.role(), Role::TextInput);
+        assert_eq!(name.value().as_deref(), Some("Ada"));
+        assert_eq!(
+            actions(name),
+            [Action::Click, Action::Focus, Action::SetValue]
+        );
+        assert_eq!(labelled(&nodes, "Terms").role(), Role::Link);
+    }
+
+    #[test]
+    fn a_pages_password_and_card_number_are_published_with_no_value_and_take_no_text() {
+        let tree = applied(updates(&with_the_page(Some(page_read())), Grafted::default()).0);
+        let nodes = all(&tree);
+        let password = labelled(&nodes, "Secret phrase");
+        assert_eq!(password.role(), Role::PasswordInput);
+        assert_eq!(password.data().value(), None, "not even its dots");
+        assert_eq!(actions(password), [Action::Click, Action::Focus]);
+        let card = labelled(&nodes, "Card number");
+        assert_eq!(card.data().value(), None);
+        assert_eq!(actions(card), [Action::Click, Action::Focus]);
+        assert!(
+            nodes.iter().all(|node| node
+                .value()
+                .is_none_or(|value| { !value.contains('\u{2022}') && !value.contains("4242") })),
+            "no secret is anywhere in the tree"
+        );
+    }
+
+    /// The page's nodes, in the window's device pixels at two: the page
+    /// box's corner plus each rect, doubled.
+    #[test]
+    fn a_pages_bounds_are_its_page_box_plus_the_rect_at_the_scale() {
+        let tree = applied(updates(&with_the_page(Some(page_read())), Grafted::default()).0);
+        let nodes = all(&tree);
+        let of = |label| labelled(&nodes, label).raw_bounds().expect("bounds");
+        assert_eq!(
+            of(PICTURED),
+            Rect {
+                x0: 642.0,
+                y0: 290.0,
+                x1: 2398.0,
+                y1: 1330.0
+            }
+        );
+        // *Pay* at (40, 60) 200 × 40 on the page.
+        assert_eq!(
+            of("Pay UGX 45,000"),
+            Rect {
+                x0: 722.0,
+                y0: 410.0,
+                x1: 1122.0,
+                y1: 490.0
+            }
+        );
+        // The page itself, the whole page box.
+        assert_eq!(
+            of("Kampala Coffee"),
+            Rect {
+                x0: 642.0,
+                y0: 290.0,
+                x1: 2398.0,
+                y1: 1330.0
+            }
+        );
+    }
+
+    #[test]
+    fn a_page_is_never_sent_without_its_graft_and_goes_with_its_picture() {
+        // Read, but its card's picture not drawn: no subtree, no graft.
+        let mut unpictured = published(None, true);
+        unpictured.page = Some(PublishedPage {
+            at: PAGE_BOX,
+            read: page_read(),
+        });
+        let (sent, _) = updates(&unpictured, Grafted::default());
+        assert_eq!(sent.len(), 3);
+        assert!(sent.iter().all(|update| update.tree_id != PAGE));
+        let mut tree = applied(sent);
+        assert!(
+            all(&tree)
+                .iter()
+                .all(|node| node.data().label() != Some("Pay UGX 45,000"))
+        );
+        // Grafted, then its picture gone: the page goes with it, and a
+        // page published again is grafted again — never a subtree the
+        // adapter would refuse.
+        for published in [
+            with_the_page(Some(page_read())),
+            published(None, false),
+            with_the_page(Some(page_read())),
+        ] {
+            let (sent, _) = updates(&published, Grafted::default());
+            for update in sent {
+                tree.update_and_process_changes(update, &mut Unheard);
+            }
+        }
+        assert!(
+            all(&tree)
+                .iter()
+                .any(|node| node.data().label() == Some("Pay UGX 45,000"))
+        );
+    }
+
+    #[test]
+    fn a_page_too_large_is_its_graft_holding_one_node_said_so() {
+        let mut huge = checkout();
+        huge.children = (0..MOST_NODES)
+            .map(|id| {
+                node(
+                    1000 + id,
+                    Ours::Generic,
+                    None,
+                    Laid::new(0.0, 0.0, 1.0, 1.0),
+                )
+            })
+            .collect();
+        for read in [
+            PageRead::Tree(Box::new(Snapshot { root: Some(huge) })),
+            PageRead::TooLarge,
+        ] {
+            let tree = applied(updates(&with_the_page(Some(read)), Grafted::default()).0);
+            let nodes = all(&tree);
+            let graft = labelled(&nodes, PICTURED);
+            let alone = graft.children().next().expect("one node");
+            assert_eq!(alone.data().label(), Some(PAGE_TOO_LARGE));
+            assert_eq!(alone.children().count(), 0);
+            assert_eq!(nodes.len(), 1 + 2 + 5 + 6 + 1);
+        }
+    }
+
+    #[test]
+    fn an_action_on_the_page_is_taken_by_node_and_a_point_refused() {
+        let on_the_page = |action, data| ActionRequest {
+            action,
+            target_tree: PAGE,
+            target_node: NodeId(7),
+            data,
+        };
+        assert_eq!(
+            heard(&on_the_page(Action::Click, None)),
+            FromTheBus::Page {
+                node: BoxId::from_wire(7),
+                assist: Assist::Click
+            }
+        );
+        assert_eq!(
+            heard(&on_the_page(
+                Action::SetValue,
+                Some(ActionData::Value("porto".into()))
+            )),
+            FromTheBus::Page {
+                node: BoxId::from_wire(7),
+                assist: Assist::SetValue("porto".to_owned())
+            }
+        );
+        let at = Point::new(10.0, 20.0);
+        for refused in [
+            on_the_page(Action::ScrollToPoint, Some(ActionData::ScrollToPoint(at))),
+            on_the_page(
+                Action::SetScrollOffset,
+                Some(ActionData::SetScrollOffset(at)),
+            ),
+            on_the_page(Action::Click, Some(ActionData::ScrollToPoint(at))),
+        ] {
+            assert!(
+                matches!(heard(&refused), FromTheBus::Refused(why) if why.why.contains("coordinate")),
+                "{refused:?}"
+            );
+        }
+        assert!(matches!(
+            heard(&on_the_page(Action::ScrollDown, None)),
+            FromTheBus::Refused(_)
+        ));
+        // A part's node is still a part's, and the page is no part.
+        assert!(matches!(
+            heard(&request(Action::Click, Part::Panel, 12, None)),
+            FromTheBus::Asked(_)
+        ));
+        assert!(asked(&on_the_page(Action::Click, None)).is_err());
     }
 }

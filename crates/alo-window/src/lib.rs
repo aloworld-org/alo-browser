@@ -127,7 +127,10 @@
 //!   names `accesskit_winit`; [`accessible_tree`] maps the parts' trees to
 //!   AccessKit's and what the bus asks back to [`assisted`]'s words, which
 //!   say what each node is offered and what is never published, and
-//!   [`assisted_record`] is what assistive technology did.
+//!   [`assisted_record`] is what assistive technology did. A card's page
+//!   is grafted under the card's picture of it (phase (b), item 988), read
+//!   and acted on through the agent socket's own orders by
+//!   [`assisted_page`].
 //!
 //! # What it is not yet
 //!
@@ -173,6 +176,7 @@ pub mod app_views;
 pub mod app_ways;
 pub mod asking;
 pub mod assisted;
+pub mod assisted_page;
 pub mod assisted_record;
 pub mod beside;
 pub mod blocking;

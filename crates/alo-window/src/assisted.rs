@@ -38,12 +38,21 @@
 //! and name and no value, nothing inside it, and is never offered
 //! [`Assist::SetValue`].
 //!
+//! # A card's page
+//!
+//! ADR 0115 § 3, phase (b) (queue item 988): the page a card shows is read
+//! from the tree the agent socket reads ([`crate::chrome_tree`], through the
+//! conversation's relay), published under the card's picture of it
+//! ([`PublishedPage`]), and acted on by node as the socket's `act` acts
+//! ([`crate::assisted_page`]). The same three actions, the same offers and
+//! the same secrets as alo's own interface: one rule.
+//!
 //! # A press that pays
 //!
 //! ADR 0115, *Answered* 1: a press from the bus that pays is held for the
 //! person's yes as alo's agent's is (ADR 0099). No press of alo's own
-//! interface pays: paying is a card's page's, which reaches the bus in
-//! phase (b). So nothing here is held, and the rule is kept for that phase.
+//! interface pays; a press on a card's page that the person's gate says
+//! pays is held ([`crate::assisted_page::judged`]).
 
 use crate::conversation_drawing::Part;
 use crate::place::PixelRect;
@@ -104,6 +113,14 @@ pub enum FromTheBus {
     Inactive,
     /// An action, by node.
     Asked(Asked),
+    /// An action on a node of the card's page, by its id in the tree the
+    /// page was last read as (ADR 0115 § 3).
+    Page {
+        /// The node.
+        node: BoxId,
+        /// What to do.
+        assist: Assist,
+    },
     /// An action refused as it was asked.
     Refused(Unasked),
 }
@@ -143,14 +160,31 @@ pub enum Secret {
 }
 
 /// Why `node`'s value is never published, if it is not.
+///
+/// A password field of alo's own has no role (ARIA gives it none); one on
+/// a card's page is a `textbox` in Chrome's tree, which says nothing more
+/// of it, and is known by what it holds being only a password's dots
+/// ([`crate::agent_page::is_dots`], as the socket's text withholds them).
 pub fn secret(node: &SnapshotNode) -> Option<Secret> {
     if !node.states.takes_text {
         return None;
     }
-    if matches!(node.role, Role::Generic | Role::Presentational) {
+    if matches!(node.role, Role::Generic | Role::Presentational) || holds_dots(node) {
         return Some(Secret::Password);
     }
     crate::agent_page::is_secret(node).then_some(Secret::Named)
+}
+
+/// Whether a run of text inside `node` is only a password's dots.
+fn holds_dots(node: &SnapshotNode) -> bool {
+    let mut waiting: Vec<&SnapshotNode> = node.children.iter().collect();
+    while let Some(each) = waiting.pop() {
+        if each.name.as_deref().is_some_and(crate::agent_page::is_dots) {
+            return true;
+        }
+        waiting.extend(each.children.iter());
+    }
+    false
 }
 
 /// What a person presses: what a press on it claims in alo's own
@@ -232,6 +266,30 @@ pub struct PublishedPart {
     pub tree: Snapshot,
 }
 
+/// What a card's page was last read as, for the bus.
+#[derive(Debug, Clone, PartialEq)]
+pub enum PageRead {
+    /// Its tree, as the agent socket's `read` answers it.
+    Tree(Box<Snapshot>),
+    /// A tree past the socket's bounds, refused as the socket refuses it
+    /// (`Refused::TreeTooDeep`): published as its graft alone, said to be
+    /// too large to read, never half a tree said to be whole.
+    TooLarge,
+}
+
+/// A card's page as it is published (ADR 0115 § 3): where its page box is
+/// in the window, and what it was last read as.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PublishedPage {
+    /// The card's page box in the window, in device pixels — left, top,
+    /// width, height — where a person's press on the page is aimed: its
+    /// nodes' rectangles, CSS pixels of the page as it sits, are placed
+    /// from its corner at the window's scale.
+    pub at: (f64, f64, f64, f64),
+    /// What it was read as.
+    pub read: PageRead,
+}
+
 /// The window's tree as it is to be published.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Published {
@@ -241,6 +299,9 @@ pub struct Published {
     pub panel: Option<PublishedPart>,
     /// The first screen, once its tree has been read.
     pub start: Option<PublishedPart>,
+    /// The card's page, once it has been read while its card shows its
+    /// picture (ADR 0115 § 3): grafted under that picture.
+    pub page: Option<PublishedPage>,
     /// The part whose field has the keyboard, if one does.
     pub keyboard: Option<Part>,
     /// Whether this is the first publishing since the bus asked for the
@@ -352,6 +413,24 @@ mod tests {
         read_only.states.read_only = true;
         assert!(!offers(&read_only).set_value);
         assert_eq!(value(&read_only).as_deref(), Some("a.example"));
+    }
+
+    #[test]
+    fn a_pages_password_known_by_its_dots_publishes_no_value_and_takes_no_text() {
+        // Chrome's tree has a password field as a `textbox` holding dots.
+        let password = field(
+            Role::Known(KnownRole::TextBox),
+            "Your secret phrase",
+            "\u{2022}\u{2022}\u{2022}\u{2022}\u{2022}\u{2022}\u{2022}",
+        );
+        assert_eq!(secret(&password), Some(Secret::Password));
+        assert_eq!(value(&password), None);
+        assert!(!offers(&password).set_value);
+        assert!(offers(&password).click && offers(&password).focus);
+        // Words that hold a dot among others are no password's.
+        let words = field(Role::Known(KnownRole::TextBox), "Note", "a \u{2022} b");
+        assert_eq!(secret(&words), None);
+        assert_eq!(value(&words).as_deref(), Some("a \u{2022} b"));
     }
 
     #[test]

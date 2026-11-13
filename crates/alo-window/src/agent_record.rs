@@ -54,12 +54,22 @@ impl Caller {
     /// item 704, ADR 0096): recorded as every agent is, by a number no
     /// connection to the socket is ever given — they count up from nought.
     pub const ALO: Caller = Caller(u64::MAX);
+
+    /// Assistive technology acting on a card's page through the platform's
+    /// accessibility bus (ADR 0115 § 3, queue item 988): a screen reader,
+    /// or a program the person let read the screen, which nothing tells
+    /// apart — recorded as every agent is, by a number no connection is
+    /// ever given.
+    pub const ASSISTIVE: Caller = Caller(u64::MAX - 1);
 }
 
 impl fmt::Display for Caller {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if *self == Self::ALO {
             return f.write_str("alo's own agent");
+        }
+        if *self == Self::ASSISTIVE {
+            return f.write_str(crate::assisted_record::WHO);
         }
         write!(f, "agent#{}", self.0)
     }
