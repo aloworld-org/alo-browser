@@ -33,7 +33,25 @@
 //! always use Alloy style"), where every other page of the host is Chrome
 //! style for ADR 0060's held requests (CEF issue #4308, ADR 0079 § 3.2).
 //! ADR 0113 says what was measured of that.
+//!
+//! # A popup is never made, but told (queue item 978)
+//!
+//! Measured through this host in 959 and again in 978: in Alloy style,
+//! with Chromium's own session held as ADR 0060 holds every page
+//! (`chrome_tab.rs`), a windowless page's `window.open` never returned (the
+//! press said nothing for thirty seconds) and the popup was never asked
+//! for; with the page's session alone, the popup was made and its requests
+//! left unheld; and a host with a popup did not end on `Browser.close`. So
+//! a windowless page's popup is **cancelled before Chromium makes it**
+//! (`OnBeforePopup`, `window.rs`), and one a person's gesture opened is
+//! told to alo as a link pressed with ⌘ is ([`popup`],
+//! [`crate::told::Told::Open`]): alo opens it as the conversation's next
+//! turn. One with no gesture — which Chromium's own blocker stops in a
+//! window — is cancelled and told to nobody. Cancelled, `window.open`
+//! returns at once and the page's opener is `null`, as a blocked popup's
+//! is.
 
+use crate::told::Told;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// The switch that opens the host's page windowless, with its size and
@@ -94,6 +112,16 @@ impl Viewport {
             scale,
         })
     }
+}
+
+/// What alo is told of a popup a windowless page asked for at `address`,
+/// which the host never makes: the address to open as the conversation's
+/// next turn, when a person's gesture opened it — and nothing for one no
+/// person asked for, or with no address.
+pub fn popup(address: Option<String>, gesture: bool) -> Option<Told> {
+    address
+        .filter(|address| gesture && !address.is_empty())
+        .map(Told::Open)
 }
 
 /// What a paint was of, as CEF names its two.
@@ -187,6 +215,21 @@ mod tests {
             said(5, "popup shown"),
             "alo's CEF host: windowless: popup shown\t5"
         );
+    }
+
+    #[test]
+    fn a_popup_a_person_opened_is_told_as_a_link_to_open_and_no_other() {
+        assert_eq!(
+            popup(Some("https://example.com/p".to_owned()), true),
+            Some(Told::Open("https://example.com/p".to_owned()))
+        );
+        assert_eq!(
+            popup(Some("https://example.com/p".to_owned()), false),
+            None,
+            "no person's gesture"
+        );
+        assert_eq!(popup(Some(String::new()), true), None);
+        assert_eq!(popup(None, true), None);
     }
 
     #[test]

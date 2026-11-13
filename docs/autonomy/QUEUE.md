@@ -26592,7 +26592,7 @@ the rest runs on this Mac. Order: ADR 0112's *The plan, in order*.
   waits on alo OS's *text, shown in full* argument kind. Closes when the
   spec answers every verb of ADR 0112 requirement 7, `read_page` included
   (after 964).
-- [ ] **978. A windowless card's popups, and ADR 0060's hold in Alloy style
+- [x] **978. A windowless card's popups, and ADR 0060's hold in Alloy style
   (ADR 0113, proposed; cut from 959).** Measured: with Chromium's own
   session held, a windowless page's `window.open` never returned and the
   popup was never asked for (CEF issue #4308); with the page's session only,
@@ -26603,6 +26603,21 @@ the rest runs on this Mac. Order: ADR 0112's *The plan, in order*.
   popup open. *Depends on ADR 0113 accepted. Closes when:* ADR 0060 is
   amended for windowless cards and a test through the host holds a frame, a
   worker and a shared worker of a windowless card, and no popup is made.
+  *Built and gated 13 November 2026* (7177 tests): measured first, through the
+  host started `--alo-windowless=600x400@1` and held by `Tab::open` — the
+  frame, dedicated, service and shared worker held (the shared worker from
+  Chromium's own session in Alloy style) and every request paused before it
+  went; a button's `window.open` said nothing for 30 s and the host did not
+  end on `Browser.close`. Built: the host's `OnBeforePopup` cancels a
+  windowless page's every popup and tells a person's as `open` (the ⌘-press
+  line, `Told::Open`), opened as the next turn; `window.open` returns
+  `null`; `Chrome::start_windowless` and a tab laid out at the host's
+  viewport. After: the press answered in 0.87–1.12 s, the popup and a
+  `target=_blank` link told and never asked for, no tab made, the host
+  ended status 0 in 83–126 ms
+  (`a_windowless_cards_targets_held_and_popup_told_through_alos_cef_host_as_chrome.rs`,
+  five runs). ADR 0060's sixth amendment; ADR 0113 notes it. Not asserted
+  windowless: a WebSocket's word, a popup with no gesture (unit test only).
 - [ ] **979. The host told a size, a scale, focus and hiding; *Expand* as
   alo's (ADR 0113, proposed).** A channel from alo to the host (the pipe
   carries only Chromium's protocol): `WasResized`, `NotifyScreenInfoChanged`,

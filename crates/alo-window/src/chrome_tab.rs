@@ -484,7 +484,11 @@ impl<'c> Tab<'c> {
         ] {
             tab.ask(&command)?;
         }
-        if tab.is_shown() {
+        if tab.chrome.is_windowless() {
+            // No window to fit: the page is laid out at the viewport the
+            // host was started with (ADR 0113), and `Browser.
+            // getWindowForTarget` is refused on it (measured, 959).
+        } else if tab.is_shown() {
             chrome_window::fit(&mut tab, width, height)
                 .map_err(|why| Unopened::Unfitted(Box::new(why)))?;
         } else {

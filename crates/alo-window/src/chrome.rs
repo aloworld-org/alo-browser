@@ -159,6 +159,15 @@ pub fn as_a_card(chromium: &Chromium, scale: Scale) -> Vec<String> {
     vec![own, SRGB.to_owned()]
 }
 
+/// The switch alo's CEF host is started with to open its page with **no
+/// window at all**, `width` by `height` CSS pixels at `scale`, drawn
+/// through CEF's windowless rendering (ADR 0113, queue items 959 and 978):
+/// `--alo-windowless=880x600@2`, as the host's `windowless.rs` reads it. The
+/// host's own; the machine's Chrome is never given it.
+pub fn windowless((width, height): (u32, u32), scale: Scale) -> String {
+    format!("--alo-windowless={width}x{height}@{}", scale.factor())
+}
+
 /// How many messages read from Chrome are held for an answer to be found
 /// among. Past this the reader waits, and so does Chrome's writing: a far
 /// side telling of events nobody asked for is held back, never stored.
@@ -221,6 +230,8 @@ pub struct Chrome {
     profile: Profile,
     /// Whether it draws in a window of its own on the screen.
     shown: bool,
+    /// Whether its one page has no window at all ([`Chrome::start_windowless`]).
+    windowless: bool,
     /// What its tabs asked for, and what caused each (ADR 0060 § 2).
     record: Record,
     /// What it told beside its pipe, read on a thread of its own (queue
@@ -401,6 +412,31 @@ impl Chrome {
         Self::launch(&Self::program(chromium)?, true, &added, cookies_now())
     }
 
+    /// Start alo's CEF host at `carried` holding one page of its own — as
+    /// a shown one holds `data:,` — drawn with **no window at all**, `size`
+    /// CSS pixels at `scale` ([`windowless`], ADR 0113), in sRGB as every
+    /// card's Chromium ([`SRGB`]). CEF draws such a page in Alloy style,
+    /// where a popup the page opens is never made but told
+    /// ([`crate::chrome_told::Told::Open`], queue item 978). Its size is
+    /// the host's for its life: a tab of it is laid out at it, never fitted
+    /// or told another (queue item 979 is the host told a new one).
+    ///
+    /// # Errors
+    ///
+    /// [`Unstarted::NotCarried`] when there is no program at `carried`, or
+    /// another [`Unstarted`].
+    pub fn start_windowless(
+        carried: &Path,
+        size: (u32, u32),
+        scale: Scale,
+    ) -> Result<Self, Unstarted> {
+        let program = Self::program(&Chromium::Carried(carried.to_path_buf()))?;
+        let added = [windowless(size, scale), SRGB.to_owned()];
+        let mut chrome = Self::launch(&program, true, &added, cookies_now())?;
+        chrome.windowless = true;
+        Ok(chrome)
+    }
+
     /// Start the Chromium `chromium` names, headless or `shown`: the
     /// machine's Chrome where its installer puts it, or the application's
     /// own at the one place it carries it — never anywhere else (ADR 0077).
@@ -537,6 +573,7 @@ impl Chrome {
             patience: LONGEST_SILENCE,
             profile,
             shown,
+            windowless: false,
             record: Record::default(),
             told: told_beside(beside),
         })
@@ -576,9 +613,17 @@ impl Chrome {
     }
 
     /// Whether it draws in a window of its own on the screen
-    /// ([`Chrome::start_shown`]) rather than headless.
+    /// ([`Chrome::start_shown`]) rather than headless — or, started
+    /// [`Chrome::start_windowless`], holds one page of its own as a shown
+    /// one does, drawn in no window.
     pub fn is_shown(&self) -> bool {
         self.shown
+    }
+
+    /// Whether its one page is drawn with no window at all
+    /// ([`Chrome::start_windowless`]): there is no window to fit or place.
+    pub fn is_windowless(&self) -> bool {
+        self.windowless
     }
 
     /// What the messages read from Chrome and not yet taken hold, in
@@ -770,6 +815,18 @@ mod tests {
         assert_eq!(
             scaled(Scale::of_screen(3.0)),
             "--force-device-scale-factor=3"
+        );
+    }
+
+    #[test]
+    fn a_windowless_page_is_told_its_size_and_scale_as_the_host_reads_them() {
+        assert_eq!(
+            windowless((880, 600), Scale::TWO),
+            "--alo-windowless=880x600@2"
+        );
+        assert_eq!(
+            windowless((600, 400), Scale::ONE_AND_A_HALF),
+            "--alo-windowless=600x400@1.5"
         );
     }
 

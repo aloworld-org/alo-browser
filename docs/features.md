@@ -865,6 +865,22 @@ The reason this exists rather than a faster fork of somebody else's engine.
   `tests/a_cards_page_moving_its_own_window_through_chrome.rs`; the
   machine's Chrome stays an ordinary application whose page moves its
   window (787, 788).
+  **A windowless card's popups, and ADR 0060's hold in Alloy style** (978,
+  ADR 0113, ADR 0060's sixth amendment; built 13 November 2026, not yet
+  gated; alo opens no windowless card yet, 980): the Chromium alo carries,
+  started with `--alo-windowless=WIDTHxHEIGHT@SCALE`
+  (`Chrome::start_windowless`), draws its page with no window, in CEF's
+  Alloy style. A popup the page opens — `window.open`, a link to another
+  window — is cancelled before Chromium makes it (`OnBeforePopup`): a
+  person's is told to alo as a link pressed with ⌘ is (`open`), which opens
+  it as the conversation's next turn, and `window.open` returns `null`. Its
+  frame from another site, its dedicated worker, its service worker and
+  its shared worker are held as every card's page is, the shared worker
+  from Chromium's own session, and every request of each paused before it
+  went; the host ends on `Browser.close`, status 0
+  (`tests/a_windowless_cards_targets_held_and_popup_told_through_alos_cef_host_as_chrome.rs`).
+  Not yet asserted windowless: a WebSocket's word, and a popup with no
+  gesture (cancelled and told to nobody, by the host's unit test only).
   **A person's pointer, wheel and keys on the card** (718, ADR 0024 § 5):
   the browser process computes the card's page box from the first
   screen's viewport and aims a point of the window at it from its own

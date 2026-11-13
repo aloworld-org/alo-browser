@@ -414,3 +414,66 @@ error page within the press's first frames, and the test fails.
 itself) — the page is left as it was either way, and the hand-off is
 Chrome's external protocol handler, which nothing of alo's stands in front
 of (queue item 782).
+
+## Sixth amendment, 2026-11-13 — a windowless card: its popups never made, its targets held as before (queue item 978)
+
+ADR 0113 draws a card with no window of Chromium's — CEF's windowless
+rendering, which CEF makes **Alloy style** whatever is asked, where every
+other page of alo's CEF host is Chrome style for this ADR's hold (CEF issue
+#4308, ADR 0079 § 3.2). § 2 holds every target of a tab from the tab's
+session and, for a shared worker, from Chromium's own; 959 measured that in
+Alloy style that same hold stalls a popup.
+
+**Measured** through alo's CEF host (CEF 156.0.14, Chromium 156.0.8078.48),
+started with `--alo-windowless=600x400@1` by `Chrome::start_windowless`,
+its page opened by `Tab::open` — so held exactly as § 2 holds a card's,
+Chromium's own session holding new targets too — on 13 November 2026, on
+this Mac (M3, macOS 26.5), from a server of the test's own on `127.0.0.1`
+and `localhost`:
+
+| | before (the host as 959 left it) | after (`OnBeforePopup` cancels) |
+|---|---|---|
+| the page opened, windowless | 2.08 s | 1.98–2.12 s, five runs |
+| a frame from the other site, a dedicated worker, a service worker and a shared worker | each held; every request paused in the target that asked for it before the server received it (the service worker's not tried before) | the same |
+| a button's `window.open`, activated by name (a gesture) | **never answered**: the verb said nothing for 30 s | returned `null` in 0.87–1.12 s, the verb's own wait for the page to settle included |
+| the popup's address | never asked for (as 959) | never asked for; told to alo as `open` with its address within 3 ms of the verb's answer |
+| a link with `target=_blank`, activated by name | not tried | never asked for; told as `open` |
+| a tab made for the page to close | — | none |
+| `Browser.close` | the host did not end; killed at the end of the patience (30 s) | status 0, in 83–126 ms |
+
+So **the shared worker is held from Chromium's own session in Alloy style
+as in Chrome style**: attached there waiting, asked to pause, its `fetch`
+and what it asks for as the page connects paused in its own target. The
+only part of § 2 that Alloy style breaks is a popup.
+
+**Decided: a windowless card's popup is never made.** The host's
+`OnBeforePopup` cancels every popup a windowless page asks for —
+`window.open`, a link naming another window — **before Chromium makes a
+browser or a target for it**, so there is nothing for § 2 to hold and
+nothing whose requests could leave unheld. One a person's gesture opened is
+told to alo beside the pipe as a link pressed with ⌘ is (`Told::Open`,
+`told.rs`, queue item 798), and alo opens it **as the conversation's next
+turn**, through its own gate like any address; one with no gesture is
+cancelled and told to nobody, as Chromium's popup blocker would stop it.
+The page's `window.open` returns `null`, as for a blocked popup, so a page
+that writes into its popup or waits for it to answer finds none. § 2 is
+otherwise unchanged for a windowless card: every frame and worker held from
+the tab's session, a shared worker from Chromium's own, and a target that
+cannot be held is the tab closed.
+
+A page in a window — every Chrome-style page, a card's parked window
+included — is unchanged: its popup is made, held and closed before it loads
+anything (`chrome_tab.rs`, measured again through the host the same day).
+
+**Tested** through the host
+(`alo-window`'s `a_windowless_cards_targets_held_and_popup_told_through_alos_cef_host_as_chrome.rs`):
+the four targets held and paused, `window.open` returning `null`, both
+popups told and never asked for, no tab made, and the host ending with
+status 0. Without the cancel, the test fails at the press, as above.
+
+**Not measured, and not hidden:** a WebSocket's word from a windowless page
+(§ 3 says it is told of on the target's session; not re-asserted in Alloy
+style); a page's permission prompt, print preview and every other handler
+Alloy style may change (item 983); why a host with a popup made did not
+end (it is no longer made); a popup a page opens through
+`Target.createTarget`'s road, which only alo asks for.

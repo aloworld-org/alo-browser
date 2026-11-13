@@ -343,6 +343,33 @@ The owner answered "yes" to the proposals as put:
   required, a handle valid only in the callback.
 - **Emulation for *Expand*'s size**: emulation is for tests (ADR 0057).
 
+## Built: the popup road and the hold under Alloy (queue item 978, 13 November 2026)
+
+Measured and built as ADR 0060's sixth amendment says, through the host:
+
+- **The shared workers' hold under Alloy is measured, and holds.** A
+  windowless page's frame from another site, dedicated worker, service
+  worker and shared worker are each held as § 2 of ADR 0060 holds a card's
+  — the shared worker from Chromium's own session — and every request of
+  each was paused before the server received it.
+- **A popup is never made.** `OnBeforePopup` of a windowless page
+  (`alo-cef-host`'s `window.rs`, `Counted`; the rule in `windowless.rs`,
+  `popup`) cancels it before Chromium makes it, and tells alo a person's as
+  `open` with its address — the line a link pressed with ⌘ is told by — so
+  alo opens it as the conversation's next turn. `window.open` returns
+  `null`. Before: the press stalled thirty seconds and the host did not end
+  on `Browser.close`; after: the press answered in about a second, the
+  popup was told within milliseconds of it, and the host ended with status
+  0 in about a tenth of a second.
+- **`Chrome::start_windowless`** (`alo-window`'s `chrome.rs`) starts the
+  host windowless for a test, and a tab of it is opened at the host's
+  viewport with no window fitted (`chrome_tab.rs`); alo itself still opens
+  no windowless card (980), and the view's size and scale are the host's
+  for its life (979).
+
+So proposal 3's first condition is met; 983 (what else Alloy style takes
+from a card) is the other.
+
 ## Queue items cut from it
 
 978 the popup road and the hold under Alloy; 979 the host's channel for size,
@@ -359,9 +386,11 @@ card; 983 what Alloy style takes from a card, measured. 960 (Linux) and 965
 - Whether a closed list's popup is in the screencast; why `StartDragging`
   never came; whether `OnAcceleratedPaint` works on macOS.
 - `Target.createTarget` in a windowless host (it would open a Chrome-style
-  window, shown); a page's permission prompt in Alloy style; shared workers
-  held from Chromium's own session in Alloy style.
-- Why a host with a popup did not end on `Browser.close`.
+  window, shown); a page's permission prompt in Alloy style. (Shared
+  workers held from Chromium's own session in Alloy style: measured in
+  978, they hold.)
+- Why a host with a popup did not end on `Browser.close` — no longer asked:
+  978 never makes the popup.
 - The key latency from a key to alo's glass; CPU of alo's own process
   decoding the frames (the same as today's path, not re-measured).
 - Memory.

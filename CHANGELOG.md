@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A card drawn with no window keeps every request held, and opens no
+  popup.** The Chromium alo carries, when told to draw a page with no
+  window at all (not yet something alo asks for), now cancels any popup
+  the page opens — a `window.open`, a link to another window — before it
+  is made, and tells alo its address, to be opened as the conversation's
+  next turn as a link pressed with ⌘ is. Before, such a popup froze the
+  page's script and kept the program from quitting. The page's frames and
+  workers, a shared worker included, are held so that none of their
+  requests leaves before alo has seen it, as on every card (ADR 0060's
+  sixth amendment, ADR 0113, queue item 978).
 - **A card's page is on macOS's accessibility API too.** In `alo
   --conversation`, a program using that API — tested with System Events;
   VoiceOver itself not yet tried — now reads the page a card shows inside

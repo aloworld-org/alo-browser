@@ -74,7 +74,10 @@
 //! (`windowless.rs`). The page's client is a parked card's for its life
 //! ([`Stage::Parked`]): what it tells is told, prompts dismissed, its own
 //! moves refused. CEF makes such a browser Alloy style, where every other
-//! page here is Chrome style.
+//! page here is Chrome style — so a popup it opens is **never made**:
+//! `OnBeforePopup` cancels it and tells alo a person's ([`Counted`],
+//! `windowless.rs`, queue item 978), where made it stalled ADR 0060's hold
+//! or escaped it, and kept the host from ending (measured, 959).
 //!
 //! # Never sent to another program
 //!
@@ -155,17 +158,17 @@ use crate::windowless::Viewport;
 use cef::{
     App, Browser, BrowserProcessHandler, BrowserSettings, BrowserView, BrowserViewDelegate,
     CefString, ChromeToolbarType, Client, CommandHandler, ContextMenuHandler, ContextMenuParams,
-    CursorInfo, CursorType, Display, DisplayHandler, DragData, DragOperationsMask, Frame, ImplApp,
-    ImplBrowser, ImplBrowserHost, ImplBrowserProcessHandler, ImplBrowserView,
+    CursorInfo, CursorType, DictionaryValue, Display, DisplayHandler, DragData, DragOperationsMask,
+    Frame, ImplApp, ImplBrowser, ImplBrowserHost, ImplBrowserProcessHandler, ImplBrowserView,
     ImplBrowserViewDelegate, ImplClient, ImplCommandHandler, ImplContextMenuHandler,
     ImplContextMenuParams, ImplDisplay, ImplDisplayHandler, ImplLifeSpanHandler, ImplPanel,
     ImplPanelDelegate, ImplPermissionHandler, ImplPermissionPromptCallback, ImplRenderHandler,
     ImplRequest, ImplRequestHandler, ImplRunContextMenuCallback, ImplTask, ImplView,
     ImplViewDelegate, ImplWindow, ImplWindowDelegate, LifeSpanHandler, MenuModel, PaintElementType,
-    PermissionHandler, PermissionPromptCallback, PermissionRequestResult, Rect, RenderHandler,
-    Request, RequestHandler, RunContextMenuCallback, RuntimeStyle, ScreenInfo, Size, State, Task,
-    ThreadId, View, Window, WindowDelegate, WindowInfo, WindowOpenDisposition, WrapApp,
-    WrapBrowserProcessHandler, WrapBrowserViewDelegate, WrapClient, WrapCommandHandler,
+    PermissionHandler, PermissionPromptCallback, PermissionRequestResult, PopupFeatures, Rect,
+    RenderHandler, Request, RequestHandler, RunContextMenuCallback, RuntimeStyle, ScreenInfo, Size,
+    State, Task, ThreadId, View, Window, WindowDelegate, WindowInfo, WindowOpenDisposition,
+    WrapApp, WrapBrowserProcessHandler, WrapBrowserViewDelegate, WrapClient, WrapCommandHandler,
     WrapContextMenuHandler, WrapDisplayHandler, WrapLifeSpanHandler, WrapPermissionHandler,
     WrapRenderHandler, WrapRequestHandler, WrapTask, WrapWindowDelegate,
     browser_host_create_browser, browser_view_create, browser_view_get_for_browser,
@@ -429,7 +432,7 @@ wrap_client! {
         }
 
         fn life_span_handler(&self) -> Option<LifeSpanHandler> {
-            Some(Counted::new())
+            Some(Counted::new(self.windowless.is_some()))
         }
 
         fn command_handler(&self) -> Option<CommandHandler> {
@@ -689,9 +692,46 @@ thread_local! {
 }
 
 wrap_life_span_handler! {
-    struct Counted {}
+    struct Counted {
+        // Whether its page has no window (`open_windowless`), so that a
+        // popup it opens is never made (queue item 978).
+        windowless: bool,
+    }
 
     impl LifeSpanHandler {
+        fn on_before_popup(
+            &self,
+            _browser: Option<&mut Browser>,
+            _frame: Option<&mut Frame>,
+            _popup_id: ::std::os::raw::c_int,
+            target_url: Option<&CefString>,
+            _target_frame_name: Option<&CefString>,
+            _target_disposition: WindowOpenDisposition,
+            user_gesture: ::std::os::raw::c_int,
+            _popup_features: Option<&PopupFeatures>,
+            _window_info: Option<&mut WindowInfo>,
+            _client: Option<&mut Option<Client>>,
+            _settings: Option<&mut BrowserSettings>,
+            _extra_info: Option<&mut Option<DictionaryValue>>,
+            _no_javascript_access: Option<&mut ::std::os::raw::c_int>,
+        ) -> ::std::os::raw::c_int {
+            // A windowless page's popup — `window.open`, a link to another
+            // window — is cancelled before Chromium makes it, and a
+            // person's told to alo, which opens it as the conversation's
+            // next turn (`windowless.rs`, queue item 978): made in Alloy
+            // style, it stalled under ADR 0060's hold or left unheld, and
+            // its host never ended (measured, 959). A page in a window
+            // makes its own, which alo holds and closes over the pipe.
+            if !self.windowless {
+                return 0;
+            }
+            let address = target_url.map(CefString::to_string);
+            if let Some(told) = crate::windowless::popup(address, user_gesture != 0) {
+                told::tell(&told);
+            }
+            1
+        }
+
         fn on_after_created(&self, browser: Option<&mut Browser>) {
             if let Some(browser) = browser {
                 OPEN.with_borrow_mut(|open| open.push(browser.clone()));
