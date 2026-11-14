@@ -20619,6 +20619,30 @@ What stage 2's exit gate actually measures: a person using it.
   accessibility bus, and from the keyboard — the window's lines are not
   published there.
 
+- [ ] **991. The frame's band in alo's own look, Apple's buttons kept.**
+  The owner's choice of 14 November 2026: on macOS alo keeps the system's
+  close, minimise and zoom buttons at the left of the window (full screen
+  and tiling stay macOS's), and the band of ours above the page takes alo
+  OS's window-band design instead of today's dark rail and its technical
+  line (*Chrome/156…, the Chromium alo carries, driven by this browser*).
+  The values, as alo OS's own spec gives them (alo-os
+  `docs/design/the-window-controls.md` at `09597d7`, read for reference
+  only — nothing of alo OS is depended on): a band 54 tall, ground
+  `#FFFFFF` and a 1-wide line `#CBD5E1` below it when the window is in
+  front, `#FAF7F2` and `#E7EBEF` when not; the page's title at x 22, y 18
+  in Manrope SemiBold 14 on a 19 line, `#102A43` (`#596B78` when not in
+  front); the application's name 24 after it, y 20, Manrope Regular 11 on
+  a 15 line, `#596B78`, kept while the title ellipsizes first, drawn once
+  when they are the same. Which renderer draws the page is still said —
+  in plain words, and to an agent and a screen reader as now — and what
+  agents asked keeps its lines (ADR 0061's frame is the agent's account,
+  so it stays; only its look changes). alo OS's own three controls are
+  **not** drawn here: on alo OS the system draws them. Dark mode is not
+  in alo OS's spec either, so this item is light only, and says so.
+  *Closes when:* the band's boxes asserted in numbers at scale 1 and 2,
+  its pictures committed as reference renders (in front and not, a long
+  title ellipsized), and the window opened from the Finder shows it.
+
 - [ ] **722. Chromium with alo's name (ADR 0077).** Built from source with
   alo's name and icon, so an expanded page's menu bar says *alo*. *blocked:
   build machines this repository does not have.*

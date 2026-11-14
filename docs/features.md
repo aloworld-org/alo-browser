@@ -1795,6 +1795,11 @@ about".
   **built and gated** (735, 14 November 2026): a staged update must
   name the installed application's team, when it names one. Not yet: the swap of a copy left by an unclean quit at the next launch,
   and a manifest writer for a feed's owner.
+- [4] **The frame's band in alo's own look** (queue item 991, the owner's
+  choice of 14 November 2026): macOS's own window buttons kept, and the
+  band of ours above the page drawn as alo OS's window band — white, the
+  title in Manrope SemiBold, the application's name in grey — with which
+  renderer draws the page said in plain words. Light only for now.
 - [4] A mobile port
 - [4] Crash handling that helps us fix it without becoming telemetry
 - [4] ★ **Translation on the machine** — alo already runs models locally; a page translated without sending it anywhere is the sovereign version of a feature every other browser sends to a server
