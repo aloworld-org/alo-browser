@@ -249,6 +249,10 @@ pub struct Conversation {
     settings: Settings,
     /// *Settings › Search and answers* (ADR 0106, queue item 905).
     services: crate::conversation_services::ServicesPage,
+    /// *Settings › Updates* as the window last told it (ADR 0116 § 4,
+    /// queue item 721) — the switch drawn as [`Settings::updates`] holds
+    /// it: none draws no section.
+    updates: Option<alo_renderer::settings_updates::UpdatesShown>,
     /// Where the keyboard was as *Settings* opened, given back as it
     /// closes (queue item 886).
     keyboard_before_settings: Keyboard,
@@ -337,6 +341,7 @@ impl Default for Conversation {
             sheet: false,
             settings: Settings::default(),
             services: crate::conversation_services::ServicesPage::default(),
+            updates: None,
             keyboard_before_settings: Keyboard::Nowhere,
             agent_opening: None,
         }
@@ -580,6 +585,7 @@ impl Conversation {
             services: Vec::new(),
             privacy: Vec::new(),
             bus: Vec::new(),
+            updates: Vec::new(),
         };
         if !self.settings.is_open() {
             return shown;
@@ -602,6 +608,12 @@ impl Conversation {
             privacy: alo_renderer::settings_privacy::Privacy::pressables(),
             // *Screen readers* (queue item 989), as it is drawn.
             bus: alo_renderer::settings_bus::Bus::ALL.to_vec(),
+            // *Updates* (queue item 721), as it is drawn.
+            updates: self
+                .updates
+                .as_ref()
+                .map(alo_renderer::settings_updates::UpdatesShown::pressables)
+                .unwrap_or_default(),
             ..Shown::default()
         }
     }
@@ -656,7 +668,8 @@ impl Conversation {
             | Pressed::Asks(_)
             | Pressed::Service(_)
             | Pressed::Privacy(_)
-            | Pressed::Bus(_) => self.in_settings(&pressed, keyboard) || changed,
+            | Pressed::Bus(_)
+            | Pressed::Updates(_) => self.in_settings(&pressed, keyboard) || changed,
             Pressed::Found(url) => {
                 self.choose_found(url.clone());
                 changed
@@ -808,6 +821,11 @@ impl Conversation {
             // *Screen readers* (queue item 989): a person's press alone
             // reaches here — the window refuses the bus's own.
             Pressed::Bus(bus) => self.services.type_in(None) | self.settings.choose_bus(*bus),
+            // *Updates* (queue item 721): a person's press alone, as the
+            // bus's — a choice of the switch, or *Check now*, taken once.
+            Pressed::Updates(pressed) => {
+                self.services.type_in(None) | self.settings.press_updates(*pressed)
+            }
             // *Search and answers* (queue item 905): a field pressed takes
             // the keyboard; a press anywhere else leaves it.
             Pressed::Service(pressed) => {
@@ -1635,6 +1653,7 @@ impl Conversation {
             privacy: None,
             sign_ins: self.settings.sign_ins(),
             bus: None,
+            updates: None,
         }
         .at_scale(scale.factor());
         if !self.settings.is_open() {
@@ -1652,6 +1671,7 @@ impl Conversation {
             privacy: Some(self.settings.privacy()),
             sign_ins: self.settings.sign_ins(),
             bus: Some(self.settings.bus()),
+            updates: self.updates_shown(),
             ..start
         }
     }
@@ -1686,6 +1706,18 @@ impl Conversation {
                         // *Screen readers* (queue item 989).
                         SettingsKeyed::Bus,
                     ])
+                    // *Updates* (queue item 721), as it is drawn: its
+                    // switch and *Check now* only in a copy that updates
+                    // itself.
+                    .chain(self.updates.as_ref().into_iter().flat_map(|shown| {
+                        use alo_renderer::settings_updates::UpdatesState;
+                        match shown.state {
+                            UpdatesState::Itself { .. } => {
+                                vec![SettingsKeyed::Updates, SettingsKeyed::CheckNow]
+                            }
+                            UpdatesState::Not(_) => Vec::new(),
+                        }
+                    }))
                     .collect();
                 let moved = self.settings.tab_through(back, &stops);
                 let field = match self.settings.keyed() {
@@ -1719,6 +1751,10 @@ impl Conversation {
                 Some(SettingsKeyed::ForgetSignIns) => self
                     .settings
                     .choose_privacy(alo_renderer::settings_privacy::PrivacyPress::ForgetSignIns),
+                // *Check now* (queue item 721): a deed, taken once.
+                Some(SettingsKeyed::CheckNow) => self
+                    .settings
+                    .press_updates(alo_renderer::settings_updates::UpdatesPress::CheckNow),
                 _ => false,
             },
         }
@@ -2234,7 +2270,8 @@ impl Conversation {
         self.settings = Settings::set_in(face)
             .with_limits(self.settings.limits())
             .with_privacy(self.settings.privacy())
-            .with_bus(self.settings.bus());
+            .with_bus(self.settings.bus())
+            .with_updates(self.settings.updates());
         self
     }
 
@@ -2272,6 +2309,52 @@ impl Conversation {
     /// this was last asked, once: it is then to be kept, and used.
     pub fn take_bus_changed(&mut self) -> bool {
         self.settings.take_bus_changed()
+    }
+
+    /// The same conversation, checking for updates by itself as
+    /// `automatic` says — read back from where it was kept as the window
+    /// opens (ADR 0116 § 5, queue item 721).
+    #[must_use]
+    pub fn checking_for_updates(
+        mut self,
+        automatic: alo_renderer::settings_updates::Automatic,
+    ) -> Self {
+        self.settings = self.settings.with_updates(automatic);
+        self
+    }
+
+    /// *Settings › Updates* to show `shown` — alo's version, and what the
+    /// last check found or why this copy does not update itself: whether
+    /// it showed another, and so is to be drawn again.
+    pub fn show_updates(&mut self, shown: alo_renderer::settings_updates::UpdatesShown) -> bool {
+        let shown = Some(shown);
+        if self.updates == shown {
+            return false;
+        }
+        self.updates = shown;
+        self.settings.is_open()
+    }
+
+    /// *Settings › Updates* as it is drawn now: the switch as chosen.
+    fn updates_shown(&self) -> Option<alo_renderer::settings_updates::UpdatesShown> {
+        use alo_renderer::settings_updates::UpdatesState;
+        let mut shown = self.updates.clone()?;
+        if let UpdatesState::Itself { automatic, .. } = &mut shown.state {
+            *automatic = self.settings.updates();
+        }
+        Some(shown)
+    }
+
+    /// Whether a person changed the switch since this was last asked,
+    /// once: it is then to be kept, and told to the thread checking.
+    pub fn take_updates_changed(&mut self) -> bool {
+        self.settings.take_updates_changed()
+    }
+
+    /// Whether a person pressed *Check now* since this was last asked,
+    /// once.
+    pub fn take_check_now(&mut self) -> bool {
+        self.settings.take_check_now()
     }
 
     /// Whether a person pressed *Forget all sign-ins* since this was last

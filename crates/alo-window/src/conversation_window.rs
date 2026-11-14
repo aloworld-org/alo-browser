@@ -103,6 +103,7 @@ mod beneath;
 mod fields;
 mod outside;
 mod title;
+mod updates;
 
 /// What the conversation's window hears from the threads it hands work to.
 #[derive(Debug)]
@@ -126,6 +127,9 @@ pub enum Heard {
     /// What came of reading or acting on the card's page for the bus
     /// (queue item 988, ADR 0115 § 3).
     Page(crate::assisted_page::PageHeard),
+    /// What the thread checking for alo's own updates said (ADR 0116,
+    /// queue item 721).
+    Updates(crate::conversation_updates::Told),
 }
 
 /// Where the window is, as the window server gives it.
@@ -296,6 +300,8 @@ pub struct ConversationWindow {
     /// The parts' trees for the accessibility bus, and what assistive
     /// technology did (queue item 987).
     assisting: assisted::Assisting,
+    /// alo's own updates (ADR 0116, queue item 721).
+    updating: updates::Updating,
 }
 
 /// Input methods in the conversation's window (queue item 802).
@@ -457,6 +463,7 @@ impl ConversationWindow {
             outside: outside::Outside::default(),
             title: title::Titled::default(),
             assisting: assisted::Assisting::default(),
+            updating: updates::Updating::default(),
         }
     }
 
@@ -841,7 +848,8 @@ impl ConversationWindow {
             .set_in(read.face)
             .limited_to(read.limits)
             .private_as(read.privacy)
-            .giving_the_bus(read.bus);
+            .giving_the_bus(read.bus)
+            .checking_for_updates(read.updates);
         // *Privacy*'s choices, for every Chromium started and every page
         // loaded from now (ADR 0108, queue item 920).
         crate::privacy_chosen::process().set(read.privacy);
@@ -1049,7 +1057,7 @@ impl ConversationWindow {
                 settings.face(),
                 settings.limits(),
                 &named,
-                (settings.privacy(), settings.bus()),
+                (settings.privacy(), settings.bus(), settings.updates()),
             ),
             None => Err("there is nowhere to keep it".to_owned()),
         };
@@ -1083,7 +1091,12 @@ impl ConversationWindow {
         // What alo gives the accessibility bus (queue item 989): used at
         // once, whether or not it can be kept, and kept beside the face.
         let bused = self.conversation.take_bus_changed();
-        if face.is_none() && !limited && !private && !bused {
+        // Whether alo checks for updates by itself (queue item 721): handed
+        // to the thread checking at once, and kept beside the face; and
+        // *Check now*, handed to it.
+        let updated = self.conversation.take_updates_changed();
+        self.updates_chosen(updated);
+        if face.is_none() && !limited && !private && !bused && !updated {
             return;
         }
         let settings = self.conversation.settings();
@@ -1099,10 +1112,24 @@ impl ConversationWindow {
                 settings.face(),
                 settings.limits(),
                 self.conversation.services().named(),
-                (settings.privacy(), settings.bus()),
+                (settings.privacy(), settings.bus(), settings.updates()),
             ),
             None => Err("there is nowhere to keep it".to_owned()),
         };
+        if updated && !bused && face.is_none() && !limited && !private {
+            let automatic = settings.updates();
+            match kept {
+                Ok(()) => self.said.push(format!(
+                    "Updates: checked automatically {}, as chosen in Settings",
+                    automatic.said()
+                )),
+                Err(why) => self.tell(format!(
+                    "the choice of checking for updates is used until alo quits, but not kept: \
+                     {why}"
+                )),
+            }
+            return;
+        }
         if bused && face.is_none() && !limited && !private {
             let bus = settings.bus();
             match kept {
@@ -2587,6 +2614,7 @@ impl ConversationWindow {
             Heard::NewTab(asked) => self.new_tab_asked(asked),
             Heard::Bus(from) => self.bus_said(from),
             Heard::Page(heard) => self.page_heard(heard),
+            Heard::Updates(told) => self.updates_told(told),
             Heard::Drawn(Drawn::Tree(part, tree)) => self.tree_read(part, *tree),
             Heard::Drawn(Drawn::Assisted(part, assist, decided)) => {
                 self.assisted(part, assist, *decided);
@@ -2896,6 +2924,9 @@ impl ConversationWindow {
         if let Some(searcher) = self.searcher.take() {
             self.ended.search = searcher.finish();
         }
+        // Every card's host has ended with the thread holding Chrome:
+        // what is ready is swapped in now, and alo exits (ADR 0116 § 4).
+        self.updates_finished();
     }
 
     /// Why the window's threads did not end well, once [`finish`]ed: the
@@ -4588,6 +4619,7 @@ mod tests {
                     services: crate::services::Named::default(),
                     privacy: alo_renderer::settings_privacy::Privacy::default(),
                     bus: alo_renderer::settings_bus::Bus::default(),
+                    updates: alo_renderer::settings_updates::Automatic::default(),
                     said: None,
                 },
                 None,
@@ -5081,6 +5113,72 @@ mod tests {
         )));
         let kept = std::fs::read_to_string(&file).unwrap_or_default();
         assert!(!kept.contains("bus"), "{kept}");
+        next.finish();
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// Queue item 721 (ADR 0116 § 5): *Settings › Updates*' switch pressed
+    /// by a person is kept in the settings file at once — `updates off` —
+    /// and read back as the next window opens; *On* again writes no
+    /// `updates` line. A copy that does not update itself shows the
+    /// sentence and offers nothing to press.
+    #[test]
+    fn an_updates_choice_pressed_is_kept_in_the_settings_file_and_read_back() {
+        use alo_renderer::settings_updates::{Automatic, UpdatesPress, UpdatesState};
+        let root = std::env::temp_dir().join(format!("alo-window-updates-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let file = root.join("settings.txt");
+        let not_itself = crate::conversation_updates::ThisAlo {
+            updater: None,
+            not_itself: Some(alo_update::given::NOT_ITSELF),
+            refused: None,
+            version: "alo 0.0.0, built with CEF.".to_owned(),
+        };
+        let mut first = window()
+            .with_settings(crate::settings_file::read(&file), Some(file.clone()))
+            .with_updates((not_itself.clone(), None));
+        first.heard(Heard::Drawn(Drawn::Pressed(Part::Panel, Decided::Settings)));
+        let drawn = first
+            .conversation()
+            .start(Size::new(1040.0, 820.0), Scale::ONE);
+        assert!(
+            matches!(
+                drawn.updates.as_ref().map(|shown| &shown.state),
+                Some(UpdatesState::Not(said)) if said == "This copy of alo does not update itself."
+            ),
+            "{:?}",
+            drawn.updates
+        );
+        assert!(first.conversation().showing().updates.is_empty());
+        first.heard(Heard::Drawn(Drawn::Pressed(
+            Part::Start,
+            Decided::Updates(UpdatesPress::Automatic(Automatic::Off)),
+        )));
+        let kept = std::fs::read_to_string(&file).unwrap_or_default();
+        assert!(kept.ends_with("asks never\nupdates off\n"), "{kept}");
+        assert!(
+            first
+                .take_said()
+                .iter()
+                .any(|line| line == "Updates: checked automatically Off, as chosen in Settings"),
+        );
+        first.finish();
+        let next = window().with_settings(crate::settings_file::read(&file), Some(file.clone()));
+        assert_eq!(next.conversation().settings().updates(), Automatic::Off);
+        let mut next = next.with_updates((not_itself, None));
+        next.heard(Heard::Drawn(Drawn::Pressed(Part::Panel, Decided::Settings)));
+        next.heard(Heard::Drawn(Drawn::Pressed(
+            Part::Start,
+            Decided::Updates(UpdatesPress::Automatic(Automatic::On)),
+        )));
+        let kept = std::fs::read_to_string(&file).unwrap_or_default();
+        assert!(!kept.contains("updates"), "{kept}");
+        // *Check now* is no choice: nothing written, nothing said.
+        next.heard(Heard::Drawn(Drawn::Pressed(
+            Part::Start,
+            Decided::Updates(UpdatesPress::CheckNow),
+        )));
+        assert_eq!(std::fs::read_to_string(&file).unwrap_or_default(), kept);
         next.finish();
         let _ = std::fs::remove_dir_all(&root);
     }

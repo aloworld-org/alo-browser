@@ -220,6 +220,22 @@ bytemuck = { version = "1.25", default-features = false }
 # Only `fs`, and `std` for `Path`. Already beneath `winit` and `softbuffer` on
 # Linux at this version, and named in one file of `alo-storage`.
 rustix = { version = "1.1.5", default-features = false, features = ["fs", "std"] }
+# An update's signature, checked (ADR 0116 § 2, queue item 721): minisign's
+# format — BLAKE2b-512 of the file, then Ed25519 — verified by
+# `minisign-verify` (MIT), which has no dependencies and no `unsafe` in its
+# source, its Ed25519, Curve25519, SHA-512 and BLAKE2b its own. It verifies
+# and nothing else: alo writes no signing code, and the owner signs with an
+# off-the-shelf tool. Pinned exactly, as ADR 0116 names it: a new verifier is
+# a diff somebody reads, and `alo-update`'s test vectors fail if one answers
+# otherwise. Named in one file, `alo-update`'s `signature.rs`.
+minisign-verify = "=0.3.0"
+# The worthless test key's signatures, made in `alo-update`'s tests only and
+# never in a build (ADR 0116 § 6): `ed25519-dalek` (BSD-3-Clause), the audited
+# Ed25519, signs what `minisign-verify`'s own curve code then checks, so the
+# two implementations agree or a test says so; `blake2` (MIT OR Apache-2.0)
+# is minisign's prehash. Development dependencies alone.
+ed25519-dalek = "=2.2.0"
+blake2 = "=0.10.6"
 # JSON, rented (ADR 0055 § 3), to read what an agent outside this browser asks
 # and to write what it is answered — and nothing else. An interface outsiders
 # build against has to be writable in any language in an afternoon, and a JSON

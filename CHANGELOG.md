@@ -44,6 +44,22 @@ What changed, in words a person outside this repository can read. Newest first.
   workers, a shared worker included, are held so that none of their
   requests leaves before alo has seen it, as on every card (ADR 0060's
   sixth amendment, ADR 0113, queue item 978).
+- **alo can update itself — and today's builds say they do not.** A new
+  crate, `alo-update`, checks a manifest signed with a key of alo's own
+  (minisign, two public keys built in: the one in use and a spare),
+  refuses a replayed, expired, older or equal release, downloads the
+  package through alo's own network in ranges (resuming where it stopped),
+  checks its size and SHA-256, unpacks it beside the application and
+  checks its signature and version, and swaps it in only when alo quits —
+  never while alo runs, and never restarting by itself. *Settings* gains
+  **Updates**: alo's version, what the last check found, *Check for
+  updates automatically* (on by default; off sends nothing until *Check
+  now*) and *Check now*. A build given no update address and keys — every
+  build of this repository, including `0.0.0` — says *This copy of alo
+  does not update itself.*, and inside a Flatpak *Updates come from your
+  software source.* `alo-bundle --updates DIRECTORY` gives a release its
+  address and keys, and refuses the repository's worthless test keys (ADR
+  0116, queue item 721).
 - **A card's page is on macOS's accessibility API too.** In `alo
   --conversation`, a program using that API — tested with System Events;
   VoiceOver itself not yet tried — now reads the page a card shows inside

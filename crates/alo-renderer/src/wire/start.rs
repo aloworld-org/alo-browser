@@ -43,6 +43,7 @@ use crate::settings_privacy::{Banners, Cookies, Privacy, SignInsShown};
 use crate::settings_services::{
     Entry, EntryRow, LONGEST_TYPED, MOST_DOTS, ServicePress, ServicesShown, Typed,
 };
+use crate::settings_updates::{Automatic, LONGEST as LONGEST_UPDATES, UpdatesShown, UpdatesState};
 use crate::start::{KeptSite, SettingsKeyed, Start, Waiting};
 use crate::turn::{MOST_TURNS, Turn};
 use crate::typed::Offer;
@@ -154,6 +155,7 @@ impl Writer {
         }
         self.privacy(start.privacy, start.sign_ins);
         self.bus(start.bus);
+        self.updates(start.updates.as_ref());
     }
 
     /// *Settings* and what of it the keyboard is on (queue item 856), in
@@ -178,6 +180,9 @@ impl Writer {
             (true, Some(SettingsKeyed::ForgetSignIns)) => 10,
             // *Screen readers* (ADR 0115, queue item 989).
             (true, Some(SettingsKeyed::Bus)) => 11,
+            // *Updates* (ADR 0116 § 4, queue item 721).
+            (true, Some(SettingsKeyed::Updates)) => 12,
+            (true, Some(SettingsKeyed::CheckNow)) => 13,
         });
         if let (true, Some(SettingsKeyed::Service(on))) = (settings, keyed) {
             self.service_press(on);
@@ -194,6 +199,31 @@ impl Writer {
                 Bus::ReadOnly => 1,
                 Bus::Off => 2,
             });
+        }
+    }
+
+    /// *Updates* (queue item 721), if it is drawn: its version line, then
+    /// whether this copy updates itself — the switch by its place and
+    /// what the last check found — or why not; each line cut to its bound.
+    fn updates(&mut self, updates: Option<&UpdatesShown>) {
+        self.bool(updates.is_some());
+        let Some(updates) = updates else {
+            return;
+        };
+        self.text(&crate::settings_updates::bounded(&updates.version));
+        match &updates.state {
+            UpdatesState::Itself { automatic, checked } => {
+                self.tag(0);
+                self.tag(match automatic {
+                    Automatic::On => 0,
+                    Automatic::Off => 1,
+                });
+                self.text(&crate::settings_updates::bounded(checked));
+            }
+            UpdatesState::Not(said) => {
+                self.tag(1);
+                self.text(&crate::settings_updates::bounded(said));
+            }
         }
     }
 
@@ -443,6 +473,7 @@ impl Reader<'_> {
         let services = self.services_drawn(settings_keyed)?;
         let (privacy, sign_ins) = self.privacy_drawn(settings_keyed)?;
         let bus = self.bus_drawn(settings_keyed)?;
+        let updates = self.updates_drawn(settings_keyed)?;
         Ok(Start {
             greeting,
             sites,
@@ -468,7 +499,65 @@ impl Reader<'_> {
             privacy,
             sign_ins,
             bus,
+            updates,
         })
+    }
+
+    /// *Updates*, if it is drawn — a line past its bound refused, and the
+    /// keyboard on what it does not draw refused (queue item 721).
+    fn updates_drawn(
+        &mut self,
+        keyed: Option<SettingsKeyed>,
+    ) -> Result<Option<UpdatesShown>, Unreadable> {
+        let on_it = matches!(
+            keyed,
+            Some(SettingsKeyed::Updates | SettingsKeyed::CheckNow)
+        );
+        if !self.bool()? {
+            if on_it {
+                return Err(unreadable(
+                    "the keyboard on a section of Settings not drawn",
+                ));
+            }
+            return Ok(None);
+        }
+        let version = self.updates_line()?;
+        let state = match self.tag()? {
+            0 => {
+                let automatic = match self.tag()? {
+                    0 => Automatic::On,
+                    1 => Automatic::Off,
+                    other => {
+                        return Err(unreadable(format!(
+                            "a choice of checking for updates tagged {other}"
+                        )));
+                    }
+                };
+                UpdatesState::Itself {
+                    automatic,
+                    checked: self.updates_line()?,
+                }
+            }
+            1 => {
+                if on_it {
+                    return Err(unreadable("the keyboard on a switch of Updates not drawn"));
+                }
+                UpdatesState::Not(self.updates_line()?)
+            }
+            other => return Err(unreadable(format!("an Updates tagged {other}"))),
+        };
+        Ok(Some(UpdatesShown { version, state }))
+    }
+
+    /// One line of *Updates*, refused past its bound.
+    fn updates_line(&mut self) -> Result<String, Unreadable> {
+        let line = self.text()?;
+        if line.chars().count() > LONGEST_UPDATES {
+            return Err(unreadable(format!(
+                "a line of Updates longer than the {LONGEST_UPDATES} characters drawn"
+            )));
+        }
+        Ok(line)
     }
 
     /// *Screen readers*, if it is drawn — refused if the keyboard is on
@@ -559,6 +648,8 @@ impl Reader<'_> {
             9 => (true, Some(SettingsKeyed::Banners)),
             10 => (true, Some(SettingsKeyed::ForgetSignIns)),
             11 => (true, Some(SettingsKeyed::Bus)),
+            12 => (true, Some(SettingsKeyed::Updates)),
+            13 => (true, Some(SettingsKeyed::CheckNow)),
             other => return Err(unreadable(format!("a Settings tagged {other}"))),
         })
     }

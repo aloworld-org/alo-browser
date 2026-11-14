@@ -967,6 +967,8 @@ pub fn conversation(
     // not read is Manrope, and said.
     let settings = chats.as_deref().ok().map(crate::settings_file::file_in);
     let read = settings_read(settings.as_deref());
+    // alo's own updates (ADR 0116, queue item 721).
+    let updates = updates_checked(chats.as_deref().ok(), &read, &event_loop);
     let window = ConversationWindow::new(forced, drawing, chrome);
     // A card on a site kept from agents is kept from the bus too (queue
     // item 989, ADR 0115's guard).
@@ -976,7 +978,8 @@ pub fn conversation(
         .with_settings(read, settings)
         .with_services(defaults, keys)
         .with_sign_ins(sign_ins)
-        .with_launched(launched);
+        .with_launched(launched)
+        .with_updates(updates);
     // Where the chats are kept across launches (queue item 757, ADR 0092),
     // sealed under the key in `keychain` (queue item 790, ADR 0098), read
     // before the window opens; with nowhere, or no key, said, and none
@@ -1038,6 +1041,46 @@ pub fn conversation(
         (None, Some(unfinished)) => Err(unfinished.to_owned()),
         (None, None) => Ok(()),
     }
+}
+
+/// What this alo is as it starts (ADR 0116, queue item 721) — its updates
+/// kept beside the `chats`, outside any profile — and the thread checking
+/// for them, only in a copy that updates itself: an old copy a swap left
+/// removed first, over a network of its own, each request caused by the
+/// person, who left the switch on or pressed *Check now*.
+fn updates_checked(
+    chats: Option<&std::path::Path>,
+    read: &crate::settings_file::Read,
+    event_loop: &EventLoop<Heard>,
+) -> (
+    crate::conversation_updates::ThisAlo,
+    Option<crate::conversation_updates::Updates>,
+) {
+    let this_alo = crate::conversation_updates::this_alo(
+        &std::env::current_exe().unwrap_or_default(),
+        chats
+            .and_then(std::path::Path::parent)
+            .map(|folder| folder.join(alo_update::kept::FOLDER)),
+    );
+    let Some(updater) = this_alo.updater.clone() else {
+        return (this_alo, None);
+    };
+    let _ = crate::conversation_updates::swept(&updater);
+    let Ok(pool) = alo_net::Pool::from_this_machine() else {
+        return (this_alo, None);
+    };
+    let cause = alo_net::Cause::Person {
+        tab: alo_net::cause::Identities::default().a_tab(),
+    };
+    let proxy = event_loop.create_proxy();
+    let thread = crate::conversation_updates::Updates::start(
+        updater,
+        (pool, cause),
+        read.updates,
+        Box::new(move |told| proxy.send_event(Heard::updates(told)).is_ok()),
+    )
+    .ok();
+    (this_alo, thread)
 }
 
 /// `state`, its card's page read and acted on for the accessibility bus
@@ -1446,6 +1489,7 @@ fn settings_read(settings: Option<&std::path::Path>) -> crate::settings_file::Re
             services: crate::services::Named::default(),
             privacy: alo_renderer::settings_privacy::Privacy::default(),
             bus: alo_renderer::settings_bus::Bus::default(),
+            updates: alo_renderer::settings_updates::Automatic::default(),
             said: None,
         },
         crate::settings_file::read,

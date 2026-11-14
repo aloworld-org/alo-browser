@@ -1,8 +1,9 @@
 # ADR 0116 — alo updates itself from a manifest signed with a key of alo's own
 
 **Status:** accepted — queue item 721; the owner, 14 November 2026
-(*Answered*). Nothing is built. The hosting address waits for the private
-repository; the Flatpak's remote is alo OS's.
+(*Answered*). Built and gated 14 November 2026 (*Built*, below). The
+hosting address waits for the private repository; the Flatpak's remote is
+alo OS's.
 **Date:** 2026-11-13
 **Context:** ADR 0077 (alo carries its own Chromium; *"Nothing is given to
 anyone outside the owner's machines before 721"*); ADR 0078 (alo's own
@@ -412,6 +413,72 @@ to build in a public key equal to it.
    not made yet (the owner, earlier); a build until then has none and says
    it does not update itself. Whether a release reaches the owner's own
    Macs before Developer ID (735) waits for that day.
+
+## Built (14 November 2026, queue item 721; gated the same day, 7265 tests)
+
+- **`alo-update`**, a crate of its own, one file per step: `manifest.rs`
+  (the plain lines, at most 4096 bytes, each name once, an unknown name
+  refused), `signature.rs` (the one file naming `minisign-verify`, pinned
+  `=0.3.0`; a legacy signature refused; fixed vectors made by a third
+  implementation, Python's `cryptography`, checked in it, and the in-use
+  key's equal byte for byte to `ed25519-dalek`'s), `check.rs` (§ 3's order,
+  1 to 7; the same serial again is the same release), `kept.rs` (the
+  highest serial, when one was last believed, the last check; a serial
+  file that does not read believes nothing), `feed.rs` (the two `GET`s
+  through `alo-net`: `User-Agent: alo-update`, `Accept-Encoding: identity`,
+  no cookie, no query; at most five redirects, each to an allowed
+  address), `package.rs` (16 MiB ranges to `<version>.partial`; a `206`
+  placed only where the file stops and only if it says the manifest's
+  size; a `200` only if exactly the size; a cut keeps whole pieces; size and
+  SHA-256 checked, then `<version>.zip`), `stage.rs` (`ditto -x -k` into
+  `.alo-update/<version>` beside the application, one bundle of its name,
+  `codesign --verify --strict`, its `CFBundleShortVersionString`, a `ready`
+  mark written last; a translocated or unwritable folder refused with what
+  to do), `swap.rs` (`rustix::fs::renameat_with(…, EXCHANGE)`),
+  `quitting.rs` (at quit: checked again, the mark removed before the
+  exchange, an exchange refused puts it back; *Quit and update* waits
+  while an agent works), `given.rs` (what a build was given; the
+  worthless test keys refused; `0.0.0`, no platform word, no address or a
+  Flatpak: not itself), `updater.rs` (the road), `found.rs` (what is
+  said; three days without a believed manifest said).
+- **The test keys** are committed with their secret halves in
+  `crates/alo-update/tests/worthless_test_key/mod.rs`, made from the
+  system's random source rather than with `rsign2`, which is not on this
+  Mac; their public halves are in `test_key.rs` only to be refused.
+- **`alo-bundle --updates DIRECTORY`** (`alo-window`'s `bundle_update.rs`)
+  carries `address` and `keys` in `Contents/Resources/update` before the
+  seal; the test keys refused, nothing made.
+- **In the window**: *Settings › Updates* (`alo-renderer`'s
+  `settings_updates.rs` and `settings_updates_document.rs`; `updates off`
+  in `settings.txt`); a thread of its own (`alo-window`'s
+  `conversation_updates.rs`) checking at launch and every 24 hours while
+  on, at *Check now* otherwise; what it found said in *Settings* and an
+  update ready in the first screen's line; the first screen's line saying
+  once that the check is on; at quit, after the thread holding Chrome has
+  ended every card's host, what is ready swapped in; at launch, what an
+  earlier swap left removed. The state is in `Updates/` beside `Chats/`.
+- **Tests**: every refusal of § 6 against a feed on `127.0.0.1`, the
+  installed stand-in compared byte for byte
+  (`alo-update/tests/an_update_from_a_local_feed.rs`); the switch off
+  sending nothing, *Check now* and the check at launch exactly the two
+  `GET`s (`alo-window/tests/updates_checked_only_as_the_switch_says.rs`);
+  `alo-bundle` carrying and refusing
+  (`the_application_given_where_its_updates_come_from.rs`); the section in
+  numbers and two references (`alo-renderer/tests/settings_updates.rs`).
+
+**Not built, and said:** the window's *Quit and update* button (the line
+says the update installs when alo quits; `quitting::quit_and_update` holds
+the rule for the button); swapping a ready copy at the next launch after an
+unclean quit and starting it (the next launch removes what is not ready and
+leaves a ready one for the next quit); the Team ID check (735); a request's
+cause in the record reads *the person*, as a search's does, not *update
+check (Settings › Updates)* — `alo-net` has three causes and no fourth —
+and the record is the updater's own pool's, not shown anywhere yet; a tool
+that writes a manifest from a package (`Manifest::lines` writes one).
+`scripts/gate.sh` names `rustix` in `alo-storage/src/volume.rs` alone, so
+the boundary list needs `crates/alo-update/src/swap.rs` added to it, and an
+entry `minisign_verify:crates/alo-update/src/signature.rs` beside it —
+both the owner's to add, `scripts/` not being edited here.
 
 ## Rejected
 

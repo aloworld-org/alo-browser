@@ -129,7 +129,11 @@ declare -a BOUNDARIES=(
   "wgpu:crates/alo-window/src/present_kept.rs"
   "objc2_core_graphics:crates/alo-window/src/present_kept.rs"
   "bytemuck:crates/alo-window/src/present_kept.rs"
-  "rustix:crates/alo-storage/src/volume.rs"
+  # The updater's atomic swap of the application (ADR 0116, queue item 721):
+  # `renameat_with(EXCHANGE)`, a safe call, in the one file that swaps; and
+  # the manifest's signature checked in the one file that checks it.
+  "rustix:crates/alo-storage/src/volume.rs,crates/alo-update/src/swap.rs"
+  "minisign_verify:crates/alo-update/src/signature.rs"
   "serde_json:crates/alo-window/src/protocol.rs,crates/alo-window/src/chrome_protocol.rs,crates/alo-window/src/search_protocol.rs,crates/alo-window/src/searxng_protocol.rs,crates/alo-window/src/answer_protocol.rs,crates/alo-window/src/agent_protocol.rs,crates/alo-window/src/chat_record.rs,crates/alo-window/src/socket_plain.rs"
   # Brave's matcher of filter lists (ADR 0094): asked of every request a page
   # in Chromium makes, in one file of the browser process.

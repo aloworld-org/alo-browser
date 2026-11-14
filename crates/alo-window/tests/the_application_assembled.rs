@@ -235,6 +235,7 @@ fn the_command_makes_a_sealed_application_holding_what_it_should() -> Result<(),
          its page with this browser's own engine, and says so\n\
          alo-bundle: --keys-from is not named, so the application carries no keys: it \
          searches with this Mac's keychain's when it runs\n\
+         alo-bundle: --updates is not named, so the application does not update itself\n\
          alo-bundle: made, sealed ad hoc and checked by codesign\n"
     );
     assert_eq!(
@@ -345,6 +346,7 @@ fn programs_not_built_are_named_and_nothing_is_made() -> Result<(), String> {
              its page with this browser's own engine, and says so\n\
              alo-bundle: --keys-from is not named, so the application carries no keys: it \
              searches with this Mac's keychain's when it runs\n\
+             alo-bundle: --updates is not named, so the application does not update itself\n\
              alo-bundle: {} is not there: build the programs first, with cargo build --release\n",
             root.join("alo").display()
         )

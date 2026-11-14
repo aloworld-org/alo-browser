@@ -1331,7 +1331,8 @@ fn a_conversation_the_renderer_should_not_draw_is_refused() {
         refused(&far)
     );
     // A turn tagged as nothing this engine draws: the tag after the turns'
-    // count, rewritten — back past *Screen readers*'s flag (queue item
+    // count, rewritten — back past *Updates*' flag (queue item 721),
+    // *Screen readers*'s flag (queue item
     // 989), what *Privacy*'s *Sign-ins* says (ADR
     // 0111), *Privacy*'s flag (queue item 920),
     // *Search and answers*' flag (queue item
@@ -1347,7 +1348,7 @@ fn a_conversation_the_renderer_should_not_draw_is_refused() {
     ));
     let tag = bytes
         .len()
-        .checked_sub(1 + 1 + 1 + 1 + 1 + 4 + 1 + 4 + 2 * 8 + 1)
+        .checked_sub(1 + 1 + 1 + 1 + 1 + 1 + 4 + 1 + 4 + 2 * 8 + 1)
         .unwrap_or_else(|| panic!("a turn was written"));
     let _ = bytes.get(tag).map(|written| assert_eq!(*written, 3));
     if let Some(written) = bytes.get_mut(tag) {
@@ -1449,6 +1450,8 @@ fn every_claim_on_the_conversation_survives_the_crossing() {
         FromRenderer::ConversationClaimed(Some(ConversationClaim::Privacy { at: 4 })),
         // Queue item 989: a choice *Screen readers* offers.
         FromRenderer::ConversationClaimed(Some(ConversationClaim::Bus { at: 2 })),
+        // Queue item 721: what *Updates* offers.
+        FromRenderer::ConversationClaimed(Some(ConversationClaim::Updates { at: 2 })),
     ];
     for original in messages {
         let bytes = write_from_renderer(&original);
@@ -3278,8 +3281,9 @@ fn settings_and_where_the_keyboard_is_on_it_cross_and_nothing_else_does() {
     assert_eq!(differing.len(), 1, "{differing:?}");
     let at = differing.first().copied().unwrap_or_default();
     assert_eq!((back.get(at), font.get(at)), (Some(&2), Some(&3)));
-    // Tags to 11 are written (11, *Screen readers*, queue item 989).
-    for hostile in [12_u8, 255] {
+    // Tags to 13 are written (11, *Screen readers*, queue item 989; 12
+    // and 13, *Updates*, queue item 721).
+    for hostile in [14_u8, 255] {
         let mut bytes = font.clone();
         if let Some(byte) = bytes.get_mut(at) {
             *byte = hostile;
@@ -3409,16 +3413,17 @@ fn privacy_and_a_cards_cookie_banner_cross_as_sent() {
             "{refused}"
         );
     }
-    // The two bytes before the last two are the choices: a third banners'
-    // is no tag; then what *Sign-ins* says, and a sixth is none — and last
-    // *Screen readers*'s flag (queue item 989).
+    // The two bytes before the last three are the choices: a third
+    // banners' is no tag; then what *Sign-ins* says, and a sixth is none —
+    // and last *Screen readers*'s flag (queue item 989) and *Updates*'
+    // (queue item 721).
     let written = write_to_renderer(&ToRenderer::Start(Box::new(Start {
         settings: true,
         privacy: Some(Privacy::default()),
         ..Start::default()
     })));
     let mut bytes = written.clone();
-    let banners = bytes.len().saturating_sub(3);
+    let banners = bytes.len().saturating_sub(4);
     if let Some(byte) = bytes.get_mut(banners) {
         *byte = 2;
     }
@@ -3428,7 +3433,7 @@ fn privacy_and_a_cards_cookie_banner_cross_as_sent() {
         "{refused}"
     );
     let mut bytes = written;
-    let sign_ins = bytes.len().saturating_sub(2);
+    let sign_ins = bytes.len().saturating_sub(3);
     if let Some(byte) = bytes.get_mut(sign_ins) {
         *byte = 5;
     }
@@ -3491,21 +3496,109 @@ fn the_accessibility_bus_choice_crosses_as_sent() {
             .contains("the keyboard on a section of Settings not drawn"),
         "{refused}"
     );
-    // The last byte is the choice: a fourth is no tag.
+    // The byte before *Updates*' flag (queue item 721) is the choice: a
+    // fourth is no tag.
     let mut bytes = write_to_renderer(&ToRenderer::Start(Box::new(Start {
         settings: true,
         bus: Some(Bus::Off),
         ..Start::default()
     })));
-    if let Some(last) = bytes.last_mut() {
-        assert_eq!(*last, 2);
-        *last = 3;
+    let choice = bytes.len().saturating_sub(2);
+    if let Some(byte) = bytes.get_mut(choice) {
+        assert_eq!(*byte, 2);
+        *byte = 3;
     }
     let refused = read_to_renderer(&bytes).expect_err("refused");
     assert!(
         refused
             .to_string()
             .contains("a choice of the accessibility bus tagged 3"),
+        "{refused}"
+    );
+}
+
+/// Queue item 721 (ADR 0116 § 4): *Updates* crosses as sent — a copy that
+/// updates itself, each switch, the keyboard on its group, on *Check now*
+/// or nowhere, and one that does not; the keyboard on it while it is not
+/// drawn, or on a switch a copy that does not update itself does not draw,
+/// is refused; and so is a line past its bound, and a switch of a tag no
+/// writer writes.
+#[test]
+fn updates_cross_as_sent_and_nothing_past_their_bounds() {
+    use alo_renderer::settings_updates::{Automatic, UpdatesShown, UpdatesState};
+    let itself = |automatic| UpdatesShown {
+        version: "alo 0.4.1, with Chromium 156.0.8078.96.".into(),
+        state: UpdatesState::Itself {
+            automatic,
+            checked: "Not checked yet.".into(),
+        },
+    };
+    let not = UpdatesShown {
+        version: "alo 0.0.0".into(),
+        state: UpdatesState::Not("This copy of alo does not update itself.".into()),
+    };
+    let start = |updates: Option<UpdatesShown>, settings_keyed| {
+        ToRenderer::Start(Box::new(Start {
+            settings: true,
+            settings_keyed,
+            updates,
+            ..Start::default()
+        }))
+    };
+    for automatic in Automatic::ALL {
+        for keyed in [
+            None,
+            Some(SettingsKeyed::Updates),
+            Some(SettingsKeyed::CheckNow),
+        ] {
+            let crossing = start(Some(itself(automatic)), keyed);
+            assert_eq!(
+                read_to_renderer(&write_to_renderer(&crossing)).ok(),
+                Some(crossing.clone())
+            );
+        }
+    }
+    let crossing = start(Some(not.clone()), None);
+    assert_eq!(
+        read_to_renderer(&write_to_renderer(&crossing)).ok(),
+        Some(crossing)
+    );
+    for (updates, keyed) in [
+        (None, SettingsKeyed::Updates),
+        (None, SettingsKeyed::CheckNow),
+        (Some(not), SettingsKeyed::CheckNow),
+    ] {
+        let refused = read_to_renderer(&write_to_renderer(&start(updates, Some(keyed))))
+            .expect_err("refused");
+        assert!(refused.to_string().contains("not drawn"), "{refused}");
+    }
+    // A writer cuts a line to its bound; a reader refuses one past it.
+    let long = UpdatesShown {
+        version: "v".repeat(1000),
+        state: UpdatesState::Not("n".repeat(1000)),
+    };
+    let crossed = read_to_renderer(&write_to_renderer(&start(Some(long), None)));
+    let Ok(ToRenderer::Start(crossed)) = crossed else {
+        panic!("{crossed:?}");
+    };
+    assert_eq!(
+        crossed.updates.map(|shown| shown.version.chars().count()),
+        Some(400)
+    );
+    // The switch is the byte after the version line and its tag: a third
+    // is no tag.
+    let mut bytes = write_to_renderer(&start(Some(itself(Automatic::Off)), None));
+    let checked = "Not checked yet.".len();
+    let switch = bytes.len().saturating_sub(checked + 8 + 1);
+    if let Some(byte) = bytes.get_mut(switch) {
+        assert_eq!(*byte, 1);
+        *byte = 2;
+    }
+    let refused = read_to_renderer(&bytes).expect_err("refused");
+    assert!(
+        refused
+            .to_string()
+            .contains("a choice of checking for updates tagged 2"),
         "{refused}"
     );
 }

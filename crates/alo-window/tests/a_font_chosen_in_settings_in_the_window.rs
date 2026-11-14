@@ -272,7 +272,8 @@ fn a_font_chosen_applies_at_once_is_kept_across_launches_and_a_damaged_file_is_m
                 &alo_window::services::Named::default(),
                 (
                     alo_renderer::settings_privacy::Privacy::default(),
-                    alo_renderer::settings_bus::Bus::default()
+                    alo_renderer::settings_bus::Bus::default(),
+                    alo_renderer::settings_updates::Automatic::default()
                 )
             )
             .as_str()
@@ -388,7 +389,8 @@ fn settings_is_walked_by_keys_a_face_chosen_by_an_arrow_and_back_by_return() -> 
                 &alo_window::services::Named::default(),
                 (
                     alo_renderer::settings_privacy::Privacy::default(),
-                    alo_renderer::settings_bus::Bus::default()
+                    alo_renderer::settings_bus::Bus::default(),
+                    alo_renderer::settings_updates::Automatic::default()
                 )
             )
             .as_str()

@@ -281,6 +281,12 @@ pub enum Claim {
         /// Its place.
         at: usize,
     },
+    /// What *Updates* offers at this place, counting from zero: its two
+    /// choices, then *Check now* (ADR 0116 § 4, queue item 721).
+    Updates {
+        /// Its place.
+        at: usize,
+    },
 }
 
 impl Claim {
@@ -326,6 +332,7 @@ impl Claim {
             | Claim::Service { .. }
             | Claim::Privacy { .. }
             | Claim::Bus { .. }
+            | Claim::Updates { .. }
             | Claim::Shield => Part::Start,
         }
     }
@@ -379,6 +386,9 @@ impl fmt::Display for Claim {
                 f,
                 "the choice Settings' Screen readers offers at place {at}"
             ),
+            Claim::Updates { at } => {
+                write!(f, "what Settings' Updates offers at place {at}")
+            }
         }
     }
 }
@@ -519,6 +529,18 @@ fn pressables(part: Part) -> &'static [(&'static [&'static str], Pressable)] {
                     "privopt busopt on keyed",
                 ],
                 Pressable::Placed(|at| Claim::Bus { at }),
+            ),
+            // *Updates* (ADR 0116 § 4, queue item 721): each choice, then
+            // *Check now*, by its place among them, ringed or not.
+            (
+                &[
+                    "privopt updopt",
+                    "privopt updopt on",
+                    "privopt updopt on keyed",
+                    "pbtn updbtn",
+                    "pbtn updbtn keyed",
+                ],
+                Pressable::Placed(|at| Claim::Updates { at }),
             ),
             // An offer for what was typed, whichever is chosen and whether
             // it is set up (queue item 714).

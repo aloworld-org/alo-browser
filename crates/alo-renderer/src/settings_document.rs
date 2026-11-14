@@ -22,7 +22,9 @@
 //! (ADR 0106, queue item 905, [`crate::settings_services_document`]), and
 //! **Privacy** (ADR 0108, queue item 920,
 //! [`crate::settings_privacy_document`]), and **Screen readers** (ADR
-//! 0115, queue item 989, [`crate::settings_bus_document`]).
+//! 0115, queue item 989, [`crate::settings_bus_document`]), and
+//! **Updates** (ADR 0116, queue item 721,
+//! [`crate::settings_updates_document`]).
 //!
 //! # Each face shown as it would be
 //!
@@ -166,6 +168,12 @@ pub fn put(document: &mut Document, start: &Start) -> Result<(), Unbuilt> {
     // *Screen readers*, under it (ADR 0115, queue item 989).
     if let Some(bus) = start.bus {
         let section = crate::settings_bus_document::make(document, bus, start.settings_keyed)?;
+        append(document, page, section)?;
+    }
+    // *Updates*, under it (ADR 0116 § 4, queue item 721).
+    if let Some(updates) = &start.updates {
+        let section =
+            crate::settings_updates_document::make(document, updates, start.settings_keyed)?;
         append(document, page, section)?;
     }
     Ok(())

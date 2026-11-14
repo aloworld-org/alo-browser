@@ -146,6 +146,8 @@ pub mod settings_privacy;
 pub mod settings_privacy_document;
 pub mod settings_services;
 pub mod settings_services_document;
+pub mod settings_updates;
+pub mod settings_updates_document;
 pub mod settings_work_document;
 pub mod sheet;
 pub mod sheet_decide;

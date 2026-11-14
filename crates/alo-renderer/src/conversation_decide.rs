@@ -123,6 +123,9 @@ pub struct Shown<C, S> {
     /// The choices *Screen readers* offers, in order, while *Settings*
     /// is drawn (ADR 0115, queue item 989).
     pub bus: Vec<crate::settings_bus::Bus>,
+    /// What *Updates* offers, in order, while *Settings* is drawn (ADR
+    /// 0116 § 4, queue item 721).
+    pub updates: Vec<crate::settings_updates::UpdatesPress>,
 }
 
 impl<C, S> Default for Shown<C, S> {
@@ -157,6 +160,7 @@ impl<C, S> Default for Shown<C, S> {
             services: Vec::new(),
             privacy: Vec::new(),
             bus: Vec::new(),
+            updates: Vec::new(),
         }
     }
 }
@@ -259,6 +263,9 @@ pub enum Decided<C, S> {
     /// This choice, made in *Screen readers* (ADR 0115, queue item
     /// 989).
     Bus(crate::settings_bus::Bus),
+    /// This, pressed in *Updates*: a choice of the switch, or *Check now*
+    /// (ADR 0116 § 4, queue item 721).
+    Updates(crate::settings_updates::UpdatesPress),
     /// *Settings*' × — or a press on the veil around it (queue item 886),
     /// which presses nothing under it.
     LeaveSettings,
@@ -311,6 +318,8 @@ pub enum Listed {
     Privacy,
     /// The choices *Screen readers* offers (queue item 989).
     Bus,
+    /// What *Updates* offers (queue item 721).
+    Updates,
 }
 
 impl fmt::Display for Listed {
@@ -335,6 +344,7 @@ impl fmt::Display for Listed {
             Listed::Services => "thing Search and answers offers",
             Listed::Privacy => "choice Privacy offers",
             Listed::Bus => "choice Screen readers offers",
+            Listed::Updates => "thing Updates offers",
         })
     }
 }
@@ -499,7 +509,8 @@ where
         | Claim::Asks { .. }
         | Claim::Service { .. }
         | Claim::Privacy { .. }
-        | Claim::Bus { .. } => in_settings(claim, painted, now),
+        | Claim::Bus { .. }
+        | Claim::Updates { .. } => in_settings(claim, painted, now),
         Claim::Expand => Decided::Expand,
         Claim::CloseTheCard => Decided::CloseTheCard,
         Claim::DeleteChat | Claim::CloseChat | Claim::Undo | Claim::Shield => {
@@ -602,6 +613,9 @@ fn in_settings<C, S>(claim: Claim, painted: &Shown<C, S>, now: &Shown<C, S>) -> 
         // *Screen readers* (queue item 989): the same.
         Claim::Bus { at } => held(Listed::Bus, at, &painted.bus, &now.bus)
             .map_or_else(Decided::Refused, Decided::Bus),
+        // *Updates* (queue item 721): the same.
+        Claim::Updates { at } => held(Listed::Updates, at, &painted.updates, &now.updates)
+            .map_or_else(Decided::Refused, Decided::Updates),
         _ if painted.faces.is_empty() || now.faces.is_empty() => {
             Decided::Refused(Refusal::NotAsked { claim })
         }

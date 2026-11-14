@@ -6,7 +6,7 @@
 //! 687 and 720; ADR 0067 § 6, ADR 0077, ADR 0079).
 //!
 //! `alo-bundle [--programs DIRECTORY] [--into DIRECTORY] [--host PROGRAM]
-//! [--keys-from keychain|DIRECTORY] [--services FILE]` puts `alo`, `alo-render` and `alo-ask` from the programs' directory into
+//! [--keys-from keychain|DIRECTORY] [--services FILE] [--updates DIRECTORY]` puts `alo`, `alo-render` and `alo-ask` from the programs' directory into
 //! a new `alo browser.app` in the other, with the application's two pages
 //! and its `Info.plist` ([`alo_window::bundle_made`]); carries the Chromium
 //! the application draws the web with — alo's CEF host and CEF's framework
@@ -60,6 +60,14 @@
 //! is wrong, and makes nothing: a Chromium asked for is never quietly left
 //! out.
 //!
+//! **Updates** (ADR 0116 § 3): `--updates DIRECTORY` names where the
+//! application's updates come from — `DIRECTORY/address` — and the two
+//! public keys they are signed with — `DIRECTORY/keys`, the key in use and
+//! the spare — checked, the worthless test keys refused, and carried in
+//! `Contents/Resources/update` before the seal
+//! ([`alo_window::bundle_update`]). Without it the application does not
+//! update itself, and says so in *Settings*.
+//!
 //! It builds nothing: a program not there is named, with the `cargo`
 //! command that makes it. An application already there is refused and left
 //! as it is.
@@ -68,6 +76,7 @@ use alo_window::bundle_carried::{self, Carried};
 use alo_window::bundle_keys::{self, Source, Taken};
 use alo_window::bundle_made::{PROGRAMS, make};
 use alo_window::bundle_seal::{seal, seal_carried};
+use alo_window::bundle_update;
 use alo_window::cef_pin;
 use alo_window::services::Named as ServicesNamed;
 use alo_window::services_made;
@@ -87,6 +96,8 @@ struct Named {
     keys: Option<Source>,
     /// The file naming the services it asks by default, if named.
     services: Option<PathBuf>,
+    /// The directory naming where its updates come from, if named.
+    updates: Option<PathBuf>,
 }
 
 /// The directories and the host named, or where they are by default.
@@ -96,6 +107,7 @@ fn named() -> Result<Named, String> {
     let mut host = None;
     let mut keys = None;
     let mut services = None;
+    let mut updates = None;
     let mut words = std::env::args_os().skip(1);
     while let Some(word) = words.next() {
         let slot = match word.to_str() {
@@ -104,6 +116,7 @@ fn named() -> Result<Named, String> {
             Some("--host") => &mut host,
             Some("--keys-from") => &mut keys,
             Some("--services") => &mut services,
+            Some("--updates") => &mut updates,
             _ => {
                 return Err(format!(
                     "{} is not an option of this",
@@ -136,6 +149,7 @@ fn named() -> Result<Named, String> {
         host,
         keys: keys.map(|named: PathBuf| Source::named(&named)),
         services,
+        updates,
     })
 }
 
@@ -217,6 +231,45 @@ fn keys(named: &Named, services: Option<&ServicesNamed>) -> Result<Option<Taken>
     Ok(Some(taken))
 }
 
+/// Where updates come from: none when `--updates` names nothing, or its
+/// address and keys, checked.
+fn updates(named: &Named) -> Result<Option<(String, String)>, String> {
+    let Some(directory) = &named.updates else {
+        eprintln!("alo-bundle: --updates is not named, so the application does not update itself");
+        return Ok(None);
+    };
+    let taken = bundle_update::taken(directory)?;
+    eprintln!(
+        "alo-bundle: updates itself from the address and the two keys in {}",
+        directory.display()
+    );
+    Ok(Some(taken))
+}
+
+/// Put the services named and where updates come from in `application`,
+/// before it is sealed: the services' file, and the update address and
+/// keys (ADR 0116 § 3).
+fn carry_files(
+    application: &std::path::Path,
+    services: Option<&ServicesNamed>,
+    updates: Option<&(String, String)>,
+) -> Result<(), String> {
+    if let Some((address, keys)) = updates {
+        bundle_update::put_in(application, (address, keys))?;
+    }
+    if let Some(services) = services {
+        let file = application
+            .join("Contents")
+            .join("Resources")
+            .join(services_made::DEFAULTS);
+        file.parent()
+            .map_or(Ok(()), std::fs::create_dir_all)
+            .and_then(|()| std::fs::write(&file, services_made::text_of(services)))
+            .map_err(|why| format!("{} could not be written: {why}", file.display()))?;
+    }
+    Ok(())
+}
+
 fn main() -> ExitCode {
     let named = match named() {
         Ok(named) => named,
@@ -224,7 +277,7 @@ fn main() -> ExitCode {
             eprintln!("alo-bundle: {why}");
             eprintln!(
                 "alo-bundle: alo-bundle [--programs DIRECTORY] [--into DIRECTORY] [--host PROGRAM] \
-                 [--keys-from keychain|DIRECTORY] [--services FILE]"
+                 [--keys-from keychain|DIRECTORY] [--services FILE] [--updates DIRECTORY]"
             );
             return ExitCode::from(2);
         }
@@ -250,6 +303,13 @@ fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     };
+    let updates = match updates(&named) {
+        Ok(updates) => updates,
+        Err(why) => {
+            eprintln!("alo-bundle: {why}");
+            return ExitCode::from(2);
+        }
+    };
     let made = match make(&named.programs, &named.into) {
         Ok(made) => made,
         Err(why) => {
@@ -263,20 +323,9 @@ fn main() -> ExitCode {
         eprintln!("alo-bundle: {why}");
         return ExitCode::FAILURE;
     }
-    if let Some(services) = &services {
-        let file = made
-            .application()
-            .join("Contents")
-            .join("Resources")
-            .join(services_made::DEFAULTS);
-        let written = file
-            .parent()
-            .map_or(Ok(()), std::fs::create_dir_all)
-            .and_then(|()| std::fs::write(&file, services_made::text_of(services)));
-        if let Err(why) = written {
-            eprintln!("alo-bundle: {} could not be written: {why}", file.display());
-            return ExitCode::FAILURE;
-        }
+    if let Err(why) = carry_files(&made.application(), services.as_ref(), updates.as_ref()) {
+        eprintln!("alo-bundle: {why}");
+        return ExitCode::FAILURE;
     }
     if let Some(carried) = carried {
         let application = made.application();

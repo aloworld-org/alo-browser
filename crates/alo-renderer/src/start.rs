@@ -143,6 +143,10 @@ pub struct Start {
     /// *Settings*' section *Screen readers* (ADR 0115, queue item 989):
     /// what alo gives the bus, as chosen — none draws no section.
     pub bus: Option<crate::settings_bus::Bus>,
+    /// *Settings*' section *Updates* (ADR 0116 § 4, queue item 721): alo's
+    /// version, what the last check found and the switch — none draws no
+    /// section.
+    pub updates: Option<crate::settings_updates::UpdatesShown>,
 }
 
 /// What of *Settings* the keyboard is on (queue item 856,
@@ -178,6 +182,12 @@ pub enum SettingsKeyed {
     /// at the choice made: the arrows choose the next or the one before,
     /// round.
     Bus,
+    /// The radio group *Check for updates automatically* of *Updates*
+    /// (ADR 0116 § 4, queue item 721), at the choice made: the arrows
+    /// choose the other.
+    Updates,
+    /// *Check now*: Space or Return presses it.
+    CheckNow,
 }
 
 impl SettingsKeyed {
@@ -243,6 +253,7 @@ impl Default for Start {
             privacy: None,
             sign_ins: crate::settings_privacy::SignInsShown::Kept,
             bus: None,
+            updates: None,
         }
     }
 }

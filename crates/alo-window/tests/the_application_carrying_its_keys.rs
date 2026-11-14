@@ -103,6 +103,7 @@ fn the_application_carries_its_keys_sealed_and_asks_with_them() -> Result<(), St
             "alo-bundle: CEF_PATH is not set, so the application carries no Chromium: it draws \
              its page with this browser's own engine, and says so\n\
              alo-bundle: carries the search key, the AI key, taken from {}\n\
+             alo-bundle: --updates is not named, so the application does not update itself\n\
              alo-bundle: made, sealed ad hoc and checked by codesign\n",
             keys.display()
         )

@@ -20527,6 +20527,15 @@ What stage 2's exit gate actually measures: a person using it.
   person within days of a security release, checked and signed, with the
   person told. Nothing is given to anyone outside the owner's machines
   before this. *needs design: an ADR first.*
+  *Built 14 November 2026*, gated the same day (7265 tests), as ADR 0116
+  says — its *Built* section lists the files, the tests and what is not
+  built: the *Quit and update* button, the swap at the next launch after an
+  unclean quit, the Team ID check (735), the record's own cause.
+  `scripts/gate.sh` holds `rustix` to `alo-update/src/swap.rs` beside
+  `alo-storage/src/volume.rs`, and `minisign_verify` to
+  `alo-update/src/signature.rs`. **Not ticked:** it closes when a release
+  reaches a person, which waits on the owner's update key, the feed's
+  hosting (with the private repository) and 735.
 
 - [ ] **722. Chromium with alo's name (ADR 0077).** Built from source with
   alo's name and icon, so an expanded page's menu bar says *alo*. *blocked:

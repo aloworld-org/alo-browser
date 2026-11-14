@@ -1447,6 +1447,40 @@ Settled here, as the design left them open:
   or one that does not read, is *Read and act*. In the design's window,
   without *Search and answers*, what the panel holds is 1468 in a room of
   692.
+- **Updates** (item 721, ADR 0116 § 4; the owner's answers of 14 November
+  2026), 24 under *Screen readers*: **Updates**, 15 px 600, and in quiet
+  13.5 px alo's version and the Chromium it was built with (*alo 0.4.1,
+  built with CEF 156.0.14 (Chromium 156.0.8078.48).*); 14 under it a white
+  box as *Privacy*'s. **In a copy that updates itself**, two rows: **Check
+  for updates automatically** (13.5 px 600) over two choices drawn as
+  *Privacy*'s — **On · Default** with *Once a day. It sends nothing about
+  you.*, and **Off** with *alo sends nothing until you press Check now, and
+  may miss Chromium’s security fixes.* — each 45 tall with its line, the
+  row 136; then **Last checked** over what the last check found, in
+  quiet (*14 November 2026 at 09:00 UTC: alo 0.4.1 is up to date.*, or *Not
+  checked yet.*), and **Check now** under it, drawn as *Forget all
+  sign-ins*, the row 98; the section 292. **In one that does not** — every
+  build of this repository today, which is given no update address — one
+  row, **This copy**, over *This copy of alo does not update itself.*
+  (inside a Flatpak, *Updates come from your software source.*), nothing
+  to press; the section 119. **By keys**: Tab goes on from *Screen
+  readers* to the group and then *Check now*, in a copy that updates
+  itself; either arrow chooses the other; Space or Return presses *Check
+  now*. **Effect**: *On* checks at launch and every 24 hours while alo
+  runs; *Off* sends nothing until *Check now* is pressed; an update ready
+  is said in the first screen's line — *alo 0.4.2 is ready. It installs
+  when you quit alo.* — and installs only when alo quits. The first time a
+  copy that updates itself starts with the check on, the first screen's
+  line says once *alo checks for security updates once a day. It sends
+  nothing about you. Settings › Updates turns it off.* **To an agent**: a
+  region named *Updates*, a radio group *Check for updates automatically*
+  with a radio named by each choice, the one made checked, the line under
+  each read after it, and a button *Check now* described by the line over
+  it; nothing over the agent socket reaches it. **Kept**: `updates off` at
+  the end of `settings.txt`, only when it is not the default; a file naming
+  none, or one that does not read, checks. In the design's window, without
+  *Search and answers*, what the panel holds is 1784 in a room of 692
+  (1611 in a copy that does not update itself).
 
 ## Colours
 
@@ -1464,7 +1498,7 @@ mark, 16 px, before its words (item 984).
 
 Dark mode, a phone-width window, downloads and bookmarks, and the
 settings other than *Font*, *alo at work*, *Search and answers*,
-*Privacy* and *Screen readers* — *What alo may do* among
+*Privacy*, *Screen readers* and *Updates* — *What alo may do* among
 them (item 705) — and with them *Settings*' list of its sections.
 *Settings* is walked by keys (item 856); the rest of alo's interface,
 beyond its two fields and *Settings*, is pressed with the pointer only

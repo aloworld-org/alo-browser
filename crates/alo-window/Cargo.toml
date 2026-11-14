@@ -27,6 +27,7 @@ alo-net = { path = "../alo-net" }
 alo-paint = { path = "../alo-paint" }
 alo-renderer = { path = "../alo-renderer" }
 alo-text = { path = "../alo-text" }
+alo-update = { path = "../alo-update" }
 alo-url = { path = "../alo-url" }
 alo-value = { path = "../alo-value" }
 

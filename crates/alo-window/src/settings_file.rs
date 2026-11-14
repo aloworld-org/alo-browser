@@ -35,7 +35,10 @@
 //! (queue item 989), *Screen readers*: `bus` and `read` or `off`, only
 //! when it is not the default, *Read and act* — so a file that names no
 //! `bus` line, every file written before it among them, publishes the
-//! tree, as ADR 0112 requirement 7 asks. **No key is
+//! tree, as ADR 0112 requirement 7 asks. Since ADR 0116 (queue item
+//! 721), *Updates*' switch: `updates off`, only when it is not the
+//! default, *On* — so a file that names no `updates` line checks for
+//! updates, as the owner chose on 14 November 2026. **No key is
 //! ever in it**: a person's key is kept in their keychain
 //! ([`crate::service_keys`]). Lines that are empty or begin with `#` are
 //! passed over. Nothing in it leaves the machine.
@@ -60,6 +63,7 @@ use alo_renderer::agent_limits::{Asks, Limits};
 use alo_renderer::interface_face::InterfaceFace;
 use alo_renderer::settings_bus::Bus;
 use alo_renderer::settings_privacy::{Banners, Cookies, Privacy};
+use alo_renderer::settings_updates::Automatic;
 use std::fs::{self, DirBuilder, File, OpenOptions};
 use std::io::{Read as _, Write as _};
 use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt, PermissionsExt};
@@ -95,6 +99,10 @@ const BANNERS: &str = "banners";
 /// with (queue item 989).
 const BUS: &str = "bus";
 
+/// The word a line saying whether alo checks for updates by itself begins
+/// with (queue item 721).
+const UPDATES: &str = "updates";
+
 /// The most bytes a settings file is read to: far past any alo writes.
 pub const LARGEST: u64 = 4096;
 
@@ -123,6 +131,9 @@ pub struct Read {
     /// *Read and act*, when it names none or does not read — a file that
     /// does not read never takes the bus away from a screen reader.
     pub bus: Bus,
+    /// Whether alo checks for updates by itself (ADR 0116 § 5, queue item
+    /// 721): *On*, when it names none or does not read.
+    pub updates: Automatic,
     /// Why the file did not read, when it did not, in words naming it: the
     /// face is then Manrope.
     pub said: Option<String>,
@@ -138,12 +149,14 @@ pub fn read(file: &Path) -> Read {
             services,
             privacy,
             bus,
+            updates,
         }) => Read {
             face,
             limits,
             services,
             privacy,
             bus,
+            updates,
             said: None,
         },
         Err(why) => Read {
@@ -152,6 +165,7 @@ pub fn read(file: &Path) -> Read {
             services: Named::default(),
             privacy: Privacy::default(),
             bus: Bus::default(),
+            updates: Automatic::default(),
             said: Some(format!(
                 "the settings in {} do not read ({why}), so alo is set in Manrope",
                 file.display()
@@ -167,6 +181,7 @@ struct Kept {
     services: Named,
     privacy: Privacy,
     bus: Bus,
+    updates: Automatic,
 }
 
 /// The face, the limits, the services and *Privacy*'s choices `file`
@@ -181,6 +196,7 @@ fn read_kept(file: &Path) -> Result<Kept, String> {
                 services: Named::default(),
                 privacy: Privacy::default(),
                 bus: Bus::default(),
+                updates: Automatic::default(),
             });
         }
         Err(why) => return Err(format!("it could not be opened: {why}")),
@@ -266,6 +282,7 @@ fn read_kept(file: &Path) -> Result<Kept, String> {
         services,
         privacy,
         bus: choices.bus.unwrap_or_default(),
+        updates: choices.updates.unwrap_or_default(),
     })
 }
 
@@ -276,6 +293,7 @@ struct Choices {
     cookies: Option<Cookies>,
     banners: Option<Banners>,
     bus: Option<Bus>,
+    updates: Option<Automatic>,
 }
 
 impl Choices {
@@ -307,6 +325,12 @@ impl Choices {
                     return Err(twice("what alo gives the accessibility bus"));
                 }
             }
+            UPDATES => {
+                let chosen = Automatic::of_word(rest).ok_or_else(|| unread_choice(line))?;
+                if self.updates.replace(chosen).is_some() {
+                    return Err(twice("whether alo checks for updates"));
+                }
+            }
             _ => return Ok(false),
         }
         Ok(true)
@@ -336,7 +360,7 @@ pub fn text_of(
     face: InterfaceFace,
     limits: Limits,
     services: &Named,
-    (privacy, bus): (Privacy, Bus),
+    (privacy, bus, updates): (Privacy, Bus, Automatic),
 ) -> String {
     let mut text = format!(
         "{HEADER}\n{FONT} {}\n{SITES} {}\n{ACTIONS} {}\n{ASKS} {}\n{}",
@@ -361,6 +385,11 @@ pub fn text_of(
             text.push_str(word);
         }
     }
+    if updates != Automatic::default() {
+        for word in [UPDATES, " ", updates.word(), "\n"] {
+            text.push_str(word);
+        }
+    }
     text
 }
 
@@ -377,7 +406,7 @@ pub fn write(
     face: InterfaceFace,
     limits: Limits,
     services: &Named,
-    chosen: (Privacy, Bus),
+    chosen: (Privacy, Bus, Automatic),
 ) -> Result<(), String> {
     let failed = |why: std::io::Error| format!("{} could not be written: {why}", file.display());
     if let Some(directory) = file.parent()
@@ -437,6 +466,7 @@ mod tests {
                 services: Named::default(),
                 privacy: Privacy::default(),
                 bus: Bus::default(),
+                updates: Automatic::default(),
                 said: None
             }
         );
@@ -454,7 +484,7 @@ mod tests {
             InterfaceFace::Inter,
             Limits::default(),
             &Named::default(),
-            (Privacy::default(), Bus::default()),
+            (Privacy::default(), Bus::default(), Automatic::default()),
         )
         .expect("written");
         let text = fs::read_to_string(&file).unwrap_or_default();
@@ -471,7 +501,7 @@ mod tests {
                     InterfaceFace::Inter,
                     Limits::default(),
                     &Named::default(),
-                    (made, Bus::default()),
+                    (made, Bus::default(), Automatic::default()),
                 )
                 .expect("written");
                 let back = read(&file);
@@ -518,7 +548,7 @@ mod tests {
                 InterfaceFace::Inter,
                 Limits::default(),
                 &Named::default(),
-                (Privacy::default(), bus),
+                (Privacy::default(), bus, Automatic::default()),
             )
             .expect("written");
             let back = read(&file);
@@ -544,6 +574,48 @@ mod tests {
         let _ = fs::remove_dir_all(&directory);
     }
 
+    /// Queue item 721 (ADR 0116 § 5, the owner's answer of 14 November
+    /// 2026): a file naming no `updates` line — every file written before
+    /// it — checks for updates; *Off* is kept as `updates off` and read
+    /// back, *On* never written; an odd word or the line twice, the whole
+    /// file not read, and the check still on.
+    #[test]
+    fn updates_are_checked_unless_a_person_turned_them_off_and_it_is_kept() {
+        let directory = scratch("updates");
+        let file = file_in(&directory);
+        assert_eq!(read(&file).updates, Automatic::On, "no file");
+        for updates in Automatic::ALL {
+            write(
+                &file,
+                InterfaceFace::Inter,
+                Limits::default(),
+                &Named::default(),
+                (Privacy::default(), Bus::default(), updates),
+            )
+            .expect("written");
+            let back = read(&file);
+            assert_eq!((back.updates, back.said), (updates, None));
+            let text = fs::read_to_string(&file).unwrap_or_default();
+            assert_eq!(
+                text.ends_with("asks never\nupdates off\n"),
+                updates == Automatic::Off,
+                "{text}"
+            );
+            assert_eq!(
+                text.contains("updates"),
+                updates == Automatic::Off,
+                "{text}"
+            );
+        }
+        for odd in ["updates never", "updates Off", "updates off\nupdates on"] {
+            fs::write(&file, format!("{HEADER}\nfont Inter\n{odd}\n")).expect("written");
+            let back = read(&file);
+            assert_eq!(back.updates, Automatic::On, "{odd}");
+            assert!(back.said.is_some(), "{odd}");
+        }
+        let _ = fs::remove_dir_all(&directory);
+    }
+
     #[test]
     fn a_face_kept_is_read_back_in_words_only_this_users() {
         let directory = scratch("kept");
@@ -555,7 +627,7 @@ mod tests {
                 face,
                 limits,
                 &Named::default(),
-                (Privacy::default(), Bus::default()),
+                (Privacy::default(), Bus::default(), Automatic::default()),
             )
             .expect("written");
             assert_eq!(
@@ -566,6 +638,7 @@ mod tests {
                     services: Named::default(),
                     privacy: Privacy::default(),
                     bus: Bus::default(),
+                    updates: Automatic::default(),
                     said: None
                 }
             );
@@ -603,7 +676,7 @@ mod tests {
                 InterfaceFace::Inter,
                 limits,
                 &Named::default(),
-                (Privacy::default(), Bus::default()),
+                (Privacy::default(), Bus::default(), Automatic::default()),
             )
             .expect("written");
             assert_eq!(read(&file).limits.asks, asks);
@@ -651,7 +724,7 @@ mod tests {
             InterfaceFace::Geist,
             Limits::default(),
             &named,
-            (Privacy::default(), Bus::default()),
+            (Privacy::default(), Bus::default(), Automatic::default()),
         )
         .expect("written");
         let text = fs::read_to_string(&file).unwrap_or_default();
@@ -676,7 +749,7 @@ mod tests {
             InterfaceFace::Inter,
             Limits::default(),
             &only,
-            (Privacy::default(), Bus::default()),
+            (Privacy::default(), Bus::default(), Automatic::default()),
         )
         .expect("written");
         let text = fs::read_to_string(&file).unwrap_or_default();
@@ -819,6 +892,7 @@ mod tests {
                 services: Named::default(),
                 privacy: Privacy::default(),
                 bus: Bus::default(),
+                updates: Automatic::default(),
                 said: None
             }
         );

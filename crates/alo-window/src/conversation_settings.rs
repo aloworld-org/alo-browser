@@ -50,6 +50,12 @@
 //! window before it reaches here (`conversation_window::assisted`). Kept
 //! beside the face, and used at once.
 //!
+//! Its sixth, **Updates** (ADR 0116 § 4, queue item 721), holds whether
+//! alo checks for updates by itself ([`Automatic`]): *On* by default, or
+//! *Off* — a person's press, or the arrows on its group after Tab passes
+//! *Screen readers*; and *Check now*, a deed of the browser process's
+//! taken once ([`Settings::take_check_now`]). Kept beside the face.
+//!
 //! **Scrolled** (queue item 880) as the conversation is ([`Scrolled`]): in
 //! a window too short for the whole page, by the wheel, the paging keys
 //! and the bar, from its top each time it opens; and as Tab moves the
@@ -63,6 +69,7 @@ use alo_renderer::conversation_scroll::Reach;
 use alo_renderer::interface_face::InterfaceFace;
 use alo_renderer::settings_bus::Bus;
 use alo_renderer::settings_privacy::{Privacy, PrivacyPress, SignInsShown};
+use alo_renderer::settings_updates::{Automatic, UpdatesPress};
 use alo_renderer::start::SettingsKeyed;
 
 /// *Settings*: open or not, and the face chosen.
@@ -101,6 +108,14 @@ pub struct Settings {
     bus: Bus,
     /// A choice of it a person just made, not yet kept.
     bus_chosen: Option<Bus>,
+    /// Whether alo checks for updates by itself (ADR 0116 § 5, queue item
+    /// 721).
+    updates: Automatic,
+    /// A choice of it a person just made, not yet kept.
+    updates_chosen: Option<Automatic>,
+    /// *Check now*, if it was pressed since this was last asked: no
+    /// choice, a deed of the browser process's.
+    check_now: Option<UpdatesPress>,
 }
 
 /// Where the keyboard was as *Settings* opened: what it is given back to as
@@ -209,6 +224,48 @@ impl Settings {
     /// asked, once.
     pub fn take_bus_changed(&mut self) -> bool {
         self.bus_chosen.take().is_some()
+    }
+
+    /// The same, checking for updates by itself as `automatic` says, as
+    /// read back (queue item 721).
+    #[must_use]
+    pub fn with_updates(mut self, automatic: Automatic) -> Self {
+        self.updates = automatic;
+        self
+    }
+
+    /// Whether alo checks for updates by itself, as chosen now.
+    pub fn updates(self) -> Automatic {
+        self.updates
+    }
+
+    /// A person pressed `pressed` in *Updates*: whether the switch is now
+    /// another, and so is to be kept and used — *Check now* is no choice,
+    /// and is taken once by [`Settings::take_check_now`].
+    pub fn press_updates(&mut self, pressed: UpdatesPress) -> bool {
+        match pressed {
+            UpdatesPress::CheckNow => {
+                self.check_now = Some(UpdatesPress::CheckNow);
+                false
+            }
+            UpdatesPress::Automatic(automatic) if automatic == self.updates => false,
+            UpdatesPress::Automatic(automatic) => {
+                self.updates = automatic;
+                self.updates_chosen = Some(automatic);
+                true
+            }
+        }
+    }
+
+    /// Whether a person changed the switch since this was last asked, once.
+    pub fn take_updates_changed(&mut self) -> bool {
+        self.updates_chosen.take().is_some()
+    }
+
+    /// Whether a person pressed *Check now* since this was last asked,
+    /// once.
+    pub fn take_check_now(&mut self) -> bool {
+        self.check_now.take().is_some()
     }
 
     /// Whether a person pressed *Forget all sign-ins* since this was last
@@ -400,8 +457,16 @@ impl Settings {
                 let other = self.bus.stepped(on);
                 return self.choose_bus(other);
             }
+            // *Updates*' two (queue item 721): either arrow the other.
+            Some(SettingsKeyed::Updates) => {
+                let other = self.updates.stepped();
+                return self.press_updates(UpdatesPress::Automatic(other));
+            }
             Some(
-                SettingsKeyed::Close | SettingsKeyed::Service(_) | SettingsKeyed::ForgetSignIns,
+                SettingsKeyed::Close
+                | SettingsKeyed::Service(_)
+                | SettingsKeyed::ForgetSignIns
+                | SettingsKeyed::CheckNow,
             )
             | None => return false,
         }
