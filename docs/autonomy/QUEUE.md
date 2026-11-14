@@ -82,7 +82,7 @@ ADR 0058 — and nothing else does:
 | ✓ | **719** | the application starts only the Chromium it carries, at `Contents/Frameworks/Chromium.app`, never the machine's Chrome, and draws with this engine saying so when it is missing or damaged (ADR 0077, iteration 454) |
 | ✓ | **725** | alo's own CEF host, with no `unsafe`, built against CEF 156.0.14 and started and driven by `alo-window` exactly as Chrome is (ADR 0079, iteration 455) |
 | ✓ | **720** | alo carries CEF's Chromium in the application — checked against a pinned SHA-256 before it is copied, its licences linked from the application's page, sealed ad hoc inside out — so the application needs no Chrome (ADR 0079, iteration 458) |
-| | **735** | the application and its Chromium signed with the owner's Developer ID, under the hardened runtime, and notarised — blocked on that certificate (cut from 720) |
+| ✓ | **735** | the application and its Chromium signed with the owner's Developer ID, under the hardened runtime, notarised and stapled; a downloaded copy accepted by `spctl` and opening its page in its Chromium (14 November 2026) |
 | ✓ | **726** | CEF held to alo's rules, measured — no Widevine or updater fetching it, nothing of its own beyond ADR 0073's list, no H.264/AAC/HEVC, every request held, the agent's surface through it (ADR 0079, iteration 459) |
 | ✓ | **727** | the host's own window for `--app`: Chrome style with no toolbar, titled by the page, placed by alo over the pipe, typed into, pressed and closed by a person (iteration 456) |
 | ✓ | **731**, **732**, **730** | the host's application object (`CefAppProtocol`, the one `unsafe` boundary ADR 0080 allows), its menu bar and ⌘Q ending it in order, and the gate reaching the host and holding the boundary to its file (iteration 457) |
@@ -20041,7 +20041,7 @@ What stage 2's exit gate actually measures: a person using it.
   linker's), so the pin is checked on the distribution before it is
   cloned in; CEF held to alo's rules (726); other systems' pins (728).
 
-- [ ] **735. The application and the Chromium it carries signed for other
+- [x] **735. The application and the Chromium it carries signed for other
   Macs (cut from 720).** 720 seals `alo browser.app` ad hoc: it opens on
   the Mac that made it, and `spctl` rejects it. Sign it inside out as ADR
   0079 § 4 gives CEF's guide — the framework's libraries, the framework,
@@ -20057,7 +20057,7 @@ What stage 2's exit gate actually measures: a person using it.
   downloaded copy answers *accepted* naming the Developer ID, and the
   application opens its page in its Chromium there.
 
-  *Built 14 November 2026, gated the same day (7291 tests); not ticked: it closes on the spctl check below.* `alo-bundle --sign "Developer
+  *Built 14 November 2026, gated the same day (7291 tests); closed the same evening by the run below.* `alo-bundle --sign "Developer
   ID Application: NAME (TEAMID)"` (`bundle_signer.rs`: the whole common
   name only, its Team ID read from its end; `-`, an "Apple Development"
   identity or a name without a Team ID refused before anything is made).
@@ -20083,6 +20083,26 @@ What stage 2's exit gate actually measures: a person using it.
   yet measured**. Left: that run, with the key's access allowed for
   `codesign` by the owner; then notarisation (`notarytool`), stapling and
   `spctl -a -vvv` on a downloaded copy — the owner's.
+
+  **Closed, 14 November 2026.** Run again with the owner at the Mac, who
+  allowed `codesign` the key (*Always Allow*): `alo-bundle` made, signed
+  and checked the application (Team 55G4593FM8, hardened runtime, Apple's
+  timestamp; `codesign --verify --deep --strict` *valid on disk* and
+  *satisfies its Designated Requirement*). Opened from its folder it
+  started its Chromium — host, GPU, network, storage and two renderer
+  processes — with no crash report, so no entitlement beyond ADR 0079 § 4
+  was needed (no `disable-library-validation`). `xcrun notarytool submit
+  … --wait` answered *Accepted* (submission
+  `b2521a58-7032-4a54-bf45-1965325c4af3`, about 4 minutes, 168 MB zip);
+  `stapler staple` and `validate` worked. A copy zipped, given Safari's
+  `com.apple.quarantine` and unzipped was `spctl -a -vvv -t exec`
+  *accepted*, *source=Notarized Developer ID*, *origin=Developer ID
+  Application: … (55G4593FM8)*; opened with `open`,
+  macOS translocated it and held it at `_dyld_start` behind its
+  downloaded-from-the-Internet question until the owner pressed *Open*,
+  and it then opened its page in its own Chromium (*Chrome/156.0.8078.48,
+  the Chromium alo carries*), seen on the owner's screen. Measured on this
+  Mac only (macOS 26, Apple silicon); another Mac not tried.
 
 - [x] **725. alo's own CEF host program (ADR 0079 § 3, option H).** A small
   Rust program, named alo and signed with the owner's identity, that loads

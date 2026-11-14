@@ -6,6 +6,11 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **alo is notarised by Apple.** `alo browser.app`, signed with its
+  owner's Developer ID, was sent to Apple, accepted and stapled. A copy
+  downloaded onto a Mac now opens after macOS's usual question about apps
+  from the Internet, and draws its page with the Chromium it carries; no
+  more "unidentified developer" (queue item 735).
 - **alo can be signed with its owner's Developer ID.** `alo-bundle
   --sign "Developer ID Application: NAME (TEAMID)"` signs every piece of
   `alo browser.app` — the Chromium it carries, piece by piece from the
