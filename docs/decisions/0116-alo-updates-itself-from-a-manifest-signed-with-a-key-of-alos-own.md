@@ -1,7 +1,8 @@
 # ADR 0116 — alo updates itself from a manifest signed with a key of alo's own
 
-**Status:** proposed — queue item 721, 13 November 2026. Nothing is built.
-Five questions wait for the owner (*Asked of the owner*).
+**Status:** accepted — queue item 721; the owner, 14 November 2026
+(*Answered*). Nothing is built. The hosting address waits for the private
+repository; the Flatpak's remote is alo OS's.
 **Date:** 2026-11-13
 **Context:** ADR 0077 (alo carries its own Chromium; *"Nothing is given to
 anyone outside the owner's machines before 721"*); ADR 0078 (alo's own
@@ -394,6 +395,23 @@ to build in a public key equal to it.
 5. **N, the promise:** 3 days after CEF's build (proposed)? And may a
    release ship before 735? It could go to the owner's own Macs only,
    checked by alo's signature, with Gatekeeper still refusing it elsewhere.
+
+## Answered (the owner, 14 November 2026)
+
+1. **The check is on by default**, as proposed (§ 5): *Settings* turns it
+   off, and the first screen says it is on.
+2. **The owner creates and keeps the key and its spare**, guided by the
+   builder: a command run on the owner's own Mac, the secret keys kept in
+   the owner's keychain or password manager — never in either repository,
+   never with the builder. Until then everything is built and tested with
+   the worthless committed test key (§ 6).
+3. **The promise is three days from CEF's build**, as proposed (§ 1).
+4. **`minisign-verify`**, as proposed — the builder's choice (§ 2), the
+   owner not having asked otherwise.
+5. **The hosting address** is chosen with the private repository, which is
+   not made yet (the owner, earlier); a build until then has none and says
+   it does not update itself. Whether a release reaches the owner's own
+   Macs before Developer ID (735) waits for that day.
 
 ## Rejected
 
