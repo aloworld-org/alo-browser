@@ -38,9 +38,10 @@
 //! `Contents/Frameworks/alo Chromium.app`, where the application starts its
 //! Chromium ([`crate::bundle::CHROMIUM`]), once CEF's distribution is
 //! checked against its pin, with CEF's licences beside the application's
-//! page ([`crate::bundle_carried`], queue item 720), and seals it ad hoc,
-//! inside out ([`crate::bundle_seal::seal_carried`]). Sealing it with the
-//! owner's Developer ID and notarising it are queue item 735's.
+//! page ([`crate::bundle_carried`], queue item 720), and seals it inside
+//! out ([`crate::bundle_seal::seal_carried`]): ad hoc, or with the owner's
+//! Developer ID under the hardened runtime (queue item 735). Notarising it
+//! is the owner's, after.
 
 use crate::info_plist::text_of;
 use core::fmt;

@@ -20057,6 +20057,33 @@ What stage 2's exit gate actually measures: a person using it.
   downloaded copy answers *accepted* naming the Developer ID, and the
   application opens its page in its Chromium there.
 
+  *Built 14 November 2026, gated the same day (7291 tests); not ticked: it closes on the spctl check below.* `alo-bundle --sign "Developer
+  ID Application: NAME (TEAMID)"` (`bundle_signer.rs`: the whole common
+  name only, its Team ID read from its end; `-`, an "Apple Development"
+  identity or a name without a Team ID refused before anything is made).
+  With it, every signature is `--force --options runtime --timestamp`,
+  inside out, no `--deep` (`bundle_seal.rs`: `carried_order`, then
+  `application_order`): the framework's libraries, the framework, the
+  five helpers (GPU and renderer with `allow-jit`, the others none), the
+  host, `alo-render`, `alo-ask`, the application; then `codesign --verify
+  --deep --strict`, and every signature read back with `codesign -dv`
+  (`alo-update`'s `team.rs`) to name the identity's Team ID and the
+  hardened runtime. No other entitlement anywhere — each of Chromium's
+  `app-entitlements.plist` decided in ADR 0079 § 4 (microphone and camera
+  declined until a page needs them with their usage strings; no
+  `disable-library-validation`). Without `--sign`, ad hoc exactly as
+  before. ADR 0116's Team ID check is built too: a staged update must name
+  the installed application's team when it names one (`stage.rs`,
+  `quitting.rs`). **The real run did not finish:** `alo-bundle --into
+  …/devid-app --sign "Developer ID Application: … (55G4593FM8)"` stopped
+  at its first signature (`libcef_sandbox.dylib`), `codesign` waiting on a
+  keychain dialog (`SecurityAgent`) asking to let it use the identity's
+  key, which was left unanswered for six minutes and then stopped; so the
+  signed application opening its page under the hardened runtime is **not
+  yet measured**. Left: that run, with the key's access allowed for
+  `codesign` by the owner; then notarisation (`notarytool`), stapling and
+  `spctl -a -vvv` on a downloaded copy — the owner's.
+
 - [x] **725. alo's own CEF host program (ADR 0079 § 3, option H).** A small
   Rust program, named alo and signed with the owner's identity, that loads
   CEF in Chrome-style windows and is started and driven by `alo-window` over

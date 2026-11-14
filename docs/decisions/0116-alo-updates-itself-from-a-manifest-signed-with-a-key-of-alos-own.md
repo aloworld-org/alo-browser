@@ -221,8 +221,10 @@ application has been touched.
 unpacked with `/usr/bin/ditto -x -k`. That tool is macOS's own, and keeps a
 bundle's symbolic links and its signature. It goes into a hidden folder in
 the same folder as the installed `alo browser.app`, so on the same volume.
-The unpacked bundle must answer `codesign --verify --strict`. Once 735 is
-done, its Team ID must be the running application's too. Its
+The unpacked bundle must answer `codesign --verify --strict`. Its Team ID
+must be the installed application's too, read from that bundle's own
+signature with `codesign -dv` (built with 735, `team.rs`); an alo sealed
+ad hoc names no team, and then the check is not made. Its
 `CFBundleShortVersionString` must be the manifest's `version`.
 
 **Then the swap, atomic.** The two bundles are exchanged in one call:
@@ -487,7 +489,7 @@ to build in a public key equal to it.
 
 **Not built, and said:** swapping a ready copy at the next launch after an
 unclean quit and starting it (the next launch removes what is not ready and
-leaves a ready one for the next quit); the Team ID check (735); a request's
+leaves a ready one for the next quit); a request's
 cause in the record reads *the person*, as a search's does, not *update
 check (Settings › Updates)* — `alo-net` has three causes and no fourth —
 and the record is the updater's own pool's, not shown anywhere yet; a tool

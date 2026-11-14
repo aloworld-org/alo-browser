@@ -22,8 +22,8 @@
 //!
 //! # The swap
 //!
-//! The staged bundle is checked again — `codesign --verify --strict` and
-//! its version — for it has waited on the disk since it was unpacked. Its
+//! The staged bundle is checked again — `codesign --verify --strict`, its
+//! team ([`crate::team`]) and its version — for it has waited on the disk since it was unpacked. Its
 //! `ready` mark is removed **before** the exchange, so a crash between the
 //! two leaves an unready folder that the next launch sweeps, never a mark
 //! beside the old application that would swap it back. An exchange
@@ -85,7 +85,7 @@ pub fn install(installed: &Path, running: Version) -> Installed {
         let _ = fs::remove_dir_all(&folder);
         return Installed::Nothing;
     }
-    if let Err(why) = stage::verified(&staged.bundle, staged.version) {
+    if let Err(why) = stage::verified(&staged.bundle, installed, staged.version) {
         let _ = fs::remove_dir_all(&folder);
         return Installed::Refused(format!("The update was refused: {why}."));
     }

@@ -6,6 +6,18 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **alo can be signed with its owner's Developer ID.** `alo-bundle
+  --sign "Developer ID Application: NAME (TEAMID)"` signs every piece of
+  `alo browser.app` — the Chromium it carries, piece by piece from the
+  inside, then alo's own programs and the application — with that
+  identity, under macOS's hardened runtime and with Apple's timestamp, and
+  then checks that every signature names the same team. Only the two
+  Chromium helpers that compile code as they run are allowed to; nothing
+  else asks for any extra permission (the microphone and camera are left
+  for later, and why is written down). An update alo downloads must now be
+  signed by the same team as the alo installed, when that alo is signed by
+  one. Without `--sign` nothing changes. Notarising is a separate step
+  (queue item 735; ADR 0079 § 4).
 - ***Quit and update*.** When an update is ready, the line along the
   bottom of `alo --conversation`'s window says so and now has a button,
   *Quit and update*. Pressed, alo quits as it does when you quit it, and

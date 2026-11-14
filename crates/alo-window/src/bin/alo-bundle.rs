@@ -6,16 +6,17 @@
 //! 687 and 720; ADR 0067 § 6, ADR 0077, ADR 0079).
 //!
 //! `alo-bundle [--programs DIRECTORY] [--into DIRECTORY] [--host PROGRAM]
-//! [--keys-from keychain|DIRECTORY] [--services FILE] [--updates DIRECTORY]` puts `alo`, `alo-render` and `alo-ask` from the programs' directory into
+//! [--keys-from keychain|DIRECTORY] [--services FILE] [--updates DIRECTORY]
+//! [--sign IDENTITY]` puts `alo`, `alo-render` and `alo-ask` from the programs' directory into
 //! a new `alo browser.app` in the other, with the application's two pages
 //! and its `Info.plist` ([`alo_window::bundle_made`]); carries the Chromium
 //! the application draws the web with — alo's CEF host and CEF's framework
 //! from the distribution `CEF_PATH` names, checked against its pin first,
 //! with CEF's licences ([`alo_window::bundle_carried`]); carries the keys
 //! a release searches with, taken from outside the repository
-//! ([`alo_window::bundle_keys`], ADR 0091); seals it ad hoc with
-//! `codesign`, inside out, and checks the seal
-//! ([`alo_window::bundle_seal`]); and prints where it is. Both directories
+//! ([`alo_window::bundle_keys`], ADR 0091); seals it with `codesign`,
+//! inside out — ad hoc, or with the Developer ID `--sign` names — and
+//! checks the seal ([`alo_window::bundle_seal`]); and prints where it is. Both directories
 //! are the one this program is in unless named, so after
 //!
 //! ```sh
@@ -68,6 +69,16 @@
 //! ([`alo_window::bundle_update`]). Without it the application does not
 //! update itself, and says so in *Settings*.
 //!
+//! **Signing** (queue item 735, ADR 0079 § 4): `--sign "Developer ID
+//! Application: NAME (TEAMID)"` names the identity in this Mac's login
+//! keychain to sign every piece with, by its certificate's whole common
+//! name ([`alo_window::bundle_signer`]): under the hardened runtime, with
+//! Apple's timestamp, inside out, and then every signature is read back to
+//! name that Team ID. Anything else is refused before anything is made.
+//! Without it the application is sealed ad hoc, as before: it opens on the
+//! Mac that made it and `spctl` refuses it elsewhere. Notarising it is not
+//! this program's: `xcrun notarytool` and `xcrun stapler` after.
+//!
 //! It builds nothing: a program not there is named, with the `cargo`
 //! command that makes it. An application already there is refused and left
 //! as it is.
@@ -75,7 +86,8 @@
 use alo_window::bundle_carried::{self, Carried};
 use alo_window::bundle_keys::{self, Source, Taken};
 use alo_window::bundle_made::{PROGRAMS, make};
-use alo_window::bundle_seal::{seal, seal_carried};
+use alo_window::bundle_seal::{seal_by, seal_carried};
+use alo_window::bundle_signer::Signer;
 use alo_window::bundle_update;
 use alo_window::cef_pin;
 use alo_window::services::Named as ServicesNamed;
@@ -98,6 +110,8 @@ struct Named {
     services: Option<PathBuf>,
     /// The directory naming where its updates come from, if named.
     updates: Option<PathBuf>,
+    /// Who signs it: ad hoc unless `--sign` names an identity.
+    signer: Signer,
 }
 
 /// The directories and the host named, or where they are by default.
@@ -108,8 +122,19 @@ fn named() -> Result<Named, String> {
     let mut keys = None;
     let mut services = None;
     let mut updates = None;
+    let mut signer = Signer::AdHoc;
     let mut words = std::env::args_os().skip(1);
     while let Some(word) = words.next() {
+        if word.to_str() == Some("--sign") {
+            let Some(identity) = words.next() else {
+                return Err("--sign names nothing".to_owned());
+            };
+            let identity = identity
+                .to_str()
+                .ok_or("--sign names an identity that is not text")?;
+            signer = Signer::named(identity)?;
+            continue;
+        }
         let slot = match word.to_str() {
             Some("--programs") => &mut programs,
             Some("--into") => &mut into,
@@ -150,6 +175,7 @@ fn named() -> Result<Named, String> {
         keys: keys.map(|named: PathBuf| Source::named(&named)),
         services,
         updates,
+        signer,
     })
 }
 
@@ -277,7 +303,8 @@ fn main() -> ExitCode {
             eprintln!("alo-bundle: {why}");
             eprintln!(
                 "alo-bundle: alo-bundle [--programs DIRECTORY] [--into DIRECTORY] [--host PROGRAM] \
-                 [--keys-from keychain|DIRECTORY] [--services FILE] [--updates DIRECTORY]"
+                 [--keys-from keychain|DIRECTORY] [--services FILE] [--updates DIRECTORY] \
+                 [--sign IDENTITY]"
             );
             return ExitCode::from(2);
         }
@@ -327,6 +354,7 @@ fn main() -> ExitCode {
         eprintln!("alo-bundle: {why}");
         return ExitCode::FAILURE;
     }
+    let mut signed = Vec::new();
     if let Some(carried) = carried {
         let application = made.application();
         if let Err(why) = carried.put_in(&application) {
@@ -334,19 +362,25 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
         let host = bundle_carried::host_application(&application);
-        if let Err(why) = seal_carried(&host, made.making()) {
-            eprintln!("alo-bundle: {why}");
-            return ExitCode::FAILURE;
+        match seal_carried(&named.signer, &host, made.making()) {
+            Ok(order) => signed = order,
+            Err(why) => {
+                eprintln!("alo-bundle: {why}");
+                return ExitCode::FAILURE;
+            }
         }
     }
     let nested: Vec<&str> = PROGRAMS.iter().skip(1).copied().collect();
-    if let Err(why) = seal(&made.application(), &nested) {
+    if let Err(why) = seal_by(&named.signer, &made.application(), &nested, &signed) {
         eprintln!("alo-bundle: {why}");
         return ExitCode::FAILURE;
     }
     match made.put_in_place() {
         Ok(application) => {
-            eprintln!("alo-bundle: made, sealed ad hoc and checked by codesign");
+            eprintln!(
+                "alo-bundle: made, {} and checked by codesign",
+                named.signer.said()
+            );
             println!("{}", application.display());
             ExitCode::SUCCESS
         }

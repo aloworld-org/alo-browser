@@ -19,9 +19,12 @@
 //! - one whose `CFBundleShortVersionString` is the manifest's `version`,
 //!   read with `/usr/bin/plutil`.
 //!
-//! Once Developer ID is done (queue item 735), its Team ID must also be the
-//! running application's; until then every alo is sealed ad hoc and has
-//! none, so that check is not made — and not pretended.
+//! - one whose signature names the same Team ID as the installed
+//!   application's, read from that application's own signature
+//!   ([`crate::team::same_team`], queue item 735) — when the installed one
+//!   names a team at all. An alo sealed ad hoc, as every alo built from
+//!   this repository without `alo-bundle --sign` is, names none, and then
+//!   that check is not made — and not pretended.
 //!
 //! Only then is a `ready` file written in its folder, last, saying the
 //! version: what [`crate::quitting`] swaps in. A folder without one is an
@@ -123,23 +126,25 @@ pub fn unpack(package: &Path, installed: &Path, version: Version) -> Result<Stag
             "the package holds more than the application".to_owned(),
         ));
     }
-    verified(&bundle, version).map_err(refused)?;
+    verified(&bundle, installed, version).map_err(refused)?;
     fs::write(folder.join(READY), format!("{version}\n"))
         .map_err(|why| refused(format!("its ready mark could not be written ({why})")))?;
     Ok(Staged { bundle, version })
 }
 
-/// Whether `bundle` answers `codesign --verify --strict` and is `version`.
+/// Whether `bundle` answers `codesign --verify --strict`, is signed by the
+/// team that signed `installed` if one did, and is `version`.
 ///
 /// # Errors
 ///
 /// Why not, in words.
-pub fn verified(bundle: &Path, version: Version) -> Result<(), String> {
+pub fn verified(bundle: &Path, installed: &Path, version: Version) -> Result<(), String> {
     run(Command::new("/usr/bin/codesign")
         .arg("--verify")
         .arg("--strict")
         .arg(bundle))
     .map_err(|why| format!("its signature does not verify ({why})"))?;
+    crate::team::same_team(installed, bundle)?;
     let said = run(Command::new("/usr/bin/plutil")
         .arg("-extract")
         .arg("CFBundleShortVersionString")

@@ -231,6 +231,73 @@ CEF.
   and check with `spctl`. Same Team ID throughout, so library validation
   passes. This is the same work ADR 0078 already expected; with CEF it is
   done on a published build, not a Chromium alo built.
+- **Signing with the owner's Developer ID, built (queue item 735, 14
+  November 2026).** `alo-bundle --sign "Developer ID Application: NAME
+  (TEAMID)"` names the identity by its certificate's whole common name —
+  never a part of it, which `codesign` would match against any
+  certificate, and never `-` or an "Apple Development" one — and the Team
+  ID at its end is what every signature is then held to (the owner's is
+  `55G4593FM8`). Without `--sign`, the application is sealed ad hoc exactly
+  as before. With it, each signature is `codesign --sign IDENTITY --force
+  --options runtime --timestamp [--entitlements FILE]`, inside out and never
+  `--deep`: each `.dylib` in the framework's `Libraries`, sorted; the
+  framework; the helpers (` `, GPU, Renderer, Plugin, Alerts); the host,
+  `alo Chromium.app`; alo's own `alo-render` and `alo-ask`; then `alo
+  browser.app`, whose program is `alo`. The hardened runtime is asked on
+  the libraries and the framework too, where CEF's guide asks only the
+  timestamp: it has no effect on code that is not a program, and one
+  option list for every piece is one less thing to get wrong. Then
+  `codesign --verify --deep --strict` accepts it, and every signature made
+  is read back with `codesign -dv` (`alo_update::team`): each must name the
+  identity's Team ID and the `runtime` flag, or `alo-bundle` refuses and
+  puts nothing in place.
+
+  **The entitlements, each one decided.** Only what a piece is measured
+  or known to need, and nothing because Chromium's own browser carries it:
+
+  | Piece | Entitlements | Why |
+  |---|---|---|
+  | GPU and renderer helpers | `com.apple.security.cs.allow-jit` | V8 in the renderer, and SwiftShader's and the shader compilers' code in the GPU process, are written and then run, which the hardened runtime refuses without it; CEF's guide and Chromium's `helper-renderer-entitlements.plist` give exactly this |
+  | the plain, Plugin and Alerts helpers | none | CEF's guide gives them an empty dictionary, which is the same as none |
+  | the host, `alo Chromium.app` | none (each of Chromium's `app-entitlements.plist` declined below) | |
+  | `alo`, `alo-render`, `alo-ask`, the application | none | no JavaScript engine, no JIT (stage 1, CLAUDE.md), no library loaded at run time, no Apple events: the window server and the event posting of ADR 0071/0072 go through `osascript`'s JavaScript bridge, which is not an Apple event, and a person's grant for posting is Accessibility's, not an entitlement's |
+  | anything | not `com.apple.security.cs.disable-library-validation` | every library each program loads is either Apple's or signed here by the same team — library validation passes as it is meant to, and turning it off would let any library be loaded into alo |
+  | anything | not `allow-unsigned-executable-memory`, nor `allow-dyld-environment-variables` | CEF's guide warns against the first; the host's `MAC_CHROMIUM_TMPDIR` is read by Chromium, not by `dyld` |
+
+  Chromium's `app-entitlements.plist` (read 14 November 2026) holds seven,
+  and none is carried yet:
+
+  - `device.audio-input` and `device.camera` — **declined for now.** They
+    are the hardened runtime's own: without them macOS refuses a page's
+    microphone and camera, with them a page may ask and the person
+    decides. alo's own pages ask for neither, and granting them is not one
+    line: macOS also wants `NSMicrophoneUsageDescription` and
+    `NSCameraUsageDescription` in the `Info.plist` of the process it holds
+    responsible — and alo starts the host, so which application that is,
+    alo's or the host's, is to be measured — and a process without them is
+    ended at its first ask. So a call in a web page is a later item, with
+    the strings and a measured prompt, not a signature granting something
+    nobody has seen asked.
+  - `personal-information.location` and `personal-information.photos-library`
+    — **declined**, for the same reason: no page of alo's asks, and each
+    wants its own usage string.
+  - `device.bluetooth`, `device.print` and `device.usb` — **not carried:**
+    they are App Sandbox entitlements, meaning nothing to an application
+    that is not sandboxed, which alo's is not (the helpers enter Chromium's
+    own sandbox through `libcef_sandbox.dylib`, not Apple's App Sandbox).
+
+  **Updates (ADR 0116 § 3):** a staged update must now name the Team ID
+  the installed application's own signature names, read with `codesign
+  -dv` on the installed bundle (`alo-update`'s `team.rs`, from
+  `stage.rs` and at quit); one sealed ad hoc names none, and then the check
+  is not made.
+
+  **Not done here:** notarising (`xcrun notarytool`), stapling, and `spctl
+  -a -vvv` on a freshly downloaded copy are the owner's. Not yet measured:
+  the application signed so, opened under the hardened runtime — the first
+  real run stopped at a keychain dialog asking to let `codesign` use the
+  identity's key (see QUEUE.md 735) — so that these entitlements are
+  enough is decided, and checked only once it opens.
 - **Windows signing.** Authenticode with `signtool` on every shipped
   executable and DLL; with the sandbox, the bootstrap executable and the
   adjacent `chrome_elf.dll` must share one certificate; a signed catalog
@@ -481,9 +548,10 @@ measured:
   Apple silicon** (`crates/alo-window/src/cef_pin.rs`): the archive's name,
   CEF's SHA-1 and our SHA-256 of it as provenance, and our SHA-256s of the
   framework and the two licence files as what is checked. Other systems
-  are 728's. Signing is ad hoc: this Mac holds no Developer ID
-  Application certificate, so the hardened runtime, the owner's identity
-  and notarisation are 735's, blocked on that certificate.
+  are 728's. Signing is ad hoc unless `alo-bundle --sign` names the
+  owner's Developer ID Application identity (735, § 4): then the hardened
+  runtime, a timestamp and one Team ID throughout; notarisation is the
+  owner's.
 
 ## Sources (read 30 October 2026)
 

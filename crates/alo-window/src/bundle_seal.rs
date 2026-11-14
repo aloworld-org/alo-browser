@@ -33,18 +33,32 @@
 //! The GPU and renderer helpers are given the one entitlement CEF's guide
 //! gives them, `com.apple.security.cs.allow-jit` ([`JIT`]), and the others
 //! none. An entitlement of the hardened runtime is enforced only under the
-//! hardened runtime, which a seal with nobody's identity is not given here:
-//! it is recorded in the seal, and has its effect once the application is
-//! signed with the owner's Developer ID and notarised — queue item 735's,
-//! blocked on that certificate.
+//! hardened runtime, which a seal with nobody's identity is not given: it
+//! is recorded in the seal, and has its effect once the application is
+//! signed with a Developer ID.
+//!
+//! # With the owner's Developer ID (queue item 735)
+//!
+//! The same signatures in the same order, each made by the identity
+//! `alo-bundle --sign` names ([`Signer`]) under the hardened runtime with a
+//! timestamp, and never `--deep`. No other piece is given an entitlement —
+//! not the host, not alo's own programs: each of Chromium's
+//! `app-entitlements.plist` is decided in ADR 0079 § 4, and none is
+//! carried yet. After `codesign --verify --deep --strict` accepts it,
+//! every signature made is read back ([`alo_update::team`]): each must
+//! name the identity's Team ID, so library validation passes with no
+//! `disable-library-validation`, and each must be under the hardened
+//! runtime ([`refusal`]).
 
+use crate::bundle_signer::Signer;
+use alo_update::team::{self, Signed};
 use core::fmt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
 /// Apple's signing tool, where macOS puts it; never looked for on `PATH`,
 /// for the reason [`crate::beside`] gives for Chrome.
-pub const CODESIGN: &str = "/usr/bin/codesign";
+pub const CODESIGN: &str = team::CODESIGN;
 
 /// Why the application is not sealed.
 #[derive(Debug, PartialEq, Eq)]
@@ -55,6 +69,11 @@ pub enum NotSealed {
     Signing(PathBuf, String),
     /// `codesign` signed it and its check refused it: what it said.
     Checked(String),
+    /// A signature made names another team than the identity's, or none:
+    /// what, the team it names, and the identity's.
+    OtherTeam(PathBuf, Option<String>, String),
+    /// A signature made with an identity is not under the hardened runtime.
+    NoRuntime(PathBuf),
 }
 
 impl fmt::Display for NotSealed {
@@ -65,26 +84,107 @@ impl fmt::Display for NotSealed {
                 write!(f, "{} could not be signed: {said}", what.display())
             }
             Self::Checked(said) => write!(f, "the sealed application was refused: {said}"),
+            Self::OtherTeam(what, named, wanted) => write!(
+                f,
+                "{} names the team {}, not {wanted}",
+                what.display(),
+                named.as_deref().unwrap_or("of nobody")
+            ),
+            Self::NoRuntime(what) => {
+                write!(
+                    f,
+                    "{} is not signed under the hardened runtime",
+                    what.display()
+                )
+            }
         }
     }
 }
 
 impl std::error::Error for NotSealed {}
 
+/// One signature to make: the code, and whether it is given [`JIT`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Signing {
+    /// The program, library or bundle.
+    pub code: PathBuf,
+    /// Whether it may compile code as it runs.
+    pub jit: bool,
+}
+
+impl Signing {
+    fn plain(code: PathBuf) -> Self {
+        Self { code, jit: false }
+    }
+}
+
+/// The signatures `application` is given around what it carries, in
+/// order: each program in `nested`, held beside the one it runs in
+/// `Contents/MacOS`, then the application.
+pub fn application_order(application: &Path, nested: &[&str]) -> Vec<Signing> {
+    let held = application.join("Contents").join("MacOS");
+    nested
+        .iter()
+        .map(|program| Signing::plain(held.join(program)))
+        .chain([Signing::plain(application.to_path_buf())])
+        .collect()
+}
+
 /// Seal `application`, holding `nested` beside the program it runs in
-/// `Contents/MacOS`, and check it.
+/// `Contents/MacOS`, ad hoc, and check it.
 ///
 /// # Errors
 ///
 /// [`NotSealed`]: `codesign` not run, refusing to sign, or refusing what it
 /// signed.
 pub fn seal(application: &Path, nested: &[&str]) -> Result<(), NotSealed> {
-    let held = application.join("Contents").join("MacOS");
-    for program in nested {
-        sign(&held.join(program))?;
+    seal_by(&Signer::AdHoc, application, nested, &[])
+}
+
+/// Seal `application` as [`seal`] does, signed by `signer`, and check it;
+/// with an identity, check too that every signature made — `carried`'s,
+/// made before by [`seal_carried`], and these — names its team and the
+/// hardened runtime.
+///
+/// # Errors
+///
+/// [`NotSealed`]: `codesign` not run, refusing to sign, or refusing what it
+/// signed, or a signature naming another team or no hardened runtime.
+pub fn seal_by(
+    signer: &Signer,
+    application: &Path,
+    nested: &[&str],
+    carried: &[Signing],
+) -> Result<(), NotSealed> {
+    let order = application_order(application, nested);
+    for signing in &order {
+        sign(signer, signing, None)?;
     }
-    sign(application)?;
-    check(application)
+    check(application)?;
+    let Some(wanted) = signer.team() else {
+        return Ok(());
+    };
+    for signing in carried.iter().chain(&order) {
+        let read = team::of(&signing.code)
+            .map_err(|said| NotSealed::Checked(format!("{}: {said}", signing.code.display())))?;
+        if let Some(refused) = refusal(wanted, &signing.code, &read) {
+            return Err(refused);
+        }
+    }
+    Ok(())
+}
+
+/// Why the signature `signed` of `code` is not one the identity of the
+/// team `wanted` made under the hardened runtime, if it is not.
+pub fn refusal(wanted: &str, code: &Path, signed: &Signed) -> Option<NotSealed> {
+    if signed.team.as_deref() != Some(wanted) {
+        return Some(NotSealed::OtherTeam(
+            code.to_path_buf(),
+            signed.team.clone(),
+            wanted.to_owned(),
+        ));
+    }
+    (!signed.runtime).then(|| NotSealed::NoRuntime(code.to_path_buf()))
 }
 
 /// The helpers CEF's guide gives the JIT entitlement: the GPU's and the
@@ -102,18 +202,43 @@ pub const JIT: &str = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
 </plist>
 ";
 
-/// Seal alo's CEF host's application at `host`, inside out, before the
-/// application around it is sealed; `scratch` is a directory outside the
-/// application to write [`JIT`] in.
+/// The signatures alo's CEF host's application at `host` is given, in
+/// order, inside out: each of `libraries` (the framework's), the
+/// framework, each helper — the GPU's and the renderer's with [`JIT`] —
+/// and the host's application.
+pub fn carried_order(host: &Path, libraries: &[PathBuf]) -> Vec<Signing> {
+    let frameworks = host.join("Contents").join("Frameworks");
+    let mut order: Vec<Signing> = libraries.iter().cloned().map(Signing::plain).collect();
+    order.push(Signing::plain(frameworks.join(crate::cef_host::FRAMEWORK)));
+    for (kind, _) in crate::cef_host::HELPERS {
+        order.push(Signing {
+            code: frameworks.join(format!("{}.app", crate::cef_host::helper(kind))),
+            jit: JIT_HELPERS.contains(&kind),
+        });
+    }
+    order.push(Signing::plain(host.to_path_buf()));
+    order
+}
+
+/// Seal alo's CEF host's application at `host`, inside out, signed by
+/// `signer`, before the application around it is sealed; `scratch` is a
+/// directory outside the application to write [`JIT`] in. The signatures
+/// made, in order.
 ///
 /// # Errors
 ///
 /// [`NotSealed`]: `codesign` not run or refusing to sign, or the
 /// entitlements or the framework's libraries not written or read.
-pub fn seal_carried(host: &Path, scratch: &Path) -> Result<(), NotSealed> {
-    let frameworks = host.join("Contents").join("Frameworks");
-    let framework = frameworks.join(crate::cef_host::FRAMEWORK);
-    let libraries = framework.join("Libraries");
+pub fn seal_carried(
+    signer: &Signer,
+    host: &Path,
+    scratch: &Path,
+) -> Result<Vec<Signing>, NotSealed> {
+    let libraries = host
+        .join("Contents")
+        .join("Frameworks")
+        .join(crate::cef_host::FRAMEWORK)
+        .join("Libraries");
     let mut held: Vec<PathBuf> = std::fs::read_dir(&libraries)
         .map_err(|why| NotSealed::Signing(libraries.clone(), why.to_string()))?
         .filter_map(Result::ok)
@@ -124,29 +249,22 @@ pub fn seal_carried(host: &Path, scratch: &Path) -> Result<(), NotSealed> {
         })
         .collect();
     held.sort();
-    for library in &held {
-        sign(library)?;
-    }
-    sign(&framework)?;
     let jit = scratch.join("allow-jit.entitlements");
     std::fs::write(&jit, JIT).map_err(|why| NotSealed::Signing(jit.clone(), why.to_string()))?;
-    for (kind, _) in crate::cef_host::HELPERS {
-        let helper = frameworks.join(format!("{}.app", crate::cef_host::helper(kind)));
-        if JIT_HELPERS.contains(&kind) {
-            let jit = jit.to_string_lossy();
-            let said = codesign(&["--sign", "-", "--force", "--entitlements", &jit], &helper)?;
-            said.map_err(|said| NotSealed::Signing(helper.clone(), said))?;
-        } else {
-            sign(&helper)?;
-        }
+    let order = carried_order(host, &held);
+    for signing in &order {
+        sign(signer, signing, signing.jit.then_some(jit.as_path()))?;
     }
-    sign(host)
+    Ok(order)
 }
 
-/// Sign `what` ad hoc, replacing the signature `ld` gave it.
-fn sign(what: &Path) -> Result<(), NotSealed> {
-    let said = codesign(&["--sign", "-", "--force"], what)?;
-    said.map_err(|said| NotSealed::Signing(what.to_path_buf(), said))
+/// Sign `signing`'s code by `signer`, replacing the signature `ld` gave it,
+/// with the entitlements at `entitlements`, if any.
+fn sign(signer: &Signer, signing: &Signing, entitlements: Option<&Path>) -> Result<(), NotSealed> {
+    let options = signer.options(entitlements);
+    let options: Vec<&str> = options.iter().map(String::as_str).collect();
+    let said = codesign(&options, &signing.code)?;
+    said.map_err(|said| NotSealed::Signing(signing.code.clone(), said))
 }
 
 /// Check `application`'s seal, its nested programs' among it.
@@ -187,6 +305,105 @@ mod tests {
         assert_eq!(kinds, [" (GPU)", " (Renderer)"], "each one a helper's kind");
         assert!(JIT.contains("<key>com.apple.security.cs.allow-jit</key>\n\t<true/>"));
         assert_eq!(JIT.matches("<key>").count(), 1, "that one, and no other");
+    }
+
+    #[test]
+    fn the_carried_host_is_signed_inside_out_with_jit_for_the_gpu_and_renderer_only() {
+        let host = Path::new("/A/alo browser.app/Contents/Frameworks/alo Chromium.app");
+        let frameworks = host.join("Contents/Frameworks");
+        let framework = frameworks.join(crate::cef_host::FRAMEWORK);
+        let libraries = [
+            framework.join("Libraries/libcef_sandbox.dylib"),
+            framework.join("Libraries/libvulkan.dylib"),
+        ];
+        let order = carried_order(host, &libraries);
+        let said: Vec<(String, bool)> = order
+            .iter()
+            .map(|signing| {
+                let code = signing
+                    .code
+                    .strip_prefix(host)
+                    .map_or_else(|_| "?".to_owned(), |code| code.display().to_string());
+                (code, signing.jit)
+            })
+            .collect();
+        let framework = format!("Contents/Frameworks/{}", crate::cef_host::FRAMEWORK);
+        let wanted: Vec<(String, bool)> = [
+            (format!("{framework}/Libraries/libcef_sandbox.dylib"), false),
+            (format!("{framework}/Libraries/libvulkan.dylib"), false),
+            (framework.clone(), false),
+            (
+                "Contents/Frameworks/alo Chromium Helper.app".to_owned(),
+                false,
+            ),
+            (
+                "Contents/Frameworks/alo Chromium Helper (GPU).app".to_owned(),
+                true,
+            ),
+            (
+                "Contents/Frameworks/alo Chromium Helper (Renderer).app".to_owned(),
+                true,
+            ),
+            (
+                "Contents/Frameworks/alo Chromium Helper (Plugin).app".to_owned(),
+                false,
+            ),
+            (
+                "Contents/Frameworks/alo Chromium Helper (Alerts).app".to_owned(),
+                false,
+            ),
+            (String::new(), false),
+        ]
+        .into_iter()
+        .collect();
+        assert_eq!(said, wanted, "libraries, framework, helpers, then the host");
+    }
+
+    #[test]
+    fn alos_own_programs_are_signed_before_the_application_and_none_with_jit() {
+        let application = Path::new("/A/alo browser.app");
+        assert_eq!(
+            application_order(application, &["alo-render", "alo-ask"]),
+            [
+                Signing::plain(application.join("Contents/MacOS/alo-render")),
+                Signing::plain(application.join("Contents/MacOS/alo-ask")),
+                Signing::plain(application.to_path_buf()),
+            ]
+        );
+    }
+
+    #[test]
+    fn each_signature_made_must_name_the_identitys_team_and_the_runtime() {
+        let code = Path::new("/A/alo browser.app");
+        let read = |team: &str, flags: &str| {
+            team::read(&format!(
+                "Executable=/A/alo browser.app/Contents/MacOS/alo\n\
+                 CodeDirectory v=20500 size=765 flags={flags} hashes=13+7 location=embedded\n\
+                 TeamIdentifier={team}\n"
+            ))
+            .expect("read")
+        };
+        assert_eq!(
+            refusal("ABCDE12345", code, &read("ABCDE12345", "0x10000(runtime)")),
+            None
+        );
+        assert_eq!(
+            refusal("ABCDE12345", code, &read("ZYXWV98765", "0x10000(runtime)")),
+            Some(NotSealed::OtherTeam(
+                code.to_path_buf(),
+                Some("ZYXWV98765".to_owned()),
+                "ABCDE12345".to_owned()
+            ))
+        );
+        let ad_hoc = refusal("ABCDE12345", code, &read("not set", "0x2(adhoc)"));
+        assert_eq!(
+            ad_hoc.map(|refused| refused.to_string()),
+            Some("/A/alo browser.app names the team of nobody, not ABCDE12345".to_owned())
+        );
+        assert_eq!(
+            refusal("ABCDE12345", code, &read("ABCDE12345", "0x0(none)")),
+            Some(NotSealed::NoRuntime(code.to_path_buf()))
+        );
     }
 
     #[test]

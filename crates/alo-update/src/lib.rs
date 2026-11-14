@@ -28,7 +28,8 @@
 //! - **The package** ([`package`]): downloaded in ranges to a `.partial`,
 //!   exactly its size and its SHA-256.
 //! - **Unpacked beside the application** ([`stage`]) and checked again:
-//!   `codesign --verify --strict`, its version.
+//!   `codesign --verify --strict`, the installed application's team when
+//!   it names one ([`team`]), its version.
 //! - **Swapped in at quit** ([`quitting`]), atomically ([`swap`]), and
 //!   never while alo runs: alo never restarts by itself.
 //! - **The person told** ([`found`]).
@@ -58,6 +59,7 @@ pub mod quitting;
 pub mod signature;
 pub mod stage;
 pub mod swap;
+pub mod team;
 pub mod test_key;
 pub mod updater;
 pub mod version;

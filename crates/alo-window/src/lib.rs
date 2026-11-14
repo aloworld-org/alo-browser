@@ -190,6 +190,7 @@ pub mod bundle_keys;
 pub mod bundle_made;
 pub mod bundle_refused;
 pub mod bundle_seal;
+pub mod bundle_signer;
 pub mod bundle_update;
 pub mod card_aim;
 pub mod card_clicks;

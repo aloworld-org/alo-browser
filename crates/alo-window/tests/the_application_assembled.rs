@@ -357,3 +357,49 @@ fn programs_not_built_are_named_and_nothing_is_made() -> Result<(), String> {
     }
     Ok(())
 }
+
+/// `--sign` naming what is not a whole Developer ID Application identity
+/// is refused before anything is made or anything is signed (queue item
+/// 735) — and so no keychain is ever asked: an identity of nobody's,
+/// refused by its shape alone.
+#[test]
+fn an_identity_that_is_not_a_developer_id_is_refused_and_nothing_is_made() -> Result<(), String> {
+    let alo = Path::new(env!("CARGO_BIN_EXE_alo"));
+    let programs = alo.parent().ok_or("alo is in no directory")?;
+    for (identity, said) in [
+        (
+            "Apple Development: A Stranger (ABCDE12345)",
+            "--sign names \"Apple Development: A Stranger (ABCDE12345)\", which is not a \
+             Developer ID Application identity: only one of those signs an application for \
+             other Macs",
+        ),
+        (
+            "Developer ID Application: A Stranger",
+            "--sign names \"Developer ID Application: A Stranger\", which does not end in its \
+             Team ID: name the certificate's whole common name, \"Developer ID Application: \
+             NAME (TEAMID)\"",
+        ),
+    ] {
+        let root = directory("sign-refused")?;
+        let made = Command::new(env!("CARGO_BIN_EXE_alo-bundle"))
+            .arg("--programs")
+            .arg(programs)
+            .arg("--into")
+            .arg(&root)
+            .arg("--sign")
+            .arg(identity)
+            .env_remove("CEF_PATH")
+            .output()
+            .map_err(|why| format!("alo-bundle did not run: {why}"))?;
+        assert_eq!(made.status.code(), Some(2));
+        let stderr = String::from_utf8_lossy(&made.stderr);
+        assert_eq!(
+            stderr.lines().next(),
+            Some(format!("alo-bundle: {said}").as_str()),
+            "{stderr}"
+        );
+        assert_eq!(files_under(&root), Vec::<String>::new());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+    Ok(())
+}
