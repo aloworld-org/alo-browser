@@ -1138,6 +1138,15 @@ struct Conversing<'c> {
 }
 
 impl Conversing<'_> {
+    /// The window let go of and the event loop ended — the window closed,
+    /// or *Quit and update* pressed — so `exiting` runs, as on a quit.
+    fn quit(&mut self, event_loop: &ActiveEventLoop) {
+        self.presenter = None;
+        self.accessible = None;
+        self.window = None;
+        event_loop.exit();
+    }
+
     /// Tell the state where the window is now.
     fn measure(&mut self) {
         if let Some(window) = &self.window {
@@ -1312,12 +1321,7 @@ impl ApplicationHandler<Heard> for Conversing<'_> {
                     event_loop.exit();
                 }
             }
-            WindowEvent::CloseRequested => {
-                self.presenter = None;
-                self.accessible = None;
-                self.window = None;
-                event_loop.exit();
-            }
+            WindowEvent::CloseRequested => self.quit(event_loop),
             WindowEvent::ModifiersChanged(modifiers) => {
                 self.modifiers = modifiers.state();
                 self.state.held(held(self.modifiers));
@@ -1372,6 +1376,12 @@ impl ApplicationHandler<Heard> for Conversing<'_> {
             _ => {}
         }
         self.follow();
+        // *Quit and update* pressed with no agent working (queue item 990):
+        // alo quits as the window closed does, so `exiting` ends every
+        // card's host and then swaps in what is ready.
+        if self.state.take_quit() {
+            self.quit(event_loop);
+        }
     }
 
     /// Nothing more to hear for now: while a wheel's lines are glided

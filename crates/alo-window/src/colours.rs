@@ -158,6 +158,23 @@ pub fn refused_line() -> LineColours {
     }
 }
 
+/// Behind a button's label on one of the browser's own lines (queue item
+/// 990): `--bg-surface`, alo's soft ivory, so it stands off the line's
+/// tint.
+pub fn button_ground() -> Rgba {
+    Rgba::from_rgba8(0xff, 0xfe, 0xfc, 0xff)
+}
+
+/// A button on the warning's line, *Quit and update* (queue item 990): on
+/// its ivory, its label and its ring in the line's own ink.
+pub fn line_button() -> LineColours {
+    LineColours {
+        ground: button_ground(),
+        ink: notice_ink(),
+        rule: notice_ink(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -173,6 +190,7 @@ mod tests {
             agent_ground(),
             agent_ink(),
             refused_ground(),
+            button_ground(),
             refused_ink(),
             renderer_ink(),
             mark(),

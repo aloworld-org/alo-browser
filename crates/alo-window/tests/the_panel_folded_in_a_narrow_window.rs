@@ -216,6 +216,7 @@ fn a_window_narrowed_past_760_is_the_rail_and_the_conversation_beside_it() {
         panel_sentence: None,
         start: Some(&start),
         start_sentence: None,
+        start_button: None,
         side,
         named: false,
         sheet: None,
@@ -336,6 +337,7 @@ fn shown_at_700_the_panel_slides_over_the_conversation_as_a_sheet_over_a_shade()
         panel_sentence: None,
         start: Some(&start),
         start_sentence: None,
+        start_button: None,
         side: Side::Rail,
         named: false,
         sheet: Some(SheetScene {
@@ -422,6 +424,7 @@ fn the_rail_at_759_names_the_chat_the_pointer_is_over_past_its_edge() {
         panel_sentence: None,
         start: Some(&start),
         start_sentence: None,
+        start_button: None,
         side: Side::Rail,
         named: true,
         sheet: None,

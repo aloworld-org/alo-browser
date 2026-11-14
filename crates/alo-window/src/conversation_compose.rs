@@ -12,7 +12,7 @@
 //! reference render. Each frame was painted by its own renderer at the
 //! window's scale, so each of its pixels is one of the window's.
 
-use crate::colours::{background, notice_line, panel, shade};
+use crate::colours::{background, line_button, notice_line, panel, shade};
 use crate::compose::copy;
 use crate::conversation_place::{ConversationPlacement, Parts, Side};
 use crate::notice::Lettering;
@@ -38,6 +38,10 @@ pub struct ConversationScene<'a> {
     pub start: Option<&'a Frame>,
     /// What to tell a person about the first screen's renderer, if anything.
     pub start_sentence: Option<&'a str>,
+    /// The button at the end of that line, when it has one:
+    /// *Quit and update*, on the line saying an update is ready (queue item
+    /// 990, [`crate::line_button`]).
+    pub start_button: Option<crate::line_button::LineButton>,
     /// Whether the panel is shown whole or hidden as its rail (queue item
     /// 711).
     pub side: Side,
@@ -96,6 +100,7 @@ impl ConversationScene<'_> {
             start: self.start.map(size),
             panel_saying: self.panel_sentence.is_some(),
             start_saying: self.start_sentence.is_some(),
+            start_button: self.start_button.filter(|_| self.start_sentence.is_some()),
             side: self.side,
             named: self.named,
         }
@@ -158,13 +163,22 @@ fn compose_onto(canvas: &mut Canvas, scene: &ConversationScene<'_>, lettering: &
         canvas.fill_rect(0, 0, width, height, shade(sheet.shade));
         slid(canvas, sheet.frame, sheet.left);
     }
-    for (sentence, rect) in [
-        (scene.start_sentence, placed.start_notice),
-        (scene.panel_sentence, placed.panel_notice),
-    ] {
-        if let (Some(sentence), Some(rect)) = (sentence, rect) {
-            lettering.draw(canvas, rect, sentence, scene.scale, notice_line());
+    if let (Some(sentence), Some(rect)) = (scene.start_sentence, placed.start_notice) {
+        match scene.start_button {
+            // The button the line holds, at its right end (queue item 990).
+            Some(button) => crate::line_button::draw_line(
+                lettering,
+                canvas,
+                rect,
+                (sentence, button.label()),
+                scene.scale,
+                (notice_line(), line_button()),
+            ),
+            None => lettering.draw(canvas, rect, sentence, scene.scale, notice_line()),
         }
+    }
+    if let (Some(sentence), Some(rect)) = (scene.panel_sentence, placed.panel_notice) {
+        lettering.draw(canvas, rect, sentence, scene.scale, notice_line());
     }
 }
 
@@ -345,6 +359,7 @@ mod tests {
             panel_sentence: None,
             start: None,
             start_sentence: None,
+            start_button: None,
             side: Side::Panel,
             named: false,
             sheet: None,

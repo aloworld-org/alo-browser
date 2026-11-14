@@ -46,6 +46,14 @@ pub fn aim(placed: &ConversationPlacement, scale: Scale, at: (f64, f64)) -> Opti
         })
 }
 
+/// Whether the point `at`, in device pixels, is on the button at the end
+/// of the first screen's line in a window placed as `placed` — *Quit and
+/// update* (queue item 990): the browser's own drawing, so decided here
+/// from where the browser drew it, never by a renderer.
+pub fn on_the_button(placed: &ConversationPlacement, at: (f64, f64)) -> bool {
+    placed.start_button.is_some_and(|rect| covers(rect, at))
+}
+
 /// Whether `rect` covers the point `at`.
 fn covers(rect: PixelRect, at: (f64, f64)) -> bool {
     let (left, top) = (f64::from(rect.x), f64::from(rect.y));
@@ -145,6 +153,46 @@ mod tests {
             aim(&saying, Scale::ONE, (100.0, 755.0)),
             Some(on(Part::Panel, 100.0, 755.0))
         );
+    }
+
+    #[test]
+    fn the_ready_lines_button_is_its_own_rect_and_the_rest_of_the_line_nobodys() {
+        // Queue item 990: the button 1140..1268 by 792..816 at one.
+        let device = |css: u32| Scale::ONE.device(css);
+        let placed = ConversationPlacement::of(
+            (1280, 820),
+            Scale::ONE,
+            Parts {
+                panel: Some((device(240), device(820))),
+                start: Some((device(1040), device(820))),
+                start_saying: true,
+                start_button: Some(crate::line_button::LineButton::QuitAndUpdate),
+                ..Parts::default()
+            },
+        );
+        for at in [(1140.0, 792.0), (1200.0, 804.0), (1267.9, 815.9)] {
+            assert!(on_the_button(&placed, at), "{at:?}");
+            // Never a renderer's to claim.
+            assert_eq!(aim(&placed, Scale::ONE, at), None, "{at:?}");
+        }
+        for at in [
+            (1139.9, 800.0),
+            (1268.0, 800.0),
+            (1200.0, 791.9),
+            (1200.0, 816.0),
+        ] {
+            assert!(!on_the_button(&placed, at), "{at:?}");
+        }
+        // The line without its button has none to press.
+        let plain = ConversationPlacement::of(
+            (1280, 820),
+            Scale::ONE,
+            Parts {
+                start_saying: true,
+                ..Parts::default()
+            },
+        );
+        assert!(!on_the_button(&plain, (1200.0, 804.0)));
     }
 
     #[test]

@@ -101,6 +101,7 @@ struct Made {
     named: bool,
     panel_sentence: Option<String>,
     start_sentence: Option<String>,
+    start_button: Option<crate::line_button::LineButton>,
     sheet: bool,
     placed: ConversationPlacement,
     panel: Option<Frame>,
@@ -117,6 +118,7 @@ impl Made {
             named: scene.named,
             panel_sentence: scene.panel_sentence.map(str::to_owned),
             start_sentence: scene.start_sentence.map(str::to_owned),
+            start_button: scene.start_button,
             sheet: scene.sheet.is_some(),
             placed,
             panel: scene.panel.cloned(),
@@ -214,6 +216,7 @@ fn changed(
         || made.named != scene.named
         || made.panel_sentence.as_deref() != scene.panel_sentence
         || made.start_sentence.as_deref() != scene.start_sentence
+        || made.start_button != scene.start_button
         || made.sheet
         || scene.sheet.is_some()
         || made.placed != placed
@@ -477,6 +480,7 @@ mod tests {
             panel_sentence: None,
             start: Some(start),
             start_sentence: None,
+            start_button: None,
             side: Side::Panel,
             named: false,
             sheet: None,

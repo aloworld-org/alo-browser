@@ -1788,9 +1788,12 @@ about".
   build of this repository today — says *This copy of alo does not update
   itself.*, and inside a Flatpak *Updates come from your software source.*
   The worthless test keys are refused by every build and by `alo-bundle`.
-  Not yet: the window's *Quit and update* button, Team ID checks (735), the
-  swap of a copy left by an unclean quit at the next launch, and a manifest
-  writer for a feed's owner.
+  The window's *Quit and update* button is **built and gated** (queue
+  item 990, 14 November 2026): the browser's own, at the end of the line
+  saying an update is ready; it waits, saying why, while an agent works,
+  and otherwise quits as a person's quit does. Not yet: Team ID checks
+  (735), the swap of a copy left by an unclean quit at the next launch,
+  and a manifest writer for a feed's owner.
 - [4] A mobile port
 - [4] Crash handling that helps us fix it without becoming telemetry
 - [4] ★ **Translation on the machine** — alo already runs models locally; a page translated without sending it anywhere is the sovereign version of a feature every other browser sends to a server

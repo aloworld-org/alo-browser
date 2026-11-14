@@ -466,19 +466,35 @@ to build in a public key equal to it.
   (`the_application_given_where_its_updates_come_from.rs`); the section in
   numbers and two references (`alo-renderer/tests/settings_updates.rs`).
 
-**Not built, and said:** the window's *Quit and update* button (the line
-says the update installs when alo quits; `quitting::quit_and_update` holds
-the rule for the button); swapping a ready copy at the next launch after an
+- ***Quit and update*** (queue item 990, built 14 November 2026, not yet
+  gated): a button at the right end of the first screen's line saying an
+  update is ready — the browser's own drawing, as the line is
+  (`alo-window`'s `line_button.rs`, 128 by 24 CSS pixels, 12 in from the
+  line's end), placed by `conversation_place.rs` and pressed where the
+  browser drew it (`conversation_aim::on_the_button`), no renderer asked.
+  The ready line is kept until alo quits and said whenever the line says
+  nothing else. A press (`conversation_window/quit_and_update.rs`) asks
+  `quitting::quit_and_update` with whether an agent is working — a run at
+  work or held for the person; one runs at a time, in the chat on screen —
+  and either says *An agent is working. alo will update when you quit.*
+  until the next press, or ends the event loop as closing the window does,
+  so every card's host ends and then what is ready is swapped in. The
+  agent socket gains no ask; one naming an update or a quit is refused as
+  any unknown ask (`protocol.rs`'s test). Tested in numbers, by two window
+  tests and by `quit_and_update_on_the_ready_line.rs` with two references.
+  Not yet on the accessibility bus or the keyboard: the window's lines are
+  not published there.
+
+**Not built, and said:** swapping a ready copy at the next launch after an
 unclean quit and starting it (the next launch removes what is not ready and
 leaves a ready one for the next quit); the Team ID check (735); a request's
 cause in the record reads *the person*, as a search's does, not *update
 check (Settings › Updates)* — `alo-net` has three causes and no fourth —
 and the record is the updater's own pool's, not shown anywhere yet; a tool
 that writes a manifest from a package (`Manifest::lines` writes one).
-`scripts/gate.sh` names `rustix` in `alo-storage/src/volume.rs` alone, so
-the boundary list needs `crates/alo-update/src/swap.rs` added to it, and an
-entry `minisign_verify:crates/alo-update/src/signature.rs` beside it —
-both the owner's to add, `scripts/` not being edited here.
+`scripts/gate.sh` holds `rustix` to `crates/alo-update/src/swap.rs` beside
+`alo-storage/src/volume.rs`, and `minisign_verify` to
+`crates/alo-update/src/signature.rs`.
 
 ## Rejected
 

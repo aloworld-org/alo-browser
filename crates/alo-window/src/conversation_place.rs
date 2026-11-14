@@ -138,6 +138,9 @@ pub struct Parts {
     pub panel_saying: bool,
     /// Whether there is a sentence about the first screen.
     pub start_saying: bool,
+    /// Whether that sentence has a button at its end: *Quit and update*,
+    /// on the line saying an update is ready (queue item 990).
+    pub start_button: Option<crate::line_button::LineButton>,
     /// Whether the panel is shown whole or hidden as its rail.
     pub side: Side,
     /// Whether the rail shows a chat's name past its edge (queue item
@@ -163,6 +166,10 @@ pub struct ConversationPlacement {
     /// The line saying what happened to the first screen's renderer, along
     /// the bottom of the window, when there is something to say.
     pub start_notice: Option<PixelRect>,
+    /// The button at that line's right end, when it has one and holds it
+    /// whole ([`crate::line_button`], queue item 990): the browser's own,
+    /// pressed where the browser drew it.
+    pub start_button: Option<PixelRect>,
     /// The line saying what happened to the panel's renderer, above the
     /// first screen's — or along the bottom when that has nothing to say.
     pub panel_notice: Option<PixelRect>,
@@ -205,6 +212,9 @@ impl ConversationPlacement {
         };
         let start_notice = stack(parts.start_saying);
         let panel_notice = stack(parts.panel_saying);
+        let start_button = start_notice
+            .filter(|_| parts.start_button.is_some())
+            .and_then(|line| crate::line_button::placed(line, scale));
         // The rail with a chat's name beside it reaches over the first
         // screen; anything else of the panel's is cut at its room.
         let reach = if parts.named && parts.side == Side::Rail {
@@ -221,6 +231,7 @@ impl ConversationPlacement {
             start_room,
             start: within(start_room, parts.start),
             start_notice,
+            start_button,
             panel_notice,
         }
     }
@@ -458,6 +469,48 @@ mod tests {
         );
         assert_eq!(short.start_notice, Some(rect(0, 8, 100, 32)));
         assert_eq!(short.panel_notice, Some(rect(0, 0, 100, 8)));
+        assert_eq!(both.start_button, None, "no button asked for");
+    }
+
+    #[test]
+    fn the_ready_lines_button_stands_at_its_right_end_and_only_on_it() {
+        // Queue item 990: the design's window at one, the update's line
+        // along the bottom and a renderer's line above it.
+        let both = ConversationPlacement::of(
+            (1280, 820),
+            Scale::ONE,
+            Parts {
+                panel_saying: true,
+                start_saying: true,
+                start_button: Some(crate::line_button::LineButton::QuitAndUpdate),
+                ..Parts::default()
+            },
+        );
+        assert_eq!(both.start_notice, Some(rect(0, 788, 1280, 32)));
+        assert_eq!(both.start_button, Some(rect(1140, 792, 128, 24)));
+        assert_eq!(both.panel_notice, Some(rect(0, 756, 1280, 32)));
+        // At two, twice as far in and twice the size.
+        let at_two = ConversationPlacement::of(
+            (2560, 1640),
+            Scale::TWO,
+            Parts {
+                start_saying: true,
+                start_button: Some(crate::line_button::LineButton::QuitAndUpdate),
+                ..Parts::default()
+            },
+        );
+        assert_eq!(at_two.start_notice, Some(rect(0, 1576, 2560, 64)));
+        assert_eq!(at_two.start_button, Some(rect(2280, 1584, 256, 48)));
+        // No line, no button, whatever was asked.
+        let silent = ConversationPlacement::of(
+            (1280, 820),
+            Scale::ONE,
+            Parts {
+                start_button: Some(crate::line_button::LineButton::QuitAndUpdate),
+                ..Parts::default()
+            },
+        );
+        assert_eq!((silent.start_notice, silent.start_button), (None, None));
     }
 
     #[test]

@@ -66,7 +66,7 @@ impl Lettering {
     }
 
     /// How wide a run of words is, in device pixels, at `scale`.
-    fn width_of(&self, words: &str, scale: Scale) -> f32 {
+    pub(crate) fn width_of(&self, words: &str, scale: Scale) -> f32 {
         shape(words, &self.font, size_at(scale), Direction::LeftToRight).width
     }
 
@@ -138,6 +138,22 @@ impl Lettering {
         colours: LineColours,
         lead: u32,
     ) {
+        self.draw_between(canvas, rect, sentence, scale, colours, (lead, 0));
+    }
+
+    /// [`Lettering::draw_after`], its words also ending `trail` device
+    /// pixels before the inset at the right — short of a button standing
+    /// there ([`crate::line_button`], queue item 990) — and cut to the room
+    /// between.
+    pub fn draw_between(
+        &self,
+        canvas: &mut Canvas,
+        rect: PixelRect,
+        sentence: &str,
+        scale: Scale,
+        colours: LineColours,
+        (lead, trail): (u32, u32),
+    ) {
         if rect.is_empty() {
             return;
         }
@@ -153,28 +169,43 @@ impl Lettering {
 
         let inset = INSET * scale.factor();
         let start = inset + whole(lead);
-        let room = whole(rect.width) - start - inset;
+        let room = whole(rect.width) - start - inset - whole(trail);
         if room <= 0.0 {
             return;
         }
         let words = self.fitted(sentence, room, scale);
-        if words.is_empty() {
+        self.letter(
+            canvas,
+            rect,
+            &words,
+            whole(rect.x) + start,
+            scale,
+            colours.ink,
+        );
+    }
+
+    /// `words`, uncut, onto `canvas` in `ink`, beginning `left` device
+    /// pixels from the canvas's edge and centred down `rect` by the face's
+    /// own extent above and below the baseline, so they sit in the middle
+    /// whatever they are; no ink outside `rect`.
+    pub(crate) fn letter(
+        &self,
+        canvas: &mut Canvas,
+        rect: PixelRect,
+        words: &str,
+        left: f32,
+        scale: Scale,
+        ink: alo_value::Rgba,
+    ) {
+        if words.is_empty() || rect.is_empty() {
             return;
         }
         let size = size_at(scale);
         let metrics = self.font.metrics(size);
-        // Centred on the line by the face's own extent above and below the
-        // baseline, so the words sit in the middle whatever they are.
         let baseline = whole(rect.y)
             + (whole(rect.height) - (metrics.ascender + metrics.descender)) / 2.0
             + metrics.ascender;
-        let path = outlined_run(
-            &words,
-            &self.font,
-            size,
-            0.0,
-            (whole(rect.x) + start, baseline),
-        );
+        let path = outlined_run(words, &self.font, size, 0.0, (left, baseline));
         let coverage = fill(&path);
         let (origin_x, origin_y) = coverage.origin();
         for y in 0..coverage.height() {
@@ -193,11 +224,15 @@ impl Lettering {
                 ) else {
                     continue;
                 };
-                // Kept to the notice: a descender must not reach the page.
-                if at_y < rect.y || at_y >= rect.y + rect.height || at_x >= rect.x + rect.width {
+                // Kept to the rect: a descender must not reach the page.
+                if at_y < rect.y
+                    || at_y >= rect.y + rect.height
+                    || at_x < rect.x
+                    || at_x >= rect.x + rect.width
+                {
                     continue;
                 }
-                canvas.blend(at_x, at_y, colours.ink, amount);
+                canvas.blend(at_x, at_y, ink, amount);
             }
         }
     }

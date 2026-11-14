@@ -307,6 +307,7 @@ pub mod keychain;
 pub mod keys;
 #[cfg(unix)]
 pub mod launch_handover;
+pub mod line_button;
 pub mod mark;
 pub mod message;
 pub mod network;

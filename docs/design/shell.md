@@ -1469,7 +1469,17 @@ Settled here, as the design left them open:
   now*. **Effect**: *On* checks at launch and every 24 hours while alo
   runs; *Off* sends nothing until *Check now* is pressed; an update ready
   is said in the first screen's line — *alo 0.4.2 is ready. It installs
-  when you quit alo.* — and installs only when alo quits. The first time a
+  when you quit alo.* — and installs only when alo quits. That line is the
+  browser's own, along the window's bottom, 32 tall in `--warning-tint`
+  under a rule of `--border-default`, kept until alo quits and shown
+  whenever the line has nothing else to say (item 990); at its right end,
+  12 in and centred down it, a button **Quit and update**, 128 by 24, in
+  `--bg-surface` ringed 1 px in `--warning-ink`, its 13 px label in the
+  same ink, the words cut 12 short of it. Pressed while an agent works in
+  any chat — a run at work, or held for the person — the line says *An
+  agent is working. alo will update when you quit.* until the next press,
+  and alo stays; otherwise alo quits as a person's quit does. It is not on
+  the accessibility bus or the keyboard yet, and no agent reaches it. The first time a
   copy that updates itself starts with the check on, the first screen's
   line says once *alo checks for security updates once a day. It sends
   nothing about you. Settings › Updates turns it off.* **To an agent**: a

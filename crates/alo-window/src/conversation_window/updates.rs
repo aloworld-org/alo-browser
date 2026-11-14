@@ -5,10 +5,11 @@
 //! alo's own updates in the window (ADR 0116 §§ 4 and 5, queue item 721):
 //! *Settings › Updates* told what this copy is and what the last check
 //! found; the switch and *Check now* handed to the thread checking
-//! ([`crate::conversation_updates`]); an update ready said in the first
-//! screen's line, the window's own, never inside a page; the first screen
-//! saying once that the check is on; and what is ready swapped in at quit,
-//! after every card's host has ended.
+//! ([`crate::conversation_updates`]); an update ready kept, and said in the
+//! first screen's line — the window's own, never inside a page — with
+//! *Quit and update* at its end ([`super::quit_and_update`], queue item
+//! 990); the first screen saying once that the check is on; and what is
+//! ready swapped in at quit, after every card's host has ended.
 
 use super::{ConversationWindow, Heard};
 use crate::conversation_updates::{ThisAlo, Told, Updates, install_at_quit};
@@ -34,6 +35,12 @@ pub(crate) struct Updating {
     thread: Option<Updates>,
     /// alo's version and its Chromium's, as *Settings* says them.
     version: String,
+    /// The line saying an update is ready, once one is: kept until alo
+    /// quits, for it stays ready until then.
+    pub(super) ready: Option<String>,
+    /// Whether *Quit and update* was pressed with no agent working, so the
+    /// window is to quit as a person's quit does (queue item 990).
+    pub(super) quits: bool,
 }
 
 impl ConversationWindow {
@@ -80,6 +87,8 @@ impl ConversationWindow {
             updater,
             thread,
             version,
+            ready: None,
+            quits: false,
         };
         self
     }
@@ -90,7 +99,11 @@ impl ConversationWindow {
             return;
         };
         if let Some(line) = found.ready_line() {
-            self.tell(line);
+            // Kept, and said in the first screen's line whenever nothing
+            // else is, with *Quit and update* at its end (queue item 990).
+            self.said.push(line.clone());
+            self.updating.ready = Some(line);
+            self.redraw = true;
         } else if !matches!(found, Found::UpToDate { .. }) {
             self.said.push(found.said());
         }

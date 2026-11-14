@@ -872,6 +872,16 @@ mod tests {
             asked(r#"{"v":1,"ask":"click"}"#),
             Err(Refused::BadField { field: "ask" })
         );
+        // No ask starts, delays, refuses or reads an update, nor presses
+        // *Quit and update* (ADR 0116 § 4, queue item 990): the window's
+        // own line is not the socket's.
+        for ask in ["update", "updates", "quit", "quit_and_update", "check_now"] {
+            assert_eq!(
+                asked(&format!(r#"{{"v":1,"ask":"{ask}"}}"#)),
+                Err(Refused::BadField { field: "ask" }),
+                "{ask}"
+            );
+        }
         assert_eq!(
             asked(r#"{"v":1,"ask":"tabs","verbose":true}"#),
             Err(Refused::UnknownField {

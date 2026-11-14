@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- ***Quit and update*.** When an update is ready, the line along the
+  bottom of `alo --conversation`'s window says so and now has a button,
+  *Quit and update*. Pressed, alo quits as it does when you quit it, and
+  the update is installed as it closes; alo does not start itself again.
+  If an agent is working in a chat, alo stays open and the line says *An
+  agent is working. alo will update when you quit.* The line stays until
+  alo quits, coming back after anything else said in its place. The
+  button is alo's own: no page draws it and no agent can press it (ADR
+  0116 § 4, queue item 990).
 - **The link strip's test waits for the strip, not for a fixed time.** It
   looked once after 1.2 s and failed on a slow machine; it now looks until
   the strip is there, within 15 s, and says how long it looked; and it

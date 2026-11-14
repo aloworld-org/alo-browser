@@ -36,6 +36,9 @@ use crate::version::Version;
 use std::fs;
 use std::path::Path;
 
+/// What the button says, and is named.
+pub const QUIT_AND_UPDATE: &str = "Quit and update";
+
 /// What *Quit and update* says while an agent works.
 pub const AGENT_WORKING: &str = "An agent is working. alo will update when you quit.";
 

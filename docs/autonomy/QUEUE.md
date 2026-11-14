@@ -20537,6 +20537,41 @@ What stage 2's exit gate actually measures: a person using it.
   reaches a person, which waits on the owner's update key, the feed's
   hosting (with the private repository) and 735.
 
+- [x] **990. *Quit and update* (ADR 0116 § 4), cut from 721.** When an
+  update is ready, the window's own line — never inside a page — says so
+  with a button, *Quit and update*. Pressed while an agent is working in
+  any chat, alo stays and the line says *An agent is working. alo will
+  update when you quit.*; otherwise alo quits exactly as a person's quit
+  does, every card's host ending before what is ready is swapped in, and
+  is never started again by it. The button is alo's own interface: no
+  renderer claims it, and no ask of the agent socket reaches or is added
+  for it. *Closes when:* the line and the button's boxes are asserted in
+  numbers at one and two, a reference render holds them, unit tests judge
+  a press with and without an agent working, a test through the window's
+  own state shows a press on the button quitting once and one beside it
+  or behind another sentence quitting nothing, the socket is shown to
+  refuse any ask naming an update or a quit, and the gate passes.
+  *Built 14 November 2026, gated the same day (7276 tests)*: the button is the browser's
+  own drawing at the right end of the first screen's line, as the line is
+  (`alo-window`'s `line_button.rs`: 128 by 24 CSS pixels, 12 in from the
+  line's end and centred down it, in `--bg-surface` ringed in
+  `--warning-ink`; placed by `conversation_place.rs`, drawn by
+  `conversation_compose.rs`), and a press on it is decided from the
+  window's own composition (`conversation_aim::on_the_button`) before any
+  renderer is handed one. The ready line is kept until alo quits and shown
+  whenever nothing else is said (`conversation_window/updates.rs`); the
+  press is `conversation_window/quit_and_update.rs` — an agent working is
+  a run at work or held for the person — and the quit is the event loop
+  ended as closing the window ends it (`window.rs`), so `exiting` ends
+  every card's host and then installs. Tests: `line_button`,
+  `conversation_place`, `conversation_aim`, two `conversation_window`
+  tests, `protocol`'s refused asks, and
+  `alo-window/tests/quit_and_update_on_the_ready_line.rs` with references
+  `the-ready-line-and-its-button.png` and
+  `the-ready-line-and-its-button-at-two.png`. Not yet: the button on the
+  accessibility bus, and from the keyboard — the window's lines are not
+  published there.
+
 - [ ] **722. Chromium with alo's name (ADR 0077).** Built from source with
   alo's name and icon, so an expanded page's menu bar says *alo*. *blocked:
   build machines this repository does not have.*

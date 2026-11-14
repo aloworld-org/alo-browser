@@ -102,6 +102,7 @@ mod bar;
 mod beneath;
 mod fields;
 mod outside;
+mod quit_and_update;
 mod title;
 mod updates;
 
@@ -1439,17 +1440,24 @@ impl ConversationWindow {
     /// What the window is drawn from now, at its size and scale: the first
     /// screen's line says why its renderer painted nothing, or what became
     /// of an address, and otherwise what the last press came to when it was
-    /// refused.
+    /// refused — and otherwise, with *Quit and update* at its end, that an
+    /// update is ready (queue item 990).
     pub fn scene(&self) -> Option<ConversationScene<'_>> {
         let (window, scale) = self.measured()?;
         let now = self.now();
+        let (start_sentence, start_button) =
+            match self.start_said.as_deref().or(self.told.as_deref()) {
+                Some(said) => (Some(said), None),
+                None => self.ready_line(),
+            };
         Some(ConversationScene {
             window,
             scale,
             panel: self.panel.as_ref(),
             panel_sentence: self.panel_said.as_deref(),
             start: self.start.as_ref(),
-            start_sentence: self.start_said.as_deref().or(self.told.as_deref()),
+            start_sentence,
+            start_button,
             side: self.conversation.side(),
             named: self.conversation.rail_named(),
             sheet: self.sheet_scene(now),
@@ -1888,6 +1896,12 @@ impl ConversationWindow {
                 }
                 (None, _) => {}
             }
+            return;
+        }
+        // *Quit and update* (queue item 990): the browser's own button on
+        // its own line, decided here from where the browser drew it.
+        if self.on_quit_and_update(at) {
+            self.quit_and_update();
             return;
         }
         // alo's menu open over the page (queue item 798): a press on it is
@@ -5521,6 +5535,118 @@ mod tests {
         assert_eq!(seen(&window), Some("0.00".to_owned()), "above the room");
         window.moved_at((1_216.0, 400.0), t2 + ms(1_300));
         assert_eq!(seen(&window), Some("1.00".to_owned()), "beside it");
+        window.finish();
+    }
+
+    /// An update ready, as the thread checking tells it.
+    fn an_update_ready() -> Heard {
+        Heard::Updates(crate::conversation_updates::Told::Found {
+            at: alo_update::Instant::at(1_794_646_800),
+            found: alo_update::Found::Ready {
+                version: alo_update::Version::of(0, 4, 2),
+                chromium: "156.0.8078.96".to_owned(),
+                security: false,
+                behind: false,
+            },
+        })
+    }
+
+    /// Queue item 990: the ready line is the first screen's whenever
+    /// nothing else is said, *Quit and update* at its end at 1140..1268 by
+    /// 792..816 in the design's window; pressed, alo quits once — and a
+    /// press beside it on the line, or where it would be before an update
+    /// is ready, quits nothing.
+    #[test]
+    fn quit_and_update_on_the_ready_line_quits_once_and_nothing_else_does() {
+        let ready = "alo 0.4.2 is ready. It installs when you quit alo.";
+        let line = |window: &ConversationWindow| {
+            window.scene().map(|scene| {
+                (
+                    scene.start_sentence.map(str::to_owned),
+                    scene
+                        .start_button
+                        .map(crate::line_button::LineButton::label),
+                )
+            })
+        };
+        let press_at = |window: &mut ConversationWindow, at: (f64, f64)| {
+            window.moved(at);
+            window.main_button_pressed();
+        };
+        let mut window = window();
+        press_at(&mut window, (1_200.0, 804.0));
+        assert!(!window.take_quit(), "nothing is ready");
+        window.heard(an_update_ready());
+        let shown = Some((Some(ready.to_owned()), Some("Quit and update")));
+        assert_eq!(line(&window), shown);
+        assert!(window.take_said().iter().any(|said| said == ready));
+        // A refusal said over it hides the button until the next press is
+        // decided; the ready line comes back after it.
+        window.heard(Heard::Drawn(Drawn::Pressed(
+            Part::Start,
+            Decided::Refused(Refusal::NoCard {
+                claim: Claim::Expand,
+            }),
+        )));
+        assert_eq!(line(&window).and_then(|(_, button)| button), None);
+        press_at(&mut window, (1_200.0, 804.0));
+        assert!(!window.take_quit(), "no button is drawn there now");
+        window.heard(Heard::Drawn(Drawn::Pressed(Part::Start, Decided::Nothing)));
+        assert_eq!(line(&window), shown);
+        // Beside it on the line: the browser's own drawing, nobody's.
+        for beside in [(1_139.0, 804.0), (1_268.0, 804.0), (600.0, 804.0)] {
+            press_at(&mut window, beside);
+            assert!(!window.take_quit(), "{beside:?}");
+        }
+        // On it: alo quits, once.
+        press_at(&mut window, (1_140.0, 792.0));
+        assert!(window.take_quit());
+        assert!(!window.take_quit(), "asked once");
+        window.finish();
+    }
+
+    /// Queue item 990: while alo's agent works on a card, or is held for
+    /// the person, *Quit and update* waits and says why; once the run is
+    /// stopped it quits.
+    #[test]
+    fn quit_and_update_waits_while_an_agent_works_and_quits_after() {
+        let waiting = "An agent is working. alo will update when you quit.";
+        let on_it = (1_200.0, 804.0);
+        let mut window = window();
+        a_card_alo_can_be_asked_about(&mut window);
+        ask_alo(&mut window, "find the contact page");
+        // What was chosen is said until the first screen paints again.
+        window.heard(Heard::Drawn(Drawn::Painted(Part::Start, painted())));
+        window.heard(an_update_ready());
+        assert_eq!(
+            window.scene().and_then(|scene| scene.start_button),
+            Some(crate::line_button::LineButton::QuitAndUpdate)
+        );
+        window.moved(on_it);
+        window.main_button_pressed();
+        assert!(!window.take_quit(), "an agent is working");
+        assert_eq!(window.told(), Some(waiting));
+        assert_eq!(
+            window
+                .scene()
+                .map(|scene| (scene.start_sentence, scene.start_button)),
+            Some((Some(waiting), None))
+        );
+        // Held while the page is the person's: still an agent's run.
+        assert!(window.conversation.pause_agent().is_some());
+        window.heard(Heard::Drawn(Drawn::Pressed(Part::Start, Decided::Nothing)));
+        window.moved(on_it);
+        window.main_button_pressed();
+        assert!(!window.take_quit(), "a run held is still at work");
+        assert_eq!(window.told(), Some(waiting));
+        // Stopped: the next decided press clears the sentence, and the
+        // button quits.
+        window.heard(Heard::Drawn(Drawn::Pressed(Part::Start, Decided::Stop(1))));
+        assert!(!window.agent_working());
+        window.heard(Heard::Drawn(Drawn::Pressed(Part::Start, Decided::Nothing)));
+        window.moved(on_it);
+        window.main_button_pressed();
+        assert!(window.take_quit());
         window.finish();
     }
 }
