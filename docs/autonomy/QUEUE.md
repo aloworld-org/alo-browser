@@ -68,11 +68,11 @@ ADR 0058 — and nothing else does:
 | ✓ | **700** | the first screen, a document of ours (iteration 447) — in a window with the panel is 709 |
 | ✓ | **709** | the panel and the first screen in the engine's window — `alo --conversation` (iteration 448); pressed is 710 |
 | ✓ | **710** | a press on the panel or the first screen, claimed by place and decided by the browser process (iteration 449) |
-| | **711** | *Search chats* and the button that hides the panel (cut from 710) |
+| ✓ | **711** | *Search chats* and the button that hides the panel (cut from 710) |
 | ✓ | **712** | icons in the panel and the first screen — inline SVG of ours, hidden from an agent (iteration 450) |
 | ✓ | **701** | going to a website from the one box, with no model — typed, offered, and Return deciding where to go (iteration 451) |
 | ✓ | **713** | the address chosen from the box opened in the machine's Chrome, from the conversation's own process with no frame of ours (ADR 0075, iteration 452) |
-| | **714** | a press on an offer under the box, claimed and decided (cut from 701) |
+| ✓ | **714** | a press on an offer under the box, claimed and decided (cut from 701) |
 | ✓ | **715** | a field's value kept to one line by the engine, as Chrome keeps it (found by 701; iteration 488) |
 | ✓ | **716** | an agent reaching a page the conversation opened in Chrome, over the socket and kept to `--agent-site` (cut from 713; iteration 488, one socket following the newest card) |
 | ✓ | **702** | where a page opens inside the conversation — measured, and decided by the owner: Chrome's frames streamed into a card (ADR 0076) |
@@ -86,17 +86,17 @@ ADR 0058 — and nothing else does:
 | ✓ | **726** | CEF held to alo's rules, measured — no Widevine or updater fetching it, nothing of its own beyond ADR 0073's list, no H.264/AAC/HEVC, every request held, the agent's surface through it (ADR 0079, iteration 459) |
 | ✓ | **727** | the host's own window for `--app`: Chrome style with no toolbar, titled by the page, placed by alo over the pipe, typed into, pressed and closed by a person (iteration 456) |
 | ✓ | **731**, **732**, **730** | the host's application object (`CefAppProtocol`, the one `unsafe` boundary ADR 0080 allows), its menu bar and ⌘Q ending it in order, and the gate reaching the host and holding the boundary to its file (iteration 457) |
-| | **734** | a page closed while its context menu is open crashes the host (`SIGSEGV`, found by 731) |
-| | **733** | a profile's path made again, empty, a second after alo removed it — Chrome and the host alike, swept by the next start (found by 727) |
+| ✓ | **734** | a page closed while its context menu is open crashes the host (`SIGSEGV`, found by 731) |
+| ✓ | **733** | a profile's path made again, empty, a second after alo removed it — Chrome and the host alike, swept by the next start (found by 727) |
 | | **728**, **729** | Windows and Linux (728), and what macOS keeps for the host (729) — cut from 725 |
 | | **721**–**724** | kept updated (721); later, before alo is offered widely, alo's own Chromium build on machines of its own (ADR 0078) |
 | ✓ | **736** | trackers and ads blocked by alo itself, with Brave's `adblock-rust` at the place every request is held (iteration 488, ADR 0094; cuts 806, 807) |
 | ✓ | **806**, **807** | the empty boxes adverts leave hidden by the lists' own rules, through Chromium's style sheet commands; a shield on each card counting what was refused, switching blocking off for its site, kept on the machine (6 November 2026, ADR 0094's amendment; cuts 838–841) |
-| | **707** | the answer — blocked on the owner's choice of model |
+| ✓ | **707** | the answer, written by a model, every claim tied to its source |
 | ✓ | **708** | search results as the design's All tab, from the Brave Search API (ADR 0083, iteration 463) |
 | ✓ | **749** | a card that fails says why and gives the box the keyboard back; a page that replaces itself before it loads opens (iteration 464) |
 | ✓ | **750** | the box 24 above the window's foot once the conversation holds something, the conversation clipped above it (iteration 464) |
-| | **751** | a card drawn from its page's first paint, not its load (cut from 749) |
+| ✓ | **751** | a card drawn from its page's first paint, not its load (cut from 749) |
 
 **627 was the one to watch, and is closed with its scope cut** (iteration
 380): a page in Chrome is now drawn in a window a person can see, placed by
