@@ -25,7 +25,8 @@
 //! unseen and parked, and is seen once alo puts it where a person is to see
 //! it ([`parked`], [`unseen_mac`], queue item 771). Asked for with a
 //! switch alo never gives, a page opens with no window at all
-//! ([`windowless`], a spike, queue item 959).
+//! ([`windowless`], a spike, queue item 959), its view's size, scale,
+//! hiding and focus told by alo ([`heard`], queue item 979).
 //!
 //! It is one program in two roles ([`switches::Role`]): the browser process
 //! alo starts, and each helper CEF starts from the copies of it in the
@@ -50,6 +51,7 @@ mod after_menus;
 mod application_mac;
 mod dismissed_mac;
 mod handed;
+mod heard;
 mod host;
 mod menu_mac;
 mod parked;

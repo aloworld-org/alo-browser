@@ -270,10 +270,13 @@ fn open(page: &str, card: bool) {
 /// The page is a card's that is never seen: what it tells is told to alo,
 /// its permission prompts dismissed and its own moves refused, as a parked
 /// card's are ([`Stage::Parked`], for its life — there is no window to
-/// place, so no *Expand*). CEF makes it Alloy style whatever is asked
-/// (`cef_types_runtime.h`), and gives it no parent view: none is needed to
-/// paint.
+/// place: *Expand* is alo's, the view told a new size, queue item 979).
+/// CEF makes it Alloy style whatever is asked (`cef_types_runtime.h`), and
+/// gives it no parent view: none is needed to paint. What alo tells of its
+/// view is heard from now on ([`listen_to_alo`]).
 fn open_windowless(page: &str, viewport: Viewport) {
+    VIEW.set(Some(viewport));
+    listen_to_alo();
     let stage = std::rc::Rc::new(Cell::new(Some(Stage::Parked)));
     let mut client = Page::new(stage, Some(viewport));
     let info = WindowInfo::default().set_as_windowless(std::ptr::null_mut());
@@ -295,8 +298,70 @@ fn open_windowless(page: &str, viewport: Viewport) {
     }
 }
 
+/// Hear what alo tells of the windowless page's view on a thread of its
+/// own (`heard.rs`), each line alo may tell carried out on CEF's UI thread
+/// ([`Applied`]) — or nothing, when descriptor 5 cannot be read: it is a
+/// pipe, alo telling nothing, or it is not open at all.
+fn listen_to_alo() {
+    let Ok(from) = std::fs::File::open(told::DESCRIPTOR) else {
+        return;
+    };
+    let spawned = std::thread::Builder::new()
+        .name("heard from alo".to_owned())
+        .spawn(move || {
+            crate::heard::listen(from, |heard| {
+                // Said nowhere when it fails: CEF is shutting down.
+                let _ = post_task(ThreadId::UI, Some(&mut Applied::new(heard)));
+            });
+        });
+    if let Err(why) = spawned {
+        eprintln!("alo's CEF host: windowless: nothing heard from alo: {why}");
+    }
+}
+
+wrap_task! {
+    struct Applied {
+        heard: crate::heard::Heard,
+    }
+
+    impl Task {
+        fn execute(&self) {
+            apply(self.heard);
+        }
+    }
+}
+
+/// Carry out what alo told of the windowless page's view, on CEF's UI
+/// thread: a new size resized (`WasResized`, CEF then asks [`Drawn`] the
+/// view again), a new scale told as the screen's (`NotifyScreenInfoChanged`)
+/// first; hidden or shown (`WasHidden`); the focus given or taken
+/// (`SetFocus`). Nothing before the page is made, or after it is closed.
+fn apply(heard: crate::heard::Heard) {
+    let Some(host) = DRAWN_PAGE.with_borrow(|page| page.as_ref().and_then(ImplBrowser::host))
+    else {
+        return;
+    };
+    match heard {
+        crate::heard::Heard::View(after) => {
+            let Some(before) = VIEW.replace(Some(after)) else {
+                return;
+            };
+            let (rescaled, resized) = crate::heard::changes(before, after);
+            if rescaled {
+                host.notify_screen_info_changed();
+            }
+            if resized {
+                host.was_resized();
+            }
+        }
+        crate::heard::Heard::Hidden(hidden) => host.was_hidden(c_int::from(hidden)),
+        crate::heard::Heard::Focused(focused) => host.set_focus(c_int::from(focused)),
+    }
+}
+
 wrap_render_handler! {
     struct Drawn {
+        // The view it was opened at, until alo tells another ([`VIEW`]).
         viewport: Viewport,
     }
 
@@ -304,12 +369,13 @@ wrap_render_handler! {
         fn view_rect(&self, _browser: Option<&mut Browser>, rect: Option<&mut Rect>) {
             // The page's view, in CSS pixels, at the origin: nothing of it is
             // anywhere on a screen.
+            let viewport = VIEW.get().unwrap_or(self.viewport);
             if let Some(rect) = rect {
                 *rect = Rect {
                     x: 0,
                     y: 0,
-                    width: self.viewport.width,
-                    height: self.viewport.height,
+                    width: viewport.width,
+                    height: viewport.height,
                 };
             }
         }
@@ -324,13 +390,14 @@ wrap_render_handler! {
             let Some(screen_info) = screen_info else {
                 return 0;
             };
+            let viewport = VIEW.get().unwrap_or(self.viewport);
             let whole = Rect {
                 x: 0,
                 y: 0,
-                width: self.viewport.width,
-                height: self.viewport.height,
+                width: viewport.width,
+                height: viewport.height,
             };
-            screen_info.device_scale_factor = self.viewport.scale;
+            screen_info.device_scale_factor = viewport.scale;
             screen_info.depth = 24;
             screen_info.depth_per_component = 8;
             screen_info.rect = whole.clone();
@@ -689,6 +756,14 @@ thread_local! {
     /// What waits for a context menu to go before it closes (queue item
     /// 734).
     static CLOSING: RefCell<Closing> = RefCell::new(Closing::default());
+
+    /// The windowless page's view as alo last told it (queue item 979), or
+    /// as it was opened at: what [`Drawn`] answers CEF.
+    static VIEW: Cell<Option<Viewport>> = const { Cell::new(None) };
+
+    /// The windowless page, while it is open: the one what alo tells of a
+    /// view is carried out on ([`apply`]).
+    static DRAWN_PAGE: RefCell<Option<Browser>> = const { RefCell::new(None) };
 }
 
 wrap_life_span_handler! {
@@ -735,6 +810,9 @@ wrap_life_span_handler! {
         fn on_after_created(&self, browser: Option<&mut Browser>) {
             if let Some(browser) = browser {
                 OPEN.with_borrow_mut(|open| open.push(browser.clone()));
+                if self.windowless {
+                    DRAWN_PAGE.set(Some(browser.clone()));
+                }
             }
         }
 
@@ -743,6 +821,9 @@ wrap_life_span_handler! {
                 return;
             };
             let identifier = browser.identifier();
+            if self.windowless {
+                DRAWN_PAGE.set(None);
+            }
             let left = OPEN.with_borrow_mut(|open| {
                 open.retain(|other| other.identifier() != identifier);
                 open.len()

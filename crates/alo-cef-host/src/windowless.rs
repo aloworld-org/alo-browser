@@ -50,6 +50,14 @@
 //! window — is cancelled and told to nobody. Cancelled, `window.open`
 //! returns at once and the page's opener is `null`, as a blocked popup's
 //! is.
+//!
+//! # Its view told by alo (queue item 979)
+//!
+//! The view's size and scale are the switch's until alo tells others, with
+//! whether the page is hidden and has the focus, on descriptor 5 the other
+//! way (`heard.rs`): what a window would have told Chromium. *Expand* is
+//! then alo's own — the view told the window's size — and no window is
+//! ever placed.
 
 use crate::told::Told;
 use std::time::{SystemTime, UNIX_EPOCH};

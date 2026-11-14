@@ -33,6 +33,11 @@
 //!   window, the same tab with nothing reloaded, is given the size asked
 //!   where it is asked, and brought in front, as ADR 0075 placed it over
 //!   the conversation; the Chromium alo carries draws it opaque from then.
+//!   A **windowless** card's page has no window ([`Scaled::ByTheHost`],
+//!   ADR 0113, queue item 979): its host is told the view at the size
+//!   asked, and the page streamed at it — no window is placed. Its streams
+//!   tell the host a new size or scale the same way, where a window's are
+//!   fitted and parked.
 //!
 //! - **Where the page is**: told to the conversation whenever the page's
 //!   own frame goes somewhere while it streams ([`tell_where`],
@@ -72,10 +77,12 @@ use crate::chrome_card_list;
 use crate::chrome_history;
 use crate::chrome_park::{self, Parked};
 use crate::chrome_tab::Tab;
+use crate::chrome_tell::ToHost;
 use crate::chrome_window;
 use crate::frame_told::{ToFrame, Uncast};
 use crate::inbox::Arrival;
 use crate::message::{CardOrder, Order};
+use crate::scale::Scale;
 use alo_url::Url;
 use std::time::{Duration, Instant};
 
@@ -123,6 +130,10 @@ pub enum Scaled {
     /// stream is asked at a scale it is not drawn at, so a conversation
     /// moved to a display of another scale has its card's frames at it.
     ByItsDisplay(Parked),
+    /// Told its windowless host, which has no window and no display (ADR
+    /// 0113, queue item 979): the scale it was last told, told again with
+    /// the view's size whenever a stream is asked at another.
+    ByTheHost(Scale),
 }
 
 impl Fitted {
@@ -143,7 +154,7 @@ impl Fitted {
     /// was parked.
     fn parked_at(&self) -> (i32, i32) {
         match &self.scaled {
-            Scaled::Told => chrome_window::PARKED,
+            Scaled::Told | Scaled::ByTheHost(_) => chrome_window::PARKED,
             Scaled::ByItsDisplay(parked) => parked.at,
         }
     }
@@ -163,6 +174,19 @@ pub fn carry_out(tab: &mut Tab<'_>, order: CardOrder, tell: TellCard<'_>, fitted
                 // Asked again at another size: stopped and started, since
                 // Chrome takes a stream's size only as it starts.
                 stop(tab, tell);
+            }
+            if let Scaled::ByTheHost(told) = &mut fitted.scaled {
+                // No window to fit or park: the host told the view.
+                // Unwritten, the page keeps its view, and the next stream
+                // tells it again.
+                if (fitted.page != page || *told != scale)
+                    && tab.tell_host(ToHost::View { size: page, scale }).is_ok()
+                {
+                    fitted.page = page;
+                    *told = scale;
+                }
+                let _ = tab.cast(width, height);
+                return;
             }
             // Whether fitting the page moved the window off the display it
             // was parked by: fitted wider, a window may be mostly on
@@ -199,6 +223,9 @@ pub fn carry_out(tab: &mut Tab<'_>, order: CardOrder, tell: TellCard<'_>, fitted
             let _ = tab.cast(width, height);
         }
         CardOrder::Unstream => stop(tab, tell),
+        CardOrder::Expand { size, .. } if matches!(fitted.scaled, Scaled::ByTheHost(_)) => {
+            expand_windowless(tab, size, tell, fitted);
+        }
         CardOrder::Expand { at, size } => {
             stop(tab, tell);
             // Said by the next reading of where the window is, if it fails.
@@ -225,6 +252,26 @@ pub fn carry_out(tab: &mut Tab<'_>, order: CardOrder, tell: TellCard<'_>, fitted
         // any card order reaches here (`crate::chrome_mark`).
         CardOrder::Unmark => {}
     }
+}
+
+/// *Expand* a windowless card (ADR 0113, queue item 979): no window to
+/// place, so its host is told the view at `size`, at the scale it was last
+/// told, and the page is streamed at it — the card's frames drawn at the
+/// window's size. A closed list's press held for the expanding is let go
+/// unpressed: a windowless page's list is a popup the stream does not show
+/// (queue item 982).
+fn expand_windowless(tab: &mut Tab<'_>, size: (u32, u32), tell: TellCard<'_>, fitted: &mut Fitted) {
+    let Scaled::ByTheHost(scale) = fitted.scaled else {
+        return;
+    };
+    stop(tab, tell);
+    if fitted.page != size && tab.tell_host(ToHost::View { size, scale }).is_ok() {
+        fitted.page = size;
+    }
+    fitted.parked = false;
+    fitted.list = None;
+    // Declined, the card keeps no picture; see the module's words.
+    let _ = tab.cast(scale.device(fitted.page.0), scale.device(fitted.page.1));
 }
 
 /// Send a person's `input` to `tab`'s page — but a first press on a closed

@@ -881,6 +881,26 @@ The reason this exists rather than a faster fork of somebody else's engine.
   (`tests/a_windowless_cards_targets_held_and_popup_told_through_alos_cef_host_as_chrome.rs`).
   Not yet asserted windowless: a WebSocket's word, and a popup with no
   gesture (cancelled and told to nobody, by the host's unit test only).
+  **A windowless card's view told by alo, and *Expand* as alo's** (979,
+  ADR 0113; built 13 November 2026, gated 14 November; alo opens no windowless
+  card yet, 980): descriptor 5 of a windowless host is a socket, so alo
+  tells the host on it what a window would have told Chromium —
+  `view\tWIDTHxHEIGHT@SCALE` (`WasResized`, and `NotifyScreenInfoChanged`
+  for a new scale), `hidden\t0|1` (`WasHidden`), `focus\t0|1`
+  (`SetFocus`) — at most 64 bytes a line and 60 lines a second, and the
+  host refuses anything else (`heard.rs`). A windowless card's stream at a
+  new size or scale tells the host the view (`Scaled::ByTheHost`), and its
+  *Expand* tells it the window's size and streams the page at it, placing
+  no window. Through the host: 600 × 400 at one resized to 800 × 500 (the
+  page's `innerWidth` × `innerHeight` and frames 800 × 500), rescaled to two
+  (`devicePixelRatio` 2, frames 1600 × 1000), three views out of bounds
+  refused, the focus taken and given, hidden and shown, and expanded to
+  1000 × 700 (frames 2000 × 1400) with `Browser.getWindowForTarget` still
+  refused
+  (`tests/a_windowless_cards_view_told_its_size_scale_focus_and_hiding_through_alos_cef_host_as_chrome.rs`).
+  Not yet: the conversation drawing an expanded windowless card at the
+  window's size, and telling the host hidden or focused as the card goes
+  off the screen or is pressed (980).
   **A person's pointer, wheel and keys on the card** (718, ADR 0024 § 5):
   the browser process computes the card's page box from the first
   screen's viewport and aims a point of the window at it from its own

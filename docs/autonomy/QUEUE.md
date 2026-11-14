@@ -26618,7 +26618,7 @@ the rest runs on this Mac. Order: ADR 0112's *The plan, in order*.
   (`a_windowless_cards_targets_held_and_popup_told_through_alos_cef_host_as_chrome.rs`,
   five runs). ADR 0060's sixth amendment; ADR 0113 notes it. Not asserted
   windowless: a WebSocket's word, a popup with no gesture (unit test only).
-- [ ] **979. The host told a size, a scale, focus and hiding; *Expand* as
+- [x] **979. The host told a size, a scale, focus and hiding; *Expand* as
   alo's (ADR 0113, proposed).** A channel from alo to the host (the pipe
   carries only Chromium's protocol): `WasResized`, `NotifyScreenInfoChanged`,
   `WasHidden`, `SetFocus`, read bounded as `chrome_told.rs` reads the other
@@ -26626,6 +26626,31 @@ the rest runs on this Mac. Order: ADR 0112's *The plan, in order*.
   view resized to it. *Depends on 978. Closes when:* a windowless card is
   resized and rescaled in a test through the host, in numbers, and *Expand*
   places no window.
+  *Built 13 November 2026*, gated 14 November 2026 (7265 tests): measured first, through the host
+  started windowless at 600 × 400: the page said `innerWidth` 600,
+  `innerHeight` 400, `devicePixelRatio` 1 (2 when started at two),
+  `visible` and `document.hasFocus()` true from the start — focused with no
+  `SetFocus` — and frames 600 × 400 (1200 × 800 at two); nothing over the
+  pipe but emulation changed its size or scale. Built: descriptor 5 of a
+  windowless host is a socket (`chrome.rs`, `Beside::Socket`), and alo tells
+  the host on it `view\tWxH@S`, `hidden\t0|1`, `focus\t0|1`
+  (`chrome_tell.rs`, `Chrome::tell_host`); the host hears them on a thread
+  of its own, at most 64 bytes a line and 60 a second, refusing anything
+  else (`heard.rs`), and carries each out on CEF's UI thread —
+  `WasResized`, `NotifyScreenInfoChanged` first for a new scale,
+  `WasHidden`, `SetFocus` (`window.rs`, `Applied`). A windowless card's
+  stream at a new size or scale tells the view (`Scaled::ByTheHost`), and
+  *Expand* tells the window's size and streams at it, placing no window.
+  After, through the host: 800 × 500 at one said in 2 ms (frames
+  800 × 500), two in 38 ms (frames 1600 × 1000), three views out of bounds
+  refused, `unfocused`/`focused`, `hidden`/`visible`, and *Expand* to
+  1000 × 700 at two (frames 2000 × 1400) with `Browser.getWindowForTarget`
+  still refused
+  (`a_windowless_cards_view_told_its_size_scale_focus_and_hiding_through_alos_cef_host_as_chrome.rs`).
+  Not built: the conversation drawing the expanded card at the window's
+  size, and telling the host hidden or focused (980); a held press on a
+  closed list is let go on a windowless *Expand* (982). The rate's
+  refusal and malformed lines are asserted by the host's unit tests only.
 - [ ] **980. Windowless cards in alo, behind a switch, on this Mac (ADR
   0113, proposed).** `alo-window` starts the host with `--alo-windowless`
   at the card's box and the conversation's scale, parks nothing, asks no

@@ -80,15 +80,17 @@ use crate::chrome_pin::Pinned;
 use crate::chrome_profile::{Profile, Swept, new_profile};
 use crate::chrome_protocol::{self, Command, Declined, Malformed, Message, Version};
 use crate::chrome_record::Record;
+use crate::chrome_tell::ToHost;
 use crate::chrome_told::{self, Told};
 use crate::chrome_wire::{self, Frame, Frames, MOST_MESSAGE, Unframed};
 use crate::scale::Scale;
 use alo_renderer::settings_privacy::Cookies;
 use core::fmt;
 use std::io::ErrorKind;
-use std::io::{BufRead as _, Read as _};
+use std::io::{BufRead as _, Read as _, Write as _};
+use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
-use std::process::{Child, ChildStderr, ChildStdin, Command as Process, Stdio};
+use std::process::{Child, ChildStdin, Command as Process, Stdio};
 use std::sync::mpsc::Receiver;
 use std::time::{Duration, Instant};
 
@@ -213,6 +215,22 @@ const FEATURES_OFF: &str = "--disable-features=AimEnabled,PreconnectToSearch,\
 /// its own error output going nowhere as before — then become Chrome.
 const STARTER: &str = r#"exec "$0" "$@" 3<&0 4>&1 5>&2 0</dev/null 1>/dev/null 2>/dev/null"#;
 
+/// What a Chromium is given as its error output, which the shell moves to
+/// descriptor 5: a pipe alo only reads, or — for a windowless host, which
+/// alo also tells things (queue item 979) — one end of a socket, whose
+/// other end alo reads and writes.
+enum Beside {
+    /// A pipe, read through the child's error output.
+    Pipe,
+    /// A socket: the host's end, and a clone of alo's to read from.
+    Socket {
+        /// The host's end, given as its error output.
+        theirs: std::os::fd::OwnedFd,
+        /// alo's end, read on a thread of its own.
+        reading: UnixStream,
+    },
+}
+
 /// The most lines of what a Chromium told beside its pipe held unread: a
 /// card's thread reads them every few milliseconds while it streams, and
 /// one that is not streaming drops what it is not told of in time.
@@ -232,6 +250,10 @@ pub struct Chrome {
     shown: bool,
     /// Whether its one page has no window at all ([`Chrome::start_windowless`]).
     windowless: bool,
+    /// alo's end of descriptor 5, for a windowless host: what alo tells it
+    /// of its page's view is written here ([`Chrome::tell_host`], queue
+    /// item 979).
+    to_host: Option<UnixStream>,
     /// What its tabs asked for, and what caused each (ADR 0060 § 2).
     record: Record,
     /// What it told beside its pipe, read on a thread of its own (queue
@@ -317,12 +339,36 @@ impl fmt::Display for Failed {
     }
 }
 
+/// How long a line told to a windowless host may wait to be written: the
+/// host reads each as it comes, so a host that has not taken one in this
+/// long is not reading.
+const TELLING_AT_MOST: Duration = Duration::from_secs(1);
+
+/// Why a windowless host was not told something (queue item 979).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Untold {
+    /// The Chromium has a window for its page, or is the machine's: there
+    /// is no channel to its host.
+    NotWindowless,
+    /// The line could not be written: the host has gone, or is not reading.
+    Unwritten(ErrorKind),
+}
+
+impl fmt::Display for Untold {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::NotWindowless => f.write_str("only a windowless host is told of its view"),
+            Self::Unwritten(kind) => write!(f, "the host could not be told: {kind}"),
+        }
+    }
+}
+
 /// What a Chromium tells on `beside`, its error output moved to 5, read
 /// line by line on a thread of its own as [`crate::chrome_told`] reads
 /// them: a line past the longest is passed over, one that is not as the
 /// host writes it dropped, and at most [`HELD_TOLD`] held unread, newer
 /// ones dropped meanwhile. The thread ends with the Chromium.
-fn told_beside(beside: ChildStderr) -> Receiver<Told> {
+fn told_beside(beside: impl std::io::Read + Send + 'static) -> Receiver<Told> {
     let (tell, told) = std::sync::mpsc::sync_channel(HELD_TOLD);
     std::thread::spawn(move || {
         let mut reading = std::io::BufReader::new(beside);
@@ -409,7 +455,13 @@ impl Chrome {
     ) -> Result<Self, Unstarted> {
         let mut added = as_a_card(chromium, scale);
         added.extend(pinned.map(Pinned::switch));
-        Self::launch(&Self::program(chromium)?, true, &added, cookies_now())
+        Self::launch(
+            &Self::program(chromium)?,
+            true,
+            &added,
+            cookies_now(),
+            Beside::Pipe,
+        )
     }
 
     /// Start alo's CEF host at `carried` holding one page of its own — as
@@ -417,9 +469,10 @@ impl Chrome {
     /// CSS pixels at `scale` ([`windowless`], ADR 0113), in sRGB as every
     /// card's Chromium ([`SRGB`]). CEF draws such a page in Alloy style,
     /// where a popup the page opens is never made but told
-    /// ([`crate::chrome_told::Told::Open`], queue item 978). Its size is
-    /// the host's for its life: a tab of it is laid out at it, never fitted
-    /// or told another (queue item 979 is the host told a new one).
+    /// ([`crate::chrome_told::Told::Open`], queue item 978). A tab of it is
+    /// laid out at `size`, never fitted, until the host is told another
+    /// view ([`Chrome::tell_host`], queue item 979): descriptor 5 is a
+    /// socket here, not a pipe, so that alo's lines reach the host on it.
     ///
     /// # Errors
     ///
@@ -432,8 +485,19 @@ impl Chrome {
     ) -> Result<Self, Unstarted> {
         let program = Self::program(&Chromium::Carried(carried.to_path_buf()))?;
         let added = [windowless(size, scale), SRGB.to_owned()];
-        let mut chrome = Self::launch(&program, true, &added, cookies_now())?;
+        let (ours, theirs) = UnixStream::pair().map_err(|why| Unstarted::Unspawned(why.kind()))?;
+        ours.set_write_timeout(Some(TELLING_AT_MOST))
+            .map_err(|why| Unstarted::Unspawned(why.kind()))?;
+        let reading = ours
+            .try_clone()
+            .map_err(|why| Unstarted::Unspawned(why.kind()))?;
+        let beside = Beside::Socket {
+            theirs: std::os::fd::OwnedFd::from(theirs),
+            reading,
+        };
+        let mut chrome = Self::launch(&program, true, &added, cookies_now(), beside)?;
         chrome.windowless = true;
+        chrome.to_host = Some(ours);
         Ok(chrome)
     }
 
@@ -448,7 +512,13 @@ impl Chrome {
     /// application's own is not a program at its place, or another
     /// [`Unstarted`].
     pub fn start_from(chromium: &Chromium, shown: bool) -> Result<Self, Unstarted> {
-        Self::launch(&Self::program(chromium)?, shown, &[], cookies_now())
+        Self::launch(
+            &Self::program(chromium)?,
+            shown,
+            &[],
+            cookies_now(),
+            Beside::Pipe,
+        )
     }
 
     /// [`Chrome::start_from`], keeping of sites' cookies what `cookies`
@@ -463,7 +533,7 @@ impl Chrome {
         shown: bool,
         cookies: Cookies,
     ) -> Result<Self, Unstarted> {
-        Self::launch(&Self::program(chromium)?, shown, &[], cookies)
+        Self::launch(&Self::program(chromium)?, shown, &[], cookies, Beside::Pipe)
     }
 
     /// The program `chromium` names: the machine's Chrome where its
@@ -486,7 +556,7 @@ impl Chrome {
     /// Chrome that is not there is never mistaken for one that would not
     /// answer; or another [`Unstarted`].
     pub fn start_at(program: &Path) -> Result<Self, Unstarted> {
-        Self::launch(program, false, &[], cookies_now())
+        Self::launch(program, false, &[], cookies_now(), Beside::Pipe)
     }
 
     /// Start the Chrome at `program`, headless or `shown`, with the switches
@@ -498,6 +568,7 @@ impl Chrome {
         shown: bool,
         added: &[String],
         cookies: Cookies,
+        beside: Beside,
     ) -> Result<Self, Unstarted> {
         if !is_program(program) {
             return Err(Unstarted::NotInstalled(NotInstalled {
@@ -507,6 +578,10 @@ impl Chrome {
         let profile = new_profile().map_err(|why| Unstarted::NoProfile(why.kind()))?;
         crate::chrome_cookies::write_into(profile.path(), cookies)
             .map_err(|why| Unstarted::NoProfile(why.kind()))?;
+        let (error_output, reading) = match beside {
+            Beside::Pipe => (Stdio::piped(), None),
+            Beside::Socket { theirs, reading } => (Stdio::from(theirs), Some(reading)),
+        };
         let mut user_data = std::ffi::OsString::from("--user-data-dir=");
         user_data.push(profile.path());
         let spawned = Process::new("/bin/sh")
@@ -529,7 +604,7 @@ impl Chrome {
             .args(added)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
+            .stderr(error_output)
             .spawn();
         let mut child = match spawned {
             Ok(child) => child,
@@ -537,8 +612,14 @@ impl Chrome {
                 return Err(Unstarted::Unspawned(why.kind()));
             }
         };
-        let (to, from, beside) = (child.stdin.take(), child.stdout.take(), child.stderr.take());
-        let (Some(to), Some(from), Some(beside)) = (to, from, beside) else {
+        let (to, from) = (child.stdin.take(), child.stdout.take());
+        // The host's end of a socket is its own now, dropped here with the
+        // spawning: the socket ends when the host does.
+        let told = match reading {
+            None => child.stderr.take().map(told_beside),
+            Some(reading) => Some(told_beside(reading)),
+        };
+        let (Some(to), Some(from), Some(told)) = (to, from, told) else {
             let _ = child.kill();
             let _ = child.wait();
             return Err(Unstarted::Unspawned(ErrorKind::BrokenPipe));
@@ -574,9 +655,30 @@ impl Chrome {
             profile,
             shown,
             windowless: false,
+            to_host: None,
             record: Record::default(),
-            told: told_beside(beside),
+            told,
         })
+    }
+
+    /// Tell the windowless host `told` of its page (queue item 979,
+    /// [`crate::chrome_tell`]): its view resized or rescaled, the card
+    /// hidden or shown, the page given the focus or not. The host carries
+    /// it out on its own thread, after this returns; what it refuses it
+    /// says only on its own error output.
+    ///
+    /// # Errors
+    ///
+    /// [`Untold::NotWindowless`] for any Chromium but a windowless host,
+    /// [`Untold::Unwritten`] when the line could not be written within a
+    /// second.
+    pub fn tell_host(&mut self, told: ToHost) -> Result<(), Untold> {
+        let Some(to_host) = self.to_host.as_mut() else {
+            return Err(Untold::NotWindowless);
+        };
+        to_host
+            .write_all(told.line().as_bytes())
+            .map_err(|why| Untold::Unwritten(why.kind()))
     }
 
     /// What it told beside its pipe since this was last asked, oldest

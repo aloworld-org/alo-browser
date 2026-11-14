@@ -245,6 +245,7 @@ pub mod chrome_screencast;
 pub mod chrome_serving;
 pub mod chrome_sign_ins;
 pub mod chrome_tab;
+pub mod chrome_tell;
 pub mod chrome_told;
 pub mod chrome_tree;
 pub mod chrome_type_ahead;

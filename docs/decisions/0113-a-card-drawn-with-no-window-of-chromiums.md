@@ -370,6 +370,74 @@ Measured and built as ADR 0060's sixth amendment says, through the host:
 So proposal 3's first condition is met; 983 (what else Alloy style takes
 from a card) is the other.
 
+## Built: the host told a size, a scale, focus and hiding (queue item 979, 13 November 2026)
+
+**Measured first**, through the host started `--alo-windowless=600x400@1`
+(and `@2`) and a page writing its own view into its text every 50 ms: it
+said `innerWidth` 600, `innerHeight` 400, `devicePixelRatio` 1 (2 at two),
+`document.visibilityState` `visible` and `document.hasFocus()` **true from
+the start** — CEF gives a windowless page the focus with no `SetFocus` —
+and its frames were 600 × 400 (1200 × 800 at two). Nothing alo could send
+over the pipe changed its size or scale but emulation, refused above.
+
+### The channel, and its boundary
+
+The pipe carries only Chromium's protocol, and descriptor 5 carried only
+the host's told lines to alo. For a windowless host **descriptor 5 is a
+socket** (`alo-window`'s `chrome.rs`: one end of `UnixStream::pair` given
+as the host's error output, which the starting shell moves to 5 as
+before; no new `unsafe`, no new dependency): the host's told lines go out
+on it as before, and alo's lines come in on it the other way. A host whose
+descriptor 5 is a pipe — a windowed card's, one started by hand — cannot
+open it for reading and hears nothing.
+
+**What alo may tell the host, and nothing else** (`alo-cef-host`'s
+`heard.rs`; alo writes them in `chrome_tell.rs`): a word, a tab, one
+field, a line's end —
+
+| line | carried out (CEF, on its UI thread) |
+|---|---|
+| `view\tWIDTHxHEIGHT@SCALE` — each side 1 to 16,384 CSS pixels, the scale above 0 and at most 4 (`Viewport::parse`, as the switch) | `NotifyScreenInfoChanged` when the scale is another, then `WasResized`; `GetViewRect` and `GetScreenInfo` answer the new view; nothing for the same view again |
+| `hidden\t1`, `hidden\t0` | `WasHidden` |
+| `focus\t1`, `focus\t0` | `SetFocus` |
+
+**Bounds**: a line is at most **64 bytes** with its end; at most **60
+lines** are taken in any one second (a window dragged on a 60 Hz display
+asks one size a frame, and alo carries out only the newest stream
+waiting). **The host refuses anything else** — a longer line (passed over
+to its end), one not UTF-8, any other word, a field not as written, a field
+more, a size or scale out of bounds, a line past the rate — saying so on
+its own error output and doing nothing. Nothing a line says is run; the
+most one can do is size, scale, hide or focus the one windowless page.
+Refused through the host: a view of no size, one 20,000 wide and one at
+eight, each left the page as it was; the malformed, the long and the rate
+are refused in the host's unit tests (`heard.rs`).
+
+### *Expand* as alo's
+
+A windowless card's scale is had from its host (`chrome_card.rs`,
+`Scaled::ByTheHost`): a stream asked at another page size or scale tells
+the host the view, where a window's is fitted and parked; *Expand* stops
+the stream, tells the host the window's size at the scale last told, and
+streams the page at it — the card's frames at the window's size. **No
+window is placed**: none exists, and `Browser.getWindowForTarget` is still
+refused after it.
+
+**After**, through the host
+(`a_windowless_cards_view_told_its_size_scale_focus_and_hiding_through_alos_cef_host_as_chrome.rs`):
+800 × 500 at one said by the page within 2 ms of the order returning, its
+frames 800 × 500; at two within 38 ms, frames 1600 × 1000; the focus taken
+and given, hidden and shown, each said within 37 ms; expanded to
+1000 × 700 at two, frames 2000 × 1400; the host ended status 0.
+
+**Not built**: the conversation drawing an expanded windowless card's
+frames at the window's size, and telling the host `hidden` as a card goes
+off the screen or `focus` as it is pressed — alo opens no windowless card
+yet (980). A press held on a closed list is let go unpressed by a
+windowless *Expand* (its list is a popup the stream does not show, 982).
+Hiding throttles the page's timers, as a hidden tab's are; what that
+changes for an agent acting on a card off the screen is not measured.
+
 ## Queue items cut from it
 
 978 the popup road and the hold under Alloy; 979 the host's channel for size,

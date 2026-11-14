@@ -20,6 +20,14 @@ What changed, in words a person outside this repository can read. Newest first.
   the card's address bar, nor the chat's name. alo now also says when a
   screen reader begins and stops listening, with the time (ADR 0115's
   guard, queue item 989).
+- **A card drawn with no window can be told its size, its scale, and
+  whether it is hidden or has the focus.** The Chromium alo carries, when
+  drawing a page with no window at all (not yet something alo asks for),
+  now listens to alo for the page's size and scale, whether it is off the
+  screen, and whether it has the keyboard's focus — the things a window
+  would have told it — and refuses anything else alo might send. Expanding
+  such a card tells it the window's size instead of placing a window
+  (ADR 0113, queue item 979).
 - **A card drawn with no window keeps every request held, and opens no
   popup.** The Chromium alo carries, when told to draw a page with no
   window at all (not yet something alo asks for), now cancels any popup

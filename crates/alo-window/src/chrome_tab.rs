@@ -1030,6 +1030,26 @@ impl<'c> Tab<'c> {
         Ok(())
     }
 
+    /// Whether the tab's page has no window at all, drawn by a windowless
+    /// host (ADR 0113): its view is told the host ([`Tab::tell_host`]),
+    /// never fitted or placed.
+    pub fn is_windowless(&self) -> bool {
+        self.chrome.is_windowless()
+    }
+
+    /// Tell the tab's windowless host `told` of its page's view (queue item
+    /// 979, [`crate::chrome_tell`]).
+    ///
+    /// # Errors
+    ///
+    /// [`crate::chrome::Untold`], as [`Chrome::tell_host`] says.
+    pub fn tell_host(
+        &mut self,
+        told: crate::chrome_tell::ToHost,
+    ) -> Result<(), crate::chrome::Untold> {
+        self.chrome.tell_host(told)
+    }
+
     /// What the tab's Chromium told beside its pipe since this was last
     /// asked (queue items 799 and 798): only the Chromium alo carries tells
     /// anything, and only of a card's page while it is unseen.

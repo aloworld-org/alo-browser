@@ -14,7 +14,9 @@
 //! host's own error output nowhere. So the host writes one line here per
 //! thing told, to `/dev/fd/5`, opened once — and nothing when the
 //! descriptor is not open: a host started by hand tells nobody. The
-//! machine's Chrome writes nothing to it.
+//! machine's Chrome writes nothing to it. For a windowless page's host the
+//! descriptor is a socket, and alo tells the host of the page's view on it
+//! the other way (`heard.rs`, queue item 979).
 //!
 //! # One line each
 //!
