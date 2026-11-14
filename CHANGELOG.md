@@ -6,6 +6,12 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The link strip's test waits for the strip, not for a fixed time.** It
+  looked once after 1.2 s and failed on a slow machine; it now looks until
+  the strip is there, within 15 s, and says how long it looked; and it
+  lets its move off the link be sent before the move back on, since two
+  moves waiting together are sent as one and the page then never saw the
+  pointer leave (queue item 986).
 - **Settings › Screen readers: what screen readers and other programs
   may do.** A new section of *Settings* in `alo --conversation` chooses
   what alo gives macOS's accessibility API: *Read and act* (the default —

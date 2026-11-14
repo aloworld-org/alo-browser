@@ -146,6 +146,21 @@ fn hover(orders: &Orders, (x, y): (f64, f64)) -> Result<(), String> {
         .map_err(|_| "the card's thread has gone".to_owned())
 }
 
+/// The pointer moved to `away`, and then — once the card's thread has
+/// had time to send that move — to `at`: two moves waiting together are
+/// one, the newest (`chrome_card::only_the_newest_moves`), so `at` sent
+/// straight after `away` can reach the page as no move at all, the pointer
+/// never having left it (queue item 986).
+fn hover_again(
+    orders: &Orders,
+    told: &Receiver<ToFrame>,
+    (away, at): ((f64, f64), (f64, f64)),
+) -> Result<(), String> {
+    hover(orders, away)?;
+    drain(told, Duration::from_millis(250));
+    hover(orders, at)
+}
+
 /// Drain what the card's thread told for `long`.
 fn drain(told: &Receiver<ToFrame>, long: Duration) {
     let until = Instant::now() + long;
@@ -174,6 +189,47 @@ fn beside(listed: &[Listed], card: u64) -> Result<Option<Listed>, String> {
         [] => Ok(None),
         [one] => Ok(Some(**one)),
         more => Err(format!("more than one window beside the card's: {more:?}")),
+    }
+}
+
+/// How long the strip is looked for, or looked at going: long enough for a
+/// slow machine, and said when it runs out (queue item 986).
+const LOOKED_FOR: Duration = Duration::from_secs(15);
+
+/// Pictures of the window `card`, the card's news drained between them,
+/// until one's strip is `wanted` — there ([`Some`]) or gone ([`None`]) —
+/// within [`LOOKED_FOR`]: that picture and its strip. Before each picture
+/// the pointer is moved to `away` and then to `at` ([`hover_again`]), so
+/// that a move the page took before it was ready is made again, never
+/// waited on.
+fn until_strip(
+    told: &Receiver<ToFrame>,
+    orders: &Orders,
+    (card, window): (u64, Bounds),
+    (away, at): ((f64, f64), (f64, f64)),
+    wanted: bool,
+) -> Result<(Canvas, Option<Bounds>), String> {
+    let started = Instant::now();
+    loop {
+        hover_again(orders, told, (away, at))?;
+        drain(told, Duration::from_millis(300));
+        let picture = picture_of(card)?;
+        let plate = plate_in(&picture, window);
+        if plate.is_some() == wanted {
+            return Ok((picture, plate));
+        }
+        if started.elapsed() > LOOKED_FOR {
+            return Err(format!(
+                "{} after {:?} of looking at the expanded window's bottom left",
+                if wanted {
+                    "no strip"
+                } else {
+                    "the strip still there"
+                },
+                started.elapsed()
+            ));
+        }
+        drain(told, Duration::from_millis(200));
     }
 }
 
@@ -358,17 +414,35 @@ fn an_expanded_cards_link_is_shown_in_alos_own_strip_through_alos_cef_host() -> 
         }))
         .map_err(|_| "the card's thread has gone")?;
     drain(&told, Duration::from_millis(2500));
-    hover(&orders, (300.0, 400.0))?;
-    hover(&orders, (60.0, 135.0))?;
-    let over = listed_after(process, &told, Duration::from_millis(1200))?;
-    let window = over
-        .iter()
-        .find(|each| each.number == card)
-        .and_then(|each| each.bounds)
-        .ok_or_else(|| format!("the expanded card's window is not listed: {over:?}"))?;
-    let over_picture = picture_of(card)?;
-    let plate =
-        plate_in(&over_picture, window).ok_or("no strip at the expanded window's bottom left")?;
+    hover_again(&orders, &told, ((300.0, 400.0), (60.0, 135.0)))?;
+    // The card's window, waited for until the window server lists it at
+    // its expanded width.
+    let started = Instant::now();
+    let window = loop {
+        let over = listed_after(process, &told, Duration::from_millis(200))?;
+        let expanded = over
+            .iter()
+            .find(|each| each.number == card)
+            .and_then(|each| each.bounds)
+            .filter(|bounds| bounds.width == i64::from(width));
+        if let Some(window) = expanded {
+            break window;
+        }
+        if started.elapsed() > LOOKED_FOR {
+            return Err(format!(
+                "the card's window not listed {width} wide after {:?}: {over:?}",
+                started.elapsed()
+            ));
+        }
+    };
+    let (over_picture, plate) = until_strip(
+        &told,
+        &orders,
+        (card, window),
+        ((300.0, 400.0), (60.0, 135.0)),
+        true,
+    )?;
+    let plate = plate.ok_or("no strip at the expanded window's bottom left")?;
     eprintln!("alo's CEF host: the expanded window {window:?}; its strip {plate:?} in points");
     assert_eq!(plate.height, 24, "as tall as the strip: {plate:?}");
     assert_eq!(
@@ -378,9 +452,14 @@ fn an_expanded_cards_link_is_shown_in_alos_own_strip_through_alos_cef_host() -> 
     holds(&over_picture, window, plate, "link-strip.png")?;
 
     hover(&orders, (500.0, 400.0))?;
-    drain(&told, Duration::from_millis(1200));
-    let off = picture_of(card)?;
-    assert_eq!(plate_in(&off, window), None, "the strip stays off a link");
+    let (_, off) = until_strip(
+        &told,
+        &orders,
+        (card, window),
+        ((60.0, 135.0), (500.0, 400.0)),
+        false,
+    )?;
+    assert_eq!(off, None, "the strip stays off a link");
 
     orders
         .send(Order::CloseEverything)

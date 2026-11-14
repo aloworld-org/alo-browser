@@ -26730,6 +26730,18 @@ the rest runs on this Mac. Order: ADR 0112's *The plan, in order*.
   from 1%), then passed three in a row: it drains for a fixed 1.2 s and
   looks once. Such a test waits **until** what it looks for is there,
   within a bound, and fails saying how long it looked.
+  *Done for that test, 13 November 2026:* it waits until the window
+  server lists the card's window at its expanded width, and takes
+  pictures until the strip is there (then gone), each within 15 s, saying
+  how long it looked. Its real cause, found 14 November 2026 with the
+  page reporting each `mouseover`: the test moved the pointer off the link
+  and straight back on, and two moves waiting together are sent as the
+  newest (`only_the_newest_moves`), so the page often never saw the
+  pointer leave and Chromium told no new status after *Expand*; on
+  battery or under load it lost the race more often, which is why it
+  looked like power. Now the move away is given 250 ms to be sent first:
+  five passes in five, 11 s each. The locked-screen hang above is still
+  open.
 - [x] **987. ADR 0115 phase (a): alo's own interface on macOS's
   accessibility API.** The conversation's window — the chats panel or its
   rail, the first screen and its card's frame — published through
