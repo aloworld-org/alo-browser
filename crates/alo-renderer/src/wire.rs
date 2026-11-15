@@ -53,6 +53,7 @@ use alo_net::referrer::Policy;
 use alo_text::{Slant, Weight};
 
 mod agent;
+mod band;
 mod beneath;
 mod conversation;
 mod fetch;
@@ -451,6 +452,7 @@ pub fn write_to_renderer(message: &ToRenderer) -> Vec<u8> {
             writer.tag(11);
             writer.strip(strip);
         }
+        ToRenderer::Band(band) => writer.band(24, band),
         ToRenderer::Pointer(pointer) => {
             writer.tag(12);
             writer.pointer(pointer);
@@ -1419,6 +1421,7 @@ pub fn read_to_renderer(bytes: &[u8]) -> Result<ToRenderer, Unreadable> {
         9 => ToRenderer::Visibility(reader.visibility()?),
         10 => ToRenderer::Leave,
         11 => ToRenderer::Strip(Box::new(reader.strip()?)),
+        24 => ToRenderer::Band(Box::new(reader.band()?)),
         12 => ToRenderer::Pointer(reader.pointer()?),
         13 => ToRenderer::StripPress(alo_paint::Point::new(reader.float()?, reader.float()?)),
         14 => ToRenderer::Panel(Box::new(reader.panel()?)),

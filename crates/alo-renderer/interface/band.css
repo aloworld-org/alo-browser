@@ -1,0 +1,69 @@
+/* The frame's band, as alo OS's window band (queue item 991; alo-os
+   docs/design/the-window-controls.md at 09597d7, read for reference only):
+   the page's title at 22 across and 18 down in Manrope SemiBold 14 on a 19
+   line, in the ink; the application's name 24 after it and 20 down in
+   Manrope 11 on a 15 line, muted. The window in front's colours: the band
+   is light only, as alo OS's spec is. The values are the spec's, spelled
+   here because no other file is reachable from a renderer. The line along
+   the band's foot is the browser process's, drawn over this. */
+:root {
+  --face: "Manrope";
+  --ground: #ffffff;
+  --ink: #102a43;
+  --muted: #596b78;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--ground);
+  font-family: var(--face), system-ui, sans-serif;
+  overflow: hidden;
+}
+
+.band {
+  display: flex;
+  align-items: flex-start;
+  height: 100%;
+  padding-left: 22px;
+}
+
+/* A title is a stranger's, and as long as they made it: one line, the
+   first to give way, cut with an ellipsis where the name's room begins. */
+.title {
+  flex-grow: 0;
+  flex-shrink: 1;
+  flex-basis: auto;
+  min-width: 0;
+  margin-top: 18px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 19px;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The application's name keeps its room. */
+.name {
+  flex-grow: 0;
+  flex-shrink: 0;
+  flex-basis: auto;
+  margin-top: 20px;
+  margin-left: 24px;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 15px;
+  color: var(--muted);
+  white-space: nowrap;
+}

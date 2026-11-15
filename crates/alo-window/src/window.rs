@@ -63,17 +63,20 @@
 //! made inactive, so a person's keys go on reaching Chrome's page.
 //!
 //! It draws which renderer draws the page, and what agents' verbs were
-//! answered with (queue item 679, [`crate::compose::compose_frame`]): told
+//! answered with (queue items 679 and 991,
+//! [`crate::frame_compose::compose_frame`]), as alo OS's window band: told
 //! each line by the same thread ([`ToFrame::Agent`]), it keeps them as this
 //! engine's window does ([`AgentLines`]) and is drawn again.
 //!
-//! And it draws the page's tab (queue item 681). Told what Chrome calls the
-//! page ([`ToFrame::Named`]), it hands a strip of that one tab to a tab
+//! And it draws the page's title and the application's name (queue items
+//! 681 and 991). Told what Chrome calls the page ([`ToFrame::Named`]), it
+//! hands a band of that title, as wide as the frame leaves it, to a tab
 //! strip's renderer of its own, on a thread of its own
 //! ([`crate::frame_strip`]), and draws what that renderer painted when it
 //! is told it ([`ToFrame::Strip`]) — never the title itself, which is a
-//! stranger's string this process does not shape (ADR 0024 § 4). The
-//! window's own title stays "alo".
+//! stranger's string this process does not shape (ADR 0024 § 4). The band
+//! is drawn again when the frame's size, its scale or its agents' lines
+//! change the room it has. The window's own title stays "alo".
 //!
 //! # The conversation's window
 //!
@@ -182,7 +185,7 @@ use crate::chrome_follow::Follow;
 use crate::chrome_protocol::Bounds;
 use crate::chrome_protocol::Named;
 use crate::closing::Closing;
-use crate::compose::{FrameScene, compose, compose_frame};
+use crate::compose::compose;
 use crate::conversation_agents::Reaching;
 use crate::conversation_chrome::ChromeOpener;
 use crate::conversation_composed::Composed;
@@ -192,13 +195,15 @@ use crate::conversation_glide::FRAME;
 use crate::conversation_search::Searcher;
 use crate::conversation_window::{ConversationWindow, Heard, Measured};
 use crate::cursor::{Cursor, Pressed};
-use crate::frame_strip::{FrameStrip, strip_of};
+use crate::frame_compose::{FrameScene, compose_frame};
+use crate::frame_place::BAND_HEIGHT;
+use crate::frame_strip::{FrameStrip, band_of};
 use crate::frame_told::ToFrame;
 use crate::inbox::Orders;
 use crate::keys::{self, Arrow, Held, Key, Modifier, Press};
 use crate::message::{News, Order};
 use crate::notice::Lettering;
-use crate::place::{Placement, STRIP_HEIGHT, screen};
+use crate::place::{Placement, screen};
 use crate::present::Presenter;
 use crate::present_chosen::{How, Screen};
 use crate::scale::Scale;
@@ -527,9 +532,10 @@ impl ApplicationHandler<News> for App {
 
 /// Run the frame of ours around Chrome's window until it is told Chrome's
 /// window is gone (ADR 0062, queue item 642): told where to stand, what
-/// agents did and what the page is called on `told`, saying that
-/// `renderer` draws the page, sending `orders` to the thread holding
-/// Chrome, and having the page's tab drawn by a renderer of `strips`' —
+/// agents did and what the page is called on `told`, saying in `renderer`'s
+/// plain words which renderer draws the page, sending `orders` to the
+/// thread holding Chrome, and having the page's title drawn by a renderer
+/// of `strips`' —
 /// and running `closing` as the event loop ends, however it ends.
 ///
 /// `closing` is run in the handler's `exiting`, because quitting the program
@@ -631,7 +637,8 @@ struct Framing<'a> {
     closing: Closing<'a>,
     /// Where the frame was last told to stand.
     told: Follow,
-    /// Which renderer draws the page, as the frame says it.
+    /// Which renderer draws the page, in the plain words the frame says it
+    /// in ([`crate::pages::RenderedBy::plainly`]).
     renderer: String,
     /// What agents' verbs were answered with, as long as they are kept.
     lines: AgentLines,
@@ -680,36 +687,41 @@ impl Framing<'_> {
         }
     }
 
-    /// Have the page's tab drawn for what Chrome last called the page, at
-    /// the frame's scale — which its strip's thread does only when that is
-    /// a different strip from the last.
+    /// Have the band drawn for what Chrome last called the page, at the
+    /// frame's scale and as wide as the frame leaves it — which its strip's
+    /// thread does only when that is a different band from the last.
     fn draw_tab(&mut self) {
-        let (Some(window), Some(named), Some(strip)) =
-            (&self.window, &self.named, self.strip.as_mut())
-        else {
+        let Some(scene) = self.scene() else {
             return;
         };
-        let scale = Scale::of_screen(window.scale_factor());
-        strip.draw(strip_of(named, scale.factor()));
+        let width = scene.placed(&self.lettering).band_width;
+        let scale = scene.scale.factor();
+        let (Some(named), Some(strip)) = (&self.named, self.strip.as_mut()) else {
+            return;
+        };
+        strip.draw(band_of(named, width, scale));
+    }
+
+    /// What the frame is drawn from now, if it has a window.
+    fn scene(&self) -> Option<FrameScene<'_>> {
+        let window = self.window.as_ref()?;
+        let size = window.inner_size();
+        Some(FrameScene {
+            window: (size.width, size.height),
+            scale: Scale::of_screen(window.scale_factor()),
+            band: self.tab.as_ref(),
+            band_sentence: self.tab_said.as_deref(),
+            renderer: &self.renderer,
+            agent_lines: self.lines.lines(),
+        })
     }
 
     /// Draw the frame at its window's size.
     fn draw(&mut self) {
-        let Some(window) = &self.window else {
+        let Some(scene) = self.scene() else {
             return;
         };
-        let size = window.inner_size();
-        let canvas = compose_frame(
-            &FrameScene {
-                window: (size.width, size.height),
-                scale: Scale::of_screen(window.scale_factor()),
-                strip: self.tab.as_ref(),
-                strip_sentence: self.tab_said.as_deref(),
-                renderer: &self.renderer,
-                agent_lines: self.lines.lines(),
-            },
-            &self.lettering,
-        );
+        let canvas = compose_frame(&scene, &self.lettering);
         if let Some(presenter) = self.presenter.as_mut()
             && let Err(why) = presenter.show(&canvas)
         {
@@ -755,7 +767,7 @@ impl ApplicationHandler<ToFrame> for Framing<'_> {
             .with_resizable(false)
             .with_active(false)
             .with_visible(false)
-            .with_inner_size(LogicalSize::new(FIRST_SIZE.0, f64::from(STRIP_HEIGHT)));
+            .with_inner_size(LogicalSize::new(FIRST_SIZE.0, f64::from(BAND_HEIGHT)));
         let window = match event_loop.create_window(attributes) {
             Ok(window) => Rc::new(window),
             Err(why) => {
@@ -785,6 +797,8 @@ impl ApplicationHandler<ToFrame> for Framing<'_> {
             ToFrame::Stand(follow) => follow,
             ToFrame::Agent(line) => {
                 self.lines.heard(line);
+                // A line takes room from the title, which is cut again.
+                self.draw_tab();
                 self.redraw();
                 return;
             }

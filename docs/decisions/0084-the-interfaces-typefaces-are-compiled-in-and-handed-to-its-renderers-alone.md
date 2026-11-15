@@ -380,3 +380,23 @@ the tags of the five before it.
 - The link strip of an expanded card (queue item 852, drawn by the CEF
   host) still asks for *Inter*; it is not told the face and is not changed
   here.
+
+## Addendum, 2026-11-14 — the frame's strip is handed them too (queue item 991)
+
+The owner's choice of 14 November 2026: the frame of ours above Chromium's
+window is drawn as alo OS's window band, the page's title in Manrope
+SemiBold and the application's name in Manrope beside it. The title is a
+stranger's string, so it is drawn where every title is — by the frame's own
+strip's renderer, at the strip's site, the title a text node (ADR 0024 § 4)
+— and that renderer is now **handed the interface's typefaces**, beside
+whatever fonts it was given, as the conversation's renderers are
+(`alo-window`'s `FrameStrip::start`, through `fonts::for_the_interface`).
+
+§ 3 is otherwise unchanged. The reasons it gives for keeping the faces
+from a page's renderer do not reach this one: it draws nothing but the band
+— alo's own template and stylesheet (`alo-renderer`'s `interface/band.css`)
+and the page's title as text — at a site no page can name, so no page is
+drawn in the faces and none can find them. The tab strip of this engine's
+own window (`Tabs` in `alo PAGE`) keeps the machine's fonts and its
+`system-ui` stylesheet, as § 3 says; only the frame's strip, which holds the
+band and nothing else, is handed them.

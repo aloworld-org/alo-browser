@@ -99,7 +99,7 @@ use alo_window::conductor::{Conductor, Fonts};
 use alo_window::data_dir::DataDir;
 use alo_window::inbox::Orders;
 use alo_window::message::Order;
-use alo_window::opening::{CHROME_AT, CHROME_SIZE, Opening, Renderer};
+use alo_window::opening::{CHROME_SIZE, FRAMED_AT, Opening, Renderer};
 use alo_window::pages::RenderedBy;
 use std::process::ExitCode;
 
@@ -377,9 +377,9 @@ fn in_chrome(opening: &Opening, watching: bool, chromium: Chromium) -> Result<Ex
             return Ok(ExitCode::from(2));
         }
     };
-    // The page's tab in the frame is drawn by a tab strip's renderer of
-    // this engine's, never in this process (item 681): one that is not
-    // there is said before Chrome is started.
+    // The page's title in the frame is drawn by a tab strip's renderer of
+    // this engine's, never in this process (items 681 and 991): one that is
+    // not there is said before Chrome is started.
     let strips = match renderers(opening.fonts) {
         Ok(renderers) => renderers,
         Err(failed) => return Ok(failed),
@@ -389,7 +389,7 @@ fn in_chrome(opening: &Opening, watching: bool, chromium: Chromium) -> Result<Ex
         chromium,
         page,
         CHROME_SIZE,
-        CHROME_AT,
+        FRAMED_AT,
         opening.scope(),
         Box::new(move |news| tell.send(news).is_ok()),
     );
@@ -409,7 +409,9 @@ fn in_chrome(opening: &Opening, watching: bool, chromium: Chromium) -> Result<Ex
              or it is quit"
         );
     }
-    let rendered_by = serving.rendered_by().to_string();
+    // The frame says it in plain words; agents and the terminal are told
+    // the exact ones.
+    let rendered_by = serving.rendered_by().plainly();
     // Whether the thread holding Chrome finished, once it has been waited for.
     let finished = std::cell::Cell::new(false);
     let frame_orders = orders.clone();

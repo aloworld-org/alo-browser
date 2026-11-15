@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The band above the page looks like alo OS's window band.** The strip of
+  ours over Chromium's window is now white with a thin grey line beneath,
+  54 points tall: the page's title in Manrope semibold, "alo browser" in
+  grey after it (said once when the title already is the name), and at the
+  right, in plain words, what draws the page — "Page drawn by Chromium 156,
+  carried inside alo". A long title is cut with an ellipsis before the
+  name gives way. macOS's own close, minimise and zoom buttons stay on
+  Chromium's window. The title is still drawn by a sandboxed renderer, never
+  by the browser process, and agents are still told the exact version.
+  Light only, and always drawn as a window in front for now (queue item
+  991).
 - **alo is notarised by Apple.** `alo browser.app`, signed with its
   owner's Developer ID, was sent to Apple, accepted and stapled. A copy
   downloaded onto a Mac now opens after macOS's usual question about apps

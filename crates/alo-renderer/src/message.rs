@@ -23,6 +23,7 @@
 //! format before there is a process to send it to would be inventing.
 
 use crate::ask::Asked;
+use crate::band::Band;
 use crate::conversation_claim::Claim as ConversationClaim;
 use crate::face::Face;
 use crate::fetch::{FetchAsk, Fetched};
@@ -124,6 +125,17 @@ pub enum ToRenderer {
     /// runs no script, so the answer asks for nothing. `Paint` and
     /// `ReadTree` then answer about the strip as they would a page.
     Strip(Box<Strip>),
+    /// Hold the band of the frame around Chromium's window, built from this
+    /// state (queue item 991): the page's title and the application's name,
+    /// as alo OS's window band draws them.
+    ///
+    /// Sent only to the frame's strip's renderer, at the strip's own site
+    /// ([`crate::strip::site`]), and held as the strip is: data, never
+    /// markup, the title a text node ([`crate::band_document`]), answered
+    /// with [`FromRenderer::Loaded`]; `Paint` and `ReadTree` then answer
+    /// about the band. A band is never pressed, so `StripPress` answers
+    /// that the renderer holds no strip.
+    Band(Box<Band>),
     /// A person's main button went down or up, here (ADR 0024 § 5, queue
     /// item 535): the one coordinate that reaches a renderer, which only
     /// the browser process sends and only for a person.
@@ -601,6 +613,7 @@ impl fmt::Display for ToRenderer {
                 strip.viewport.width,
                 strip.viewport.height,
             ),
+            ToRenderer::Band(band) => fmt::Display::fmt(band, f),
             ToRenderer::Start(start) => write!(
                 f,
                 "hold the first screen, {} sites and {} waiting, at {}×{}",
@@ -683,6 +696,9 @@ mod tests {
             ToRenderer::Sheet(_) => "the answer to a style sheet the page asked for",
             // The browser's own tabs, which only the strip's renderer is sent.
             ToRenderer::Strip(_) => "the tab strip, as data",
+            // The page's title and the application's name, which only the
+            // frame's strip's renderer is sent.
+            ToRenderer::Band(_) => "the frame's band, as data",
             // Where a person pressed the strip, and nothing about any page.
             ToRenderer::StripPress(_) => "a person's press on the strip",
             // The browser's own chats, which only the panel's renderer is
@@ -761,6 +777,11 @@ mod tests {
         assert_eq!(
             ToRenderer::Strip(Box::new(strip)).to_string(),
             "hold the tab strip, 1 open, at 640×40",
+        );
+        let band = crate::band::Band::new("a", "about:blank", Size::new(640.0, 54.0));
+        assert_eq!(
+            ToRenderer::Band(Box::new(band)).to_string(),
+            "hold the frame's band, at 640×54",
         );
         let panel = Panel {
             chats: vec![crate::panel::Chat::new("a", "b")],

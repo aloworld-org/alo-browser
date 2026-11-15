@@ -24,15 +24,14 @@
 //! device pixels (ADR 0057 § 3, queue item 562), so each of their pixels is
 //! one of the window's: nothing is replicated or stretched here.
 //!
-//! The frame of ours around Chrome's window ([`compose_frame`], queue items
-//! 679 and 681) is composed the same way, from what it was told and nothing
-//! else: the page's tab as its strip's renderer painted it, which renderer
-//! draws the page, and what agents' verbs were answered with.
+//! The frame of ours around Chromium's window is composed the same way, in
+//! a file of its own ([`crate::frame_compose`], queue item 991), since its
+//! look is alo OS's window band and changes for reasons this window's does
+//! not; it shares the agents' lines and the one-to-one copy from here.
 
 use crate::acting_mark;
 use crate::agent_lines::AgentLine;
-use crate::colours::{agent_line, background, notice_line, rail, refused_line, renderer_line};
-use crate::frame_place::FramePlacement;
+use crate::colours::{agent_line, background, notice_line, rail, refused_line};
 use crate::mark::{self, Marked};
 use crate::notice::Lettering;
 use crate::place::{Contents, PixelRect, Placement};
@@ -121,83 +120,9 @@ pub fn compose(scene: &Scene<'_>, lettering: &Lettering) -> Canvas {
     canvas
 }
 
-/// Everything the frame of ours around Chrome's window is drawn from (ADR
-/// 0062, queue items 642 and 679).
-#[derive(Debug, Clone, Copy)]
-pub struct FrameScene<'a> {
-    /// The frame's size in device pixels.
-    pub window: (u32, u32),
-    /// How many device pixels one CSS pixel is on its screen.
-    pub scale: Scale,
-    /// The page's tab, as the frame's strip's renderer last painted it
-    /// (queue item 681), if it ever did.
-    pub strip: Option<&'a Frame>,
-    /// Why the strip's renderer painted no tab, if it said so since it
-    /// last painted one: shown in the tab's place.
-    pub strip_sentence: Option<&'a str>,
-    /// Which renderer draws the page, in the one wording there is of it:
-    /// [`crate::pages::RenderedBy`]'s, as the socket's `renderer` answer
-    /// says it.
-    pub renderer: &'a str,
-    /// What agents' verbs were answered with, oldest first, as long as the
-    /// frame keeps them ([`crate::agent_lines::AgentLines`]).
-    pub agent_lines: &'a [AgentLine],
-}
-
-/// The frame's pixels: the rail's colour edge to edge — the band across
-/// the top of this engine's own window, because the frame stands where that
-/// band would be — and in it, as [`FramePlacement`] places them, the
-/// page's tab, which renderer draws the page and then what agents did, a
-/// refusal in colours of its own. A frame of no size is a canvas of no
-/// size.
-///
-/// The tab is the strip's renderer's frame, one of its pixels to each
-/// device pixel; when that renderer has since said why it painted none,
-/// the sentence stands in the tab's place, as a gone tab's does in this
-/// engine's window — there is no room below the band to keep both.
-pub fn compose_frame(scene: &FrameScene<'_>, lettering: &Lettering) -> Canvas {
-    let (width, height) = scene.window;
-    let mut canvas = Canvas::new(width, height, rail());
-    let scale = scene.scale;
-    let strip = match (scene.strip_sentence, scene.strip) {
-        (Some(sentence), _) => lettering.line_width(sentence, scale),
-        (None, Some(frame)) => frame.width,
-        (None, None) => 0,
-    };
-    let placed = FramePlacement::of(
-        scene.window,
-        scale,
-        strip,
-        lettering.line_width(scene.renderer, scale),
-        scene.agent_lines.len(),
-    );
-    match (scene.strip_sentence, scene.strip) {
-        (Some(sentence), _) => {
-            lettering.draw(&mut canvas, placed.strip, sentence, scale, notice_line());
-        }
-        (None, Some(frame)) => copy(&mut canvas, frame, placed.strip),
-        (None, None) => {}
-    }
-    lettering.draw(
-        &mut canvas,
-        placed.renderer,
-        scene.renderer,
-        scale,
-        renderer_line(),
-    );
-    draw_agent_lines(
-        &mut canvas,
-        lettering,
-        scene.agent_lines,
-        placed.agent_lines,
-        scale,
-    );
-    canvas
-}
-
 /// Draw each of `lines` into its rectangle, if it was given one, in the
 /// colours of a verb that ran — after alo's mark — or of a refusal.
-fn draw_agent_lines(
+pub(crate) fn draw_agent_lines(
     canvas: &mut Canvas,
     lettering: &Lettering,
     lines: &[AgentLine],
@@ -303,141 +228,6 @@ mod tests {
             };
             assert_eq!(rgba8(&canvas, 3, y), Some(expected.to_rgba8()), "at y {y}");
         }
-    }
-
-    /// A frame of `window` saying Chrome draws the page, and `lines`.
-    fn framed(window: (u32, u32), scale: Scale, lines: &[AgentLine]) -> FrameScene<'_> {
-        FrameScene {
-            window,
-            scale,
-            strip: None,
-            strip_sentence: None,
-            renderer: "Chrome/155.0.8059.86, driven by this browser",
-            agent_lines: lines,
-        }
-    }
-
-    #[test]
-    fn the_pages_tab_is_drawn_first_one_to_one_and_the_renderer_after_it() {
-        let lettering = lettering();
-        // A painted tab of four by two device pixels, one of them clear.
-        let mut painted = Canvas::new(4, 2, Rgba::from_rgba8(0, 0, 0, 0));
-        painted.fill_rect(0, 0, 4, 1, Rgba::from_rgba8(10, 20, 30, 255));
-        painted.fill_rect(0, 1, 3, 1, Rgba::from_rgba8(10, 20, 30, 255));
-        let tab = Frame::from_canvas(&painted);
-        let scene = FrameScene {
-            strip: Some(&tab),
-            ..framed((1200, 36), Scale::ONE, &[])
-        };
-        let canvas = compose_frame(&scene, &lettering);
-        for (x, y) in [(0, 0), (3, 0), (0, 1)] {
-            assert_eq!(rgba8(&canvas, x, y), Some((10, 20, 30, 255)), "at {x},{y}");
-        }
-        // Its clear pixel shows the rail, and so does all below it.
-        assert_eq!(rgba8(&canvas, 3, 1), Some(rail().to_rgba8()));
-        assert_eq!(rgba8(&canvas, 0, 2), Some(rail().to_rgba8()));
-        // The renderer's sentence starts a gap after it.
-        let placed = FramePlacement::of(
-            (1200, 36),
-            Scale::ONE,
-            4,
-            lettering.line_width(scene.renderer, Scale::ONE),
-            0,
-        );
-        assert_eq!(placed.renderer.x, 5);
-        assert_eq!(rgba8(&canvas, 4, 20), Some(rail().to_rgba8()), "the gap");
-        let alone = compose_frame(&framed((1200, 36), Scale::ONE, &[]), &lettering);
-        let shifted = (0..36).all(|y| {
-            (0..placed.renderer.width).all(|x| rgba8(&alone, x, y) == rgba8(&canvas, x + 5, y))
-        });
-        assert!(shifted, "the same sentence, moved past the tab");
-    }
-
-    #[test]
-    fn a_strip_that_said_why_it_painted_nothing_says_it_in_the_tabs_place() {
-        let lettering = lettering();
-        let tab = Frame::from_canvas(&Canvas::new(4, 2, Rgba::from_rgba8(10, 20, 30, 255)));
-        let sentence = "the tab strip could not be drawn";
-        let scene = FrameScene {
-            strip: Some(&tab),
-            strip_sentence: Some(sentence),
-            ..framed((1200, 36), Scale::ONE, &[])
-        };
-        let canvas = compose_frame(&scene, &lettering);
-        let needs = lettering.line_width(sentence, Scale::ONE);
-        // The sentence's ground under its rule, not the old tab, at its
-        // left edge.
-        assert_eq!(rgba8(&canvas, 0, 0), Some(notice_line().rule.to_rgba8()));
-        assert_eq!(rgba8(&canvas, 0, 1), Some(notice_line().ground.to_rgba8()));
-        assert_eq!(
-            rgba8(&canvas, needs - 1, 35),
-            Some(notice_line().ground.to_rgba8())
-        );
-        assert_eq!(
-            rgba8(&canvas, needs, 20),
-            Some(rail().to_rgba8()),
-            "the gap"
-        );
-    }
-
-    #[test]
-    fn the_frame_around_chromes_window_is_the_rail_and_says_which_renderer() {
-        let lettering = lettering();
-        // A frame of 1200 by 36 points at two.
-        let scene = framed((2400, 72), Scale::TWO, &[]);
-        let canvas = compose_frame(&scene, &lettering);
-        assert_eq!((canvas.width(), canvas.height()), (2400, 72));
-        let needs = lettering.line_width(scene.renderer, Scale::TWO);
-        assert!((400..1200).contains(&needs), "{needs}");
-        // Past the renderer's sentence, the rail edge to edge.
-        for y in 0..72 {
-            for x in needs..2400 {
-                assert_eq!(rgba8(&canvas, x, y), Some(rail().to_rgba8()), "at {x},{y}");
-            }
-        }
-        // Its words are in it, and only in it.
-        let inked = |x0: u32, x1: u32| {
-            (0..72).any(|y| (x0..x1).any(|x| rgba8(&canvas, x, y) != Some(rail().to_rgba8())))
-        };
-        assert!(inked(0, needs));
-        let nothing = compose_frame(&framed((0, 0), Scale::TWO, &[]), &lettering);
-        assert_eq!((nothing.width(), nothing.height()), (0, 0));
-    }
-
-    #[test]
-    fn the_frames_lines_are_drawn_where_they_are_placed_in_their_colours() {
-        let lettering = lettering();
-        let lines = [
-            AgentLine {
-                sentence: "nothing on the page is \"A pony\"".to_owned(),
-                refused: true,
-            },
-            AgentLine {
-                sentence: "activated box#6".to_owned(),
-                refused: false,
-            },
-        ];
-        let scene = framed((1200, 36), Scale::ONE, &lines);
-        let canvas = compose_frame(&scene, &lettering);
-        let placed = FramePlacement::of(
-            (1200, 36),
-            Scale::ONE,
-            0,
-            lettering.line_width(scene.renderer, Scale::ONE),
-            2,
-        );
-        let [Some(refused), Some(ran), None] = placed.agent_lines else {
-            panic!("two lines are placed: {placed:?}");
-        };
-        // The ground of each, under its rule, at its right end.
-        let ground = |rect: PixelRect| rgba8(&canvas, rect.x + rect.width - 1, rect.height - 2);
-        assert_eq!(ground(refused), Some(refused_line().ground.to_rgba8()));
-        assert_eq!(ground(ran), Some(agent_line().ground.to_rgba8()));
-        // The gap between them, and before the first, is the rail.
-        for x in [refused.x - 1, ran.x - 1] {
-            assert_eq!(rgba8(&canvas, x, 20), Some(rail().to_rgba8()), "at {x}");
-        }
-        assert_eq!(ran.x + ran.width, 1200);
     }
 
     #[test]

@@ -64,14 +64,14 @@ use crate::chrome::Failed;
 use crate::chrome_protocol::{self, Bounds, Command, WindowState};
 use crate::chrome_tab::Tab;
 use crate::chrome_window::{self, Placed, Unplaced};
-use crate::place::STRIP_HEIGHT;
+use crate::frame_place::BAND_HEIGHT;
 use crate::window_server::{self, Listed, Unlisted};
 use core::fmt;
 
-/// How tall the frame is, in the screen's points: the tab strip's height,
-/// so that a strip drawn in it is drawn as the engine's window draws its
-/// own. The line where 623's sentence goes may make it taller.
-pub const FRAME_HEIGHT: i64 = STRIP_HEIGHT as i64;
+/// How tall the frame is, in the screen's points: alo OS's window band's
+/// 54 (queue item 991, [`BAND_HEIGHT`]), the page's title and what agents
+/// did in it.
+pub const FRAME_HEIGHT: i64 = BAND_HEIGHT as i64;
 
 /// The layer of an ordinary window, as the window server numbers it.
 const ORDINARY: i64 = 0;
@@ -299,7 +299,7 @@ mod tests {
     #[test]
     fn the_frame_stands_directly_above_a_window_the_screen_shows() {
         let chrome = at(300, 240, 1000, 632);
-        let ours = listed(CHROME + 1, 3, Some(at(300, 204, 1000, 36)));
+        let ours = listed(CHROME + 1, 3, Some(at(300, 186, 1000, 54)));
         assert_eq!(
             stand(
                 &placed(chrome, WindowState::Normal),
@@ -307,7 +307,7 @@ mod tests {
                 &[ours, listed(CHROME, ORDINARY, Some(chrome))]
             ),
             Stance::Beside {
-                frame: at(300, 204, 1000, FRAME_HEIGHT)
+                frame: at(300, 186, 1000, FRAME_HEIGHT)
             }
         );
         // Moved by a person, and read again: the frame goes where it went.
@@ -319,10 +319,10 @@ mod tests {
                 &[listed(CHROME, ORDINARY, Some(moved))]
             ),
             Stance::Beside {
-                frame: at(350, 254, 900, 36)
+                frame: at(350, 236, 900, 54)
             }
         );
-        assert_eq!(FRAME_HEIGHT, 36);
+        assert_eq!(FRAME_HEIGHT, 54);
     }
 
     #[test]
@@ -374,7 +374,7 @@ mod tests {
         assert_eq!(
             stand(&placed(chrome, WindowState::Maximized), CHROME, &shown),
             Stance::Beside {
-                frame: at(0, -36, 1710, 36)
+                frame: at(0, -54, 1710, 54)
             },
             "a maximised window is a window; where the frame can go above it is the window's"
         );

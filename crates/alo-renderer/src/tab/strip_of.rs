@@ -48,6 +48,7 @@
 //! caller's to know — it is the one whose frame the window was last sent.
 
 use super::{Lost, Tab, TabId, Tabs};
+use crate::band::Band;
 use crate::frame::Frame;
 use crate::host::Gone;
 use crate::message::{FromRenderer, ToRenderer};
@@ -210,14 +211,29 @@ impl Tabs {
     /// before: a strip whose renderer has gone is not drawn again, and keeps
     /// the last frame it painted.
     pub fn draw_strip(&mut self, strip: &Strip) -> Result<FromRenderer, Lost> {
+        self.draw_at_the_strip(&ToRenderer::Strip(Box::new(strip.clone())))
+    }
+
+    /// Draw `band` — the frame's band around Chromium's window (queue item
+    /// 991) — in the strip's renderer and paint it, keeping the frame, as
+    /// [`Tabs::draw_strip`] draws a strip: the same renderer, at the same
+    /// site, lost and kept the same way.
+    ///
+    /// # Errors
+    ///
+    /// As [`Tabs::draw_strip`]'s.
+    pub fn draw_band(&mut self, band: &Band) -> Result<FromRenderer, Lost> {
+        self.draw_at_the_strip(&ToRenderer::Band(Box::new(band.clone())))
+    }
+
+    /// Have the strip's renderer hold `held` — a strip or a band — and
+    /// paint it, keeping the frame.
+    fn draw_at_the_strip(&mut self, held: &ToRenderer) -> Result<FromRenderer, Lost> {
         if let Some(gone) = &self.strip.gone {
             return Err(Lost::Gone(gone.clone()));
         }
         let site = self.strip.site.clone();
-        let built = match self
-            .renderers
-            .ask(&site, &ToRenderer::Strip(Box::new(strip.clone())))
-        {
+        let built = match self.renderers.ask(&site, held) {
             Ok(built) => built,
             Err(gone) => return Err(self.strip_lost(gone)),
         };

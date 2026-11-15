@@ -102,11 +102,29 @@ pub fn mark() -> Rgba {
     Rgba::from_rgba8(0x0f, 0x6b, 0x72, 0xff)
 }
 
+/// The ground of the band of the frame around Chromium's window, while the
+/// window is in front (queue item 991): alo OS's window band's `#FFFFFF`,
+/// from alo OS's own spec (`docs/design/the-window-controls.md` at
+/// `09597d7`, read for reference only) rather than `tokens.css`, because
+/// the band is alo OS's look. Its colours for a window not in front
+/// (`#FAF7F2` and `#E7EBEF`) are not here: the frame does not yet know
+/// whether Chromium's window is in front.
+pub fn band_ground() -> Rgba {
+    Rgba::from_rgba8(0xff, 0xff, 0xff, 0xff)
+}
+
+/// The one-pixel line along the band's foot, in front: alo OS's
+/// `#CBD5E1`.
+pub fn band_line() -> Rgba {
+    Rgba::from_rgba8(0xcb, 0xd5, 0xe1, 0xff)
+}
+
 /// The words saying which renderer draws the page, in the frame around
-/// Chrome's window (queue item 679): `--text-on-rail-muted`, the colour
-/// alo's rail gives what is there to be read and is not the point.
+/// Chromium's window (queue items 679 and 991): alo OS's muted `#596B78`,
+/// the colour its window band gives the application's name — there to be
+/// read, and not the point.
 pub fn renderer_ink() -> Rgba {
-    Rgba::from_rgba8(0xae, 0xb8, 0xbe, 0xff)
+    Rgba::from_rgba8(0x59, 0x6b, 0x78, 0xff)
 }
 
 /// The three colours one of the browser's own lines is drawn in.
@@ -138,14 +156,14 @@ pub fn agent_line() -> LineColours {
     }
 }
 
-/// The line saying which renderer draws the page, on the rail's own
+/// The line saying which renderer draws the page, on the band's own
 /// ground with no rule, because it stands on nothing that needs a line
 /// between.
 pub fn renderer_line() -> LineColours {
     LineColours {
-        ground: rail(),
+        ground: band_ground(),
         ink: renderer_ink(),
-        rule: rail(),
+        rule: band_ground(),
     }
 }
 
@@ -193,6 +211,8 @@ mod tests {
             button_ground(),
             refused_ink(),
             renderer_ink(),
+            band_ground(),
+            band_line(),
             mark(),
         ] {
             assert!((colour.alpha - 1.0).abs() < f32::EPSILON);

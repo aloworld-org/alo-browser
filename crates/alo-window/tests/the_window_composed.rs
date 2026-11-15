@@ -53,14 +53,21 @@
 //! at 1.5 a refusal outlasting the verb that ran after it. Each is also
 //! checked in numbers, against where `frame_place` puts the lines.
 //!
-//! Item 681 puts the page's tab first in that frame, as the frame's own
-//! strip's renderer paints it — drawn here by the engine from
-//! `alo-renderer`'s template and stylesheet, for the strip
-//! `frame_strip::strip_of` makes of what Chrome calls the page, with a
-//! title holding markup that is drawn as the characters it is: at two
-//! beside which renderer, and at 1.5 with an agent's line and a refusal.
-//! Each is checked in numbers too: the tab's frame one to one at the band's
-//! left, and the renderer's sentence a gap after it.
+//! Item 991 draws that frame as alo OS's window band, light only: white, a
+//! one-pixel line `#CBD5E1` along its foot, the page's title and the
+//! application's name as the frame's own strip's renderer paints them —
+//! drawn here by the engine from `alo-renderer`'s template and stylesheet,
+//! in the interface's Manrope, for the band `frame_strip::band_of` makes of
+//! what Chromium calls the page, with a title holding markup that is drawn
+//! as the characters it is — and which renderer draws the page in plain
+//! words at its right edge: in front at one and at two, a long title cut
+//! beside an agent's line, and at 1.5 with an agent's line and a refusal.
+//! Each is checked in numbers too: the band's frame one to one at the left,
+//! the renderer's words against the right edge, the lines between, and the
+//! foot's line under everything. The four frames of 679 were drawn again
+//! in the band's look; 681's two of the page's tab are gone with the tab.
+//! A window not in front is not drawn: the frame does not yet know whether
+//! Chromium's window is in front.
 //!
 //! `ALO_UPDATE_REFERENCES=1 cargo test -p alo-window` rewrites them, as it
 //! does the corpus's. A rewritten reference is a diff somebody reads.
@@ -75,9 +82,10 @@ use alo_renderer::{Frame, FromRenderer, Page, Renderer, ToRenderer};
 use alo_text::{Font, FontDatabase, Slant, Weight};
 use alo_window::agent_lines::{AgentLine, AgentLines};
 use alo_window::chrome_protocol::Named;
-use alo_window::compose::{FrameScene, Scene, compose, compose_frame};
+use alo_window::compose::{Scene, compose};
+use alo_window::frame_compose::{FrameScene, compose_frame};
 use alo_window::frame_place::FramePlacement;
-use alo_window::frame_strip::{FRAME_STRIP_WIDTH, strip_of as frames_strip};
+use alo_window::frame_strip::band_of;
 use alo_window::mark::{Marked, marked, ring};
 use alo_window::message::News;
 use alo_window::notice::Lettering;
@@ -930,53 +938,57 @@ fn the_box_an_agent_acted_on_at_one_and_a_half_is_ringed_three_device_pixels_out
     );
 }
 
-/// What the frame says draws the page: Chrome, by the version it gave
-/// itself on the machine this was measured on — made by the browser's own
-/// type, as the socket's `renderer` answer and the terminal say it.
-fn chromes_sentence() -> String {
-    RenderedBy::Chrome {
-        product: "Chrome/155.0.8059.86".to_owned(),
-    }
-    .to_string()
+/// What the frame says draws the page: the Chromium alo carries, by the
+/// version it gives itself — made by the browser's own type, in the plain
+/// words the frame draws.
+fn chromiums_words() -> String {
+    let carried = RenderedBy::Carried {
+        product: "Chrome/156.0.8078.48".to_owned(),
+    };
+    // Agents, the socket and the terminal are told the exact words, which
+    // the frame no longer draws.
+    assert_eq!(
+        carried.to_string(),
+        "Chrome/156.0.8078.48, the Chromium alo carries, driven by this browser"
+    );
+    carried.plainly()
 }
 
-/// A frame of `window` at `scale` saying `renderer` draws the page, with
-/// `lines`: composed, and where its lines were placed.
+/// The band's white, and the line along its foot.
+const WHITE: Option<(u8, u8, u8, u8)> = Some((0xff, 0xff, 0xff, 0xff));
+const FOOT: Option<(u8, u8, u8, u8)> = Some((0xcb, 0xd5, 0xe1, 0xff));
+
+/// A frame of `window` at `scale` showing `band`, if it was painted,
+/// saying which renderer draws the page, with `lines`: composed, and where
+/// its pieces were placed.
 fn frame_of(
     window: (u32, u32),
     scale: Scale,
-    renderer: &str,
+    band: Option<&Frame>,
     lines: &[AgentLine],
 ) -> Result<(Canvas, FramePlacement), String> {
     let lettering = lettering()?;
+    let renderer = chromiums_words();
     let scene = FrameScene {
         window,
         scale,
-        strip: None,
-        strip_sentence: None,
-        renderer,
+        band,
+        band_sentence: None,
+        renderer: &renderer,
         agent_lines: lines,
     };
-    let placed = FramePlacement::of(
-        window,
-        scale,
-        0,
-        lettering.line_width(renderer, scale),
-        lines.len(),
-    );
-    Ok((compose_frame(&scene, &lettering), placed))
+    Ok((compose_frame(&scene, &lettering), scene.placed(&lettering)))
 }
 
 /// That each of `lines` is drawn in `canvas` where `placed` put it: its
-/// ground at its right end and its words in its ink, the rail between —
-/// or the first that is not, in words.
+/// ground at its right end and its words in its ink, the band's white
+/// between — or the first that is not, in words.
 fn drawn_where_placed(
     canvas: &Canvas,
     placed: &FramePlacement,
     lines: &[AgentLine],
 ) -> Result<(), String> {
     let at = |x, y| canvas.at(x, y).map(alo_value::Rgba::to_rgba8);
-    let rail = Some(alo_window::colours::rail().to_rgba8());
     for (line, rect) in lines.iter().zip(placed.agent_lines) {
         let rect = rect.ok_or_else(|| format!("{:?} was not placed", line.sentence))?;
         let colours = if line.refused {
@@ -989,8 +1001,12 @@ fn drawn_where_placed(
         if at(right, bottom) != Some(colours.ground.to_rgba8()) {
             return Err(format!("not the line's ground at the end of {rect:?}"));
         }
-        if at(rect.x - 1, bottom) != rail {
-            return Err(format!("not the rail in the gap before {rect:?}"));
+        let gap = at(rect.x - 1, bottom);
+        if gap.is_some() && gap != WHITE {
+            return Err(format!("not the band's white in the gap before {rect:?}"));
+        }
+        if at(right, bottom + 1) != FOOT {
+            return Err(format!("not the foot's line under {rect:?}"));
         }
         let inked = (rect.x..=right)
             .flat_map(|x| (rect.y..=bottom).map(move |y| (x, y)))
@@ -1002,54 +1018,99 @@ fn drawn_where_placed(
     Ok(())
 }
 
+/// That the renderer's words are against the frame's right edge, in alo
+/// OS's muted grey, and the foot's line runs under the whole frame — or
+/// the first that is not, in words.
+fn the_renderer_and_the_foot(canvas: &Canvas, placed: &FramePlacement) -> Result<(), String> {
+    let at = |x, y| canvas.at(x, y).map(alo_value::Rgba::to_rgba8);
+    let rect = placed.renderer;
+    if rect.x + rect.width != canvas.width() {
+        return Err(format!(
+            "the renderer's words end short of the edge: {rect:?}"
+        ));
+    }
+    let muted = Some((0x59, 0x6b, 0x78, 0xff));
+    let inked = (rect.x..rect.x + rect.width)
+        .flat_map(|x| (rect.y..rect.y + rect.height).map(move |y| (x, y)))
+        .any(|(x, y)| at(x, y) == muted);
+    if !inked {
+        return Err(format!("no muted words in {rect:?}"));
+    }
+    let foot = placed.line;
+    let all = (0..canvas.width())
+        .flat_map(|x| (foot.y..foot.y + foot.height).map(move |y| (x, y)))
+        .all(|(x, y)| at(x, y) == FOOT);
+    if !all || foot.y + foot.height != canvas.height() || foot.width != canvas.width() {
+        return Err(format!(
+            "the foot's line is not edge to edge at the bottom: {foot:?}"
+        ));
+    }
+    Ok(())
+}
+
 #[test]
-fn the_frame_around_chromes_window_at_scale_two() {
-    // A frame of 500 by the strip's 36 points, at two: the rail, and in it
-    // which renderer draws the page.
-    let renderer = chromes_sentence();
-    assert_eq!(renderer, "Chrome/155.0.8059.86, driven by this browser");
-    let (canvas, placed) = frame_of((1000, STRIP_HEIGHT * 2), Scale::TWO, &renderer, &[])
-        .unwrap_or_else(|why| panic!("{why}"));
+fn the_frame_around_chromiums_window_at_scale_two() {
+    // A frame of 500 by the band's 54 points, at two, before its band has
+    // painted: white, which renderer draws the page at its right, and the
+    // foot's line.
+    let renderer = chromiums_words();
+    assert_eq!(renderer, "Page drawn by Chromium 156, carried inside alo");
+    let (canvas, placed) =
+        frame_of((1000, 108), Scale::TWO, None, &[]).unwrap_or_else(|why| panic!("{why}"));
+    // Its whole sentence, with room to spare, above the foot's two device
+    // pixels.
+    assert!((500..900).contains(&placed.renderer.width), "{placed:?}");
     assert_eq!(
         placed.renderer,
         PixelRect {
-            x: 0,
+            x: 1000 - placed.renderer.width,
             y: 0,
             width: placed.renderer.width,
-            height: 72
+            height: 106
         }
     );
-    // Its whole sentence, with room to spare.
-    assert!((500..900).contains(&placed.renderer.width), "{placed:?}");
+    assert_eq!(
+        placed.line,
+        PixelRect {
+            x: 0,
+            y: 106,
+            width: 1000,
+            height: 2
+        }
+    );
     assert_eq!(placed.agent_lines, [None, None, None]);
+    assert_eq!(the_renderer_and_the_foot(&canvas, &placed), Ok(()));
     assert_eq!(holds("the-frame-around-chrome.png", &canvas), Ok(()));
 }
 
 #[test]
 fn the_frame_says_what_an_agent_did_beside_which_renderer() {
-    let renderer = chromes_sentence();
     let mut lines = AgentLines::default();
     lines.did(agents_sentence());
-    let (canvas, placed) = frame_of((1000, STRIP_HEIGHT), Scale::ONE, &renderer, lines.lines())
-        .unwrap_or_else(|why| panic!("{why}"));
-    // The renderer's sentence as wide as it needs, the agent's line the rest
-    // of the band, a pixel of rail between.
+    let (canvas, placed) =
+        frame_of((1000, 54), Scale::ONE, None, lines.lines()).unwrap_or_else(|why| panic!("{why}"));
+    // The renderer's words as wide as they need at the right, the title's
+    // room half of what is left of them, the agent's line the other half
+    // less a pixel of white either side.
     let needs = placed.renderer.width;
     assert!((250..400).contains(&needs), "{placed:?}");
+    let left = 1000 - needs;
+    assert_eq!(placed.band.width, left / 2);
     assert_eq!(
         placed.agent_lines,
         [
             Some(PixelRect {
-                x: needs + 1,
+                x: left / 2 + 1,
                 y: 0,
-                width: 1000 - needs - 1,
-                height: 36
+                width: left - 1 - (left / 2 + 1),
+                height: 53
             }),
             None,
             None
         ]
     );
     assert_eq!(drawn_where_placed(&canvas, &placed, lines.lines()), Ok(()));
+    assert_eq!(the_renderer_and_the_foot(&canvas, &placed), Ok(()));
     assert_eq!(
         holds("the-frame-with-an-agents-sentence.png", &canvas),
         Ok(())
@@ -1058,19 +1119,20 @@ fn the_frame_says_what_an_agent_did_beside_which_renderer() {
 
 #[test]
 fn the_frame_shows_two_refusals_after_what_the_agent_did() {
-    let renderer = chromes_sentence();
     let (not_found, not_a_field) = refusals();
     let mut lines = AgentLines::default();
     lines.did(agents_sentence());
     lines.refused(not_found);
     lines.refused(not_a_field);
     assert_eq!(lines.lines().len(), 3);
-    let (canvas, placed) = frame_of((1200, STRIP_HEIGHT), Scale::ONE, &renderer, lines.lines())
-        .unwrap_or_else(|why| panic!("{why}"));
-    // Three equal shares of what is right of the renderer, a pixel apart,
-    // the last to the frame's edge.
-    let needs = placed.renderer.width;
-    let each = (1200 - needs - 3) / 3;
+    let (canvas, placed) =
+        frame_of((1200, 54), Scale::ONE, None, lines.lines()).unwrap_or_else(|why| panic!("{why}"));
+    // Three equal shares of what the title's half leaves, a pixel apart,
+    // the last to a pixel short of the renderer's words.
+    let left = placed.renderer.x;
+    let start = left / 2 + 1;
+    let end = left - 1;
+    let each = (end - start - 2) / 3;
     let xs: Vec<_> = placed
         .agent_lines
         .iter()
@@ -1080,9 +1142,9 @@ fn the_frame_shows_two_refusals_after_what_the_agent_did() {
     assert_eq!(
         xs,
         [
-            (needs + 1, each),
-            (needs + 2 + each, each),
-            (needs + 3 + 2 * each, 1200 - (needs + 3 + 2 * each)),
+            (start, each),
+            (start + each + 1, each),
+            (start + 2 * each + 2, end - (start + 2 * each + 2)),
         ]
     );
     assert_eq!(drawn_where_placed(&canvas, &placed, lines.lines()), Ok(()));
@@ -1091,7 +1153,6 @@ fn the_frame_shows_two_refusals_after_what_the_agent_did() {
 
 #[test]
 fn the_frame_at_one_and_a_half_keeps_a_refusal_past_the_verb_after_it() {
-    let renderer = chromes_sentence();
     let (not_found, _) = refusals();
     let mut lines = AgentLines::default();
     lines.did(activated_sentence());
@@ -1110,22 +1171,24 @@ fn the_frame_at_one_and_a_half_keeps_a_refusal_past_the_verb_after_it() {
             }
         ]
     );
-    // 800 points at 1.5, the band 54 device pixels tall.
-    let (canvas, placed) = frame_of((1200, 54), Scale::ONE_AND_A_HALF, &renderer, lines.lines())
+    // 800 points at 1.5, the band 81 device pixels tall, its foot two.
+    let (canvas, placed) = frame_of((1200, 81), Scale::ONE_AND_A_HALF, None, lines.lines())
         .unwrap_or_else(|why| panic!("{why}"));
-    assert_eq!(placed.renderer.height, 54);
-    // Two device pixels of rail between pieces at 1.5.
+    assert_eq!(placed.renderer.height, 79);
+    assert_eq!((placed.line.y, placed.line.height), (79, 2));
+    // Two device pixels of white between pieces at 1.5.
     let first = placed.agent_lines[0].unwrap_or_else(|| panic!("{placed:?}"));
     let second = placed.agent_lines[1].unwrap_or_else(|| panic!("{placed:?}"));
-    assert_eq!(first.x, placed.renderer.width + 2);
+    assert_eq!(first.x, placed.band.width + 2);
     assert_eq!(second.x, first.x + first.width + 2);
-    assert_eq!(second.x + second.width, 1200);
+    assert_eq!(second.x + second.width + 2, placed.renderer.x);
     assert_eq!(drawn_where_placed(&canvas, &placed, lines.lines()), Ok(()));
+    assert_eq!(the_renderer_and_the_foot(&canvas, &placed), Ok(()));
     assert_eq!(holds("the-frame-at-one-and-a-half.png", &canvas), Ok(()));
 }
 
-/// What Chrome calls the page in the frame's references: a title holding
-/// markup, which a tab shows as the characters it is.
+/// What Chromium calls the page in the frame's references: a title holding
+/// markup, which the band shows as the characters it is.
 fn invoices() -> Named {
     Named {
         title: "Invoices <b>2026</b>".to_owned(),
@@ -1133,113 +1196,188 @@ fn invoices() -> Named {
     }
 }
 
-/// The page's tab as the frame's strip's renderer paints it on a screen of
-/// `scale` — the engine, from `alo-renderer`'s own template and
-/// stylesheet, with the corpus's fonts.
-fn the_frames_tab(scale: f32) -> Result<Frame, String> {
-    let mut renderer = Renderer::new(fonts());
-    let strip = frames_strip(&invoices(), scale);
-    match renderer.handle(ToRenderer::Strip(Box::new(strip))) {
+/// A title far longer than any frame has room for.
+fn a_long_title() -> Named {
+    Named {
+        title: "Quarterly invoices for every client this organisation has ever had, \
+                sorted by the date each was last paid, with the reminders sent"
+            .to_owned(),
+        address: "https://example.com/invoices".to_owned(),
+    }
+}
+
+/// The interface's typefaces, as the frame's strip's renderer is handed
+/// them, then the corpus's sans-serif for the generics.
+fn band_fonts() -> FontDatabase {
+    let mut database = fonts();
+    for font in alo_renderer::typefaces::fonts() {
+        database.add(font);
+    }
+    database
+}
+
+/// The band as the frame's strip's renderer paints it for `named`, `width`
+/// CSS pixels wide on a screen of `scale` — the engine, from
+/// `alo-renderer`'s own template and stylesheet, in the interface's faces.
+fn the_frames_band(named: &Named, width: u32, scale: Scale) -> Result<Frame, String> {
+    let mut renderer = Renderer::new(band_fonts());
+    let band = band_of(named, width, scale.factor());
+    match renderer.handle(ToRenderer::Band(Box::new(band))) {
         FromRenderer::Loaded { .. } => {}
-        other => return Err(format!("the strip was not built: {other:?}")),
+        other => return Err(format!("the band was not built: {other:?}")),
     }
     match renderer.handle(ToRenderer::Paint) {
         FromRenderer::Painted(frame) => Ok(frame),
-        other => Err(format!("the strip was not painted: {other:?}")),
+        other => Err(format!("the band was not painted: {other:?}")),
     }
 }
 
-/// A frame of `window` at `scale` showing `tab`, saying which renderer
-/// draws the page, with `lines`: composed, and where its pieces were
-/// placed.
-fn frame_with_tab(
+/// A frame of `window` at `scale` for a page called `named`, with `lines`:
+/// its band painted as wide as the frame leaves it, then composed — and the
+/// band, and where the pieces were placed.
+fn frame_with_band(
     window: (u32, u32),
     scale: Scale,
-    tab: &Frame,
+    named: &Named,
     lines: &[AgentLine],
-) -> Result<(Canvas, FramePlacement), String> {
-    let lettering = lettering()?;
-    let renderer = chromes_sentence();
-    let scene = FrameScene {
-        window,
-        scale,
-        strip: Some(tab),
-        strip_sentence: None,
-        renderer: &renderer,
-        agent_lines: lines,
-    };
-    let placed = FramePlacement::of(
-        window,
-        scale,
-        tab.width,
-        lettering.line_width(&renderer, scale),
-        lines.len(),
-    );
-    Ok((compose_frame(&scene, &lettering), placed))
+) -> Result<(Canvas, FramePlacement, Frame), String> {
+    let (_, before) = frame_of(window, scale, None, lines)?;
+    let band = the_frames_band(named, before.band_width, scale)?;
+    let (canvas, placed) = frame_of(window, scale, Some(&band), lines)?;
+    if placed != before {
+        return Err(format!("placed apart: {before:?} and {placed:?}"));
+    }
+    Ok((canvas, placed, band))
 }
 
-/// The first device pixel of `tab` that `canvas` does not show one to one
-/// at the band's left, if any.
-fn tab_one_to_one(canvas: &Canvas, tab: &Frame) -> Option<(u32, u32)> {
-    (0..tab.height)
-        .flat_map(|y| (0..tab.width).map(move |x| (x, y)))
+/// Whether any pixel of column `x` above `foot` is not the band's white.
+fn inked_column(canvas: &Canvas, x: u32, foot: u32) -> bool {
+    (0..foot).any(|y| canvas.at(x, y).map(alo_value::Rgba::to_rgba8) != WHITE)
+}
+
+/// The first device pixel of `band` above the foot's line that `canvas`
+/// does not show one to one at the frame's left, if any.
+fn band_one_to_one(canvas: &Canvas, band: &Frame, foot: u32) -> Option<(u32, u32)> {
+    (0..band.height.min(foot))
+        .flat_map(|y| (0..band.width).map(move |x| (x, y)))
         .find(|(x, y)| {
-            // A strip is opaque, so blending over the rail leaves it as it
+            // A band is opaque, so blending over the white leaves it as it
             // was painted.
-            canvas.at(*x, *y).map(alo_value::Rgba::to_rgba8) != tab.at(*x, *y)
+            canvas.at(*x, *y).map(alo_value::Rgba::to_rgba8) != band.at(*x, *y)
         })
 }
 
 #[test]
-fn the_frame_shows_the_pages_tab_before_which_renderer_at_scale_two() {
-    let tab = the_frames_tab(2.0).unwrap_or_else(|why| panic!("{why}"));
-    // One tab of the stylesheet's, at two.
-    assert_eq!((tab.width, tab.height), (FRAME_STRIP_WIDTH * 2, 72));
-    let (canvas, placed) =
-        frame_with_tab((1400, 72), Scale::TWO, &tab, &[]).unwrap_or_else(|why| panic!("{why}"));
+fn the_frames_band_in_front_at_one() {
+    // 1200 by 54 points at one.
+    let (canvas, placed, band) = frame_with_band((1200, 54), Scale::ONE, &invoices(), &[])
+        .unwrap_or_else(|why| panic!("{why}"));
+    let needs = placed.renderer.width;
+    assert!((250..400).contains(&needs), "{placed:?}");
+    // The band all of what the renderer's words leave, laid out that many
+    // CSS pixels wide and painted so, 54 tall.
     assert_eq!(
-        placed.strip,
+        placed.band,
         PixelRect {
             x: 0,
             y: 0,
-            width: 432,
-            height: 72
+            width: 1200 - needs,
+            height: 54
         }
     );
-    // Two device pixels of rail, then the renderer's whole sentence.
-    assert_eq!(placed.renderer.x, 434);
-    assert!((500..900).contains(&placed.renderer.width), "{placed:?}");
-    assert_eq!(tab_one_to_one(&canvas, &tab), None);
-    let rail = Some(alo_window::colours::rail().to_rgba8());
-    for y in 0..72 {
-        assert_eq!(canvas.at(432, y).map(alo_value::Rgba::to_rgba8), rail);
-        assert_eq!(canvas.at(433, y).map(alo_value::Rgba::to_rgba8), rail);
-    }
-    assert_eq!(holds("the-frame-with-the-pages-tab.png", &canvas), Ok(()));
+    assert_eq!(placed.band_width, 1200 - needs);
+    assert_eq!((band.width, band.height), (1200 - needs, 54));
+    assert_eq!(band_one_to_one(&canvas, &band, 53), None);
+    assert_eq!(the_renderer_and_the_foot(&canvas, &placed), Ok(()));
+    // The title's letters begin at 22, where its box does
+    // (`alo-renderer`'s `the_frames_band.rs` asserts the boxes), the
+    // letter's own side bearing after it.
+    let first_inked = (0..placed.band.width).find(|&x| inked_column(&canvas, x, 53));
+    assert!(matches!(first_inked, Some(22..=24)), "{first_inked:?}");
+    assert_eq!(holds("the-frames-band.png", &canvas), Ok(()));
 }
 
 #[test]
-fn the_frame_at_one_and_a_half_shows_the_tab_then_the_renderer_then_the_lines() {
-    let tab = the_frames_tab(1.5).unwrap_or_else(|why| panic!("{why}"));
-    assert_eq!((tab.width, tab.height), (324, 54));
+fn the_frames_band_in_front_at_two() {
+    let (canvas, placed, band) = frame_with_band((2400, 108), Scale::TWO, &invoices(), &[])
+        .unwrap_or_else(|why| panic!("{why}"));
+    let needs = placed.renderer.width;
+    // At two every piece is twice what it is at one, the band laid out at
+    // the same CSS width.
+    let (_, at_one) =
+        frame_of((1200, 54), Scale::ONE, None, &[]).unwrap_or_else(|why| panic!("{why}"));
+    assert_eq!(placed.band_width, at_one.band_width);
+    assert_eq!(placed.band.width, 2 * at_one.band_width);
+    assert_eq!(placed.band.height, 108);
+    assert_eq!((band.width, band.height), (2400 - needs, 108));
+    assert_eq!(
+        (placed.line.y, placed.line.height, placed.renderer.height),
+        (106, 2, 106)
+    );
+    assert_eq!(band_one_to_one(&canvas, &band, 106), None);
+    assert_eq!(the_renderer_and_the_foot(&canvas, &placed), Ok(()));
+    assert_eq!(holds("the-frames-band-at-two.png", &canvas), Ok(()));
+}
+
+#[test]
+fn a_long_title_is_cut_beside_an_agents_line_and_the_name_kept() {
+    let mut lines = AgentLines::default();
+    lines.did(agents_sentence());
+    // 1000 by 54 at one: the title has half of what the renderer's words
+    // leave, and is cut there; the name after it whole.
+    let (canvas, placed, band) =
+        frame_with_band((1000, 54), Scale::ONE, &a_long_title(), lines.lines())
+            .unwrap_or_else(|why| panic!("{why}"));
+    let left = placed.renderer.x;
+    assert_eq!(placed.band.width, left / 2);
+    assert_eq!(band.width, left / 2);
+    assert_eq!(band_one_to_one(&canvas, &band, 53), None);
+    // The name's letters reach the band's right edge: the title gave way
+    // first, and the name kept all its room.
+    let last_inked = (0..band.width)
+        .rev()
+        .find(|&x| inked_column(&canvas, x, 53));
+    assert!(
+        last_inked.is_some_and(|x| x + 3 >= band.width),
+        "{last_inked:?} of {}",
+        band.width
+    );
+    assert_eq!(drawn_where_placed(&canvas, &placed, lines.lines()), Ok(()));
+    assert_eq!(
+        holds("the-frames-band-with-a-long-title.png", &canvas),
+        Ok(())
+    );
+}
+
+#[test]
+fn the_frames_band_at_one_and_a_half_with_an_agents_line_and_a_refusal() {
     let (not_found, _) = refusals();
     let mut lines = AgentLines::default();
     lines.did(agents_sentence());
     lines.refused(not_found);
     // 1000 points at 1.5.
-    let (canvas, placed) = frame_with_tab((1500, 54), Scale::ONE_AND_A_HALF, &tab, lines.lines())
-        .unwrap_or_else(|why| panic!("{why}"));
-    assert_eq!(placed.strip.width, 324);
-    assert_eq!(placed.renderer.x, 326);
-    let first = placed.agent_lines[0].unwrap_or_else(|| panic!("{placed:?}"));
-    assert_eq!(first.x, placed.renderer.x + placed.renderer.width + 2);
-    assert_eq!(tab_one_to_one(&canvas, &tab), None);
-    assert_eq!(drawn_where_placed(&canvas, &placed, lines.lines()), Ok(()));
+    let (canvas, placed, band) = frame_with_band(
+        (1500, 81),
+        Scale::ONE_AND_A_HALF,
+        &invoices(),
+        lines.lines(),
+    )
+    .unwrap_or_else(|why| panic!("{why}"));
+    // The band a whole number of CSS pixels, its device pixels what 1.5
+    // makes of them.
     assert_eq!(
-        holds(
-            "the-frame-with-the-pages-tab-at-one-and-a-half.png",
-            &canvas
-        ),
+        placed.band.width,
+        Scale::ONE_AND_A_HALF.device(placed.band_width)
+    );
+    assert!(placed.band.width <= placed.renderer.x / 2, "{placed:?}");
+    assert_eq!(band.height, 81);
+    let first = placed.agent_lines[0].unwrap_or_else(|| panic!("{placed:?}"));
+    assert_eq!(first.x, placed.band.width + 2);
+    assert_eq!(band_one_to_one(&canvas, &band, 79), None);
+    assert_eq!(drawn_where_placed(&canvas, &placed, lines.lines()), Ok(()));
+    assert_eq!(the_renderer_and_the_foot(&canvas, &placed), Ok(()));
+    assert_eq!(
+        holds("the-frames-band-at-one-and-a-half.png", &canvas),
         Ok(())
     );
 }

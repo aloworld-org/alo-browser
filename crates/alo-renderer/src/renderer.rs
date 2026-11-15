@@ -295,6 +295,7 @@ impl Renderer {
             ToRenderer::Fetched(fetched) => self.delivered(&fetched),
             ToRenderer::Sheet(answer) => self.styled(&answer),
             ToRenderer::Strip(strip) => self.strip(&strip),
+            ToRenderer::Band(band) => self.band(&band),
             ToRenderer::Pointer(pointer) => self.pointer(pointer),
             ToRenderer::StripPress(at) => self.strip_press(at),
             ToRenderer::Panel(panel) => self.panel(&panel),
@@ -796,6 +797,28 @@ impl Renderer {
                 Holds::Strip,
             ),
             Err(unbuilt) => FromRenderer::Failed(Failure::NoStrip { why: unbuilt.why }),
+        }
+    }
+
+    /// Hold the frame's band (queue item 991), as the strip is held: its
+    /// document built from the state it was sent, at the strip's address,
+    /// with its own sheet. It is never pressed, so it is held as nothing a
+    /// press is claimed on; a band that could not be built is said as a
+    /// strip that could not be, since it is the strip's renderer that
+    /// draws it.
+    fn band(&mut self, band: &crate::band::Band) -> FromRenderer {
+        match crate::band_document::build(band) {
+            Ok(document) => self.interface(
+                document,
+                band.viewport,
+                band.scale,
+                crate::strip::address(),
+                (crate::band_document::SHEET, Vec::new(), false),
+                Holds::Nothing,
+            ),
+            Err(unbuilt) => FromRenderer::Failed(Failure::NoStrip {
+                why: format!("the frame's band: {}", unbuilt.why),
+            }),
         }
     }
 

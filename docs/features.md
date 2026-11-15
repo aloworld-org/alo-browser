@@ -1800,6 +1800,10 @@ about".
   band of ours above the page drawn as alo OS's window band — white, the
   title in Manrope SemiBold, the application's name in grey — with which
   renderer draws the page said in plain words. Light only for now.
+  *Built, not yet gated* (14 November 2026): the title and name drawn by
+  the frame's own sandboxed strip renderer in Manrope, the renderer's words
+  right-aligned, the band 54 tall; drawn as in front always, since the
+  frame does not yet know when Chromium's window is not.
 - [4] A mobile port
 - [4] Crash handling that helps us fix it without becoming telemetry
 - [4] ★ **Translation on the machine** — alo already runs models locally; a page translated without sending it anywhere is the sovereign version of a feature every other browser sends to a server

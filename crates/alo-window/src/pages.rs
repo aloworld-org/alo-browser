@@ -63,6 +63,46 @@ impl fmt::Display for RenderedBy {
     }
 }
 
+impl RenderedBy {
+    /// Which renderer draws the page, in the plain words the frame around
+    /// Chromium's window draws (queue item 991): the product's name and its
+    /// major version, and where it is from. The exact wording — this type's
+    /// [`fmt::Display`], the product and version as it gives them itself —
+    /// is what agents, the socket's `renderer` answer and the terminal are
+    /// told, and it is unchanged.
+    pub fn plainly(&self) -> String {
+        match self {
+            Self::ThisEngine => "Page drawn by alo's own engine".to_owned(),
+            Self::Chrome { product } => {
+                format!(
+                    "Page drawn by {}, installed on this machine",
+                    named(product, "Chrome")
+                )
+            }
+            Self::Carried { product } => {
+                format!(
+                    "Page drawn by {}, carried inside alo",
+                    named(product, "Chromium")
+                )
+            }
+        }
+    }
+}
+
+/// `product` as `name` and its major version — `Chrome/156.0.8078.48` is
+/// *Chromium 156* when `name` is Chromium — or `name` alone when the product
+/// gave no version it can be read from.
+fn named(product: &str, name: &str) -> String {
+    let major = product
+        .split_once('/')
+        .and_then(|(_, version)| version.split('.').next())
+        .filter(|major| !major.is_empty() && major.bytes().all(|byte| byte.is_ascii_digit()));
+    match major {
+        Some(major) => format!("{name} {major}"),
+        None => name.to_owned(),
+    }
+}
+
 /// What a verb a page was given came to.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Acted {
@@ -172,5 +212,50 @@ pub trait Pages {
     fn print_pdf(&mut self, tab: Self::Tab) -> Result<Vec<u8>, Unanswered> {
         let _ = tab;
         Err(Unanswered::NotOffered)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_frame_says_which_renderer_plainly_and_agents_are_told_exactly() {
+        let carried = RenderedBy::Carried {
+            product: "Chrome/156.0.8078.48".to_owned(),
+        };
+        assert_eq!(
+            carried.plainly(),
+            "Page drawn by Chromium 156, carried inside alo"
+        );
+        assert_eq!(
+            carried.to_string(),
+            "Chrome/156.0.8078.48, the Chromium alo carries, driven by this browser"
+        );
+        let chrome = RenderedBy::Chrome {
+            product: "Chrome/155.0.8059.86".to_owned(),
+        };
+        assert_eq!(
+            chrome.plainly(),
+            "Page drawn by Chrome 155, installed on this machine"
+        );
+        assert_eq!(
+            RenderedBy::ThisEngine.plainly(),
+            "Page drawn by alo's own engine"
+        );
+    }
+
+    #[test]
+    fn a_product_with_no_version_is_named_alone() {
+        for product in ["", "Chrome", "Chrome/", "Chrome/x.1", "HeadlessChrome/ 1"] {
+            let carried = RenderedBy::Carried {
+                product: product.to_owned(),
+            };
+            assert_eq!(
+                carried.plainly(),
+                "Page drawn by Chromium, carried inside alo",
+                "{product:?}"
+            );
+        }
     }
 }

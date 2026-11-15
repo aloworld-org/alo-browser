@@ -57,6 +57,8 @@ pub mod agent_work;
 pub mod answer_document;
 pub mod answers;
 pub mod ask;
+pub mod band;
+pub mod band_document;
 pub mod beneath;
 pub mod card;
 pub mod card_document;

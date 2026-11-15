@@ -21,7 +21,7 @@
 //! cannot be given to Chrome is refused before it starts.
 
 use alo_window::chrome::Chrome;
-use alo_window::opening::{CHROME_AT, CHROME_SIZE};
+use alo_window::opening::{CHROME_SIZE, FRAMED_AT};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpListener;
 use std::path::{Path, PathBuf};
@@ -224,7 +224,7 @@ fn chromes_own_name() -> Result<String, String> {
 /// given, said plainly (queue item 671). A locked session's screen gave
 /// 1200×571.
 fn page_said(said: &[String]) -> Result<(u32, u32), String> {
-    let (left, top) = CHROME_AT;
+    let (left, top) = FRAMED_AT;
     let (width, asked) = CHROME_SIZE;
     let window =
         format!("alo: Chrome shows the page in a window of its own at {left},{top}, {width}×");

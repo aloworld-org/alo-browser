@@ -93,9 +93,11 @@
 //!   closes is [`chrome_follow`]'s (item 642). Everything the frame is told
 //!   is a [`frame_told::ToFrame`] — where to stand, an agent's line, or
 //!   what Chrome calls the page, which [`chrome_named`] reads (item 681) —
-//!   and what it draws, placed by [`frame_place`], is the page's tab, drawn
-//!   by a tab strip's renderer of its own that [`frame_strip`] holds (item
-//!   681), which renderer draws the page, and those lines (item 679). The
+//!   and what it draws, placed by [`frame_place`] and composed by
+//!   [`frame_compose`] as alo OS's window band (item 991), is the page's
+//!   title and the application's name, drawn by a tab strip's renderer of
+//!   its own that [`frame_strip`] holds (items 681 and 991), which renderer
+//!   draws the page, in plain words, and those lines (item 679). The
 //!   box an agent's verb acted on is marked over Chrome's page by Chrome
 //!   itself, as [`chrome_mark`] asks it to (item 680, ADR 0066).
 //! - [`pages`] is what [`serving`] asks of the tabs, whichever renderer
@@ -294,6 +296,7 @@ pub mod engine_pages;
 pub mod field_blink;
 pub mod field_edit;
 pub mod fonts;
+pub mod frame_compose;
 pub mod frame_place;
 pub mod frame_strip;
 pub mod frame_told;

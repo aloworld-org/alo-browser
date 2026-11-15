@@ -2,9 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! The page's tab in the frame around Chrome's window follows the page's
+//! The page's title in the frame around Chrome's window follows the page's
 //! title, and is drawn by a tab strip's renderer, outside this process
-//! (queue item 681, ADR 0024 § 4).
+//! (queue items 681 and 991, ADR 0024 § 4) — as alo OS's window band since
+//! 991, in the interface's Manrope, which the frame's strip is handed.
 //!
 //! A shown Chrome — its window placed on the screen as `alo --chrome`
 //! places it — opens a page titled "First" that retitles itself, a moment
@@ -17,20 +18,20 @@
 //! frame's strip ([`FrameStrip`]): a thread holding the `alo-render` binary
 //! built beside `alo`, spawned and confined as every renderer is, at the
 //! strip's own site. What it paints for each is compared with the same
-//! strip drawn here, in this process, by the engine — so a frame that
-//! matches is a tab that says exactly that title, drawn by the strip's
+//! band drawn here, in this process, by the engine — so a frame that
+//! matches is a band that says exactly that title, drawn by the strip's
 //! renderer and not by the browser process. What the frame then composes
 //! of it is `the_window_composed.rs`'s reference renders.
 
+use alo_renderer::band::Band;
 use alo_renderer::host::Renderers;
-use alo_renderer::strip::Strip;
 use alo_renderer::{Frame, FromRenderer, Renderer, ToRenderer};
 use alo_text::{Font, FontDatabase, Slant, Weight};
 use alo_window::agent_sites::AgentSites;
 use alo_window::beside::{Chromium, renderer_beside};
 use alo_window::chrome_protocol::Named;
 use alo_window::chrome_serving::{ChromeServing, Opening};
-use alo_window::frame_strip::{FrameStrip, strip_of};
+use alo_window::frame_strip::{FrameStrip, band_of};
 use alo_window::frame_told::ToFrame;
 use alo_window::message::Order;
 use alo_window::opening::CHROME_AT;
@@ -82,19 +83,27 @@ fn fonts() -> FontDatabase {
     }
     database.map_generic("system-ui", "DejaVu Sans");
     database.map_generic("sans-serif", "DejaVu Sans");
+    // The interface's typefaces, which the frame's strip is handed beside
+    // its fonts: the band is set in Manrope.
+    for font in alo_renderer::typefaces::fonts() {
+        database.add(font);
+    }
     database
 }
 
-/// `strip` as the engine draws it here, in this process.
-fn drawn_here(strip: Strip) -> Result<Frame, String> {
+/// How wide the band is laid out in this test, in CSS pixels.
+const WIDE: u32 = 600;
+
+/// `band` as the engine draws it here, in this process.
+fn drawn_here(band: Band) -> Result<Frame, String> {
     let mut renderer = Renderer::new(fonts());
-    match renderer.handle(ToRenderer::Strip(Box::new(strip))) {
+    match renderer.handle(ToRenderer::Band(Box::new(band))) {
         FromRenderer::Loaded { .. } => {}
-        other => return Err(format!("the strip was not built: {other:?}")),
+        other => return Err(format!("the band was not built: {other:?}")),
     }
     match renderer.handle(ToRenderer::Paint) {
         FromRenderer::Painted(frame) => Ok(frame),
-        other => Err(format!("the strip was not painted: {other:?}")),
+        other => Err(format!("the band was not painted: {other:?}")),
     }
 }
 
@@ -129,7 +138,7 @@ fn painted(told: &Receiver<ToFrame>) -> Result<Frame, String> {
 }
 
 #[test]
-fn the_frames_tab_follows_the_pages_title_drawn_by_the_strips_renderer() -> Result<(), String> {
+fn the_frames_band_follows_the_pages_title_drawn_by_the_strips_renderer() -> Result<(), String> {
     let (tell, told) = channel();
     let serving = ChromeServing::start_shown(
         Chromium::Machines,
@@ -171,23 +180,23 @@ fn the_frames_tab_follows_the_pages_title_drawn_by_the_strips_renderer() -> Resu
     .map_err(|why| format!("no thread for the frame's strip: {why}"))?;
     let mut tabs = Vec::new();
     for named in &names {
-        strip.draw(strip_of(named, 1.0));
+        strip.draw(band_of(named, WIDE, 1.0));
         tabs.push(painted(&painting)?);
     }
-    // The same strip again is not drawn again.
-    strip.draw(strip_of(&second, 1.0));
+    // The same band again is not drawn again.
+    strip.draw(band_of(&second, WIDE, 1.0));
     assert!(
         painting.recv_timeout(Duration::from_secs(2)).is_err(),
-        "the same strip was painted twice"
+        "the same band was painted twice"
     );
     assert!(strip.finish(), "the frame's strip did not finish");
 
     let [first_tab, second_tab] = tabs.as_slice() else {
-        panic!("one tab painted for each name: {}", tabs.len());
+        panic!("one band painted for each name: {}", tabs.len());
     };
-    assert_eq!((first_tab.width, first_tab.height), (216, 36));
-    assert_eq!(*first_tab, drawn_here(strip_of(&first, 1.0))?);
-    assert_eq!(*second_tab, drawn_here(strip_of(&second, 1.0))?);
-    assert_ne!(first_tab, second_tab, "the tab follows the title");
+    assert_eq!((first_tab.width, first_tab.height), (WIDE, 54));
+    assert_eq!(*first_tab, drawn_here(band_of(&first, WIDE, 1.0))?);
+    assert_eq!(*second_tab, drawn_here(band_of(&second, WIDE, 1.0))?);
+    assert_ne!(first_tab, second_tab, "the band follows the title");
     Ok(())
 }

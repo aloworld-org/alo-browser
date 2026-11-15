@@ -20619,7 +20619,7 @@ What stage 2's exit gate actually measures: a person using it.
   accessibility bus, and from the keyboard — the window's lines are not
   published there.
 
-- [ ] **991. The frame's band in alo's own look, Apple's buttons kept.**
+- [x] **991. The frame's band in alo's own look, Apple's buttons kept.**
   The owner's choice of 14 November 2026: on macOS alo keeps the system's
   close, minimise and zoom buttons at the left of the window (full screen
   and tiling stay macOS's), and the band of ours above the page takes alo
@@ -20642,6 +20642,76 @@ What stage 2's exit gate actually measures: a person using it.
   *Closes when:* the band's boxes asserted in numbers at scale 1 and 2,
   its pictures committed as reference renders (in front and not, a long
   title ellipsized), and the window opened from the Finder shows it.
+  *Built 14 November 2026, not yet gated.* **The title is drawn by a
+  renderer, never here** (ADR 0024 § 4): the frame's strip's renderer now
+  holds a **band** instead of a tab — `ToRenderer::Band`, wire tag 24
+  (`alo-renderer`'s `band.rs`, `band_document.rs`, `wire/band.rs`,
+  `interface/band.html` and `band.css`), drawn by `Tabs::draw_band` at the
+  strip's site — the page's title at 22,18 in Manrope 600 14/19 `#102A43`
+  and *alo browser* 24 after it at y 20 in Manrope 400 11/15 `#596B78`,
+  laid out together so the title ellipsizes first and the name keeps its
+  room, the name dropped when the title is it. A separate message rather
+  than a field on `Strip`, so the strip's document and its 31 literals are
+  untouched. That renderer is handed the interface's typefaces
+  (`FrameStrip::start`; ADR 0084 addendum of 14 November 2026). **The
+  browser process** (`frame_compose.rs`, split out of `compose.rs`, and
+  `frame_place.rs` rewritten) draws the white ground, the band's frame one
+  to one at the left, the agents' lines as before (their own tinted grounds
+  on the white), which renderer draws the page **right-aligned** in plain
+  words in `#596B78` (`RenderedBy::plainly`: *Page drawn by Chromium 156,
+  carried inside alo*; the exact `Display` string agents, the socket and the
+  terminal read is unchanged), and the 1-wide `#CBD5E1` foot over
+  everything. The band takes all left of the renderer's words, or half of
+  that when agents' lines are shown, a whole number of CSS pixels, and is
+  painted again when the frame's size, scale or lines change.
+  `FRAME_HEIGHT` is 54 (`BAND_HEIGHT`), and `alo --chrome` puts Chromium's
+  window at `FRAMED_AT` (120,98) so the band clears the menu bar as 36 did
+  at 120,80; `CHROME_AT` is unchanged for the conversation's Chromium.
+  **Tests:** `alo-renderer/tests/the_frames_band.rs` — at one and two the
+  title box at (22,18) 19 tall, the name 24 after its end at y 20, 15 tall,
+  both Manrope at 14 and 11; a long title cut with an ellipsis and the name
+  at the 400 edge, its width unchanged; the name once; markup as text; no
+  press claimed. `a_frames_band_crosses_the_boundary.rs` — round trip,
+  every cut refused, bytes by hand. `frame_place` — every rect in numbers
+  at 1, 2 and 1.5 (e.g. 1200×54 at one with words 280: renderer
+  920,0 280×53, band 0,0 920×54, foot 0,53 1200×1; at two 1840,0 560×106,
+  band 1840×108 laid out at 920, foot 2 tall). `frame_compose`,
+  `frame_strip`, `pages` and `chrome_frame` unit tests (frame above
+  Chromium at top − 54). References in `alo-window/tests/references`: new
+  `the-frames-band.png`, `the-frames-band-at-two.png`,
+  `the-frames-band-with-a-long-title.png`,
+  `the-frames-band-at-one-and-a-half.png`; redrawn in the band's look
+  `the-frame-around-chrome.png`, `the-frame-with-an-agents-sentence.png`,
+  `the-frame-with-two-refusals.png`, `the-frame-at-one-and-a-half.png`;
+  removed with the tab `the-frame-with-the-pages-tab.png` and
+  `…-at-one-and-a-half.png`. `the_pages_tab_in_chromes_frame.rs` passes
+  through the confined renderer, in Manrope. **Left:** the not-in-front
+  look (`#FAF7F2`, `#E7EBEF`, title `#596B78`) — nothing the frame reads
+  says whether Chromium's window is in front (`window_server.rs` lists one
+  process's windows, not which application is active), so it is not drawn
+  rather than guessed; the renderer's words and agents' lines are in the
+  browser's own DejaVu Sans 13, not Manrope 11; dark mode; the shown-Chrome
+  frame tests (`the_frame_around_chromes_window`,
+  `a_frame_beside_chromes_window`) and one of
+  `the_program_told_to_use_chrome` failed here with the screen locked and
+  are to be run unlocked; and the window opened from the Finder.
+
+  **Gated 15 November 2026** (7309 tests, the screen never locked); the
+  three shown-Chrome frame tests passed unlocked, 8 of 8. The application
+  made by `alo-bundle` and opened from its folder showed the band on the
+  owner's screen: white, *alo browser* once in Manrope (the page's title
+  is the name), the renderer's words at the right, the foot line. Ticked
+  with the not-in-front look and the side words in Manrope cut to 992;
+  dark mode waits on alo OS's spec.
+
+- [ ] **992. The frame's band when Chromium's window is not in front, and
+  its side words in Manrope (cut from 991).** Learn honestly whether
+  Chromium's window is in front (which application is active, not only one
+  process's windows), and draw alo OS's not-in-front band then: ground
+  `#FAF7F2`, foot `#E7EBEF`, title `#596B78`. Draw the renderer's words and
+  agents' lines in Manrope 11, `#596B78`, as the band's name is, instead
+  of the browser's DejaVu Sans 13. *Closes when:* both looks asserted and
+  committed as reference renders, and the window seen behind another.
 
 - [ ] **722. Chromium with alo's name (ADR 0077).** Built from source with
   alo's name and icon, so an expanded page's menu bar says *alo*. *blocked:
