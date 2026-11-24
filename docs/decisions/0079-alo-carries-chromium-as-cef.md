@@ -591,3 +591,15 @@ measured:
     https://github.com/maddada/Ghostex/issues/302
 14. CEF, *Automated Build Setup* (`GN_DEFINES` for a builder like Spotify's) —
     https://chromiumembedded.github.io/cef/automated_build_setup.html
+
+## Addendum — 15 November 2026: where a person reaches the licences (queue item 993)
+
+§ 8b's *linked from the application's page* is no longer where a person
+reaches CEF's `LICENSE.txt` and Chromium's `CREDITS.html`: the application
+now opens the conversation window (ADR 0068's addendum of the same day),
+and the page is shown only by `alo --chrome` from a terminal, which still
+links them. A person reaches them through macOS's own *About alo* panel,
+whose credits are `Contents/Resources/Credits.html`, written by
+`alo-bundle` before the seal with a link to every file in
+`Contents/Resources/licences` and to that folder (`bundle_credits.rs`).
+They are carried where they were, byte for byte at their pins.

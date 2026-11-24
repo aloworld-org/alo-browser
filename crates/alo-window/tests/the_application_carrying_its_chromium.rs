@@ -15,7 +15,8 @@
 //! again byte for byte the distribution's, whose own digest is the pin;
 //! CEF's licence and Chromium's credits are in `Contents/Resources/licences`,
 //! byte for byte the distribution's and at their pinned SHA-256, and the
-//! application's page links both. `codesign --verify --deep --strict`
+//! application's page links both, as do the credits its *About alo* panel
+//! shows (queue item 993). `codesign --verify --deep --strict`
 //! accepts it, the GPU and renderer helpers hold the JIT entitlement and
 //! the others none. Then the refusals, each making nothing: a distribution
 //! with one byte of its framework changed, one whose `archive.json` names
@@ -263,6 +264,12 @@ fn the_licences_are_linked_and_the_seal_holds(
     // Its licences, beside the page that links them.
     let page = std::fs::read_to_string(contents.join("Resources/page.html"))
         .map_err(|why| why.to_string())?;
+    let credits = std::fs::read_to_string(
+        contents
+            .join("Resources")
+            .join(alo_window::bundle_credits::FILE),
+    )
+    .map_err(|why| format!("the credits: {why}"))?;
     for (name, pinned) in cef_pin::LICENCES {
         let carried = contents.join("Resources").join(LICENCES).join(name);
         assert_eq!(sha256(&carried)?, pinned, "{name}");
@@ -270,6 +277,10 @@ fn the_licences_are_linked_and_the_seal_holds(
         assert!(
             page.contains(&format!("href=\"{LICENCES}/{name}\"")),
             "the page links {name}"
+        );
+        assert!(
+            credits.contains(&format!("href=\"{LICENCES}/{name}\"")),
+            "the credits link {name}"
         );
     }
 

@@ -4,17 +4,23 @@
 
 //! Whether `alo` runs inside the macOS application, what it opens there
 //! when a person named nothing, and where the application carries its own
-//! Chromium (queue items 477 and 719; ADR 0067 § 3, ADR 0068, ADR 0077).
+//! Chromium (queue items 477, 719 and 993; ADR 0067 § 3, ADR 0068, ADR 0077).
 //!
 //! An application opened from the Finder is given no arguments, its input
-//! is `/dev/null` and its directory `/` (ADR 0067 § 1, measured). So it
-//! carries a page of its own, in `Contents/Resources`, and opens it when
-//! nothing is named: in the Chromium the application carries, driven by
-//! this browser, or — when that Chromium is not there or cannot be started
-//! — drawn by this engine on a second page that says so (ADR 0068 § 3, as
-//! ADR 0077 changed it). Both pages are markup we wrote, kept as the corpus
-//! cases `the-applications-page` and `the-applications-page-without-chrome`
-//! with their committed renders.
+//! is `/dev/null` and its directory `/` (ADR 0067 § 1, measured). Since the
+//! owner's decision of 15 November 2026 (queue item 993, ADR 0068's and
+//! ADR 0077's addenda) it then opens **the conversation window**, as `alo
+//! --conversation` does — alo behaves as any other Mac application, and
+//! nothing named is never the application's own page with our frame and
+//! band above it. That page, `page.html` in `Contents/Resources` (the
+//! corpus case `the-applications-page`, with its committed render), is
+//! still carried: it is what marks a program as inside the application
+//! ([`Bundle::around`]), and `alo --chrome` naming it, from a terminal, is
+//! the developer's tool that still shows it in the carried Chromium framed.
+//!
+//! The application's licences are reached from the conversation through
+//! macOS's own *About alo* panel, whose credits are the application's
+//! `Credits.html` ([`crate::bundle_credits`]).
 //!
 //! # Its own Chromium, and never the machine's Chrome
 //!
@@ -32,16 +38,12 @@
 //! `Contents/Resources` holds the page. Never the environment, and never
 //! the working directory, which macOS sets to `/`.
 
-use crate::conductor::Fonts;
 use crate::opening::{Opening, Renderer};
 use std::path::{Path, PathBuf};
 
-/// The file name of the page the application opens in Chrome.
+/// The file name of the application's own page (the corpus case
+/// `the-applications-page`).
 pub const PAGE: &str = "page.html";
-
-/// The file name of the page this engine draws when the application's own
-/// Chromium is missing or cannot be started.
-pub const WITHOUT_CHROME: &str = "without-chrome.html";
 
 /// Where the application carries its own Chromium's program, under its
 /// `Contents` (ADR 0077): alo's CEF host, named as
@@ -86,49 +88,35 @@ impl Bundle {
         &self.resources
     }
 
-    /// The page it opens in its own Chromium.
+    /// Its own page, which marks a program as inside it and which `alo
+    /// --chrome` naming it shows in its own Chromium, framed — from a
+    /// terminal only since queue item 993.
     pub fn page(&self) -> PathBuf {
         self.resources.join(PAGE)
     }
 
-    /// The page this engine draws when its own Chromium is missing or
-    /// cannot be started.
-    pub fn page_without_chrome(&self) -> PathBuf {
-        self.resources.join(WITHOUT_CHROME)
-    }
-
     /// What `alo` opens inside this application when it was asked for
-    /// `opening`, and whether the application's own Chromium is there to
-    /// start — never whether the machine has a Chrome, which inside the
-    /// application is never asked (ADR 0077).
+    /// `opening` (queue item 993).
     ///
-    /// A page named is opened as it always is, and so is the conversation
-    /// (`--conversation`, queue item 709), which this engine draws with or
-    /// without a Chromium. Nothing named — no page, no `--chrome` and no
-    /// `--conversation` — opens [`Bundle::page`] in the application's own
-    /// Chromium; with none, [`Bundle::page_without_chrome`] in this engine.
-    /// An option only this engine uses (`--scale`, `--frozen-fonts`) beside
-    /// nothing named is a person asking for this engine from a terminal, and
-    /// it opens the empty tab it always has: the application's page would
-    /// say a Chromium draws it.
-    pub fn opening(&self, opening: Opening, chromium: bool) -> Opening {
+    /// A page named is opened as it always is — `--chrome PAGE` too, in the
+    /// application's own Chromium with our frame above it — and so is the
+    /// conversation asked for. Nothing named — no page, no `--chrome` and no
+    /// `--conversation`, which is how macOS opens an application from the
+    /// Finder or the Dock — opens the conversation, as `--conversation`
+    /// would, keeping every other option given (`--scale`,
+    /// `--frozen-fonts`, `--agent-site`, `--data`), each of which the
+    /// conversation takes. Whether the application's Chromium is there does
+    /// not change what opens: the conversation is drawn by this engine, and
+    /// says why a site chosen in it cannot open when it is not
+    /// ([`crate::bundle_chromium`]).
+    pub fn opening(&self, opening: Opening) -> Opening {
         let named =
             opening.page.is_some() || opening.renderer == Renderer::Chrome || opening.conversation;
         if named {
             return opening;
         }
-        if !chromium {
-            return Opening {
-                page: Some(self.page_without_chrome()),
-                ..opening
-            };
-        }
-        if opening.scale.is_some() || opening.fonts == Fonts::AsStarted {
-            return opening;
-        }
         Opening {
-            page: Some(self.page()),
-            renderer: Renderer::Chrome,
+            conversation: true,
             ..opening
         }
     }
@@ -184,10 +172,6 @@ mod tests {
             Some(resources.join("page.html"))
         );
         assert_eq!(
-            bundle.as_ref().map(Bundle::page_without_chrome),
-            Some(resources.join("without-chrome.html"))
-        );
-        assert_eq!(
             bundle.as_ref().map(Bundle::chromium),
             Some(
                 programs
@@ -217,69 +201,63 @@ mod tests {
     }
 
     #[test]
-    fn the_conversation_asked_for_is_opened_as_asked_with_or_without_a_chromium() {
+    fn the_conversation_asked_for_is_opened_as_asked() {
         let bundle = a_bundle();
         let Some(asked) = opening(&["--conversation"]) else {
             panic!("an argument");
         };
-        for chrome in [true, false] {
-            assert_eq!(bundle.opening(asked.clone(), chrome), asked, "{chrome}");
-        }
+        assert_eq!(bundle.opening(asked.clone()), asked);
     }
 
     #[test]
-    fn nothing_named_opens_the_applications_page_in_its_own_chromium() {
-        let bundle = a_bundle();
-        let Some(asked) = opening(&["--agent-site", "https://example.com"]) else {
-            panic!("these are arguments");
-        };
-        let opened = bundle.opening(asked.clone(), true);
-        assert_eq!(opened.renderer, Renderer::Chrome);
-        assert_eq!(
-            opened.page,
-            Some(PathBuf::from("/A.app/Contents/Resources/page.html"))
-        );
-        assert_eq!(opened.agents, asked.agents, "kept to the sites named");
-    }
-
-    #[test]
-    fn with_no_chromium_of_its_own_this_engine_draws_the_page_that_says_so() {
-        let bundle = a_bundle();
-        for words in [&[][..], &["--scale", "2"][..], &["--frozen-fonts"][..]] {
-            let Some(asked) = opening(words) else {
-                panic!("these are arguments");
-            };
-            let opened = bundle.opening(asked.clone(), false);
-            assert_eq!(opened.renderer, Renderer::ThisEngine, "{words:?}");
-            assert_eq!(
-                opened.page,
-                Some(PathBuf::from(
-                    "/A.app/Contents/Resources/without-chrome.html"
-                )),
-                "{words:?}"
-            );
-            assert_eq!((opened.scale, opened.fonts), (asked.scale, asked.fonts));
-        }
-    }
-
-    #[test]
-    fn a_page_named_or_this_engines_options_are_kept() {
+    fn nothing_named_opens_the_conversation_keeping_every_option_given() {
+        // Queue item 993: what macOS gives an application opened from the
+        // Finder — nothing — and every option the conversation takes beside
+        // nothing named.
         let bundle = a_bundle();
         for words in [
-            &["page.html"][..],
-            &["--chrome", "https://example.com/"][..],
+            &[][..],
+            &["--agent-site", "https://example.com"][..],
             &["--scale", "2"][..],
             &["--frozen-fonts"][..],
+            &["--data", "/tmp/alo-profile"][..],
         ] {
             let Some(asked) = opening(words) else {
                 panic!("these are arguments");
             };
-            assert_eq!(bundle.opening(asked.clone(), true), asked, "{words:?}");
+            let opened = bundle.opening(asked.clone());
+            assert!(opened.conversation, "{words:?}");
+            assert_eq!(opened.renderer, Renderer::ThisEngine, "{words:?}");
+            assert_eq!(opened.page, None, "{words:?}: no page of its own");
+            assert_eq!(
+                Opening {
+                    conversation: false,
+                    ..opened
+                },
+                asked,
+                "{words:?}: everything else as given"
+            );
         }
         let Some(asked) = opening(&["--scale", "1.5"]) else {
             panic!("an argument");
         };
         assert_eq!(asked.scale, Some(Scale::ONE_AND_A_HALF));
-        assert_eq!(bundle.opening(asked.clone(), true).page, None);
+        assert_eq!(bundle.opening(asked).scale, Some(Scale::ONE_AND_A_HALF));
+    }
+
+    #[test]
+    fn a_page_named_is_kept_and_chrome_still_shows_the_applications_page() {
+        let bundle = a_bundle();
+        for words in [
+            &["page.html"][..],
+            &["--chrome", "https://example.com/"][..],
+            &["--chrome", "/A.app/Contents/Resources/page.html"][..],
+        ] {
+            let Some(asked) = opening(words) else {
+                panic!("these are arguments");
+            };
+            assert_eq!(bundle.opening(asked.clone()), asked, "{words:?}");
+            assert!(!asked.conversation, "{words:?}");
+        }
     }
 }

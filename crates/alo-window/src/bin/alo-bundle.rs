@@ -8,11 +8,13 @@
 //! `alo-bundle [--programs DIRECTORY] [--into DIRECTORY] [--host PROGRAM]
 //! [--keys-from keychain|DIRECTORY] [--services FILE] [--updates DIRECTORY]
 //! [--sign IDENTITY]` puts `alo`, `alo-render` and `alo-ask` from the programs' directory into
-//! a new `alo browser.app` in the other, with the application's two pages
+//! a new `alo browser.app` in the other, with the application's page
 //! and its `Info.plist` ([`alo_window::bundle_made`]); carries the Chromium
 //! the application draws the web with — alo's CEF host and CEF's framework
 //! from the distribution `CEF_PATH` names, checked against its pin first,
-//! with CEF's licences ([`alo_window::bundle_carried`]); carries the keys
+//! with CEF's licences ([`alo_window::bundle_carried`]); writes the credits
+//! the *About alo* panel shows, linking every licence carried
+//! ([`alo_window::bundle_credits`], queue item 993); carries the keys
 //! a release searches with, taken from outside the repository
 //! ([`alo_window::bundle_keys`], ADR 0091); seals it with `codesign`,
 //! inside out — ad hoc, or with the Developer ID `--sign` names — and
@@ -54,9 +56,8 @@
 //! the repository.
 //!
 //! **Without `CEF_PATH`** (unset or empty) it makes the application with no
-//! Chromium, and says so: that application draws its page with this
-//! browser's own engine, on the page saying its Chromium is missing (queue
-//! item 719). **With `CEF_PATH` naming something that is not the pinned
+//! Chromium, and says so: that application opens the conversation, which
+//! says why a site chosen in it cannot open (queue items 719 and 993). **With `CEF_PATH` naming something that is not the pinned
 //! distribution, or no host built**, it refuses with a sentence saying what
 //! is wrong, and makes nothing: a Chromium asked for is never quietly left
 //! out.
@@ -198,8 +199,8 @@ fn chromium(named: &Named) -> Result<Option<Carried>, String> {
     let distribution = std::env::var_os("CEF_PATH").filter(|named| !named.is_empty());
     let Some(distribution) = distribution.map(|named: OsString| PathBuf::from(named)) else {
         eprintln!(
-            "alo-bundle: CEF_PATH is not set, so the application carries no Chromium: it draws \
-             its page with this browser's own engine, and says so"
+            "alo-bundle: CEF_PATH is not set, so the application carries no Chromium: it opens \
+             the conversation, and says why a site chosen in it cannot open"
         );
         return Ok(None);
     };
@@ -369,6 +370,12 @@ fn main() -> ExitCode {
                 return ExitCode::FAILURE;
             }
         }
+    }
+    // The credits the About panel shows, linking every licence now carried
+    // (queue item 993), written before the seal covers them.
+    if let Err(why) = alo_window::bundle_credits::put_in(&made.application()) {
+        eprintln!("alo-bundle: {why}");
+        return ExitCode::FAILURE;
     }
     let nested: Vec<&str> = PROGRAMS.iter().skip(1).copied().collect();
     if let Err(why) = seal_by(&named.signer, &made.application(), &nested, &signed) {

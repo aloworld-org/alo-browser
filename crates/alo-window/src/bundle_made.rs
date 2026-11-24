@@ -6,12 +6,16 @@
 //! command that makes it (queue item 687; ADR 0067 § 6).
 //!
 //! `alo browser.app` holds `alo`, `alo-render` and `alo-ask` in
-//! `Contents/MacOS`, the application's two pages and its icon
+//! `Contents/MacOS`, the application's page and its icon
 //! ([`crate::bundle_icon`], item 689) in `Contents/Resources`, and its
-//! [`crate::info_plist`]. The pages are the corpus cases
-//! `the-applications-page` and `the-applications-page-without-chrome`, taken
-//! into the command as it is compiled, so the pages an application carries
-//! are the bytes whose renders are committed — never a copy that drifted.
+//! [`crate::info_plist`]. The page is the corpus case
+//! `the-applications-page`, taken into the command as it is compiled, so the
+//! page an application carries is the bytes whose render is committed —
+//! never a copy that drifted. Since queue item 993 the application opens
+//! the conversation window, and the page is shown only by `alo --chrome`
+//! naming it from a terminal; the second page it carried until then, the
+//! corpus case `the-applications-page-without-chrome`, is carried no more,
+//! since nothing opens it.
 //!
 //! The interface's typefaces are compiled into `alo` (queue items 706,
 //! 853 and 975, ADR 0084), and their licences are carried beside it, as the
@@ -29,8 +33,9 @@
 //! [`crate::bundle::CHROMIUM`] (ADR 0077), is put in after, when there is
 //! one to carry: alo's CEF host with CEF's framework and its licences
 //! ([`crate::bundle_carried`], queue item 720). Without it the application
-//! draws its page with this engine, on the page that says its own Chromium
-//! is missing.
+//! opens the conversation all the same, which says why a site chosen in it
+//! cannot open. The credits *About alo* shows, linking every licence, are
+//! written once everything is carried ([`crate::bundle_credits`]).
 //!
 //! It is made beside where it is going, under a directory of its own, sealed
 //! there, and moved into place whole: a command that stopped halfway leaves no application a
@@ -39,19 +44,13 @@
 //!
 //! Sealing it is [`crate::bundle_seal`]'s.
 
-use crate::bundle::{PAGE, WITHOUT_CHROME};
+use crate::bundle::PAGE;
 use crate::info_plist::{EXECUTABLE, NAME};
 use core::fmt;
 use std::path::{Path, PathBuf};
 
 /// The application's page, the corpus case `the-applications-page`.
 const THE_PAGE: &str = include_str!("../../alo-corpus/cases/the-applications-page/page.html");
-
-/// The page this engine draws when the application's own Chromium is
-/// missing or damaged (ADR 0077), the corpus case
-/// `the-applications-page-without-chrome`.
-const THE_PAGE_WITHOUT_CHROME: &str =
-    include_str!("../../alo-corpus/cases/the-applications-page-without-chrome/page.html");
 
 /// The programs the application holds, the one it runs first.
 pub const PROGRAMS: [&str; 3] = [EXECUTABLE, crate::beside::RENDERER, "alo-ask"];
@@ -63,8 +62,8 @@ pub fn file_name() -> String {
 
 /// Each page the application carries: its name in `Contents/Resources`, and
 /// its markup.
-pub fn pages() -> [(&'static str, &'static str); 2] {
-    [(PAGE, THE_PAGE), (WITHOUT_CHROME, THE_PAGE_WITHOUT_CHROME)]
+pub fn pages() -> [(&'static str, &'static str); 1] {
+    [(PAGE, THE_PAGE)]
 }
 
 /// Why the application was not made.
@@ -335,13 +334,10 @@ mod tests {
     #[test]
     fn the_pages_are_the_corpus_cases() {
         // ADR 0077: the application's page is drawn by the Chromium it
-        // carries, and the other says that Chromium is missing or damaged —
-        // neither speaks of the machine's Chrome.
+        // carries, and never speaks of the machine's Chrome.
         assert!(THE_PAGE.contains("This page is drawn by the Chromium alo browser carries"));
-        assert!(THE_PAGE_WITHOUT_CHROME.contains("own Chromium is missing or damaged"));
         assert!(!THE_PAGE.contains("Mac's Chrome"));
-        assert!(!THE_PAGE_WITHOUT_CHROME.contains("Chrome was not found"));
-        assert_ne!(THE_PAGE, THE_PAGE_WITHOUT_CHROME);
+        assert_eq!(pages().map(|(name, _)| name), [PAGE], "one page, since 993");
         // Item 720: the page links the licences of the Chromium carried,
         // where the application carries them.
         for (name, _) in crate::cef_pin::LICENCES {
@@ -349,9 +345,6 @@ mod tests {
             assert!(THE_PAGE.contains(&link), "{link}");
         }
         assert!(THE_PAGE.contains("<code>Contents/Frameworks/alo Chromium.app</code>"));
-        assert!(
-            THE_PAGE_WITHOUT_CHROME.contains("<code>Contents/Frameworks/alo Chromium.app</code>")
-        );
     }
 
     #[test]

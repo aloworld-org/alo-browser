@@ -20713,6 +20713,90 @@ What stage 2's exit gate actually measures: a person using it.
   of the browser's DejaVu Sans 13. *Closes when:* both looks asserted and
   committed as reference renders, and the window seen behind another.
 
+- [ ] **993. The application opens the conversation window (the owner's
+  decision of 15 November 2026).** alo browser behaves as any other Mac
+  application: `alo browser.app` opened from its folder, with nothing named,
+  opens the conversation window (`alo --conversation`), not the
+  application's own page in the carried Chromium with our frame and band
+  above it. The page and the frame stay only for `alo --chrome` run from a
+  terminal, the developer's tool, unchanged. Kept: sites chosen in it start
+  the carried Chromium only (ADR 0077); its Chromium missing or damaged is
+  said to the person (719); its keys, services and settings are found as
+  the application's are; and the licences (ADR 0079) stay reachable by a
+  person. Drawing sites inside alo's own window is not this: 980–983.
+  *Closes when:* the application opened from its folder shows the
+  conversation window, Quit leaves nothing behind (asserted as
+  `the_application_opens_its_own_page` did: nothing running, no Chromium
+  profile, no socket, no crash report), and the licences are reachable.
+
+  *Built 15 November 2026, not yet gated.* `Bundle::opening` turns nothing
+  named — no page, no `--chrome`, no `--conversation` — into the
+  conversation, keeping every other option (`--scale`, `--frozen-fonts`,
+  `--agent-site`, `--data`), whether or not the Chromium is there;
+  `bundle_chromium::decide` gives it `Chromium::Carried` as before and,
+  with no program at the Chromium's place, says on the terminal *alo's own
+  Chromium is not in the application: it was looked for at …, so no site
+  chosen in the conversation can open, and the conversation says so*. A
+  site chosen then is a turn saying *… could not be opened: …*
+  (`Went::Unopened`, as 703 drew it) and an agent's `open` is refused
+  `NotOpened` with the same reason; a damaged one says *Chrome did not say
+  which it is: Chrome has gone*. The page this engine drew with no
+  Chromium (`without-chrome.html`) and `bundle_chromium::undrawn` are gone,
+  since nothing opens them; the corpus case
+  `the-applications-page-without-chrome` stays in the corpus, carried no
+  more. **Quit, verified before building:** the conversation's event loop
+  is `winit`'s as the frame's is, and its `exiting` runs
+  `ConversationWindow::finish` — every card's Chromium closed and waited
+  for, its profile removed — and the `Closing` that removes the socket
+  (688's way). **Licences:** no Settings row or menu item of ours offered
+  them, and a Settings section is design; so they are reached as on any
+  Mac application, through `winit`'s default menu's *About alo*, whose
+  `AppKit` panel shows the main bundle's `Contents/Resources/Credits.html`.
+  `alo-bundle` writes it (`bundle_credits.rs`) once everything is carried
+  and before the seal: a sentence and a relative link to every file in
+  `licences/` — CEF's `LICENSE.txt` and Chromium's `CREDITS.html` when it
+  carries a Chromium, the typefaces' and the lists' always — and to the
+  folder; `NSAttributedString`'s HTML import resolves them inside the
+  application (measured). A link pressed there is opened by macOS (a
+  folder in the Finder, a file in the person's application for it), not by
+  a Chromium alo starts. Measured by hand: the application's menu holds
+  *About alo, Services, Hide alo, Hide Others, Show All, Quit alo*, and
+  pressing *About alo* opened a 284 × 318 panel. **Tests:** `bundle.rs`
+  (nothing named, and each option beside it, is the conversation with
+  everything else as given; the conversation asked for, a page and
+  `--chrome PAGE` kept), `bundle_chromium.rs` (carrying one, only it, and
+  nothing named the conversation; carrying none, the conversation and the
+  sentence; outside, nothing changes), `bundle_credits.rs`, `bundle_made.rs`;
+  `tests/the_application_opens_the_conversation_window.rs`, new — the
+  application `alo-bundle` makes with `CEF_PATH` (or one shaped by hand
+  carrying this machine's Chrome cloned), started as macOS starts it naming
+  only `--data DIR` of the test's own (which decides as no argument does,
+  and keeps the person's keychain, chats, settings and sign-ins untouched):
+  the interface drawn by this engine and no `pages are drawn by` line,
+  running on after its input ended, no tab, a site on a local server
+  opened by an agent in the carried Chromium and no process of the
+  machine's Chrome, the credits linking every licence carried, and after
+  Quit by Apple Event nothing inside the application running, no profile,
+  no socket, no crash report; `tests/the_application_opens_its_own_page.rs`
+  now runs `--chrome` naming the application's page, the path that still
+  shows it framed, with the same Quit assertions;
+  `tests/the_application_with_no_chrome_of_its_own.rs` rewritten for the
+  conversation (missing and damaged: the sentence, no tab, `open` refused
+  `NotOpened` with why, no Chrome started); `the_application_assembled.rs`
+  and `the_application_carrying_its_chromium.rs` for `Credits.html` and
+  one page, and with `the_application_carrying_its_keys.rs` for
+  `alo-bundle`'s new sentence. All run with `CEF_PATH` and passed with the
+  screen locked (`IOConsoleLocked` true throughout); the new test run
+  without `CEF_PATH`, through the cloned Chrome, had its card refused as
+  *Chrome's window was still moving*, a window-server placement that is
+  not to be trusted locked — to be run again unlocked. **Left:** seeing the *About alo*
+  panel's credits on the screen and pressing a link — the screen was
+  locked, so the panel could be opened but not captured; an *About* or
+  licences row in alo's own look (Settings), which is design; the
+  conversation's socket answering `open` as *not offered* until its window
+  answers, a moment after the socket says where it is (found here; the
+  tests ask again until the window answers).
+
 - [ ] **722. Chromium with alo's name (ADR 0077).** Built from source with
   alo's name and icon, so an expanded page's menu bar says *alo*. *blocked:
   build machines this repository does not have.*

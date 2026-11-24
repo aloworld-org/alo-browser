@@ -123,3 +123,25 @@ says its own Chromium is missing or damaged, and says why on its terminal
 — § 3's way, with ADR 0077's reason. §§ 2 and 4, Quit and the rest stand.
 `alo --chrome` run from a terminal is not the application and keeps
 driving the machine's Chrome.
+
+## Addendum — 15 November 2026: the application opens the conversation window (queue item 993)
+
+The owner decided that alo browser behaves as any other Mac application:
+**opened with nothing named — from the Finder or the Dock — it opens the
+conversation window**, as `alo --conversation` does (ADR 0074), and no
+longer the application's own page in its Chromium with our frame and band
+above it. So § 1's *what it runs* and § 3's page drawn by this engine no
+longer describe the application opened by a person. The application's page
+and the frame (ADRs 0061, 0062, item 991's band) stay, unchanged, for
+`alo --chrome` naming that page from a terminal — the developer's tool.
+
+§ 2 and the amendment of 27 October stand, and hold for the conversation
+the same way, checked before 993 was built: its window is `winit`'s as the
+frame's is, and its handler's `exiting` closes every card's Chromium,
+waits for it and removes its profile, then removes the socket — so Quit
+by ⌘Q or the Dock leaves nothing behind. `tests/the_application_opens_the_conversation_window.rs`
+asserts it as `tests/the_application_opens_its_own_page.rs` did of the
+frame, which now runs `--chrome` naming the page. The licences the page
+linked (ADR 0079) are linked from the credits of macOS's own *About alo*
+panel instead (`bundle_credits.rs`). Drawing sites inside alo's own window
+is not decided here (980–983).

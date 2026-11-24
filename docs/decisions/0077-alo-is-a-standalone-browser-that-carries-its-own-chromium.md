@@ -87,3 +87,20 @@ neither, which agrees with that list.
   CEF's Chromium; one made without `CEF_PATH` carries none, and both
   `alo-bundle` and the application say so.
 - Nothing is given to anyone outside the owner's machines before 721.
+
+## Addendum — 15 November 2026: the application opens the conversation window (queue item 993)
+
+The owner decided that `alo browser.app`, opened with nothing named, opens
+the conversation window rather than its own page in its Chromium (ADR
+0068's addendum of the same day). This decision is unchanged by it: every
+Chromium the application starts — for a site chosen in the conversation,
+or a page named with `--chrome` — is the one it carries, never the
+machine's Chrome. What changes is how *its own Chromium is missing or
+damaged* is said: no longer on a page this engine draws in the Chromium's
+place (`without-chrome.html`, carried no more), but where a site is
+chosen — the conversation's turn says *… could not be opened: alo's own
+Chromium is not in the application: it was looked for at …* (or why a
+damaged one did not start), an agent's `open` is refused `NotOpened` with
+the same words, and with none there the terminal says at the start that
+no site chosen can open. *What it costs* 5, the licences shipping with
+alo, is kept: they are linked from the *About alo* panel's credits.

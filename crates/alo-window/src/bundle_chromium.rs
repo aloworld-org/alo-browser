@@ -3,29 +3,36 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 //! Which Chromium `alo` starts, inside the macOS application and outside it,
-//! and what the application opens and says when its own is missing or
-//! damaged (ADR 0077, queue item 719).
+//! and what the application says first when its own is missing (ADR 0077,
+//! queue items 719 and 993).
 //!
 //! Inside `alo browser.app` the only Chromium ever started is the one the
-//! application carries ([`Bundle::chromium`]) — for its own page, for a
-//! page named with `--chrome`, and for an address chosen in the
-//! conversation — **never the machine's Chrome, even when one is
-//! installed**: the owner's words, *no fall back, as if the user only has
-//! alo-browser on his PC*. Outside it, `alo --chrome` run from a terminal is
-//! a developer's tool and drives the machine's Chrome as it always has.
+//! application carries ([`Bundle::chromium`]) — for an address chosen in
+//! the conversation, which is what the application opens (queue item 993),
+//! and for a page named with `--chrome` — **never the machine's Chrome,
+//! even when one is installed**: the owner's words, *no fall back, as if
+//! the user only has alo-browser on his PC*. Outside it, `alo --chrome` run
+//! from a terminal is a developer's tool and drives the machine's Chrome as
+//! it always has.
 //!
-//! An application whose own Chromium is not there draws its page with this
-//! engine instead, on the page that says so, and says why on its terminal
-//! ([`decide`]) — ADR 0068 § 3's way, with the reason ADR 0077 gives it. One
-//! that is there but cannot be started or does not answer — damaged — is
-//! the same, decided once starting it has failed ([`undrawn`]). A page a
-//! person named is never quietly drawn by another renderer: that failure is
-//! said, as it is outside the application.
+//! An application whose own Chromium is not there still opens the
+//! conversation, which this engine draws: [`decide`] says on its terminal
+//! that no site chosen in it can open, and each site chosen is answered in
+//! the conversation itself with why — *… could not be opened: alo's own
+//! Chromium is not in the application: it was looked for at …*
+//! ([`crate::conversation_chrome::Went::Unopened`]). One that is there but
+//! cannot be started or does not answer — damaged — is the same, said as a
+//! site chosen fails to open. A page a person named with `--chrome` is
+//! never quietly drawn by another renderer: its failure is said.
+//!
+//! Until queue item 993 an application opened with nothing named showed
+//! its own page in that Chromium with our frame above it, and with none
+//! there drew a second page with this engine saying so; neither is what a
+//! Mac application opens, and both are gone.
 
 use crate::beside::{Chromium, NotCarried, is_program};
 use crate::bundle::Bundle;
 use crate::opening::Opening;
-use core::fmt;
 
 /// What `alo` opens, which Chromium it would start, and what it says first.
 #[derive(Debug, Clone, PartialEq)]
@@ -36,17 +43,17 @@ pub struct Decided {
     /// chosen in the conversation.
     pub chromium: Chromium,
     /// What it says on its terminal before anything opens, if anything:
-    /// why this engine draws the application's page.
+    /// that the conversation's sites cannot open, its Chromium missing.
     pub said: Option<String>,
 }
 
 /// What `alo` asked for `asked` opens, inside `bundle` or outside any.
 ///
 /// Outside an application: what was asked, with the machine's Chrome for
-/// `--chrome` — today's behaviour, unchanged. Inside one: its own Chromium
-/// and no other, and [`Bundle::opening`] told whether that Chromium is a
-/// program at its place; when it is not and that changed what opens, the
-/// sentence saying so.
+/// `--chrome` — today's behaviour, unchanged. Inside one: what
+/// [`Bundle::opening`] opens, with its own Chromium and no other; and when
+/// that is the conversation and the Chromium is not a program at its place,
+/// the sentence saying no site chosen in it can open.
 pub fn decide(bundle: Option<&Bundle>, asked: Opening) -> Decided {
     let Some(bundle) = bundle else {
         return Decided {
@@ -56,11 +63,10 @@ pub fn decide(bundle: Option<&Bundle>, asked: Opening) -> Decided {
         };
     };
     let program = bundle.chromium();
-    let carried = is_program(&program);
-    let opening = bundle.opening(asked.clone(), carried);
-    let said = (!carried && opening != asked).then(|| {
+    let opening = bundle.opening(asked);
+    let said = (opening.conversation && !is_program(&program)).then(|| {
         format!(
-            "{}, so this browser's own engine draws the application's page",
+            "{}, so no site chosen in the conversation can open, and the conversation says so",
             NotCarried {
                 looked: program.clone()
             }
@@ -73,34 +79,10 @@ pub fn decide(bundle: Option<&Bundle>, asked: Opening) -> Decided {
     }
 }
 
-/// What the application opens instead once its own Chromium, asked to draw
-/// what `asked` opened, could not — it would not start, or did not answer,
-/// for the reason `why` — and the sentence it says: this engine on the
-/// page that says so, when the application's page was what it was drawing.
-///
-/// [`None`] outside an application, and for a page a person named, whose
-/// failure is said as it is.
-pub fn undrawn(
-    bundle: Option<&Bundle>,
-    asked: &Opening,
-    why: &dyn fmt::Display,
-) -> Option<(Opening, String)> {
-    let bundle = bundle?;
-    let instead = bundle.opening(asked.clone(), false);
-    (instead != *asked).then(|| {
-        let said = format!(
-            "alo's own Chromium at {} could not draw the application's page — {why} — \
-             so this browser's own engine draws it",
-            bundle.chromium().display()
-        );
-        (instead, said)
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::bundle::{CHROMIUM, PAGE, WITHOUT_CHROME};
+    use crate::bundle::{CHROMIUM, PAGE};
     use crate::opening::Renderer;
     use std::path::{Path, PathBuf};
 
@@ -165,20 +147,20 @@ mod tests {
             );
             assert_eq!(decided.said, None, "{words:?}");
         }
+        // Queue item 993: opened from the Finder, with nothing named, it is
+        // the conversation window, never the application's page.
         let Some(nothing) = opening(&[]) else {
             panic!("no arguments");
         };
         let decided = decide(bundle.as_ref(), nothing);
-        assert_eq!(decided.opening.renderer, Renderer::Chrome);
-        assert_eq!(
-            decided.opening.page,
-            Some(contents.join("Resources").join(PAGE))
-        );
+        assert!(decided.opening.conversation);
+        assert_eq!(decided.opening.renderer, Renderer::ThisEngine);
+        assert_eq!(decided.opening.page, None);
         unshape(&alo);
     }
 
     #[test]
-    fn in_an_application_carrying_none_this_engine_draws_the_page_that_says_so() {
+    fn in_an_application_carrying_none_the_conversation_opens_and_says_why_no_site_can() {
         let Some(alo) = shaped("bare", false) else {
             panic!("no directory");
         };
@@ -187,24 +169,21 @@ mod tests {
             panic!("no contents");
         };
         let carried = contents.join(CHROMIUM);
-        let Some(nothing) = opening(&[]) else {
-            panic!("no arguments");
-        };
-        let decided = decide(bundle.as_ref(), nothing);
-        assert_eq!(decided.opening.renderer, Renderer::ThisEngine);
-        assert_eq!(
-            decided.opening.page,
-            Some(contents.join("Resources").join(WITHOUT_CHROME))
+        let said = format!(
+            "alo's own Chromium is not in the application: it was looked for at {}, so no site \
+             chosen in the conversation can open, and the conversation says so",
+            carried.display()
         );
-        assert_eq!(decided.chromium, Chromium::Carried(carried.clone()));
-        assert_eq!(
-            decided.said,
-            Some(format!(
-                "alo's own Chromium is not in the application: it was looked for at {}, \
-                 so this browser's own engine draws the application's page",
-                carried.display()
-            ))
-        );
+        for words in [&[][..], &["--conversation"][..], &["--scale", "2"][..]] {
+            let Some(asked) = opening(words) else {
+                panic!("these are arguments");
+            };
+            let decided = decide(bundle.as_ref(), asked);
+            assert!(decided.opening.conversation, "{words:?}");
+            assert_eq!(decided.opening.page, None, "{words:?}");
+            assert_eq!(decided.chromium, Chromium::Carried(carried.clone()));
+            assert_eq!(decided.said.as_deref(), Some(said.as_str()), "{words:?}");
+        }
         // A page named with --chrome is refused by the carried Chromium's
         // absence when it is started, never handed to the machine's Chrome.
         let Some(named) = opening(&["--chrome", "https://example.com/"]) else {
@@ -237,46 +216,6 @@ mod tests {
                 },
                 "{words:?}"
             );
-            assert_eq!(undrawn(None, &asked, &"it broke"), None, "{words:?}");
         }
-    }
-
-    #[test]
-    fn a_damaged_chromium_has_this_engine_draw_the_applications_page_saying_why() {
-        let Some(alo) = shaped("damaged", true) else {
-            panic!("no directory");
-        };
-        let bundle = Bundle::around(&alo);
-        let Some(contents) = alo.parent().and_then(Path::parent) else {
-            panic!("no contents");
-        };
-        let Some(nothing) = opening(&[]) else {
-            panic!("no arguments");
-        };
-        let decided = decide(bundle.as_ref(), nothing.clone());
-        let Some((instead, said)) = undrawn(bundle.as_ref(), &nothing, &"Chrome has gone") else {
-            panic!("the application's page is drawn instead");
-        };
-        assert_eq!(instead.renderer, Renderer::ThisEngine);
-        assert_eq!(
-            instead.page,
-            Some(contents.join("Resources").join(WITHOUT_CHROME))
-        );
-        assert_eq!(
-            said,
-            format!(
-                "alo's own Chromium at {} could not draw the application's page — Chrome has \
-                 gone — so this browser's own engine draws it",
-                contents.join(CHROMIUM).display()
-            )
-        );
-        // What was decided before it failed is not what is drawn after.
-        assert_ne!(decided.opening, instead);
-        // A page a person named fails as named.
-        let Some(named) = opening(&["--chrome", "https://example.com/"]) else {
-            panic!("these are arguments");
-        };
-        assert_eq!(undrawn(bundle.as_ref(), &named, &"Chrome has gone"), None);
-        unshape(&alo);
     }
 }

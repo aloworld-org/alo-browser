@@ -225,3 +225,12 @@ Its input is not watched. `alo` never watched it; only `--chrome` does.
 - Signing with a Developer ID and notarising (478).
 - How alo OS installs it (483), which is a Flatpak, not a bundle.
 - A universal program, an installer image (`.dmg`), or updates (146).
+
+## Addendum — 15 November 2026: nothing named opens the conversation (queue item 993)
+
+§ 3's *started from inside a bundle with no page named opens it* is
+superseded at the owner's word (ADR 0068's addendum of the same day): the
+application opened with nothing named opens the conversation window, as
+any Mac application opens its own window. The page is still carried, still
+how `alo` knows it is in a bundle, and still shown by `alo --chrome`
+naming it from a terminal.

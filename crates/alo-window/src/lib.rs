@@ -28,7 +28,7 @@
 //! - [`opening`] is what a person named on the command line, [`fonts`] the
 //!   fonts renderers start with, and [`beside`] where the renderer program is.
 //!   Inside the macOS application, [`bundle`] decides what is opened with
-//!   nothing named (item 477), and [`bundle_chromium`] that only the
+//!   nothing named — the conversation window since item 993 — and [`bundle_chromium`] that only the
 //!   Chromium the application carries is started there, never the machine's
 //!   Chrome (item 719, ADR 0077), and [`bundle_refused`] that a hand run's
 //!   `--sign-ins` is refused there (item 973, ADR 0111 § 6); `alo-bundle` makes that application, put
@@ -37,7 +37,9 @@
 //!   is CEF's, loaded by alo's own host program (`crates/alo-cef-host`, ADR
 //!   0079), laid out as an application of its own by [`cef_host`] (item
 //!   725), checked against its pin by [`cef_pin`] and put in the
-//!   application with its licences by [`bundle_carried`] (item 720).
+//!   application with its licences by [`bundle_carried`] (item 720), which
+//!   the *About alo* panel's credits link, written by [`bundle_credits`]
+//!   (item 993).
 //! - [`agents`] is the socket an agent outside the browser speaks to (ADR
 //!   0055), at a place [`socket_place`] makes private; [`protocol`] reads and
 //!   writes its lines, one of the two files that name `serde_json`, into what
@@ -187,6 +189,7 @@ pub mod brave_search;
 pub mod bundle;
 pub mod bundle_carried;
 pub mod bundle_chromium;
+pub mod bundle_credits;
 pub mod bundle_icon;
 pub mod bundle_keys;
 pub mod bundle_made;

@@ -2,15 +2,25 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! `alo` inside the macOS application, started the way macOS starts it
-//! (queue items 477 and 719; ADR 0067 § 1, ADR 0068, ADR 0077).
+//! `alo --chrome` inside the macOS application, naming the application's
+//! own page (queue items 477, 719 and 993; ADR 0067 § 1, ADR 0068, ADR
+//! 0077).
 //!
-//! The real `alo` and `alo-render`, copied into `alo browser.app` shaped as
-//! the application is, with the application's page from the corpus in its
-//! `Contents/Resources`, are started with **no arguments and `/dev/null`
-//! for input** — what macOS gives an application opened from the Finder,
-//! measured. Before this, `alo` given that opened an empty tab, and `alo
-//! --chrome` closed as it opened.
+//! Until queue item 993 this is what the application opened from the
+//! Finder: its own page in its own Chromium, with our frame and band above
+//! it. Since the owner's decision of 15 November 2026 the application
+//! opened with nothing named shows the conversation window instead
+//! (`the_application_opens_the_conversation_window.rs`), and the page and
+//! the frame are shown only by `alo --chrome` naming the page — the
+//! developer's tool, run from a terminal. This keeps what it asserted of
+//! that path, which still runs: the frame's event loop hearing Quit and
+//! running the whole shutdown (ADR 0068's amendment, item 688).
+//!
+//! The real `alo` and `alo-render`, inside `alo browser.app` shaped as the
+//! application is, with the application's page from the corpus in its
+//! `Contents/Resources`, are started with **`--chrome` and that page's
+//! path, and `/dev/null` for input**, as a program started by macOS is
+//! given; `alo --chrome` once closed as it opened given that (ADR 0067 § 1).
 //!
 //! The application carries **a Chromium of its own** at
 //! `Contents/Frameworks/alo Chromium.app/Contents/MacOS/alo Chromium` (ADR
@@ -236,16 +246,11 @@ fn shaped(root: &Path) -> Result<PathBuf, String> {
             .map_err(|why| format!("{} could not be copied: {why}", program.display()))?;
     }
     let cases = Path::new(env!("CARGO_MANIFEST_DIR")).join("../alo-corpus/cases");
-    for (case, name) in [
-        ("the-applications-page", alo_window::bundle::PAGE),
-        (
-            "the-applications-page-without-chrome",
-            alo_window::bundle::WITHOUT_CHROME,
-        ),
-    ] {
-        std::fs::copy(cases.join(case).join("page.html"), resources.join(name))
-            .map_err(|why| format!("{case} could not be copied: {why}"))?;
-    }
+    std::fs::copy(
+        cases.join("the-applications-page/page.html"),
+        resources.join(alo_window::bundle::PAGE),
+    )
+    .map_err(|why| format!("the application's page could not be copied: {why}"))?;
     Ok(contents)
 }
 
@@ -488,7 +493,7 @@ fn nothing_is_left_running(children: &[(u32, String)], application: &Path, repor
 }
 
 #[test]
-fn the_application_opens_its_page_in_its_own_chromium_and_quitting_leaves_nothing_running()
+fn chrome_naming_the_applications_page_opens_it_in_its_own_chromium_and_quitting_leaves_nothing_running()
 -> Result<(), String> {
     let reports = crash_reports();
     let (root, contents, carried) = application()?;
@@ -496,7 +501,13 @@ fn the_application_opens_its_page_in_its_own_chromium_and_quitting_leaves_nothin
     let application = root.join("alo browser.app");
     let runtime = root.join("runtime");
     std::fs::create_dir_all(&runtime).map_err(|why| why.to_string())?;
-    let mut child = Command::new(contents.join("MacOS").join("alo"))
+    let alo = contents.join("MacOS").join("alo");
+    let page = alo_window::bundle::Bundle::around(&alo)
+        .ok_or("alo is not inside the application")?
+        .page();
+    let mut child = Command::new(&alo)
+        .arg("--chrome")
+        .arg(&page)
         .current_dir("/")
         .env("XDG_RUNTIME_DIR", &runtime)
         .stdin(Stdio::null())

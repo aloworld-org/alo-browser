@@ -9,15 +9,17 @@
 //!
 //! The real command, given the programs this test was built with, makes
 //! `alo browser.app` in a directory of the test's own. What it holds is read
-//! back file by file: the three programs, the two pages byte for byte as
-//! the corpus has them, an `Info.plist` that Apple's own `plutil` reads
+//! back file by file: the three programs, the application's page byte for
+//! byte as the corpus has it (the page saying its Chromium is missing is
+//! carried no more, queue item 993), an `Info.plist` that Apple's own `plutil` reads
 //! the identifier, the program, the version and the icon out of, and an
 //! `.icns` whose every picture is the corpus's reference byte for byte and
 //! which Apple's own `iconutil` reads back as an icon of every size (queue
 //! item 689), and the licences of the typefaces `alo` carries byte for byte
 //! as published with the fonts (queue item 706), and the licence and
 //! attribution of the filter lists `alo` carries as the repository holds
-//! it (queue item 736, ADR 0094). `codesign` checks
+//! it (queue item 736, ADR 0094), and the credits *About alo* shows,
+//! linking each of those licences (queue item 993). `codesign` checks
 //! the seal on its own, strictly; and a page changed after sealing is
 //! refused by it, so the seal covers what the application carries. Made a
 //! second time into the same place, it is refused and the first left as it
@@ -218,6 +220,31 @@ fn the_list_names_the_application(list: &Path) -> Result<(), String> {
     Ok(())
 }
 
+/// Assert the application whose `Contents` is `contents` carries the
+/// filter lists' licence as the repository holds it, and that every licence
+/// carried is linked from the credits *About alo* shows (queue item 993).
+fn the_lists_licence_is_carried_and_every_licence_linked(contents: &Path) -> Result<(), String> {
+    for (name, text) in alo_window::blocking::LICENCES {
+        let carried = std::fs::read_to_string(contents.join("Resources/licences").join(name))
+            .map_err(|why| format!("{name}: {why}"))?;
+        assert!(carried == text, "{name} is not the lists' licence");
+    }
+    // Queue item 993: every licence carried is linked from the credits the
+    // About panel shows, the only place a person reaches them from.
+    let credits = std::fs::read_to_string(contents.join("Resources/Credits.html"))
+        .map_err(|why| format!("the credits: {why}"))?;
+    for (name, _) in alo_window::blocking::LICENCES
+        .iter()
+        .chain(alo_renderer::typefaces::LICENCES.iter())
+    {
+        assert!(
+            credits.contains(&format!("<a href=\"licences/{name}\">")),
+            "the credits link {name}: {credits}"
+        );
+    }
+    Ok(())
+}
+
 #[test]
 fn the_command_makes_a_sealed_application_holding_what_it_should() -> Result<(), String> {
     let root = directory("made")?;
@@ -231,8 +258,8 @@ fn the_command_makes_a_sealed_application_holding_what_it_should() -> Result<(),
     );
     assert_eq!(
         said,
-        "alo-bundle: CEF_PATH is not set, so the application carries no Chromium: it draws \
-         its page with this browser's own engine, and says so\n\
+        "alo-bundle: CEF_PATH is not set, so the application carries no Chromium: it opens \
+         the conversation, and says why a site chosen in it cannot open\n\
          alo-bundle: --keys-from is not named, so the application carries no keys: it \
          searches with this Mac's keychain's when it runs\n\
          alo-bundle: --updates is not named, so the application does not update itself\n\
@@ -245,6 +272,7 @@ fn the_command_makes_a_sealed_application_holding_what_it_should() -> Result<(),
             "alo browser.app/Contents/MacOS/alo",
             "alo browser.app/Contents/MacOS/alo-ask",
             "alo browser.app/Contents/MacOS/alo-render",
+            "alo browser.app/Contents/Resources/Credits.html",
             "alo browser.app/Contents/Resources/icon.icns",
             "alo browser.app/Contents/Resources/licences/EasyList-and-EasyPrivacy.txt",
             "alo browser.app/Contents/Resources/licences/OFL-DMSans.txt",
@@ -256,7 +284,6 @@ fn the_command_makes_a_sealed_application_holding_what_it_should() -> Result<(),
             "alo browser.app/Contents/Resources/licences/OFL-NotoColorEmoji.txt",
             "alo browser.app/Contents/Resources/licences/OFL-PlusJakartaSans.txt",
             "alo browser.app/Contents/Resources/page.html",
-            "alo browser.app/Contents/Resources/without-chrome.html",
             "alo browser.app/Contents/_CodeSignature/CodeResources",
         ],
         "the application, and nothing half-made beside it"
@@ -266,26 +293,17 @@ fn the_command_makes_a_sealed_application_holding_what_it_should() -> Result<(),
     the_list_names_the_application(&contents.join("Info.plist"))?;
 
     let cases = Path::new(env!("CARGO_MANIFEST_DIR")).join("../alo-corpus/cases");
-    for (case, name) in [
-        ("the-applications-page", "page.html"),
-        (
-            "the-applications-page-without-chrome",
-            "without-chrome.html",
-        ),
-    ] {
-        let corpus = std::fs::read(cases.join(case).join("page.html"))
-            .map_err(|why| format!("{case}: {why}"))?;
-        let carried = std::fs::read(contents.join("Resources").join(name))
-            .map_err(|why| format!("{name}: {why}"))?;
-        assert!(corpus == carried, "{name} is not {case}'s page");
-    }
+    let corpus = std::fs::read(cases.join("the-applications-page/page.html"))
+        .map_err(|why| format!("the-applications-page: {why}"))?;
+    let carried = std::fs::read(contents.join("Resources/page.html"))
+        .map_err(|why| format!("page.html: {why}"))?;
+    assert!(
+        corpus == carried,
+        "page.html is not the-applications-page's page"
+    );
     the_icon_is_the_corpus_pictures(&cases, &contents.join("Resources/icon.icns"))?;
     the_typefaces_licences_are_the_published_ones(&contents)?;
-    for (name, text) in alo_window::blocking::LICENCES {
-        let carried = std::fs::read_to_string(contents.join("Resources/licences").join(name))
-            .map_err(|why| format!("{name}: {why}"))?;
-        assert!(carried == text, "{name} is not the lists' licence");
-    }
+    the_lists_licence_is_carried_and_every_licence_linked(&contents)?;
     for program in ["alo", "alo-render", "alo-ask"] {
         assert!(
             alo_window::beside::is_program(&contents.join("MacOS").join(program)),
@@ -342,8 +360,8 @@ fn programs_not_built_are_named_and_nothing_is_made() -> Result<(), String> {
     assert_eq!(
         String::from_utf8_lossy(&made.stderr),
         format!(
-            "alo-bundle: CEF_PATH is not set, so the application carries no Chromium: it draws \
-             its page with this browser's own engine, and says so\n\
+            "alo-bundle: CEF_PATH is not set, so the application carries no Chromium: it opens \
+             the conversation, and says why a site chosen in it cannot open\n\
              alo-bundle: --keys-from is not named, so the application carries no keys: it \
              searches with this Mac's keychain's when it runs\n\
              alo-bundle: --updates is not named, so the application does not update itself\n\

@@ -66,17 +66,30 @@
 //! application it is refused before anything is made, naming `--data DIR`
 //! instead (queue item 973, ADR 0111 § 6, [`alo_window::bundle_refused`]).
 //!
-//! Inside the macOS application, `alo browser.app` (queue items 477 and
-//! 719, ADRs 0067, 0068 and 0077), nothing named opens the application's own
-//! page as `--chrome` would, but in **the Chromium the application carries**
-//! at `Contents/Frameworks/alo Chromium.app`, alo's own CEF host (ADR 0079,
-//! queue item 720) — and every Chromium it starts is
-//! that one, never the machine's Chrome, even when one is installed
-//! ([`alo_window::bundle_chromium`]). With none there, or one that cannot be
-//! started, it draws its page with this engine on a page that says so, and
-//! says why on the terminal. There its input is not watched: macOS gives an
-//! application `/dev/null`, which ends as it is read, and it is closed by
-//! its windows or by Quit instead.
+//! Inside the macOS application, `alo browser.app` (queue items 477, 719
+//! and 993, ADRs 0067, 0068 and 0077), nothing named — how macOS opens it
+//! from the Finder or the Dock — opens **the conversation window**, as
+//! `--conversation` would ([`alo_window::bundle`]): the owner's decision of
+//! 15 November 2026, that alo behaves as any other Mac application. Every
+//! Chromium it starts, for a site chosen in the conversation or a page named
+//! with `--chrome`, is **the Chromium the application carries** at
+//! `Contents/Frameworks/alo Chromium.app`, alo's own CEF host (ADR 0079,
+//! queue item 720), never the machine's Chrome, even when one is installed
+//! ([`alo_window::bundle_chromium`]). With none there, the terminal says no
+//! site chosen can open, and the conversation says why as each one does
+//! not. Quit — ⌘Q, or *Quit* in the Dock — runs the conversation's whole
+//! shutdown as its event loop ends: every card's Chromium closed and waited
+//! for, its profile removed, and the socket removed (item 688). The
+//! licences of what it carries are linked from the credits of macOS's own
+//! *About alo* panel ([`alo_window::bundle_credits`]).
+//!
+//! The application's own page, with our frame and band above it, is shown
+//! only by `alo --chrome` naming it from a terminal — the developer's
+//! tool: `"alo browser.app/Contents/MacOS/alo" --chrome
+//! "alo browser.app/Contents/Resources/page.html"`, in the carried Chromium.
+//! There its input is not watched: an application started by macOS is given
+//! `/dev/null`, which ends as it is read, and it is closed by its windows or
+//! by Quit instead.
 //!
 //! Either way the terminal says which renderer draws the page: this engine,
 //! or Chrome by the version it gives itself (ADR 0058 § 6), named as the
@@ -91,7 +104,7 @@ use alo_renderer::host::Renderers;
 use alo_renderer::tab::Tabs;
 use alo_window::beside::{Chromium, renderer_beside};
 use alo_window::bundle::Bundle;
-use alo_window::bundle_chromium::{decide, undrawn};
+use alo_window::bundle_chromium::decide;
 use alo_window::chrome_profile::Swept;
 use alo_window::chrome_serving::{ChromeServing, Unserved};
 use alo_window::closing::Closing;
@@ -120,7 +133,7 @@ fn main() -> ExitCode {
         eprintln!("alo: {why}");
         return ExitCode::from(2);
     }
-    let decided = decide(bundle.as_ref(), asked.clone());
+    let decided = decide(bundle.as_ref(), asked);
     if let Some(said) = &decided.said {
         eprintln!("alo: {said}");
     }
@@ -150,16 +163,12 @@ fn main() -> ExitCode {
         Renderer::ThisEngine => in_this_engine(&opening),
         Renderer::Chrome => match in_chrome(&opening, bundle.is_none(), decided.chromium) {
             Ok(ran) => ran,
-            // The application's own Chromium could not draw its page: this
-            // engine does, never the machine's Chrome (ADR 0077).
+            // A page named is never quietly drawn by another renderer, and
+            // inside the application never by the machine's Chrome (ADR
+            // 0077): why the Chromium did not draw it is said.
             Err(why) => {
-                if let Some((instead, said)) = undrawn(bundle.as_ref(), &asked, &why) {
-                    eprintln!("alo: {said}");
-                    in_this_engine(&instead)
-                } else {
-                    eprintln!("alo: {why}");
-                    ExitCode::FAILURE
-                }
+                eprintln!("alo: {why}");
+                ExitCode::FAILURE
             }
         },
     }
@@ -364,9 +373,8 @@ fn in_the_conversation(opening: &Opening, chromium: Chromium, bundle: Option<&Bu
 /// # Errors
 ///
 /// Why that Chromium did not start, say which it is, or open the page,
-/// for the caller to say — or, inside the application, to draw its page
-/// with this engine instead. Anything else is said here and ends in the
-/// exit code returned.
+/// for the caller to say. Anything else is said here and ends in the exit
+/// code returned.
 fn in_chrome(opening: &Opening, watching: bool, chromium: Chromium) -> Result<ExitCode, Unserved> {
     // Read before Chrome is started, so a file that is not there is said
     // without starting it.

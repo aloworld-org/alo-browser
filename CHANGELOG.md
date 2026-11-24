@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **alo opens like any other Mac app.** Double-clicking `alo browser.app`
+  now opens the conversation window — the chats and the box to ask in —
+  instead of a page of alo's own in Chromium with a band above it. Sites
+  you choose still open in the Chromium alo carries, never in the Chrome
+  installed on the Mac; if that Chromium is missing or damaged, the
+  conversation says so when you choose a site. ⌘Q and Quit in the Dock
+  close everything alo started and leave nothing behind. The licences of
+  what alo carries are under *alo › About alo*. The old page and its band
+  are now only a developer's tool, run from a terminal with `--chrome`
+  (queue item 993).
 - **The band above the page looks like alo OS's window band.** The strip of
   ours over Chromium's window is now white with a thin grey line beneath,
   54 points tall: the page's title in Manrope semibold, "alo browser" in

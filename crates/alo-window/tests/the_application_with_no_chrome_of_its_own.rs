@@ -3,21 +3,33 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 //! The macOS application with no Chromium of its own, or a damaged one,
-//! draws its page with this engine and says so — never with the machine's
-//! Chrome (queue item 719, ADR 0077).
+//! still opens the conversation window, and says why a site chosen in it
+//! cannot open — never with the machine's Chrome (queue items 719 and 993,
+//! ADR 0077 and its addendum of 15 November 2026).
+//!
+//! Until 993 it drew a page of its own with this engine saying its
+//! Chromium was missing or damaged; the application now opens the
+//! conversation, which this engine draws with or without a Chromium, so
+//! what was said on that page is said where a site is chosen instead.
 //!
 //! The real `alo` and `alo-render`, copied into `alo browser.app` shaped as
-//! the application is, are started as macOS starts an application: no
-//! arguments, `/dev/null` for input, `/` for its directory. In the first
+//! the application is, are started as macOS starts an application —
+//! `/dev/null` for input, `/` for its directory — naming nothing but `--data
+//! DIR`, a directory of this test's own, so that the conversation never
+//! touches the person's keychain, chats, settings or sign-ins (it decides
+//! what opens as no argument at all does: `Bundle::opening`). In the first
 //! test nothing is at `Contents/Frameworks/alo Chromium.app/Contents/MacOS/
-//! alo Chromium`; in the second a program is there that ends as it starts, as a
-//! Chromium that is damaged would. Either way the machine's Chrome may be
-//! installed — on the Mac this runs on, it is — and is never started: the
-//! owner's words, *as if the user only has alo-browser on his PC*.
+//! alo Chromium`; in the second a program is there that ends as it starts,
+//! as a Chromium that is damaged would. Either way the machine's Chrome may
+//! be installed — on the Mac this runs on, it is — and is never started:
+//! the owner's words, *as if the user only has alo-browser on his PC*.
 //!
-//! The terminal says why this engine draws the page, and an agent, through
-//! `alo-ask`, is told this engine draws it and reads the sentence the page
-//! says. No process the application started is a Chrome.
+//! With none there, the terminal says no site chosen can open. In both, an
+//! agent, through `alo-ask`, finds no tab, and a site it asks to open is
+//! refused as not opened with why — the sentence the conversation's own
+//! turn says to the person (*… could not be opened: …*, `Went::Unopened`,
+//! drawn in `a_conversation_scrolled_in_the_window.rs`). No process the
+//! application started is a Chrome.
 //!
 //! This file has "chrome" in its name so that it is in the `chrome` test
 //! group: a regression here would start a Chrome, and Chromes take turns.
@@ -35,11 +47,6 @@ const AT_MOST: Duration = Duration::from_secs(60);
 /// Where Chrome's installer puts it on a Mac: never to be started by the
 /// application.
 const MACHINES_CHROME: &str = "/Applications/Google Chrome.app";
-
-/// What the page this engine draws says, in the corpus case
-/// `the-applications-page-without-chrome`.
-const SAID_ON_THE_PAGE: &str = "alo browser's own Chromium is missing or damaged, so this page is drawn by alo browser's \
-     own engine.";
 
 /// The application, made under a directory of this test's own called
 /// `name`: the directory, and the application's `Contents`. Its name is
@@ -62,16 +69,11 @@ fn application(name: &str) -> Result<(PathBuf, PathBuf), String> {
             .map_err(|why| format!("{} could not be copied: {why}", program.display()))?;
     }
     let cases = Path::new(env!("CARGO_MANIFEST_DIR")).join("../alo-corpus/cases");
-    for (case, name) in [
-        ("the-applications-page", alo_window::bundle::PAGE),
-        (
-            "the-applications-page-without-chrome",
-            alo_window::bundle::WITHOUT_CHROME,
-        ),
-    ] {
-        std::fs::copy(cases.join(case).join("page.html"), resources.join(name))
-            .map_err(|why| format!("{case} could not be copied: {why}"))?;
-    }
+    std::fs::copy(
+        cases.join("the-applications-page/page.html"),
+        resources.join(alo_window::bundle::PAGE),
+    )
+    .map_err(|why| format!("the application's page could not be copied: {why}"))?;
     Ok((root, contents))
 }
 
@@ -199,13 +201,21 @@ impl Drop for Started {
 }
 
 /// Start the application made at `root`, whose `Contents` is `contents`, as
-/// macOS starts it; check that this engine draws its page, saying `why` on
-/// its terminal and what the page says to an agent, and that nothing it
-/// started is a Chrome; then end it.
-fn drawn_by_this_engine(root: PathBuf, contents: &Path, why: &str) -> Result<(), String> {
+/// macOS starts it; check that it opens the conversation, saying `said` on
+/// its terminal first when it is given, and that a site an agent asks it to
+/// open is refused as not opened, `why`, and that
+/// nothing it started is a Chrome; then end it.
+fn the_conversation_says_why_no_site_opens(
+    root: PathBuf,
+    contents: &Path,
+    said: Option<&str>,
+    why: &str,
+) -> Result<(), String> {
     let runtime = root.join("runtime");
     std::fs::create_dir_all(&runtime).map_err(|why| why.to_string())?;
     let mut child = Command::new(contents.join("MacOS").join("alo"))
+        .arg("--data")
+        .arg(root.join("d"))
         .current_dir("/")
         .env("XDG_RUNTIME_DIR", &runtime)
         .stdin(Stdio::null())
@@ -213,58 +223,55 @@ fn drawn_by_this_engine(root: PathBuf, contents: &Path, why: &str) -> Result<(),
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|why| format!("the application's alo did not start: {why}"))?;
-    let said = lines_of(&mut child)?;
+    let terminal = lines_of(&mut child)?;
     let mut started = Started { child, root };
     let pid = started.child.id();
-    let (lines, socket) = until_reachable(&said)?;
+    let (lines, socket) = until_reachable(&terminal)?;
+    if let Some(said) = said {
+        assert!(
+            lines.iter().any(|line| line == said),
+            "{said:?} not among {lines:?}"
+        );
+    }
     assert!(
-        lines.iter().any(|line| line == why),
-        "{why:?} not among {lines:?}"
-    );
-    assert!(
-        lines
-            .iter()
-            .any(|line| line == "alo: pages are drawn by this browser's engine"),
+        lines.iter().any(
+            |line| line == "alo: the browser's own interface is drawn by this browser's engine"
+        ),
         "{lines:?}"
     );
 
-    let answers = ask(&socket, &[r#"{"v":1,"id":1,"ask":"tabs"}"#.to_owned()])?;
-    let address = answers
-        .first()
-        .and_then(|tabs| tabs.split_once(r#""tabs":[""#))
-        .and_then(|(_, after)| after.split_once('"'))
-        .map(|(address, _)| address.to_owned())
-        .ok_or_else(|| format!("no tab in {answers:?}"))?;
-    assert!(
-        address.starts_with("file://") && address.ends_with("/Resources/without-chrome.html"),
-        "{address}"
-    );
-    // The tab is named as it opens; its page is read once this engine has
-    // loaded it.
+    // Nothing opens by itself; a site asked for is refused with why. The
+    // address is never fetched: no Chromium starts to fetch it.
+    // The socket is open before the window answers what only it can — a
+    // new chat — and until then `open` is refused as not offered: asked
+    // again until the window answers.
+    let address = "http://127.0.0.1:9/one.html";
     let until = Instant::now() + AT_MOST;
     let answers = loop {
         let answers = ask(
             &socket,
             &[
-                format!(r#"{{"v":1,"id":2,"ask":"read","tab":"{address}"}}"#),
-                format!(r#"{{"v":1,"id":3,"ask":"renderer","tab":"{address}"}}"#),
+                r#"{"v":1,"id":1,"ask":"tabs"}"#.to_owned(),
+                format!(r#"{{"v":1,"id":2,"ask":"open","address":"{address}"}}"#),
             ],
         )?;
-        let unloaded = answers
-            .first()
-            .is_some_and(|tree| tree.contains(r#""kind":"NothingLoaded""#));
-        if !unloaded || Instant::now() >= until {
+        let unoffered = answers
+            .get(1)
+            .is_some_and(|answer| answer.contains(r#""kind":"NotOffered""#));
+        if !unoffered || Instant::now() >= until {
             break answers;
         }
         std::thread::sleep(Duration::from_millis(100));
     };
-    let [tree, renderer] = answers.as_slice() else {
+    let [tabs, opened] = answers.as_slice() else {
         return Err(format!("two answers, not {answers:?}"));
     };
-    assert!(tree.contains(SAID_ON_THE_PAGE), "{tree}");
-    assert!(
-        renderer.contains(r#""renderer":{"kind":"ThisEngine"}"#),
-        "{renderer}"
+    assert_eq!(tabs, r#"{"answer":"tabs","id":1,"tabs":[],"v":1}"#);
+    assert_eq!(
+        opened,
+        &format!(
+            r#"{{"answer":"refused","id":2,"refusal":{{"address":"{address}","kind":"NotOpened"}},"said":"{address} was not opened: {why}","v":1}}"#
+        )
     );
 
     // What it started: this engine's renderers, and no Chrome — not the
@@ -299,33 +306,33 @@ fn drawn_by_this_engine(root: PathBuf, contents: &Path, why: &str) -> Result<(),
 }
 
 #[test]
-fn with_no_chromium_of_its_own_the_application_draws_with_this_engine_and_says_so()
+fn with_no_chromium_of_its_own_the_application_opens_the_conversation_and_says_why_no_site_can()
 -> Result<(), String> {
     let (root, contents) = application("gone")?;
     let carried = contents.join(alo_window::bundle::CHROMIUM);
-    let why = format!(
-        "alo: alo's own Chromium is not in the application: it was looked for at {}, so this \
-         browser's own engine draws the application's page",
+    let missing = format!(
+        "alo's own Chromium is not in the application: it was looked for at {}",
         carried.display()
     );
-    drawn_by_this_engine(root, &contents, &why)
+    let said = format!(
+        "alo: {missing}, so no site chosen in the conversation can open, and the conversation \
+         says so"
+    );
+    the_conversation_says_why_no_site_opens(root, &contents, Some(&said), &missing)
 }
 
 #[test]
-fn with_a_damaged_chromium_the_application_draws_with_this_engine_and_says_so() -> Result<(), String>
-{
+fn with_a_damaged_chromium_the_application_opens_the_conversation_and_says_why_no_site_can()
+-> Result<(), String> {
     let (root, contents) = application("bad")?;
-    let carried = match carry_a_damaged_chromium(&contents) {
-        Ok(carried) => carried,
-        Err(why) => {
-            let _ = std::fs::remove_dir_all(&root);
-            return Err(why);
-        }
-    };
-    let why = format!(
-        "alo: alo's own Chromium at {} could not draw the application's page — Chrome did not \
-         say which it is: Chrome has gone — so this browser's own engine draws it",
-        carried.display()
-    );
-    drawn_by_this_engine(root, &contents, &why)
+    if let Err(why) = carry_a_damaged_chromium(&contents) {
+        let _ = std::fs::remove_dir_all(&root);
+        return Err(why);
+    }
+    the_conversation_says_why_no_site_opens(
+        root,
+        &contents,
+        None,
+        "Chrome did not say which it is: Chrome has gone",
+    )
 }

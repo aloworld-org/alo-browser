@@ -1804,6 +1804,20 @@ about".
   the frame's own sandboxed strip renderer in Manrope, the renderer's words
   right-aligned, the band 54 tall; drawn as in front always, since the
   frame does not yet know when Chromium's window is not.
+- [4] **The application opens the conversation window** (queue item
+  993, the owner's decision of 15 November 2026: alo behaves as any other
+  Mac application). `alo browser.app` opened from the Finder or the Dock,
+  with nothing named, shows the conversation window, as `alo
+  --conversation` does — not the application's own page in its Chromium
+  with our frame above it, which only `alo --chrome` naming that page from
+  a terminal still shows (the developer's tool). Sites chosen in it open
+  in the Chromium it carries and never the machine's Chrome; with none
+  there, or a damaged one, a site chosen says why it could not open. Quit
+  — ⌘Q or the Dock — closes every card's Chromium, removes its profile and
+  the socket. The licences of what it carries are linked from the credits
+  of macOS's own *About alo* panel (`Credits.html`). *Built 15 November
+  2026, not yet gated.* Drawing sites inside alo's own window is not this:
+  that is 980–983.
 - [4] A mobile port
 - [4] Crash handling that helps us fix it without becoming telemetry
 - [4] ★ **Translation on the machine** — alo already runs models locally; a page translated without sending it anywhere is the sovereign version of a feature every other browser sends to a server

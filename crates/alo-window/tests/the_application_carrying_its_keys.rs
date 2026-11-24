@@ -100,8 +100,8 @@ fn the_application_carries_its_keys_sealed_and_asks_with_them() -> Result<(), St
     assert_eq!(
         said,
         format!(
-            "alo-bundle: CEF_PATH is not set, so the application carries no Chromium: it draws \
-             its page with this browser's own engine, and says so\n\
+            "alo-bundle: CEF_PATH is not set, so the application carries no Chromium: it opens \
+             the conversation, and says why a site chosen in it cannot open\n\
              alo-bundle: carries the search key, the AI key, taken from {}\n\
              alo-bundle: --updates is not named, so the application does not update itself\n\
              alo-bundle: made, sealed ad hoc and checked by codesign\n",
@@ -260,8 +260,8 @@ fn a_key_not_given_is_refused_and_nothing_is_made() -> Result<(), String> {
     assert_eq!(
         String::from_utf8_lossy(&made.stderr),
         format!(
-            "alo-bundle: CEF_PATH is not set, so the application carries no Chromium: it draws \
-             its page with this browser's own engine, and says so\n\
+            "alo-bundle: CEF_PATH is not set, so the application carries no Chromium: it opens \
+             the conversation, and says why a site chosen in it cannot open\n\
              alo-bundle: no search key at {} for the application to carry\n",
             keys.join("search").display()
         )
@@ -274,8 +274,8 @@ fn a_key_not_given_is_refused_and_nothing_is_made() -> Result<(), String> {
     assert_eq!(
         String::from_utf8_lossy(&made.stderr),
         format!(
-            "alo-bundle: CEF_PATH is not set, so the application carries no Chromium: it draws \
-             its page with this browser's own engine, and says so\n\
+            "alo-bundle: CEF_PATH is not set, so the application carries no Chromium: it opens \
+             the conversation, and says why a site chosen in it cannot open\n\
              alo-bundle: no AI key at {} for the application to carry\n",
             keys.join("answer").display()
         )
